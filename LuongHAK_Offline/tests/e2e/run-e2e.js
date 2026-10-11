@@ -1,7 +1,7 @@
 // Kiểm thử end-to-end trên ứng dụng Electron thật (bản đóng gói chạy từ mã nguồn).
 // Chạy: ELECTRON_PATH=<đường dẫn electron> PLAYWRIGHT_MODULE=<đường dẫn playwright> node tests/e2e/run-e2e.js
 // (Linux không màn hình: xvfb-run -a node tests/e2e/run-e2e.js)
-/* global document */ // dùng trong các hàm w.evaluate(...) chạy bên trong cửa sổ app
+/* global document, DataTransfer, ClipboardEvent */ // dùng trong các hàm w.evaluate(...) chạy bên trong cửa sổ app
 // Dùng thư mục dữ liệu tạm (biến HAK_USER_DATA) — không đụng dữ liệu thật.
 "use strict";
 const fs = require("fs"), os = require("os"), path = require("path");
@@ -11,6 +11,7 @@ const APP = path.resolve(__dirname, "../..");
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-"));
 const DL = path.join(DATA, "downloads"); fs.mkdirSync(DL);
 const results = [];
+let dialogMode = "accept", dialogs = []; // "dismiss" = bấm Hủy ở hộp xác nhận
 function ok(name, cond, extra) { results.push({ name, pass: !!cond, extra: extra || "" }); console.log((cond ? "PASS " : "FAIL ") + name + (extra ? " — " + extra : "")); }
 
 async function launch(dataDir) {
@@ -18,7 +19,7 @@ async function launch(dataDir) {
   const w = await app.firstWindow(); const errs = [];
   w.on("pageerror", (e) => errs.push(e.message));
   w.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
-  w.on("dialog", (d) => d.accept(d.type() === "prompt" ? "e2e" : undefined));
+  w.on("dialog", (d) => { dialogs.push(d.message()); return dialogMode === "dismiss" && d.type() === "confirm" ? d.dismiss() : d.accept(d.type() === "prompt" ? "e2e" : undefined); });
   await w.waitForSelector("#main > *");
   return { app, w, errs };
 }
@@ -72,6 +73,16 @@ async function launch(dataDir) {
     const bl = XLSX.utils.sheet_to_json(wb.Sheets.BangLuong);
     ok("Xuất Excel trọn bộ: đủ 4 sheet, số khớp bảng đã chốt", wb.SheetNames.join(",") === "BangLuong,BHXH,ThueTNCN,ChuyenKhoan" && bl[0]["Thực lĩnh"] === 11370000, wb.SheetNames.join(",") + " · thực lĩnh " + bl[0]["Thực lĩnh"]);
   } else ok("Xuất Excel trọn bộ kỳ đã chốt", false, "không thấy file");
+  // Lỗi 1: dán NHIỀU dòng vào danh mục có hiệu lực trong kỳ đã chốt → phải ghi nhật ký HỒI TỐ + cảnh báo (trước đây im lặng)
+  const auditOf = () => w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).auditlog || []);
+  await w.waitForTimeout(700); const au0 = (await auditOf()).length;
+  await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Mã lương")');
+  const dmCell = w.locator("#main tbody tr").first().locator("input").nth(4);
+  await dmCell.evaluate((el) => { const dt = new DataTransfer(); dt.setData("text/plain", "Dán E2E 1\nDán E2E 2"); el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); });
+  const pasteToast = await w.locator("#toast").textContent();
+  await w.waitForTimeout(700);
+  const auP = (await auditOf()).slice(au0).filter((a) => /HỒI TỐ/.test(a.chiTiet));
+  ok("Lỗi 1: dán nhiều dòng vào danh mục chồng kỳ đã chốt → ghi nhật ký HỒI TỐ từng dòng + cảnh báo", auP.length === 2 && /2 dòng hồi tố kỳ đã chốt/.test(pasteToast), pasteToast + " · nhật ký hồi tố: " + auP.length);
   await w.waitForTimeout(800);
   ok("Không có lỗi JavaScript (lần chạy 1)", errs.length === 0, errs.join(" | "));
   await app.close();

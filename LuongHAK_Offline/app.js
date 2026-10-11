@@ -396,15 +396,21 @@
             if (txt.indexOf("\t") < 0 && txt.indexOf("\n") < 0) return;
             ev.preventDefault();
             var lines = txt.replace(/\r/g, "").replace(/\n$/, "").split("\n"), start = def.cols.indexOf(c);
-            var bad = 0, skip = 0;
+            var bad = 0, skip = 0, retro = 0, retroKy = {};
             lines.forEach(function (ln, li) {
               var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
               ln.split("\t").forEach(function (v, k) { var col = def.cols[start + k]; if (col && col !== def.kyCol) { var nc = VAL.normCell(col, v); if (nc.error) bad++; cand[col] = nc.value; } });
               var pp = VAL.rowPeriod(key, cand), p0 = tgt == null ? null : VAL.rowPeriod(key, db[key][tgt]);
               if ((pp && kyChot(pp)) || (p0 && kyChot(p0))) { skip++; return; }
+              if (!theoKy) {
+                // Danh mục có hiệu lực: kỳ của dòng luôn rỗng nên kyChot() ở trên không bắt được — kiểm tra hồi tố như khi sửa 1 ô (cảnh báo + nhật ký, không chặn)
+                var old = tgt == null ? null : db[key][tgt], impP = GRD.impactChange(db, key, old, cand);
+                if (impP.kind === "retro") { retro++; impP.periods.forEach(function (p) { retroKy[p] = 1; }); auditChange(old ? "Dán danh mục" : "Dán thêm dòng danh mục", key, old, cand, identOf(cand)); }
+              }
               if (tgt == null) { db[key].push(cand); idx.push(db[key].length - 1); } else Object.assign(db[key][tgt], cand);
             });
-            save(); draw(); toast("Đã dán " + (lines.length - skip) + " dòng" + (skip ? " · bỏ qua " + skip + " dòng thuộc kỳ đã chốt" : "") + (bad ? " · " + bad + " ô sai định dạng, kiểm tra lại" : ""));
+            save(); draw(); toast("Đã dán " + (lines.length - skip) + " dòng" + (skip ? " · bỏ qua " + skip + " dòng thuộc kỳ đã chốt" : "") + (bad ? " · " + bad + " ô sai định dạng, kiểm tra lại" : "") +
+              (retro ? " · ⚠ " + retro + " dòng hồi tố kỳ đã chốt " + Object.keys(retroKy).sort().map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi" : ""));
           });
           if (locked) inp.disabled = true;
           var td = h("td", { class: cls }, [inp]); if (inp._dl) td.appendChild(inp._dl);
