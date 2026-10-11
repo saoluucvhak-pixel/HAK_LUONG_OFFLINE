@@ -1844,7 +1844,7 @@
     var T = pg.res.table;
     (T.warnings || []).forEach(function (x) { pc.appendChild(h("div", { class: "warn", text: "⚠ " + x })); });
     if (!T.layout) { pc.appendChild(h("div", { class: "hint", text: "Thử xoay ảnh (↺ / ↻) nếu ảnh nằm ngang, hoặc chụp lại rõ hơn. Trang không phải bảng chấm công (giấy tăng ca, xác nhận vân tay, sổ xe…) app không đọc tự động — nhập tay." })); }
-    var meta = h("div", { class: "bar" }), kyI = h("input", { class: "i", type: "month", value: pg.ky || kyStr(), "aria-label": "Kỳ của trang" });
+    var meta = h("div", { class: "bar" }), kyI = h("input", { class: "i", type: "month", value: pg.ky || kyStr(), "aria-label": "Kỳ của trang", style: "width:170px" });
     kyI.addEventListener("change", function () { pg.ky = kyI.value; });
     meta.appendChild(h("label", { text: "Kỳ " })); meta.appendChild(kyI);
     if (pg.res.title && pg.res.title.length) meta.appendChild(h("span", { class: "hint", style: "margin:0", text: "Tiêu đề đọc được: " + pg.res.title.join(" · ") }));
@@ -1885,7 +1885,7 @@
       };
       pg.days.forEach(function (d) {
         var cell = L.src.cells ? L.src.cells[d] : null, inp = h("input", { class: "i oc", value: L.vals[d], "data-day": String(d) });
-        if ((cell && (cell.conf < 60 || cell.src === "nét")) || ocrNum(L.vals[d]) > 3) inp.classList.add("low"); // > 3 công / suất 1 ngày: hay là "0.5" mất dấu chấm
+        if (String(L.vals[d]).trim() && ((cell && (cell.conf < 60 || cell.src === "nét")) || ocrNum(L.vals[d]) > 3)) inp.classList.add("low"); // > 3 công / suất 1 ngày: hay là "0.5" mất dấu chấm
         if (L.vals[d] === "?") inp.classList.add("bad");
         inp.addEventListener("focus", function () { showCell(cell, (L.name || "Dòng " + (li + 1)) + " · ngày " + d); });
         inp.addEventListener("change", function () { L.vals[d] = inp.value.trim(); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
