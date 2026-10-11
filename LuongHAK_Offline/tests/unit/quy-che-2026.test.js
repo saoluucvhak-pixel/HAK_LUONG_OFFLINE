@@ -25,7 +25,9 @@ test("U-QC-01 (C2) công chuẩn = số ngày − Số ngày giảm trừ; 'tấ
   assert.equal(E.congChuan(L.TG2, 9, 2026, 20, true), 30);
   assert.equal(E.congChuan(L.TG3, 9, 2026, 20, true), 26); // 30 − 4 (cách cũ: 22)
   assert.equal(E.congChuan(L.TG4, 9, 2026, 20, true), 28); // 30 − 2 (cách cũ: 24)
-  assert.equal(E.congChuan(L.CN1, 9, 2026, 20, true), 20); // thực tế ngày công: không đổi
+  assert.equal(E.congChuan(L.CN1, 9, 2026, 20, true), 30); // (C9) công nhật: số ngày − Số ngày giảm trừ (CN1 không có → 30)
+  assert.equal(E.congChuan(L.CN2, 9, 2026, 20, true), 26); // CN2: 30 − 4
+  assert.equal(E.congChuan(L.CN1, 9, 2026, 20), 20); // cách cũ: thực tế ngày công
   assert.equal(E.congChuan(L.TG3, 9, 2026, 20), 22);
   assert.equal(E.ngayGiamTru(L.CN2), 4);
   assert.equal(E.ngayGiamTru({ "Cách tính": "Số ngày của tháng - 3" }), 3); // không có cột → số sau dấu "-"
@@ -100,4 +102,22 @@ test("U-QC-08 danh mục chuẩn có Số ngày giảm trừ (TG3 4, TG4 2, CN2 
   const snap = CLS.buildSnapshot(db, "2026-09", kq, db.nhansu, { quyChe: "2026", engineVersion: E.ENGINE_VERSION });
   assert.equal(snap.quyChe, "2026"); assert.equal(snap.engineVersion, "1.8.0");
   assert.equal(CLS.buildSnapshot(db, "2026-09", kq, db.nhansu, {}).quyChe, "");
+});
+
+test("U-QC-09 (C8) có mã BHXH nhưng Lương cơ bản trống: không tính BH / truy thu (cách cũ lấy lương thỏa thuận)", () => {
+  const dm_baohiem = baseDb().dm_baohiem.concat([{ "Mã bảo hiểm": "BH_KPCD.01", "DN.BHXH": 0.175, "DN.BHYT": 0.03, "DN.BHTN": 0.01, "DN.KPCD": 0.02, "NLD.BHXH": 0.08, "NLD.BHYT": 0.015, "NLD.BHTN": 0.01, "NLD.KPCD": 0.005, "Hiệu lực từ": "2025-09-01" }]);
+  const s = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "8000000", "Lương cơ bản": "", "Mã BHXH": "BH_KPCD.01" })];
+  const ex = { dm_baohiem, chamcong: [ccRow("NV", 2026, 9)] };
+  const k = run(s, ex, Q);
+  assert.equal(row(k)["BH trừ NLĐ"], 0); assert.equal(row(k)["Truy thu BH"], 0); assert.equal(k.bhxh.length, 0);
+  assert.ok(k.canhbao.some((w) => /chưa có Lương cơ bản/.test(w)));
+  assert.equal(row(run(s, ex))["BH trừ NLĐ"], Math.round(8000000 * 0.105)); // cách cũ
+});
+
+test("U-QC-10 (C9) công nhật CN2: phụ cấp chia theo công chuẩn 26 (30 − 4) → đủ công thì đủ tiền", () => {
+  const dm_phucap = baseDb().dm_phucap.concat([{ "Mã phụ cấp": "TN.08", "Tên phụ cấp": "Phụ cấp BP Thủ kho", "Số tiền": 300000, "Cách tính": "", "Hiệu lực từ": "2026-05-01" }]);
+  const s = [staff({ "Mã tiền lương 1": "CN2", "Lương thỏa thuận": "250000", "Mã phụ cấp": "TN.08" })];
+  assert.equal(row(run(s, { dm_phucap, chamcong: [ccRow("NV", 2026, 9, "BT", 1, 26)] }, Q))["Phụ cấp"], 300000);
+  assert.equal(row(run(s, { dm_phucap, chamcong: [ccRow("NV", 2026, 9, "BT", 1, 13)] }, Q))["Phụ cấp"], Math.round(300000 / 26 * 13));
+  assert.equal(row(run(s, { dm_phucap, chamcong: [ccRow("NV", 2026, 9, "BT", 1, 26)] }, Q))["Lương thời gian"], 250000 * 26); // lương vẫn = đơn giá × công
 });

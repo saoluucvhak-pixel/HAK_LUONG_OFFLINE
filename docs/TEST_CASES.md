@@ -100,6 +100,7 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 |---|---|
 | U-PA-01 | Chia đều người có mặt; NV vắng theo từ cuối không dấu; nhận Mã NV |
 | U-PA-02 | Trùng tên cuối → cả hai vắng + cảnh báo; tên vắng không khớp → cảnh báo |
+| U-PA-09 | NV vắng so có dấu trước ("Tưởng" ≠ "Tường"); không dấu vẫn nhận, trùng → cảnh báo |
 | U-PA-03 | Mã tổ lạ / không ai có mặt → chưa phân bổ, cảnh báo |
 | U-PA-04 | Tổ theo ngày cân từ hồ sơ: chưa vào làm / đã nghỉ / đã điều chuyển không nhận; phiếu Mã NV giữ nguyên; không sửa dữ liệu gốc |
 | U-PA-05 | Bù theo ngày bậc thang = công thức công cụ ở 12 trường hợp (lẻ công, Chủ nhật, ngày không SL, PN) |
@@ -118,6 +119,8 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 | U-QC-06 | (C6) Phụ cấp Cách tính trống: chia theo (tổng công − phép − TC) → 184.615 như bảng CNHAK |
 | U-QC-07 | (C7) NLĐ đóng KPCĐ 0,5%; cột NLĐ.KPCĐ; cách cũ giữ đúng cột |
 | U-QC-08 | Danh mục chuẩn có Số ngày giảm trừ; bản chốt ghi quyChe + engine 1.8.0 |
+| U-QC-09 | (C8) Có mã BHXH, Lương cơ bản trống → không BH / truy thu, có cảnh báo |
+| U-QC-10 | (C9) CN2: công chuẩn 26 → phụ cấp đủ / chia theo công; lương = đơn giá × công |
 
 ## Unit — 2.0-α20 OCR chấm công (`tests/unit/timesheet-ocr.test.js`)
 | ID | Nội dung |
