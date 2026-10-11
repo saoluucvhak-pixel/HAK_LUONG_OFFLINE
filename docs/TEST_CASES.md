@@ -151,7 +151,8 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 | ID | Nội dung (số tính tay — `AUDIT_V2.md` §5) |
 |---|---|
 | I-15 | Đủ tháng: BH 630.000, thuế 193.500, thực lĩnh 19.177.000 |
-| I-16 | Vào làm 15/09: lương theo 14/26 công, thuế 0, BH vẫn trừ đủ [Q-23] |
+| I-16 | Vào làm 15/09: lương theo 14/26 công, thuế 0, BH trừ đủ vì danh mục chưa khai ngưỡng (dữ liệu) |
+| I-21 | (R-57) Cùng dữ liệu, khai ngưỡng 15 công cho TG1 → công thức tự truy thu 1.410.000, không trừ BH NLĐ; khai 14 → đóng bình thường |
 | I-17 | Nghỉ việc 20/09: 17 công; tháng 10 không có lương |
 | I-18 | Nhiều tạm ứng + thưởng + thu nhập khác + trừ khác cộng dồn; tạm ứng kỳ sau không trừ |
 | I-19 | Khoản trừ vượt thu nhập → thực lĩnh 0 + cảnh báo số còn thiếu |
