@@ -584,6 +584,17 @@ async function launch(dataDir, opt) {
       const s4 = n4 === "3" ? await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => tr.children[tr.children.length - 2].textContent)) : [];
       ok("Trang đã dừng: bấm Đọc lại thì đọc được (3 dòng, đúng tổng)", n4 === "3" && s4.join("|") === "28,5|20|15", n4 + " " + s4.join("|"));
     }
+    // α22: Cách đọc ô "Dấu x (x = 1 công) · giờ / 8" — bảng tay của tổ, 2 khối ngày, mỗi người 1 cột
+    {
+      await w.selectOption('select[aria-label="Cách đọc ô cho file mới"]', "mark");
+      const [fc3] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
+      await fc3.setFiles([path.join(FX, "cham-cong-tay-x-mau.png")]);
+      let n6 = ""; for (let i = 0; i < 240 && !/^\d+$/.test(n6); i++) { await w.waitForTimeout(500); n6 = await w.locator(".subtabs button .n").nth(5).innerText().catch(() => ""); }
+      await w.locator(".subtabs button").nth(5).click(); await w.waitForTimeout(200);
+      const pm = await w.locator('select[aria-label="Cách đọc ô của trang"]').inputValue();
+      const g6 = await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => [tr.querySelector("input.i").value, tr.querySelectorAll("select")[1].value, tr.querySelector("input[data-day='9']").value, tr.children[tr.children.length - 2].textContent]));
+      ok("Cách đọc ô Dấu x: bảng tay 2 khối, mỗi người 1 cột → tên lấy từ tiêu đề cột, loại Công; xx = 2, ô '7h-15h' = 1; tổng 47 / 35 / 29", pm === "mark" && g6.map((r) => r.join(":")).join("|") === "Lê Văn An:Công:1:47|Trần Bình:Công:1:35|Ngô Cường:Công:2:29", pm + " " + JSON.stringify(g6));
+    }
     ok("Không lỗi JavaScript ở Đọc ảnh chấm công", errs.length === 0, errs.join(" | "));
     await app.close();
   }

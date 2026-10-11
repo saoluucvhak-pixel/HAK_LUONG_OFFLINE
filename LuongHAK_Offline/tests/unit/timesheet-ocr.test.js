@@ -112,3 +112,70 @@ test("U-OCR-08 cầu nối OCR: lô sai giữ đúng vị trí (không lệch k�
   const idat = png.indexOf("IDAT"), len = png.readUInt32BE(idat - 4), raw = zlib.inflateSync(png.subarray(idat + 4, idat + 4 + len));
   assert.deepStrictEqual([...raw], [0, 0, 255, 0, 128, 64]);
 });
+
+// ── α22: cách đọc ô "dấu x / giờ" và "số ca" (chủ sở hữu duyệt: x = 1 công, xx = 2, xxx = 3, ghi giờ = giờ / 8; 1 ca = 1 công, "1+2" = 2 công)
+test("U-OCR-09 ô ghi giờ: số giờ (kể cả qua đêm, có phút); không phải khoảng giờ → null", () => {
+  assert.strictEqual(G.parseHours("7h-15h"), 8); assert.strictEqual(G.parseHours("7h → 9h"), 2);
+  assert.strictEqual(G.parseHours("22h-6h"), 8); assert.strictEqual(G.parseHours("7h30-11h30"), 4);
+  assert.strictEqual(G.parseHours("13-17"), 4);
+  assert.strictEqual(G.parseHours("12"), null); assert.strictEqual(G.parseHours("xx"), null); assert.strictEqual(G.parseHours("30-40"), null);
+});
+
+test("U-OCR-10 ô số ca: 1 / 2 / 3 = 1 công, '1+2' = 2 công, trống = null, số lạ = không đọc được", () => {
+  assert.strictEqual(G.parseShifts("1"), 1); assert.strictEqual(G.parseShifts("3"), 1);
+  assert.strictEqual(G.parseShifts("1+2"), 2); assert.strictEqual(G.parseShifts(" 1 + 3 "), 2); assert.strictEqual(G.parseShifts("l+2"), 2);
+  assert.strictEqual(G.parseShifts(""), null); assert.strictEqual(G.parseShifts(null), null);
+  assert.ok(Number.isNaN(G.parseShifts("7"))); assert.ok(Number.isNaN(G.parseShifts("1+")) === false && G.parseShifts("1+") === 1);
+});
+
+// vẽ n dấu x vào ô (bitmap 0/1), tâm cách nhau `step`
+function drawMarks(b, w, x0, y0, n, step, s) {
+  for (let m = 0; m < n; m++) {
+    const cx = x0 + m * step, cy = y0;
+    for (let t = -s; t <= s; t++) for (let k = -1; k <= 1; k++) { b[(cy + t) * w + cx + t + k] = 1; b[(cy + t) * w + cx - t + k] = 1; }
+  }
+}
+test("U-OCR-11 đếm dấu x trong ô: 1 / 2 / 3 dấu, dấu viết dính nhau chia theo bề rộng 1 dấu; cụm lưng chừng → không chắc", () => {
+  const w = 200, h = 40, box = { x0: 0, y0: 0, x1: w, y1: h };
+  const cnt = (n, step) => { const b = new Uint8Array(w * h); drawMarks(b, w, 30, 20, n, step, 10); return G.countMarksInfo(b, w, box, 24); };
+  assert.deepStrictEqual(cnt(1, 34), { n: 1, sure: true });
+  assert.deepStrictEqual(cnt(2, 34), { n: 2, sure: true });
+  assert.deepStrictEqual(cnt(3, 34), { n: 3, sure: true });
+  assert.strictEqual(cnt(3, 22).n, 3, "xxx viết dính liền → vẫn 3");
+  const empty = G.countMarksInfo(new Uint8Array(w * h), w, box, 24); assert.deepStrictEqual(empty, { n: 0, sure: false });
+  // 1 cụm rộng 1,5 dấu (2 dấu chồng một nửa) → không chắc
+  const b = new Uint8Array(w * h); drawMarks(b, w, 30, 20, 2, 12, 10); const r = G.countMarksInfo(b, w, box, 22);
+  assert.strictEqual(r.sure, false, JSON.stringify(r));
+  assert.strictEqual(G.countMarks(new Uint8Array(w * h), w, box, 24), 0);
+});
+
+test("U-OCR-12 cột của bảng dọc: Công / Cơm / Tăng ca → loại dòng; Ngày, Thứ, Ghi chú… bỏ qua; cột có tên → TÊN NGƯỜI", () => {
+  assert.deepStrictEqual(TP.fieldRole("Công"), { kind: "Công", person: "", skip: false });
+  assert.deepStrictEqual(TP.fieldRole("Tăng ca"), { kind: "Tăng ca", person: "", skip: false });
+  ["Ngày", "Thứ", "Ghi chú", "Ký tên", "Ca"].forEach((x) => assert.deepStrictEqual(TP.fieldRole(x), { kind: "", person: "", skip: true }, x));
+  ["Cột 2", "6", "", "~ ."].forEach((x) => assert.deepStrictEqual(TP.fieldRole(x), { kind: "", person: "", skip: false }, x)); // tiêu đề không đọc được
+  assert.deepStrictEqual(TP.fieldRole("  Lê  Văn An "), { kind: "Công", person: "Lê Văn An", skip: false });
+  assert.strictEqual(TP.periodFromText("BANG CHAM CONG THÁANG 09/2026"), "2026-09");
+  assert.strictEqual(TP.periodFromText("Bảng chấm công tổ 1 — 10/2026"), "2026-10");
+  assert.strictEqual(TP.periodFromText("Tổ 1"), "");
+});
+
+test("U-OCR-13 bảng tay 2 khối (ngày 1–15 | 16–30), mỗi người 1 cột: ghép đủ 30 ngày theo tên, cộng tổng TC của 2 khối; c.val (dấu x) được dùng", () => {
+  const names = ["Lê Văn An", "Trần Bình"], v = (p, d) => (d % 7 ? 1 + ((d + p) % 3) : 0);
+  const cells = grid(17, [60, 110, 110, 60, 110, 110], (r, c) => {
+    const k = c < 3 ? 0 : 1, cc = c % 3, d = k * 15 + r;
+    if (r === 0) return cc === 0 ? "Ngày" : names[cc - 1];
+    if (r === 16) { if (cc === 0) return "TC"; let s = 0; for (let dd = k * 15 + 1; dd <= k * 15 + 15; dd++) s += v(cc - 1, dd); return String(s); }
+    return cc === 0 ? String(d) : v(cc - 1, d) ? "xx" : "";
+  }, 30);
+  // giả lập timesheet-ocr đã đếm dấu: c.val = số dấu
+  cells.forEach((c, i) => { const r = Math.floor(i / 6), cc = i % 6; if (c.text === "xx") c.val = v(cc % 3 - 1, (cc < 3 ? 0 : 15) + r); });
+  const T = TP.parse(cells);
+  assert.strictEqual(T.layout, "B"); assert.strictEqual(T.panels, 2); assert.strictEqual(T.days.length, 30);
+  assert.deepStrictEqual(T.lines.map((l) => [l.name, l.kind]), [["Lê Văn An", "Công"], ["Trần Bình", "Công"]]);
+  T.lines.forEach((l, p) => {
+    for (let d = 1; d <= 30; d++) assert.strictEqual(l.values[d], v(p, d) || null, l.name + " ngày " + d);
+    assert.ok(l.check.length === 1 && l.check[0].ok, JSON.stringify(l.check));
+  });
+  assert.deepStrictEqual(T.warnings, []);
+});

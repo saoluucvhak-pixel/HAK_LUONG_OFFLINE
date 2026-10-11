@@ -169,6 +169,61 @@
     }
     return out;
   }
+  /**
+   * Đếm dấu viết tay trong ô (X, ✓, /): chiếu mực theo cột, mỗi cụm mực cách nhau ≥ 12% chiều cao ô = 1 dấu
+   * (bảng chấm công tay "x" = 1 công, "xx" = 2, "xxx" = 3). Cụm quá nhỏ (chấm, vệt) bỏ qua.
+   */
+  function markGroups(b, w, box) {
+    var W = box.x1 - box.x0, H = box.y1 - box.y0; if (W <= 0 || H <= 0) return [];
+    var col = new Array(W), x, y;
+    for (x = 0; x < W; x++) { var n = 0; for (y = 0; y < H; y++) if (b[(y + box.y0) * w + x + box.x0]) n++; col[x] = n; }
+    var runs = [], s = -1, gapMax = Math.max(2, Math.round(H * 0.12));
+    for (x = 0; x <= W; x++) {
+      var on = x < W && col[x] > 0;
+      if (on && s < 0) s = x;
+      if (!on && s >= 0) { runs.push([s, x]); s = -1; }
+    }
+    var groups = [];
+    runs.forEach(function (r) { var g = groups[groups.length - 1]; if (g && r[0] - g[1] < gapMax) g[1] = r[1]; else groups.push([r[0], r[1]]); });
+    return groups.filter(function (g) {
+      var y0 = H, y1 = -1, ink = 0;
+      for (var xx = g[0]; xx < g[1]; xx++) for (var yy = 0; yy < H; yy++) if (b[(yy + box.y0) * w + xx + box.x0]) { ink++; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy; }
+      return g[1] - g[0] >= H * 0.15 && y1 - y0 >= H * 0.25 && ink >= H * 0.6;
+    });
+  }
+  /**
+   * Số dấu trong ô. unitW = bề rộng 1 dấu điển hình của cả trang (trung vị) → 2 nét của 1 dấu bị tách thì gộp lại,
+   * nhiều dấu viết dính nhau thì chia theo bề rộng (xxx dính = 3). Không có unitW = đếm cụm.
+   */
+  function countMarks(b, w, box, unitW) { return countMarksInfo(b, w, box, unitW).n; }
+  /** { n, sure }: sure = false khi không thấy dấu nào, hoặc một cụm dính có bề rộng lưng chừng giữa 2 số dấu (vd 1,5 dấu) → tô vàng để người dùng xem lại */
+  function countMarksInfo(b, w, box, unitW) {
+    var g = markGroups(b, w, box);
+    if (!unitW || !g.length) return { n: g.length, sure: g.length > 0 };
+    var merged = [], sure = true;
+    g.forEach(function (x) { var m = merged[merged.length - 1]; if (m && x[1] - m[0] <= unitW * 1.35) m[1] = x[1]; else merged.push([x[0], x[1]]); });
+    var n = merged.reduce(function (s0, x) {
+      var r = (x[1] - x[0]) / unitW, k = Math.max(1, Math.round(r)), f = r - Math.floor(r);
+      if (r > 1.3 && f > 0.3 && f < 0.7) sure = false;
+      return s0 + k;
+    }, 0);
+    return { n: n, sure: sure };
+  }
+  /** Ô "7h → 15h" / "7 - 9h" / "22h-6h": số giờ (qua đêm cộng 24), không phải khoảng giờ → null */
+  function parseHours(t) {
+    var m = String(t || "").replace(/\s+/g, "").match(/(\d{1,2})(?:[h:g](\d{0,2}))?[-–—>→~]+[>]?(\d{1,2})(?:[h:g](\d{0,2}))?/i);
+    if (!m) return null;
+    var a = +m[1] + (+m[2] || 0) / 60, b2 = +m[3] + (+m[4] || 0) / 60; if (a > 24 || b2 > 24) return null;
+    var d = b2 - a; if (d <= 0) d += 24; return d > 0 && d <= 16 ? Math.round(d * 100) / 100 : null;
+  }
+  /** Ô lịch làm theo ca: "1", "2", "3" = 1 ca; "1+2" = 2 ca … → số ca (= số công); rỗng → null; không đọc được → NaN */
+  function parseShifts(t) {
+    var s = String(t == null ? "" : t).replace(/\s+/g, "").replace(/[lI|!\]\[jJ]/g, "1");
+    if (!s) return null;
+    var parts = s.split(/[+&,;]+/).filter(Boolean);
+    if (parts.length && parts.every(function (p) { return /^[1-3]$/.test(p); })) return parts.length;
+    return NaN;
+  }
   /** Ô chỉ có 1 nét đứng mảnh (cao ≥ 2,2 × rộng, cao ≥ 35% ô) → coi là số 1 viết tay */
   function looksLikeOne(comps, cellH) {
     if (comps.length !== 1) return false;
@@ -283,7 +338,7 @@
     for (var i = 0; i < g2.length; i++) if (hm[i] || vm[i]) { g2[i] = 255; b2[i] = 0; }
     return { g: g2, b: b2 };
   }
-  var api = { toGray: toGray, binarize: binarize, rotate: rotate, rotate90: rotate90, skewAngle: skewAngle, findGrid: findGrid, rowCells: rowCells, traceLines: traceLines, drawLines: drawLines, findCells: findCells, removeLines: removeLines, resize: resize, autoScale: autoScale, inkComponents: inkComponents, looksLikeOne: looksLikeOne, inkBox: inkBox, lineMask: lineMask, peaks: peaks, parseCellNumber: parseCellNumber };
+  var api = { toGray: toGray, binarize: binarize, rotate: rotate, rotate90: rotate90, skewAngle: skewAngle, findGrid: findGrid, rowCells: rowCells, traceLines: traceLines, drawLines: drawLines, findCells: findCells, removeLines: removeLines, resize: resize, autoScale: autoScale, inkComponents: inkComponents, countMarks: countMarks, countMarksInfo: countMarksInfo, markGroups: markGroups, parseHours: parseHours, parseShifts: parseShifts, looksLikeOne: looksLikeOne, inkBox: inkBox, lineMask: lineMask, peaks: peaks, parseCellNumber: parseCellNumber };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.grid = api; }
 })(typeof window !== "undefined" ? window : this);

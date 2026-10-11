@@ -1,5 +1,14 @@
 # TEST_RESULTS — Kết quả kiểm thử
 
+## 2.0.0-alpha.22 — OCR bảng chấm công tay: dấu x, ghi giờ, số ca (12/10/2026, nhánh `claude/v2-ocr-ky-hieu`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **201/201** (+5 U-OCR, +2 I-OCR chạy Tesseract thật trên ảnh mẫu giả lập) |
+| E2E Electron (xvfb, Linux) | ✅ **95/95** (+1: Cách đọc ô Dấu x trên bảng tay 2 khối) |
+| Ảnh viết tay thật của người dùng (chỉ trên máy kiểm thử, **không** đưa vào repo) | ⚠ Bảng dấu x 2 khối rõ nét: đúng các ngày có dấu. Bảng có ô ghi giờ, ghi chú: còn ô đếm sai (4–8 dấu) → tô vàng khi > 3. Bảng có dòng con Ngày / Đêm: chỉ nhận 1 khối. Lịch ca viết tay: nhiều ô "?". 1 ảnh không phải bảng kẻ ô: không đọc. **Cần soát tay.** |
+| Windows thật | ⏳ chưa kiểm |
+
 ## 2.0.0-alpha.21 — Quy chế lương HAK Group 2026, engine 1.8.0 (11/10/2026, nhánh `claude/v2-quy-che-luong-2026`)
 | Nhóm | Kết quả |
 |---|---|
