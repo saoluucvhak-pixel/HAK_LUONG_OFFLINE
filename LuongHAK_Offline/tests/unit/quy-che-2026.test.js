@@ -121,3 +121,13 @@ test("U-QC-10 (C9) công nhật CN2: phụ cấp chia theo công chuẩn 26 (30 
   assert.equal(row(run(s, { dm_phucap, chamcong: [ccRow("NV", 2026, 9, "BT", 1, 13)] }, Q))["Phụ cấp"], Math.round(300000 / 26 * 13));
   assert.equal(row(run(s, { dm_phucap, chamcong: [ccRow("NV", 2026, 9, "BT", 1, 26)] }, Q))["Lương thời gian"], 250000 * 26); // lương vẫn = đơn giá × công
 });
+
+test("U-QC-11 (C10) mã tăng ca TC5: công tăng ca trả theo đơn giá ca khác, KHÔNG cộng vào công lương thời gian", () => {
+  const s = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "8500000", "Mã tăng ca": "TC5" })];
+  const ex = { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 26), ccRow("NV", 2026, 9, "TC", 1, 10)] };
+  const r = row(run(s, ex, Q));
+  assert.equal(r["Lương thời gian"], 8500000); // 26 công BT (không cộng 10 công TC5)
+  assert.equal(r["Tiền tăng ca"], Math.round(6000000 / 26 * 10)); // TC5: 6.000.000 / công chuẩn × công TC
+  const r4 = row(run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "8500000", "Mã tăng ca": "TC4" })], ex, Q));
+  assert.equal(r4["Lương thời gian"], Math.round(8500000 / 26 * 36)); // mã khác: công TC vẫn tính vào lương TG (C1) + 50% tăng ca
+});

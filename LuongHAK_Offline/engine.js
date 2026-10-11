@@ -262,7 +262,7 @@
       // Lương thời gian
       var donGiaTG = cChuan > 0 ? luongTT / cChuan : 0;
       var congTinhTG = Math.min(c.tongCong, cChuan) || c.tongCong;
-      if (qc2026) congTinhTG = maTL1 === "SP" ? (c.congLe || 0) + (c.congPhep || 0) : c.tongCong; // 2026: C1 trả đủ công đi làm (không cắt ở công chuẩn) · C3 công nhân SP chỉ tính lương TG cho công lễ + phép
+      if (qc2026) congTinhTG = maTL1 === "SP" ? (c.congLe || 0) + (c.congPhep || 0) : c.tongCong - (ns["Mã tăng ca"] === "TC5" ? c.congTangCa || 0 : 0); // C10: công TC5 (ca vị trí khác) đã trả riêng — không tính lại vào lương TG // 2026: C1 trả đủ công đi làm (không cắt ở công chuẩn) · C3 công nhân SP chỉ tính lương TG cho công lễ + phép
       var luongTG;
       if (maTL1 === "CĐ") luongTG = chiaPL ? Math.round(luongTT) : luongTT;
       else if (maTL1 === "CN1" || maTL1 === "CN2" || maTL1 === "SP") luongTG = Math.round(luongTT * congTinhTG);
@@ -435,7 +435,7 @@
     return out;
   }
 
-  var ENGINE_VERSION = "1.8.0"; // 1.8.0: quy chế lương HAK Group 2026 (opts.quyChe "2026", R-68 — C1…C9); không bật = số như 1.7.0 · 1.5.0: Q-22 áp dụng phụ lục từ ngày hiệu lực · 1.6.0: Q-19 "Phân bổ PB" khi điều chuyển (không dùng = số tiền giống 1.4.0) · 1.7.0: thêm cách bù "daihiep" / "to" (công cụ HAK; 2 cách cũ giữ nguyên số)
+  var ENGINE_VERSION = "1.8.0"; // 1.8.0: quy chế lương HAK Group 2026 (opts.quyChe "2026", R-68 — C1…C10); không bật = số như 1.7.0 · 1.5.0: Q-22 áp dụng phụ lục từ ngày hiệu lực · 1.6.0: Q-19 "Phân bổ PB" khi điều chuyển (không dùng = số tiền giống 1.4.0) · 1.7.0: thêm cách bù "daihiep" / "to" (công cụ HAK; 2 cách cũ giữ nguyên số)
   var api = { ENGINE_VERSION: ENGINE_VERSION, money: money, tinhBangLuong: tinhBangLuong, tinhThueLuyTien: tinhThueLuyTien, congChuan: congChuan, ngayGiamTru: ngayGiamTru, tachCong: tachCong, tongHopChamCong: tongHopChamCong, hieuLuc: hieuLuc, num: num, pct: pct };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.LuongEngine = api;
 })(typeof window !== "undefined" ? window : this);

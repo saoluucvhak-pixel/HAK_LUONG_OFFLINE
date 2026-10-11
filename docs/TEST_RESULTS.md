@@ -4,9 +4,9 @@
 | Nhóm | Kết quả |
 |---|---|
 | Lint | ✅ 0/0 |
-| `npm test` | ✅ **193/193** (+10 U-QC, +1 U-PA) |
+| `npm test` | ✅ **194/194** (+11 U-QC, +1 U-PA) |
 | Hồi quy công thức (v1.3.0, alpha.4) ở cách tính cũ | ✅ trùng 100% |
-| Đối chiếu bảng lương thật (Power Query + DAX; chỉ trên máy kiểm thử, **không** đưa vào repo) | Quy chế 2026: CNHAK 9/2026 ✅ **42/44**, HAKQN 7/2026 ✅ **31/50** người có lương khớp từng đồng; người còn lại lệch **đúng phần thuế TNCN** (Excel không trừ — Q-29). Cách tính cũ: CNHAK 2/44, HAKQN 0/50 |
+| Đối chiếu bảng lương thật (Power Query + DAX; chỉ trên máy kiểm thử, **không** đưa vào repo) | Quy chế 2026: HAK ĐN 11/2025 ✅ **61/61**, Đại Hiệp 8/2026 ✅ **38/45** (7 lệch 2đ làm tròn), CNHAK 9/2026 ✅ **42/44**, HAKQN 7/2026 ✅ **31/50** người có lương khớp từng đồng; người còn lại lệch **đúng phần thuế TNCN** (Q-29). Cách tính cũ: CNHAK 2/44, HAKQN 0/50 |
 | E2E Electron (xvfb, Linux) | ✅ **94/94** (+3) |
 | Windows thật | ⏳ chưa kiểm |
 
