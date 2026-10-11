@@ -71,7 +71,11 @@
     });
     db.schemaVersion = 2;
   }
-  if (!readOnly) ensureTables();
+  if (!readOnly) {
+    // Không để lỗi cấu trúc thoát ra làm sập cả app khi khởi động → chuyển sang chế độ chỉ xem / khôi phục (như bước chuyển đổi ở trên)
+    try { ensureTables(); }
+    catch (e) { loadError = { error: "Lỗi khi kiểm tra bảng dữ liệu: " + e.message + " — dữ liệu KHÔNG bị ghi đè", backups: store && store.listBackups ? store.listBackups() : [] }; readOnly = true; }
+  }
   var saveTimer = null, dirty = false;
   /** Ghi dữ liệu xuống nơi lưu bền vững. Trả true nếu chắc chắn đã lưu. */
   function saveNow() {
