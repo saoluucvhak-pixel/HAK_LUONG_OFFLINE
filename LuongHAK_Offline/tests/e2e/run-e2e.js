@@ -508,12 +508,16 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=luong]");
     const q0 = await w.locator('select[aria-label="Quy chế tính lương"]').inputValue();
-    await w.selectOption('select[aria-label="Quy chế tính lương"]', "1.7"); await w.waitForTimeout(400);
-    const d1 = JSON.parse(fs.readFileSync(path.join(DATA, "data.json"), "utf8"));
-    await w.selectOption('select[aria-label="Quy chế tính lương"]', "2026"); await w.waitForTimeout(400);
-    const d2 = JSON.parse(fs.readFileSync(path.join(DATA, "data.json"), "utf8"));
-    const logs = (d2.auditlog || []).filter((a) => a.thaoTac === "Đổi quy chế tính lương").length;
-    ok("Quy chế tính lương: mặc định 2026; đổi sang cách cũ / quay lại được, lưu vào dữ liệu, ghi nhật ký", q0 === "2026" && d1.congty[0]["Quy chế tính lương"] === "1.7" && d2.congty[0]["Quy chế tính lương"] === "2026" && logs >= 2, q0 + " · " + logs + " dòng nhật ký");
+    // Chờ tới khi data.json đã ghi xong (máy CI chậm: chờ cố định 400 ms có lúc chưa kịp ghi lần 2)
+    const qcOf = (d) => (((d && d.congty) || [])[0] || {})["Quy chế tính lương"];
+    const qcLogs = (d) => ((d && d.auditlog) || []).filter((a) => a.thaoTac === "Đổi quy chế tính lương").length;
+    const waitData = async (pred) => { let d = null; for (let i = 0; i < 50; i++) { await w.waitForTimeout(100); try { d = JSON.parse(fs.readFileSync(path.join(DATA, "data.json"), "utf8")); } catch (e) { continue; } if (pred(d)) break; } return d; };
+    await w.selectOption('select[aria-label="Quy chế tính lương"]', "1.7");
+    const d1 = await waitData((d) => qcOf(d) === "1.7" && qcLogs(d) >= 1);
+    await w.selectOption('select[aria-label="Quy chế tính lương"]', "2026");
+    const d2 = await waitData((d) => qcOf(d) === "2026" && qcLogs(d) >= 2);
+    const logs = qcLogs(d2);
+    ok("Quy chế tính lương: mặc định 2026; đổi sang cách cũ / quay lại được, lưu vào dữ liệu, ghi nhật ký", q0 === "2026" && qcOf(d1) === "1.7" && qcOf(d2) === "2026" && logs >= 2, q0 + " · " + qcOf(d1) + "→" + qcOf(d2) + " · " + logs + " dòng nhật ký");
     ok("Không lỗi JavaScript ở chọn quy chế", errs.length === 0, errs.join(" | "));
     await app.close();
   }
