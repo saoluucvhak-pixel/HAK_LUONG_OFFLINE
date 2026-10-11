@@ -303,10 +303,12 @@
   }
 
   // ---------- Báo cáo nhân sự ----------
-  // Q-24 (chủ sở hữu duyệt 11/10/2026): cột lương cá nhân — ẩn với người không có quyền Xem bảng lương và không có quyền Sửa hồ sơ
-  var PAY_FIELDS = {}; HR.chitiethd.f.forEach(function (f) { if (f.t === "money") PAY_FIELDS[f.k] = 1; });
+  // Q-24 (chủ sở hữu duyệt 11/10/2026): tiền lương / thưởng cá nhân — ẩn với người không có quyền Xem bảng lương và không có quyền Sửa hồ sơ
+  //   chitiethd: Lương cơ bản, Lương thỏa thuận · khenthuong: Giá trị tiền thưởng (chủ sở hữu duyệt bổ sung 11/10/2026)
+  var PAY_TABLES = ["chitiethd", "khenthuong"], PAY_FIELDS = {};
+  PAY_TABLES.forEach(function (t) { PAY_FIELDS[t] = {}; HR[t].f.forEach(function (f) { if (f.t === "money") PAY_FIELDS[t][f.k] = 1; }); });
   var PAY_HIDDEN = "🔒 ẩn";
-  function isPayField(table, col) { return table === "chitiethd" && !!PAY_FIELDS[col]; }
+  function isPayField(table, col) { return !!(PAY_FIELDS[table] && PAY_FIELDS[table][col]); }
   function addDays(isoS, n) { var d = new Date(isoS + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d); }
   /** @param opts { hidePay: true } — che cột lương cá nhân (Q-24) */
   function reports(db, opts) {

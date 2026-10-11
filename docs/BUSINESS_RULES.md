@@ -92,7 +92,7 @@
   - Phụ lục mới có hiệu lực lùi vào kỳ đã chốt (hồi tố) → chỉ Admin (R-26, Q-14).
   - Mở chốt một kỳ thì phụ lục chỉ còn bị khóa bởi các kỳ khác còn chốt.
 - R-50 (Q-13) Nhập Excel có dòng trùng với dữ liệu đã có → màn hình xem trước báo số dòng trùng, người dùng chọn **Bổ sung** (mặc định) hoặc **Ghi đè**.
-- R-51 (Q-24, chủ sở hữu duyệt 11/10/2026) **Bảo mật lương cá nhân**: *Lương thỏa thuận* và *Lương cơ bản* chỉ hiển thị với người có quyền **Xem bảng lương** hoặc **Sửa hồ sơ**. Với vai trò mặc định, chỉ *Trưởng bộ phận* bị ẩn. Áp dụng ở danh sách Nhân sự, đầu hồ sơ, bảng và form *Lương & phụ lục HĐ*, báo cáo *Sổ lao động* và *Lịch sử*; ô bị ẩn hiện `🔒 ẩn`.
+- R-51 (Q-24, chủ sở hữu duyệt 11/10/2026) **Bảo mật lương cá nhân**: *Lương thỏa thuận*, *Lương cơ bản* và *Giá trị tiền thưởng* (hồ sơ Khen thưởng, chủ sở hữu duyệt bổ sung 11/10/2026) chỉ hiển thị với người có quyền **Xem bảng lương** hoặc **Sửa hồ sơ**. Với vai trò mặc định, chỉ *Trưởng bộ phận* bị ẩn. Áp dụng ở danh sách Nhân sự, đầu hồ sơ, bảng và form *Lương & phụ lục HĐ* và *Khen thưởng*, báo cáo *Sổ lao động* và *Lịch sử*; ô bị ẩn hiện `🔒 ẩn`.
 
 ## 2. Câu hỏi mở — cần chủ sở hữu / kế toán xác nhận
 Phase 1 **giữ nguyên** hành vi hiện tại cho đến khi có xác nhận.

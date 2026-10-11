@@ -98,7 +98,7 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 ## Unit — 2.0-α9 bảo mật lương (`tests/unit/pay-privacy.test.js`)
 | ID | Nội dung |
 |---|---|
-| U-PAY-01 | `reports(db, {hidePay})`: Sổ lao động + Lịch sử che lương cá nhân; không `hidePay` giữ nguyên; chỉ cột lương của phụ lục bị coi là lương |
+| U-PAY-01 | `reports(db, {hidePay})`: Sổ lao động + Lịch sử che lương cá nhân và Giá trị tiền thưởng; không `hidePay` giữ nguyên; chỉ cột lương của phụ lục bị coi là lương |
 | U-PAY-02 | Vai trò không được thấy lương (mặc định) = chỉ Trưởng bộ phận; `app.js` dùng `canSeePay` ở mọi chỗ hiện lương cá nhân |
 
 ## Unit — 2.0-α6 repository (`tests/unit/repository.test.js`)

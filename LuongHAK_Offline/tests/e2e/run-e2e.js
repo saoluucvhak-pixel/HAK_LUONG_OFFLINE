@@ -258,6 +258,11 @@ async function launch(dataDir, opt) {
     await w.locator(".dlg .fgrid select").nth(0).selectOption("truongbophan");
     await w.click(".dlg footer button.pri"); await w.waitForTimeout(300);
     await app.close();
+    { // hồ sơ khen thưởng có tiền thưởng (thuộc hợp đồng đang chọn E2E-HD2)
+      const dk = JSON.parse(fs.readFileSync(path.join(DATA, "data.json"), "utf8"));
+      dk.khenthuong = (dk.khenthuong || []).concat([{ _id: "kt1", "Mã NV": dk.nhanvien[0]["Mã NV"], "Số HĐLĐ": "E2E-HD2", "Ngày": "2026-10-02", "Hình thức khen thưởng": "Giấy khen E2E", "Giá trị tiền thưởng": "777000" }]);
+      fs.writeFileSync(path.join(DATA, "data.json"), JSON.stringify(dk));
+    }
     ({ app, w, errs } = await launch(null, { who: { u: "tbp1", p: "Tam12345" } }));
     const pw2 = w.locator(".dlg input[type=password]");
     await pw2.nth(0).fill("Tam12345"); await pw2.nth(1).fill("Moi12345tb"); await pw2.nth(2).fill("Moi12345tb"); await w.click(".dlg footer button.pri"); await w.waitForTimeout(500);
@@ -271,6 +276,9 @@ async function launch(dataDir, opt) {
     await plCardT.locator("tbody tr").first().click(); await w.waitForSelector(".dlg");
     const formText = await w.locator(".dlg").innerText(), salaryInput = await w.locator(".dlg .fld", { hasText: "Lương thỏa thuận" }).count();
     await w.click(".dlg header button");
+    await w.click('.subtabs button:has-text("Khen thưởng")'); await w.waitForTimeout(300);
+    const ktText = await w.locator(".card", { has: w.locator('h3:has-text("Khen thưởng")') }).innerText();
+    ok("Q-24 bổ sung: Trưởng bộ phận thấy hồ sơ khen thưởng nhưng Giá trị tiền thưởng hiện 🔒 ẩn", /Giấy khen E2E/.test(ktText) && /🔒 ẩn/.test(ktText) && !/777[.]?000/.test(ktText), ktText.replace(/\s+/g, " ").slice(0, 160));
     await w.click("#nav button[data-k=baocao]"); await w.waitForTimeout(200);
     const sl = w.locator('.subtabs button:has-text("Sổ")'); if (await sl.count()) { await sl.first().click(); await w.waitForTimeout(300); }
     const rep = await w.locator("main").first().innerText();
