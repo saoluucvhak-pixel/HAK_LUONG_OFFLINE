@@ -135,3 +135,17 @@ test("U-CC-12 bảng khác: cùng khóa trong file nhưng dữ liệu khác → 
   IMP.apply(db, p2);
   assert.equal(db.nhanvien[0]["Họ và tên"], "NV001 mới"); assert.equal(db.nhanvien[0]["Số CCCD"], "049201012345");
 });
+
+test("Q-12 sameCell: 1 hàm dùng chung cho nhập Excel và gộp chấm công (không đổi cách so sánh)", () => {
+  const V = require("../../core/validate.js");
+  assert.equal(IMP.sameCell, V.sameCell);
+  [["1", 1], ["1", "1,0"], [" 0.5 ", "0,5"], ["1qc", "1QC"], ["1 QC", "1QC"], ["", null], [undefined, ""], ["P", "p"]].forEach(([a, b]) => assert.equal(V.sameCell(a, b), true, a + " / " + b));
+  [["1", "0.5"], ["1QC", "1"], ["1", ""], ["P", "1"], ["1,5", "15"]].forEach(([a, b]) => assert.equal(V.sameCell(a, b), false, a + " / " + b));
+  // integrity.js dùng đúng hàm đó: gộp 2 dòng cùng khóa, ngày trùng "1" / "1,0" → nhập trùng (1 lần), "1" / "0.5" → xung đột
+  const row = (o) => Object.assign({ "Kỳ": "2026-09", "Mã NV": "NV001", "Hình thức công": "BT" }, o);
+  const db1 = { chamcong: [row({ "01": "1" }), row({ "01": "1,0", "02": "1" })] };
+  const r1 = INT.mergeChamCong(db1, {});
+  assert.equal(r1.groups, 1); assert.equal(r1.dupDays, 1); assert.equal(db1.chamcong.length, 1);
+  const db2 = { chamcong: [row({ "01": "1" }), row({ "01": "0.5" })] };
+  assert.equal(INT.mergeChamCong(db2, {}).skipped.length, 1);
+});
