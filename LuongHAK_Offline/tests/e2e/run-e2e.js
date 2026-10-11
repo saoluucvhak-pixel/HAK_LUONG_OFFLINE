@@ -247,6 +247,40 @@ async function launch(dataDir, opt) {
     await app.close();
   }
 
+  // Q-24 (chủ sở hữu duyệt): Trưởng bộ phận không có quyền xem lương → không thấy lương cá nhân ở hồ sơ, danh sách, phụ lục, báo cáo
+  {
+    ({ app, w, errs } = await launch());
+    await w.click("#nav button[data-k=nhansu]"); await w.waitForSelector("main thead th");
+    const adminCols = await w.locator("main thead th").allInnerTexts();
+    await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Thêm người dùng")'); await w.waitForSelector(".dlg");
+    const ui = w.locator(".dlg .fgrid input");
+    await ui.nth(0).fill("tbp1"); await ui.nth(1).fill("Trưởng BP"); await ui.nth(2).fill("Tam12345");
+    await w.locator(".dlg .fgrid select").nth(0).selectOption("truongbophan");
+    await w.click(".dlg footer button.pri"); await w.waitForTimeout(300);
+    await app.close();
+    ({ app, w, errs } = await launch(null, { who: { u: "tbp1", p: "Tam12345" } }));
+    const pw2 = w.locator(".dlg input[type=password]");
+    await pw2.nth(0).fill("Tam12345"); await pw2.nth(1).fill("Moi12345tb"); await pw2.nth(2).fill("Moi12345tb"); await w.click(".dlg footer button.pri"); await w.waitForTimeout(500);
+    await w.click("#nav button[data-k=nhansu]"); await w.waitForSelector("main thead th");
+    const tbCols = await w.locator("main thead th").allInnerTexts();
+    await w.locator("#main table tbody tr").first().click(); await w.waitForTimeout(300);
+    const head = await w.locator("main").first().innerText();
+    await w.click('.subtabs button:has-text("Hợp đồng lao động")'); await w.waitForTimeout(300);
+    const plCardT = w.locator(".card", { has: w.locator('h3:has-text("Lương & phụ lục HĐ")') });
+    const plText = await plCardT.innerText();
+    await plCardT.locator("tbody tr").first().click(); await w.waitForSelector(".dlg");
+    const formText = await w.locator(".dlg").innerText(), salaryInput = await w.locator(".dlg .fld", { hasText: "Lương thỏa thuận" }).count();
+    await w.click(".dlg header button");
+    await w.click("#nav button[data-k=baocao]"); await w.waitForTimeout(200);
+    const sl = w.locator('.subtabs button:has-text("Sổ")'); if (await sl.count()) { await sl.first().click(); await w.waitForTimeout(300); }
+    const rep = await w.locator("main").first().innerText();
+    ok("Q-24: Admin vẫn thấy cột Lương thỏa thuận; Trưởng bộ phận KHÔNG thấy (danh sách, đầu hồ sơ, phụ lục, form, sổ lao động)",
+      adminCols.includes("Lương thỏa thuận") && !tbCols.includes("Lương thỏa thuận") && !/1[23]\.?000\.?000/.test(head + plText + formText + rep) && /🔒 ẩn/.test(plText) && salaryInput === 0 && /ô lương được ẩn/.test(formText),
+      "cột admin/tbp: " + adminCols.includes("Lương thỏa thuận") + "/" + tbCols.includes("Lương thỏa thuận") + " · phụ lục có '🔒 ẩn': " + /🔒 ẩn/.test(plText) + " · ô lương trong form: " + salaryInput + " · có số lương 12/13 triệu: " + /1[23]\.?000\.?000/.test(head + plText + formText + rep));
+    ok("Không lỗi JavaScript với vai trò Trưởng bộ phận", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
+
   // Quên mật khẩu Admin → mã khôi phục (mã sai bị từ chối; dùng xong cấp mã mới)
   ({ app, w, errs } = await launch(null, { noAuth: true }));
   await w.click('button:has-text("Quên mật khẩu Admin")');
