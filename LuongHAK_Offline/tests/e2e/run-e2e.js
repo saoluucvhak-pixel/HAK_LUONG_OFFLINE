@@ -334,7 +334,7 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=home]"); await w.waitForTimeout(200);
     const homeAfter = await w.locator("main").first().innerText();
     ok("(D) Trang chủ nhắc khi CHƯA có bản sao lưu ra ngoài máy", /Chưa có bản sao lưu nào ra ngoài máy/.test(homeBefore));
-    ok("(A) Chọn thư mục thứ hai → chép ngay các bản sau chốt kỳ (+ file kiểm tra SHA-256); hết lời nhắc", card.includes(USB) && mir.filter((f) => /^sau-chot-2026-09_.*\.json$/.test(f)).length === 2 && mir.some((f) => /\.sha256$/.test(f)) && !/ra ngoài máy/.test(homeAfter.split("Nhớ sao lưu")[0]), mir.join(", "));
+    ok("(A) Chọn thư mục thứ hai → chép ngay các bản sau chốt kỳ (+ file kiểm tra SHA-256); hết lời nhắc", card.includes(USB) && mir.filter((f) => /^sau-chot-2026-09_.*\.json$/.test(f)).length === 2 && mir.some((f) => /\.sha256$/.test(f)) && !/Chưa có bản sao lưu nào ra ngoài máy|ngày chưa sao lưu ra ngoài máy|Không chép được/.test(homeAfter) && /Đã sao lưu ra ngoài máy/.test(homeAfter), mir.join(", "));
     ok("Không lỗi JavaScript ở sao lưu ra ngoài máy", errs.length === 0, errs.join(" | "));
     await app.close();
   }
