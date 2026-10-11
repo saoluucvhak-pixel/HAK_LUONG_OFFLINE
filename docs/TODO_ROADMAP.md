@@ -58,7 +58,7 @@
 - [x] Q-20 Số chứng từ (alpha.10); Q-18/Q-21 ghi nhận (R-52, R-55)
 - [x] Q-22 chọn cách áp dụng phụ lục giữa tháng (R-56, alpha.11, engine 1.5.0)
 - [x] Q-19 chia chi phí theo phòng ban (R-53, alpha.12)
-- [ ] Q-25 BH dưới ngưỡng (chờ kế toán)
+- [x] Q-04/Q-23/Q-25 BH dưới ngưỡng: giữ công thức, ngưỡng khai ở Danh mục Mã lương (R-57)
 - Tiếp theo: gom 4 đường ghi còn lại (nhập Excel, gộp chấm công, thêm NV, xóa NV) vào repository → SQLite ghi theo dòng
 
 ## Phase 2 — Chuẩn hóa kiến trúc (bước tiếp theo)

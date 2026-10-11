@@ -7,6 +7,7 @@
 - Tổng các phòng luôn bằng tổng bảng lương. **Số tiền lương từng người không đổi.**
 - Màn hình Tính lương có dòng thông báo người được chia và tỷ lệ.
 - Kỳ chốt trước bản này giữ báo cáo cũ. Người không điều chuyển: báo cáo y hệt trước (U-ALLOC-04).
+- Q-04 / Q-23 / Q-25 (chủ sở hữu xác nhận): giữ công thức BH dưới ngưỡng; ngưỡng khai ở Danh mục Mã lương (R-57) — gỡ đánh dấu "cần quyết định" trong quy chế.
 - `core/allocation.js` (mới). Test: 128 (+4 U-ALLOC), E2E 51/51.
 
 ## [2.0.0-alpha.11] — 11/10/2026 — Q-22: chọn cách áp dụng phụ lục giữa tháng (engine 1.5.0)
