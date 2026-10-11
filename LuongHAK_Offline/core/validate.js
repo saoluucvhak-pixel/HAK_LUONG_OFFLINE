@@ -128,7 +128,18 @@
     return table === "chamcong" ? normKy(v) : (normDate(v) || "").slice(0, 7) || null;
   }
 
-  var api = { parseMoney: parseMoney, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
+  /**
+   * 2 ô công "giống nhau" (dùng chung cho phát hiện nhập trùng Q-12 ở core/importer.js và core/integrity.js):
+   * "1" = 1 = "1,0"; "1qc" = "1QC".
+   */
+  function sameCell(x, y) {
+    var a = String(x == null ? "" : x).trim().toUpperCase().replace(",", "."), b = String(y == null ? "" : y).trim().toUpperCase().replace(",", ".");
+    if (a === b) return true;
+    var ma = a.match(/^(\d+(?:\.\d+)?)(.*)$/), mb = b.match(/^(\d+(?:\.\d+)?)(.*)$/);
+    return !!(ma && mb && parseFloat(ma[1]) === parseFloat(mb[1]) && ma[2].trim() === mb[2].trim());
+  }
+
+  var api = { parseMoney: parseMoney, sameCell: sameCell, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
     dayCell: dayCell, daysInKy: daysInKy, MAX_CONG_NGAY: MAX_CONG_NGAY,
     isMoneyCol: isMoneyCol, isDateCol: isDateCol, isIdCol: isIdCol, rowPeriod: rowPeriod, PERIOD_FIELD: PERIOD_FIELD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
