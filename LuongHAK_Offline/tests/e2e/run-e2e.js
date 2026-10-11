@@ -1,7 +1,7 @@
 // Kiểm thử end-to-end trên ứng dụng Electron thật (bản đóng gói chạy từ mã nguồn).
 // Chạy: ELECTRON_PATH=<đường dẫn electron> PLAYWRIGHT_MODULE=<đường dẫn playwright> node tests/e2e/run-e2e.js
 // (Linux không màn hình: xvfb-run -a node tests/e2e/run-e2e.js)
-/* global document */ // dùng trong các hàm w.evaluate(...) chạy bên trong cửa sổ app
+/* global document, DataTransfer, ClipboardEvent */ // dùng trong các hàm w.evaluate(...) chạy bên trong cửa sổ app
 // Dùng thư mục dữ liệu tạm (biến HAK_USER_DATA) — không đụng dữ liệu thật.
 "use strict";
 const fs = require("fs"), os = require("os"), path = require("path");
@@ -11,6 +11,7 @@ const APP = path.resolve(__dirname, "../..");
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-"));
 const DL = path.join(DATA, "downloads"); fs.mkdirSync(DL);
 const results = [];
+let dialogMode = "accept"; // "dismiss" = bấm Hủy ở hộp xác nhận
 function ok(name, cond, extra) { results.push({ name, pass: !!cond, extra: extra || "" }); console.log((cond ? "PASS " : "FAIL ") + name + (extra ? " — " + extra : "")); }
 
 const ADMIN = { u: "admin", n: "Quản trị E2E", p: "Admin2026e2e" };
@@ -39,7 +40,7 @@ async function launch(dataDir, opt) {
   const w = await app.firstWindow(); const errs = [];
   w.on("pageerror", (e) => errs.push(e.message));
   w.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
-  w.on("dialog", (d) => { dialogs.push(d.message()); d.accept(d.type() === "prompt" ? "e2e" : undefined); });
+  w.on("dialog", (d) => { dialogs.push(d.message()); return dialogMode === "dismiss" && d.type() === "confirm" ? d.dismiss() : d.accept(d.type() === "prompt" ? "e2e" : undefined); });
   await w.waitForSelector("#main > *");
   const a = opt.noAuth ? {} : await auth(w, opt.who);
   return { app, w, errs, a };
@@ -104,6 +105,33 @@ async function launch(dataDir, opt) {
   await w.click('button:has-text("Tải file Word")');
   let qf = null; for (let i = 0; i < 30 && !qf; i++) { await w.waitForTimeout(200); qf = fs.readdirSync(DL).filter((f) => /^Du_thao_Quy_che_tra_luong_2026-09\.doc$/.test(f))[0]; }
   ok("Hướng dẫn & Quy chế: 5 phần, quy chế lấy từ danh mục đang dùng, tải được file Word", gTabs === 5 && /QUY CHẾ TRẢ LƯƠNG/.test(qc) && /TG1/.test(qc) && /BH01/.test(qc) && !!qf && /QUY CHẾ TRẢ LƯƠNG/.test(fs.readFileSync(path.join(DL, qf), "utf8")), gTabs + " phần · " + (qf || "không thấy file"));
+  // Lỗi 1: dán NHIỀU dòng vào danh mục có hiệu lực trong kỳ đã chốt → phải ghi nhật ký HỒI TỐ + cảnh báo (trước đây im lặng)
+  const auditOf = () => w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).auditlog || []);
+  await w.waitForTimeout(700); const au0 = (await auditOf()).length;
+  await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Mã lương")');
+  const dmCell = w.locator("#main tbody tr").first().locator("input").nth(4);
+  await dmCell.evaluate((el) => { const dt = new DataTransfer(); dt.setData("text/plain", "Dán E2E 1\nDán E2E 2"); el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); });
+  const pasteToast = await w.locator("#toast").textContent();
+  await w.waitForTimeout(700);
+  const auP = (await auditOf()).slice(au0).filter((a) => /HỒI TỐ/.test(a.chiTiet));
+  ok("Lỗi 1: dán nhiều dòng vào danh mục chồng kỳ đã chốt → ghi nhật ký HỒI TỐ từng dòng + cảnh báo", auP.length === 2 && /2 dòng hồi tố kỳ đã chốt/.test(pasteToast), pasteToast + " · nhật ký hồi tố: " + auP.length);
+  // Lỗi 2: sửa thông tin cơ bản của NV có trong bảng lương ĐÃ CHỐT → phải hỏi xác nhận TRƯỚC khi lưu; Hủy = không lưu, không ghi nhật ký
+  const nvCCCD = () => w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).nhanvien[0]["Số CCCD"] || "");
+  const cc0 = await nvCCCD(), au1 = (await auditOf()).length;
+  await w.click("#nav button[data-k=nhansu]"); await w.locator("#main table tbody tr").first().click();
+  await w.click('button:has-text("Sửa cơ bản")'); await w.waitForSelector(".dlg");
+  await w.locator(".dlg .fld", { hasText: "Số CCCD" }).first().locator("input").fill("001099000111");
+  dialogMode = "dismiss"; dialogs = [];
+  await w.click('.dlg footer button:has-text("Lưu")'); await w.waitForTimeout(700);
+  dialogMode = "accept";
+  ok("Lỗi 2: sửa cơ bản NV thuộc kỳ đã chốt → hỏi xác nhận hồi tố; bấm Hủy thì KHÔNG lưu, KHÔNG ghi nhật ký",
+    dialogs.some((m) => /ĐÃ CHỐT/.test(m)) && (await nvCCCD()) === cc0 && (await auditOf()).length === au1, dialogs.join(" | ") || "không có hộp xác nhận");
+  if (await w.locator(".dlg").count()) await w.click('.dlg footer button:has-text("Hủy")');
+  await w.click('button:has-text("Sửa cơ bản")'); await w.waitForSelector(".dlg");
+  await w.locator(".dlg .fld", { hasText: "Số CCCD" }).first().locator("input").fill("001099000111");
+  dialogs = []; await w.click('.dlg footer button:has-text("Lưu")'); await w.waitForTimeout(700);
+  const auE = (await auditOf()).slice(au1);
+  ok("Lỗi 2: đồng ý → lưu + nhật ký HỒI TỐ", (await nvCCCD()) === "001099000111" && auE.some((a) => /Sửa thông tin cơ bản/.test(a.thaoTac) && /HỒI TỐ/.test(a.chiTiet)), auE.map((a) => a.thaoTac).join(", "));
   await w.waitForTimeout(800);
   ok("Không có lỗi JavaScript (lần chạy 1)", errs.length === 0, errs.join(" | "));
   await app.close();

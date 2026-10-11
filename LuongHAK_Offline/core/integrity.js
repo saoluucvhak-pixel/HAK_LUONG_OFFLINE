@@ -106,12 +106,7 @@
 
   function ccKey(r) { return [V.normKy(r["Kỳ"]) || String(r["Kỳ"] || ""), String(r["Mã NV"] || "").trim(), String(r["Hình thức công"] || "BT").trim().toUpperCase() || "BT"].join("|"); }
   function ccGroups(list) { var g = {}; list.forEach(function (r) { if (r && r["Mã NV"]) (g[ccKey(r)] = g[ccKey(r)] || []).push(r); }); return g; }
-  function sameCell(x, y) {
-    var a = String(x == null ? "" : x).trim().toUpperCase().replace(",", "."), b = String(y == null ? "" : y).trim().toUpperCase().replace(",", ".");
-    if (a === b) return true;
-    var ma = a.match(/^(\d+(?:\.\d+)?)(.*)$/), mb = b.match(/^(\d+(?:\.\d+)?)(.*)$/);
-    return !!(ma && mb && parseFloat(ma[1]) === parseFloat(mb[1]) && ma[2].trim() === mb[2].trim());
-  }
+  var sameCell = V.sameCell; // so sánh ô dùng chung với core/importer.js (core/validate.js)
   // Q-12: cùng ngày + cùng hình thức = nhập trùng → cùng giá trị tính 1 lần (dupDays); khác giá trị → xung đột
   function mergeRows(a, b) {
     var out = Object.assign({}, a), conflicts = [], dupDays = [];
