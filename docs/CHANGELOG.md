@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [2.0.0-alpha.21] — 11/10/2026 — Quy chế lương HAK Group 2026 (engine 1.8.0)
+- **Chủ sở hữu duyệt: HAK, CNHAK, HAKQN cùng một quy chế lương** (R-68). Engine 1.8.0 thêm *Quy chế lương HAK Group 2026* — **mặc định** cho kỳ chưa chốt: (C1) lương thời gian trả đủ công đi làm, (C2) công chuẩn = số ngày − *Số ngày giảm trừ* (TG3 = 26 thay vì 22), (C3) công nhân sản phẩm chỉ hưởng lương thời gian cho công lễ / phép, (C4) bù bình quân tổ chỉ tính tiền sản lượng, (C5) công nhật tính tăng ca theo công thức mã tăng ca (× 50%), (C6) phụ cấp không ghi cách tính thì chia theo công, (C7) trừ KPCĐ 0,5% phần người lao động.
+- Kiểm bằng bảng lương thật CNHAK 9/2026 (chỉ trên máy kiểm thử, không đưa vào repo): **42/44 người khớp từng đồng**; 2 người lệch đúng phần thuế TNCN (Excel không trừ trên bảng lương — app vẫn trừ, chờ xác nhận Q-29).
+- **Tính lương → Quy chế tính lương**: chọn *Quy chế 2026* hoặc *Cách tính cũ (1.7)* để đối chiếu; lưu theo dữ liệu, cần quyền *Sửa danh mục*, ghi nhật ký. Bản chốt ghi quy chế đã dùng; kỳ đã chốt **không đổi số**; "Đối chiếu với dữ liệu hiện tại" dùng đúng quy chế lúc chốt.
+- Danh mục mã lương thêm cột **Số ngày giảm trừ** (TG3 4, TG4 2, CN2 4); nhập Excel nhận cả tên cột "Ngày giảm trừ". Báo cáo bảo hiểm có cột NLĐ.KPCĐ.
+- Sửa: "Lưu hồ sơ công ty" không còn xóa các trường ngoài form.
+- Test: 190 (+8 U-QC; hồi quy v1.3.0 / alpha.4 vẫn trùng 100% ở cách tính cũ), E2E (+3).
+
 ## [2.0.0-alpha.20] — 11/10/2026 — Đọc ảnh / PDF bảng chấm công, chấm cơm (OCR offline)
 - Menu **Nhập liệu hàng tháng → 📷 Đọc ảnh chấm công**: chọn **ảnh chụp (JPG, PNG) hoặc PDF quét** (nhiều file, PDF tối đa 30 trang). App tự xoay ảnh về đúng chiều, tìm các ô theo đường kẻ, đọc chữ / số từng ô bằng **Tesseract chạy offline trên máy** (không gửi ảnh ra mạng, không lưu ảnh), dựng **bảng xem như Excel** sửa được ngay trong app.
 - Đọc được 2 kiểu bảng: **dòng = người, cột = ngày 1…31** (có Tổng công / Tổng cơm, dòng Công / Tăng ca) và **dòng = ngày, cột = Công / Cơm** ("Lịch làm …", dòng TC). Tự nhận kỳ trong tiêu đề ("Tháng 09/2026"), tự gợi ý nhân viên theo tên (bỏ "anh / chú / cô"; không chắc thì để người dùng chọn).
