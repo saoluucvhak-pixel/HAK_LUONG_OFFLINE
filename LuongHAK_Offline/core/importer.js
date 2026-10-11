@@ -71,13 +71,7 @@
     if (mode !== "replace" && d.keep.length) t.push("giữ " + d.keep.length + " ô đang có vì ô trong file để trống");
     return t.join(" · ");
   }
-  /** 2 ô công "giống nhau": "1" = 1 = "1,0"; "1qc" = "1QC". */
-  function sameCell(x, y) {
-    var a = str(x).trim().toUpperCase().replace(",", "."), b = str(y).trim().toUpperCase().replace(",", ".");
-    if (a === b) return true;
-    var ma = a.match(/^(\d+(?:\.\d+)?)(.*)$/), mb = b.match(/^(\d+(?:\.\d+)?)(.*)$/);
-    return !!(ma && mb && parseFloat(ma[1]) === parseFloat(mb[1]) && ma[2].trim() === mb[2].trim());
-  }
+  var sameCell = V.sameCell; // so sánh ô dùng chung với core/integrity.js (core/validate.js)
   /**
    * Gộp 2 dòng chấm công cùng khóa (Kỳ + Mã NV + Hình thức công): hợp từng ô ngày.
    * Quy tắc Q-12 (chủ sở hữu xác nhận 10/10/2026): cùng ngày + cùng hình thức = NHẬP TRÙNG.
