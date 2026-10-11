@@ -83,7 +83,11 @@
     });
     db.schemaVersion = 2;
   }
-  if (!readOnly) ensureTables();
+  if (!readOnly) {
+    // Không để lỗi cấu trúc thoát ra làm sập cả app khi khởi động → chuyển sang chế độ chỉ xem / khôi phục (như bước chuyển đổi ở trên)
+    try { ensureTables(); }
+    catch (e) { loadError = { error: "Lỗi khi kiểm tra bảng dữ liệu: " + e.message + " — dữ liệu KHÔNG bị ghi đè", backups: store && store.listBackups ? store.listBackups() : [] }; readOnly = true; }
+  }
   var saveTimer = null, dirty = false;
   /** Ghi dữ liệu xuống nơi lưu bền vững. Trả true nếu chắc chắn đã lưu. */
   function saveNow() {
@@ -499,15 +503,19 @@
             if (!need(editPerm)) return;
             if (!theoKy && GRD.closedPeriods(db).length && !can("retro.edit")) { alert("⛔ Đã có kỳ lương chốt — chỉ Admin được dán hàng loạt vào danh mục (có thể hồi tố)."); return; }
             var lines = txt.replace(/\r/g, "").replace(/\n$/, "").split("\n"), start = def.cols.indexOf(c);
-            var bad = 0, skip = 0;
+            var bad = 0, skip = 0, retro = 0, retroKy = {};
             lines.forEach(function (ln, li) {
               var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
               ln.split("\t").forEach(function (v, k) { var col = def.cols[start + k]; if (col && col !== def.kyCol) { var nc = VAL.normCell(col, v); if (nc.error || (key === "chamcong" && /^\d\d$/.test(col) && VAL.dayCell(col, nc.value, cand["Kỳ"]).error)) { bad++; return; } cand[col] = nc.value; } });
               var pP = tgt == null ? REPO.plan("insert", key, null, cand, { what: "dán dữ liệu" }) : REPO.plan("update", key, db[key][tgt], cand, { what: "dán dữ liệu" });
-              if (!pP.ok || !REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }).ok) { skip++; return; }
+              var rP = pP.ok ? REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }) : pP;
+              if (!rP.ok) { skip++; return; }
+              // Danh mục chồng lên kỳ đã chốt: repository đã ghi nhật ký [HỒI TỐ] từng dòng — đếm lại để cảnh báo (không chặn)
+              if (rP.retro) { retro++; rP.impact.periods.forEach(function (p) { retroKy[p] = 1; }); }
               if (tgt == null) idx.push(db[key].length - 1);
             });
-            save(); draw(); toast("Đã dán " + (lines.length - skip) + " dòng" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : ""));
+            save(); draw(); toast("Đã dán " + (lines.length - skip) + " dòng" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") +
+              (retro ? " · ⚠ " + retro + " dòng hồi tố kỳ đã chốt " + Object.keys(retroKy).sort().map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi" : ""));
           });
           if (locked) inp.disabled = true;
           // Ngày không có trong tháng (VD 31/09): không cho nhập; nếu dữ liệu cũ có giá trị thì vẫn cho sửa để xóa
@@ -736,6 +744,9 @@
         if (!need("hr.edit", "sửa thông tin nhân viên")) return;
         var d = get(), miss = missingReq(HR.nhanvien.f, d);
         if (miss.length) { alert("Cần nhập: " + miss.join(", ")); return; }
+        // NV có trong bảng lương đã chốt → hỏi xác nhận hồi tố TRƯỚC khi ghi bất cứ gì (như hrForm / sửa ô / xóa dòng); Hủy = không lưu, không ghi nhật ký
+        var aNV = Object.assign({}, nv, d);
+        if (GRD.changedFields(nv, aNV).length && !guardChange("nhanvien", nv, aNV, "sửa thông tin cơ bản của " + (nv["Họ và tên"] || nv["Mã NV"]))) return;
         var old = nv["Mã NV"];
         if (d["Mã NV"] !== old) {
           if (db.nhanvien.some(function (r) { return r !== nv && r["Mã NV"] === d["Mã NV"]; })) { alert("Mã NV đã tồn tại"); return; }
