@@ -547,6 +547,23 @@ async function launch(dataDir, opt) {
     dialogs = []; await w.click('#main button:has-text("Kiểm tra OCR")');
     for (let i = 0; i < 40 && !dialogs.length; i++) await w.waitForTimeout(250);
     ok("Kiểm tra OCR trên máy: đọc thử được số", dialogs.some((m) => /OCR hoạt động/.test(m)), dialogs.join(" | "));
+    // Dừng đọc: chọn thêm 3 trang, bấm Dừng khi trang đầu đang đọc → trang sau không đọc (■), trang đã đọc giữ nguyên; Đọc lại từng trang được
+    {
+      const [fc2] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
+      await fc2.setFiles([path.join(FX, "lich-lam-doc-mau.png"), path.join(FX, "bang-cham-cong-mau.png"), path.join(FX, "bang-cham-cong-mau-pdfjs.png")]);
+      await w.waitForSelector('#main button:has-text("Dừng đọc")', { timeout: 20000 });
+      await w.click('#main button:has-text("Dừng đọc")');
+      let ended = false;
+      for (let i = 0; i < 120 && !ended; i++) { await w.waitForTimeout(500); ended = (await w.locator('#main button:has-text("Dừng đọc"), #main button:has-text("Đang dừng")').count()) === 0; }
+      const marks = await w.evaluate(() => [...document.querySelectorAll(".subtabs button .n")].map((e) => e.textContent));
+      const kept = marks.slice(0, 2).every((x) => /^\d+$/.test(x)), stopped = marks.slice(2).filter((x) => x === "■").length;
+      ok("Dừng đọc: dừng ngay, các trang chưa đọc đánh dấu ■, trang đã đọc trước đó giữ nguyên", ended && marks.length === 5 && kept && stopped >= 2 && !marks.includes("…"), JSON.stringify(marks));
+      await w.locator(".subtabs button").nth(4).click(); await w.waitForTimeout(200);
+      await w.click('#main .ocrpage button:has-text("Đọc lại")');
+      let n4 = ""; for (let i = 0; i < 120 && !/^\d+$/.test(n4); i++) { await w.waitForTimeout(500); n4 = await w.locator(".subtabs button .n").nth(4).innerText(); }
+      const s4 = n4 === "3" ? await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => tr.children[tr.children.length - 2].textContent)) : [];
+      ok("Trang đã dừng: bấm Đọc lại thì đọc được (3 dòng, đúng tổng)", n4 === "3" && s4.join("|") === "28,5|20|15", n4 + " " + s4.join("|"));
+    }
     ok("Không lỗi JavaScript ở Đọc ảnh chấm công", errs.length === 0, errs.join(" | "));
     await app.close();
   }

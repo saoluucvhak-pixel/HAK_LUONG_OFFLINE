@@ -139,6 +139,7 @@ Mọi báo cáo xuất được Excel.
 
 ## Đọc ảnh / PDF chấm công, chấm cơm (từ 2.0-alpha.20)
 1. **Nhập liệu hàng tháng → 📷 Đọc ảnh chấm công → 📂 Chọn ảnh / PDF…** (chọn được nhiều file). App đọc lần lượt từng trang, chạy hoàn toàn trên máy.
+   - Đang đọc mà muốn ngừng (chọn nhầm file, PDF dài): bấm **■ Dừng đọc**. Trang đã đọc xong giữ nguyên; trang chưa đọc có dấu ■ — mở thẻ đó, bấm **Đọc lại** khi cần.
 2. Mỗi trang 1 thẻ. Kiểm tra **Kỳ** (app tự lấy từ tiêu đề "Tháng 09/2026" nếu đọc được). Ảnh nằm ngang / ngược → bấm **↺ / ↻** để đọc lại.
 3. Lưới kết quả: cột **Nhân viên** đã gợi ý theo tên (dấu ≈ = gợi ý, % = độ khớp) — chọn lại nếu sai; dòng chưa chọn nhân viên tô xám. Cột **Loại**: Chấm công BT / TC, Suất cơm, hoặc bỏ qua dòng.
 4. Ô **vàng** = OCR không chắc; ô **?** = không đọc được — sửa trực tiếp; bấm vào ô để xem ảnh gốc của ô. Dòng **đỏ** = tổng tính khác tổng ghi trên giấy → xem lại.
