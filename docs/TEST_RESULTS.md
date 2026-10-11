@@ -1,5 +1,15 @@
 # TEST_RESULTS — Kết quả kiểm thử
 
+## 2.0.0-alpha.21 — Quy chế lương HAK Group 2026, engine 1.8.0 (11/10/2026, nhánh `claude/v2-quy-che-luong-2026`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **190/190** (+8 U-QC) |
+| Hồi quy công thức (v1.3.0, alpha.4) ở cách tính cũ | ✅ trùng 100% |
+| Đối chiếu bảng lương thật CNHAK 9/2026 (Power Query + DAX; chỉ trên máy kiểm thử, **không** đưa vào repo) | Quy chế 2026: ✅ **42/44** người khớp từng đồng; 2 người lệch đúng phần thuế TNCN (Excel không trừ trên bảng lương — Q-29). Cách tính cũ: 2/44 |
+| E2E Electron (xvfb, Linux) | ✅ **94/94** (+3) |
+| Windows thật | ⏳ chưa kiểm |
+
 ## 2.0.0-alpha.20 — Đọc ảnh / PDF chấm công bằng OCR offline (11/10/2026, nhánh `claude/v2-ocr-cham-cong`)
 | Nhóm | Kết quả |
 |---|---|

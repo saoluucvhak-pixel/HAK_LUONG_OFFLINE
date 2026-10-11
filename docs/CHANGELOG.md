@@ -6,7 +6,7 @@
 - **Tính lương → Quy chế tính lương**: chọn *Quy chế 2026* hoặc *Cách tính cũ (1.7)* để đối chiếu; lưu theo dữ liệu, cần quyền *Sửa danh mục*, ghi nhật ký. Bản chốt ghi quy chế đã dùng; kỳ đã chốt **không đổi số**; "Đối chiếu với dữ liệu hiện tại" dùng đúng quy chế lúc chốt.
 - Danh mục mã lương thêm cột **Số ngày giảm trừ** (TG3 4, TG4 2, CN2 4); nhập Excel nhận cả tên cột "Ngày giảm trừ". Báo cáo bảo hiểm có cột NLĐ.KPCĐ.
 - Sửa: "Lưu hồ sơ công ty" không còn xóa các trường ngoài form.
-- Test: 190 (+8 U-QC; hồi quy v1.3.0 / alpha.4 vẫn trùng 100% ở cách tính cũ), E2E (+3).
+- Test: 190 (+8 U-QC; hồi quy v1.3.0 / alpha.4 vẫn trùng 100% ở cách tính cũ), E2E 94/94 (+3).
 
 ## [2.0.0-alpha.20] — 11/10/2026 — Đọc ảnh / PDF bảng chấm công, chấm cơm (OCR offline)
 - Menu **Nhập liệu hàng tháng → 📷 Đọc ảnh chấm công**: chọn **ảnh chụp (JPG, PNG) hoặc PDF quét** (nhiều file, PDF tối đa 30 trang). App tự xoay ảnh về đúng chiều, tìm các ô theo đường kẻ, đọc chữ / số từng ô bằng **Tesseract chạy offline trên máy** (không gửi ảnh ra mạng, không lưu ảnh), dựng **bảng xem như Excel** sửa được ngay trong app.
