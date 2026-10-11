@@ -5,7 +5,7 @@ const rules = { "no-undef": "error", "no-dupe-keys": "error", "no-unreachable": 
 module.exports = [
   { ignores: ["xlsx.full.min.js", "exceljs.min.js", "vendor/**", "dist/**", "node_modules/**", "tests/regression/baseline_v1.3.0/**", "tests/regression/baseline_2.0.0-alpha.4/**"] },
   { files: ["app.js", "engine.js", "hr.js", "core/**/*.js", "ui/**/*.js"], languageOptions: { ecmaVersion: 2018, sourceType: "script", globals: browserGlobals }, rules },
-  { files: ["main.js", "preload.js", "main/**/*.js", "tests/**/*.js", "eslint.config.js"], languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: nodeGlobals }, rules },
+  { files: ["main.js", "preload.js", "main/**/*.js", "ocr/**/*.js", "tests/**/*.js", "eslint.config.js"], languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: nodeGlobals }, rules },
   // các hàm truyền vào page.evaluate chạy trong cửa sổ app
   { files: ["tests/e2e/**/*.js"], languageOptions: { globals: Object.assign({}, nodeGlobals, { window: "readonly", localStorage: "readonly" }) } }
 ];

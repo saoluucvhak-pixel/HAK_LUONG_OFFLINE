@@ -68,3 +68,10 @@ test("I-OCR-03 lịch làm dọc, nét '1' viết tay: Công 30 / Cơm 28 khớp
   assert.notStrictEqual(r2.rot, 0, "phải tự xoay lại");
   check(r2);
 });
+
+test("I-OCR-04 trang PDF do pdf.js vẽ (nền xám nhạt, nhiễu nén JPEG, khử răng cưa): vẫn đọc đúng từng ô '1'", { timeout: 120000 }, async () => {
+  // ảnh = trang bang-cham-cong-mau.pdf do app vẽ bằng pdf.js (2400 điểm) — trước α20 bản sửa: "1" đọc thành 9 / 3 / 5
+  const r = await TO.analyze(readGrayPNG(path.join(FIX, "bang-cham-cong-mau-pdfjs.png")), host);
+  assert.deepStrictEqual(r.table.lines.map((l) => l.sum), [28.5, 20, 15]);
+  r.table.lines.forEach((l) => assert.ok(l.check[0] && l.check[0].ok && l.unreadable === 0));
+});

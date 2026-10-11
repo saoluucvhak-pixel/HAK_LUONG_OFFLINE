@@ -125,6 +125,7 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 | I-OCR-01 | Tesseract offline + dữ liệu ngôn ngữ đóng gói chạy được (tự kiểm "12") |
 | I-OCR-02 | Bảng in người × ngày: đúng 3 tên, từng ngày (cả 0,5), khớp Tổng công, nhận kỳ 09/2026 |
 | I-OCR-03 | Lịch làm dọc nét "1" viết tay: Công 30 / Cơm 28 khớp TC; ảnh xoay 90° tự nhận đúng chiều |
+| I-OCR-04 | Trang PDF do pdf.js vẽ (nền xám nhạt, nhiễu JPEG): đọc đúng mọi ô (hồi quy lỗi "1" → 9 / 3 / 5) |
 
 E2E (α19): nhập file mẫu công cụ (4 phiếu) · chia T1 5 · T2 15 · T3 13 · T4 12 tấn (vắng, đã nghỉ việc) · bù bậc thang 140.000 · file Excel đủ sheet như công cụ · Tải file mẫu = mẫu công cụ · ExcelJS chạy với CSP.
 

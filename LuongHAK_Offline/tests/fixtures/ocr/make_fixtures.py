@@ -56,4 +56,5 @@ def vertical_img():
 a = table_img(); a.save(os.path.join(OUT, "bang-cham-cong-mau.png"), optimize=True)
 b = vertical_img(); b.save(os.path.join(OUT, "lich-lam-doc-mau.png"), optimize=True)
 a.convert("RGB").save(os.path.join(OUT, "bang-cham-cong-mau.pdf"), "PDF", resolution=150)
+# bang-cham-cong-mau-pdfjs.png = trang PDF trên do app vẽ bằng pdf.js (lấy từ canvas trong app, chuyển xám) — dùng cho I-OCR-04
 print("ok", a.size, b.size)

@@ -39,8 +39,8 @@ function createOcrService(opts) {
   const wopts = () => {
     const o = { langPath, cacheMethod: "none", gzip: true };
     try {
-      const tdir = path.dirname(require.resolve("tesseract.js/package.json")), cdir = path.dirname(require.resolve("tesseract.js-core/package.json"));
-      o.workerPath = unpacked(path.join(tdir, "src", "worker-script", "node", "index.js"));
+      const cdir = path.dirname(require.resolve("tesseract.js-core/package.json"));
+      o.workerPath = unpacked(path.join(opts.appDir || path.join(__dirname, ".."), "ocr", "worker.js")); // bọc worker gốc (xem ocr/worker.js)
       o.corePath = unpacked(cdir);
     } catch (e) { /* để thư viện tự tìm */ }
     return o;

@@ -16,7 +16,12 @@
     var rot = G.rotate90(sub, cw, ch, k || 0), s = Math.min(6, Math.max(1, targetH / rot.h)), z = G.resize(rot.g, rot.w, rot.h, s);
     pad = pad == null ? 10 : pad;
     var W = z.w + 2 * pad, H = z.h + 2 * pad, o = new Uint8Array(W * H).fill(255);
-    for (y = 0; y < z.h; y++) for (x = 0; x < z.w; x++) o[(y + pad) * W + x + pad] = z.g[y * z.w + x];
+    var hist = new Uint32Array(256), n = z.w * z.h, lo = 255;
+    for (var i = 0; i < n; i++) { hist[z.g[i]]++; if (z.g[i] < lo) lo = z.g[i]; }
+    var acc = 0, hi = 255; for (var v = 0; v < 256; v++) { acc += hist[v]; if (acc >= n * 0.6) { hi = v; break; } } // nền ≈ phân vị 60%
+    var cut = hi - (hi - lo) * 0.15, span = Math.max(1, cut - lo);
+    // kéo giãn tương phản: nền (xám nhạt, nhiễu nén JPEG / khử răng cưa của PDF) → trắng; nét → đậm. Tesseract đọc ô 1 chữ số kém nếu nền không sạch.
+    for (y = 0; y < z.h; y++) for (x = 0; x < z.w; x++) { var g0 = z.g[y * z.w + x]; o[(y + pad) * W + x + pad] = hi - lo < 40 ? g0 : g0 >= cut ? 255 : Math.round((g0 - lo) / span * 255); }
     return { w: W, h: H, data: o };
   }
   function letters(t) { return (String(t || "").match(/[A-Za-zÀ-ỹ]/g) || []).length; }
@@ -106,6 +111,7 @@
             if (!c.ink) { c.num = null; return; }
             var n = G.parseCellNumber(c.text);
             if ((n == null || isNaN(n) || n === 0) && c.src === "digit" && G.looksLikeOne(G.inkComponents(clean.b, r.w, c.bb), c.y1 - c.y0)) { n = 1; c.text = "1"; c.conf = 40; c.src = "nét"; }
+            if (!c.wide && typeof n === "number" && n > 31) n = NaN; // ô hẹp > 31 (không phải ngày, không thể là công 1 ngày) = đọc sai → "?"
             c.num = n == null ? (letters(c.text) ? null : NaN) : n;
           });
           say("Đang dựng bảng…");
