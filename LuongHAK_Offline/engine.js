@@ -336,7 +336,9 @@
       if (cChuan > 0) {
         if ((maTL1 === "CN1" || maTL1 === "CN2") && qc2026) { // 2026 (C5): công nhật tính tăng ca theo công thức của mã tăng ca, công chuẩn = số ngày − Số ngày giảm trừ
           if (dmT) { var ccCN = new Date(nam, thang, 0).getDate() - ngayGiamTru(dmLuong[maTL1]); tienTC = Math.round(luongTT * heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, ccCN, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2)); }
-        } else if (maTL1 === "CN1" || maTL1 === "CN2") tienTC = Math.round(luongTT * c.congTangCa);
+        } else if (maTL1 === "CN1" || maTL1 === "CN2") { // chủ sở hữu xác nhận (sau khi đối chiếu M thật QR_LUONGTG."Lương tăng ca"): CN1/CN2 PHẢI nhân hệ số mã tăng ca như mọi loại lương khác, không phải trường hợp riêng — không phân biệt quy chế 2026
+          if (dmT) tienTC = Math.round(luongTT * heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2));
+        }
         else if (ns["Mã tăng ca"] === "TC5" && dmT) tienTC = Math.round(money(dmT["Tiền tăng ca (nếu tính cố định)"]) / cChuan * c.congTangCa);
         else if (dmT) tienTC = Math.round(donGiaTG * heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2));
       }
