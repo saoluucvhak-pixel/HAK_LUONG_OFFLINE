@@ -34,6 +34,14 @@ test("U-QC-01 (C2) công chuẩn = số ngày − Số ngày giảm trừ; 'tấ
   assert.equal(E.ngayGiamTru({ "Ngày giảm trừ": 5, "Cách tính": "" }), 5); // tên cột cũ trong Excel
 });
 
+test("U-QC-01b (C2) 'Cách tính' đúng y nguyên \"Số ngày của tháng\" (không hậu tố \"-N\") VẪN phải trừ \"Số ngày giảm trừ\" nếu cột đó có khai — lỗi thật đã phát hiện: return sớm ở nhánh literal-match khiến quy tắc qc2026 không bao giờ chạy tới cho trường hợp này", () => {
+  const L = { "Mã lương": "TG2x", "Cách tính": "Số ngày của tháng", "Số ngày giảm trừ": 2 };
+  assert.equal(E.congChuan(L, 9, 2026, 20, true), 28); // 30 − 2, đúng quy tắc "các cách khác = số ngày của tháng − Số ngày giảm trừ"
+  assert.equal(E.congChuan(L, 9, 2026, 20, false), 30); // cách cũ (1.7, không bật qc2026): không đổi, vẫn = 30
+  // Không khai "Số ngày giảm trừ" (như TG2 thật trong danh mục) → không trừ gì, vẫn = 30 (hành vi cũ giữ nguyên)
+  assert.equal(E.congChuan({ "Mã lương": "TG2", "Cách tính": "Số ngày của tháng" }, 9, 2026, 20, true), 30);
+});
+
 test("U-QC-02 (C1) lương thời gian trả đủ công đi làm, không cắt ở công chuẩn", () => {
   const s = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000" })], ex = { chamcong: [cc("NV", "BT", allDays(1))] };
   assert.equal(row(run(s, ex, Q))["Lương thời gian"], Math.round(9000000 / 26 * 30)); // 10.384.615

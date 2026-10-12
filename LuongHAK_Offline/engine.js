@@ -112,7 +112,10 @@
     var text = dmLuongInfo ? String(dmLuongInfo["Cách tính"] || "").toLowerCase() : "";
     var n = new Date(nam, thang, 0).getDate();
     if (/thực tế/.test(text)) { if (qc2026) { var kCN = n - ngayGiamTru(dmLuongInfo); return kCN > 0 ? kCN : 26; } return congThucTe > 0 ? congThucTe : 26; } // 2026 (C9): công nhật — công chuẩn = số ngày − Số ngày giảm trừ (tăng ca, phụ cấp, hỗ trợ); lương vẫn = đơn giá × công
-    if (/^\s*số ngày của tháng\s*$/.test(text)) return n;
+    // ⚠ LỖI THẬT ĐÃ PHÁT HIỆN VÀ SỬA: return sớm ở đây (không điều kiện qc2026) khiến mã lương có "Cách tính" ĐÚNG Y NGUYÊN
+    // "Số ngày của tháng" (không hậu tố "-N") không bao giờ chạy tới nhánh qc2026 bên dưới — "Số ngày giảm trừ" khai riêng ở
+    // cột (không qua hậu tố "-N" trong text) bị bỏ qua hoàn toàn. Chỉ giữ return sớm này cho cách tính CŨ (1.7, !qc2026).
+    if (!qc2026 && /^\s*số ngày của tháng\s*$/.test(text)) return n;
     var cn = 0; for (var d = 1; d <= n; d++) if (new Date(nam, thang - 1, d).getDay() === 0) cn++;
     if (qc2026 && !/ch[ủu] nh[ậa]t|ngày cn/.test(text)) { var k26 = n - ngayGiamTru(dmLuongInfo); return k26 > 0 ? k26 : 26; }
     var kq = n - cn, m = text.match(/-\s*(\d+)\s*$/);
