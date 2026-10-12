@@ -199,6 +199,7 @@ App chỉ tạo bản mới khi dữ liệu đã thay đổi. App offline nên c
 - Nhập đơn: **Nhân sự → nhân viên → Hợp đồng lao động → chọn hợp đồng → tab Quyền lợi phép / Nghỉ phép / Nghỉ ốm** (hoặc file mẫu Excel). Theo dõi: **Báo cáo nhân sự → Nghỉ phép / ốm** (phép được cấp, đã nghỉ, còn lại — chỉ đơn *Đã duyệt*).
 - Lương **vẫn lấy từ Chấm công**: phép có lương chấm dòng **PN**; nghỉ không lương / nghỉ ốm không chấm công.
 - **Nghỉ không lương** (từ 2.0-alpha.22): nhập đơn *Nghỉ phép* → Loại nghỉ **Nghỉ không hưởng lương**, *Đã duyệt*. **Không** cho nghỉ việc (không ghi ngày chấm dứt hợp đồng). Chưa biết ngày đi làm lại thì **để trống Đến ngày**; khi người đó đi làm lại thì nhập Đến ngày.
+- **Chia sản lượng theo chấm công** (từ 2.0-alpha.22): ngày nào người trong tổ có **công > 0** (0,3 hay 1 như nhau) thì được chia đều; **công = 0 / trống** thì không được chia và app cảnh báo khi tính lương. Vẫn trừ người ghi ở **NV vắng** trên phiếu. Nhớ **nhập chấm công trước khi tính lương** — ngày cả tổ chưa có chấm công thì app chia theo NV vắng và nhắc nhập chấm công.
 - Người có đơn nghỉ **đã duyệt** (mọi loại) **tự không nhận sản lượng / bơm dăm** của tổ những ngày nghỉ — không cần ghi NV vắng trên phiếu.
 - Khi tính lương, khung *Hồ sơ cần bổ sung* báo **[Nghỉ phép/ốm]** nếu đơn và chấm công lệch nhau (ngày cụ thể) hoặc còn đơn *Chờ duyệt* — sửa chấm công hoặc đơn rồi tính lại. App không tự sửa chấm công.
 

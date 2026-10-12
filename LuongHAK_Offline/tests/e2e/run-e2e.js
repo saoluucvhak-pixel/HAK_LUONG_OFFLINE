@@ -487,8 +487,9 @@ async function launch(dataDir, opt) {
       XLSX.utils.sheet_to_json(wb2.Sheets["Chi tiet cong nhan"], { header: 1 }).forEach((r) => { if (/^T\d$/.test(r[2])) tan[r[2]] = r[r.length - 1]; });
       XLSX.utils.sheet_to_json(wb2.Sheets["Tien luong va bu luong"], { header: 1 }).forEach((r) => { if (/^T\d$/.test(r[2])) bu[r[2]] = r[r.length - 2]; });
     }
-    ok("Chia phiếu theo tổ như công cụ: trừ NV vắng, người đã nghỉ việc không nhận — T1 5 · T2 15 · T3 13 · T4 12 tấn; phiếu mã tổ lạ chưa phân bổ",
-      tan.T1 === 5 && tan.T2 === 15 && tan.T3 === 13 && tan.T4 === 12 && /09\.99/.test(pbTxt) && /chưa phân bổ/.test(pbTxt), JSON.stringify(tan));
+    // R-73: ngày 02/10 chỉ T3 có công (0,5) mà phiếu P3 ghi vắng Hùng (T3) → T1, T2, T4 công 0 = nghỉ → P3 6 tấn chưa phân bổ
+    ok("Chia phiếu theo tổ như công cụ: trừ NV vắng, người đã nghỉ việc / công = 0 không nhận — T1 3 · T2 13 · T3 13 · T4 10 tấn; P3 (không ai có công) và phiếu mã tổ lạ chưa phân bổ",
+      tan.T1 === 3 && tan.T2 === 13 && tan.T3 === 13 && tan.T4 === 10 && /09\.99/.test(pbTxt) && /chưa phân bổ/.test(pbTxt), JSON.stringify(tan));
     ok("Bù lương theo ngày bậc thang (Đại Hiệp): T2, T3 ngày 01 (1 công BT, 10 tấn) bù 140.000; T1 không có công BT ngày có SL → 0",
       bu.T2 === 140000 && bu.T3 === 140000 && bu.T1 === 0, JSON.stringify(bu));
     ok("File Excel đủ sheet như công cụ", sheets === "Huong dan su dung|Tong hop phong ban|Phan bo theo phong ban|Chi tiet cong nhan|Doi soat phieu can|Tien luong va bu luong|Du lieu - Khoi luong", sheets);

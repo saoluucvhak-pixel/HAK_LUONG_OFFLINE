@@ -4,7 +4,7 @@
 | Nhóm | Kết quả |
 |---|---|
 | Lint | ✅ 0/0 |
-| `npm test` | ✅ **209/209** (+U-PA-11 / U-LV-07 / U-GRD-06 người nghỉ có đơn — R-72; +1 U-PA-10 gộp cảnh báo NV vắng; +1 U-QC-12 làm tròn sản lượng — R-71; +2 U-TAX thuế theo mã — R-70; +6 U-OCR, +2 I-OCR chạy Tesseract thật trên ảnh mẫu giả lập) |
+| `npm test` | ✅ **211/211** (+U-PA-12/13 chia theo chấm công — R-73; +U-PA-11 / U-LV-07 / U-GRD-06 người nghỉ có đơn — R-72; +1 U-PA-10 gộp cảnh báo NV vắng; +1 U-QC-12 làm tròn sản lượng — R-71; +2 U-TAX thuế theo mã — R-70; +6 U-OCR, +2 I-OCR chạy Tesseract thật trên ảnh mẫu giả lập) |
 | E2E Electron (xvfb, Linux) | ✅ **95/95** (+1: Cách đọc ô Dấu x trên bảng tay 2 khối) |
 | Ảnh viết tay thật của người dùng (chỉ trên máy kiểm thử, **không** đưa vào repo) | ⚠ Bảng dấu x 2 khối rõ nét: đúng các ngày có dấu. Bảng có ô ghi giờ, ghi chú: còn ô đếm sai (4–8 dấu) → tô vàng khi > 3. Bảng có dòng con Ngày / Đêm: chỉ nhận 1 khối. Lịch ca viết tay: nhiều ô "?". 1 ảnh không phải bảng kẻ ô: không đọc. **Cần soát tay.** |
 | Windows thật | ⏳ chưa kiểm |

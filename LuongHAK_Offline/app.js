@@ -1201,7 +1201,10 @@
     slK.alloc.warnings.forEach(function (w) { kq.canhbao.push("Sản lượng — " + w); });
     // α22: người có đơn nghỉ đã duyệt (mọi loại) tự không nhận phiếu ngày nghỉ — ghi rõ để kế toán thấy
     var dmN = function (x) { return x.slice(8, 10) + "/" + x.slice(5, 7); };
-    [["Sản lượng", slK], ["Bơm dăm", bdK]].forEach(function (p) { (p[1].alloc.nghi || []).forEach(function (x) { kq.canhbao.push(p[0] + " — " + x.hoTen + " (" + x.ma + "): " + x.loai + " (đơn đã duyệt) — không chia " + x.ngay.length + " ngày cân " + dmN(x.ngay[0]) + (x.ngay.length > 1 ? " → " + dmN(x.ngay[x.ngay.length - 1]) : "")); }); });
+    [["Sản lượng", slK], ["Bơm dăm", bdK]].forEach(function (p) { (p[1].alloc.nghi || []).forEach(function (x) {
+      if (x.khongCong) kq.canhbao.push(p[0] + " — " + x.hoTen + " (" + x.ma + "): công = 0 / trống " + x.ngay.length + " ngày có phiếu của tổ (" + x.ngay.slice(0, 8).map(dmN).join(", ") + (x.ngay.length > 8 ? "…" : "") + ") — coi như nghỉ nguyên ngày, KHÔNG chia sản lượng các ngày này; kiểm tra lại chấm công");
+      else kq.canhbao.push(p[0] + " — " + x.hoTen + " (" + x.ma + "): " + x.loai + " (đơn đã duyệt) — không chia " + x.ngay.length + " ngày cân " + dmN(x.ngay[0]) + (x.ngay.length > 1 ? " → " + dmN(x.ngay[x.ngay.length - 1]) : ""));
+    }); });
     bdK.alloc.warnings.forEach(function (w) { kq.canhbao.push("Bơm dăm — " + w); });
     kq.cheDoBu = String(st.bu); kq.quyChe = qc;
     var by = {}; sp.list.forEach(function (x) { by[x["Mã nhân viên"]] = x; });

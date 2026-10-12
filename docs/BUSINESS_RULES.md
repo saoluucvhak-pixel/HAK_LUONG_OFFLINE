@@ -137,6 +137,13 @@
   - Lương vẫn theo chấm công. BH theo ngưỡng công (R-57). Phép có lương vẫn trả theo C3.
   - Đơn nghỉ phủ kỳ đã chốt: sửa = hồi tố (chỉ Admin). Bản chốt lưu kèm đơn nghỉ phủ kỳ.
   - Excel NL_NHANSU dùng chung cột "Ngày nghỉ/thay đổi" cho cả nghỉ việc lẫn nghỉ không lương. Bộ chuyển đổi coi là nghỉ việc; trường hợp nghỉ không lương phải sửa tay như ông Đức (CNHAK 9/2026).
+- R-73 (chủ sở hữu 12/10/2026: "1. nếu công > 0 thì sẽ chia sản lượng … không quan tâm là 0,5 hay 0,3; 2. nếu công = 0 thì cảnh báo và coi như nghỉ nguyên ngày và không được chia sản lượng"; "chia theo danh sách nghỉ") **Chia sản lượng / bơm dăm theo chấm công**:
+  - Người của tổ có **công > 0** ngày cân ở hình thức công đi làm (mọi hình thức trừ PN phép, CL lễ, CC tiền cơm) → được chia **đều** (0,3 hay 1 công như nhau).
+  - **Công = 0 / trống** → không chia, có cảnh báo (coi như nghỉ nguyên ngày).
+  - Vẫn trừ người ghi trong **NV vắng** trên phiếu (danh sách nghỉ) và người có đơn nghỉ đã duyệt (R-72).
+  - Ngày mà **cả tổ chưa có chấm công** (chấm công chưa nhập) → chia theo NV vắng như trước, có cảnh báo "chưa có chấm công".
+  - So tên vắng trên cả người đã loại: có dấu trước ("Tưởng" ≠ "Tường").
+  - So với Excel cũ (Excel chỉ dựa NV vắng): Đại Hiệp 8/2026 không đổi; CNHAK 9/2026, HAKQN 7/2026, HAK ĐN 11/2025 có vài người nhận phiếu ngày công trống nên số đổi (tối đa −341.953đ / người — HAKQN).
 
 ## 2. Câu hỏi mở — cần chủ sở hữu / kế toán xác nhận
 Phase 1 **giữ nguyên** hành vi hiện tại cho đến khi có xác nhận.
