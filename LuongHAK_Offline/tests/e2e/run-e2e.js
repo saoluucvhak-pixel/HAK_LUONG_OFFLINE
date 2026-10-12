@@ -672,6 +672,32 @@ async function launch(dataDir, opt) {
   } else ok("Có bản sao lưu để khôi phục", false);
   await app.close();
 
+  // ---- Checklist 20 điểm trước khi chốt kỳ (Master Prompt V3 mục XVIII) ----
+  // Đặt ở CUỐI (sau mọi test dùng chung DATA): chốt thêm kỳ 10/2026 ở đây để không ảnh hưởng các test
+  // phía trên vốn giả định chỉ kỳ 9/2026 đã chốt (VD A3-01 dùng phụ lục hiệu lực 10/2026 — chưa chốt).
+  { // Thêm NV riêng (không đụng NV001 — đã có nhiều phụ lục chồng chéo từ các test trước) với Mã tăng ca sai để lộ 1 điểm "cảnh báo"
+    const f = path.join(DATA, "data.json"), d0 = JSON.parse(fs.readFileSync(f, "utf8"));
+    d0.nhanvien.push({ _id: "zchk1", "Mã NV": "ZCHK1", "Họ và tên": "E2E Checklist", "Trạng thái": "Đang làm việc" });
+    d0.hopdong.push({ _id: "zchk1hd", "Mã NV": "ZCHK1", "Số HĐLĐ": "ZCHK1/HĐ01", "Hình thức HĐLĐ": "Xác định thời hạn", "Ngày vào làm": "2026-01-01" });
+    d0.chitiethd.push({ _id: "zchk1pl", "Mã NV": "ZCHK1", "Số HĐLĐ": "ZCHK1/HĐ01", "Hiệu lực từ": "2026-01-01", "Mã lương": "TG1", "Lương thỏa thuận": "9000000", "Thuế TNCN": "MT00", "HTTT": "Tiền mặt", "Tăng ca": "TC_KHONG_TON_TAI" });
+    d0.chamcong.push({ "Kỳ": "2026-10", "Mã NV": "ZCHK1", "Hình thức công": "BT", "01": "1" });
+    fs.writeFileSync(f, JSON.stringify(d0));
+    ({ app, w, errs } = await launch());
+    await w.click("#nav button[data-k=luong]");
+    await w.selectOption("#top select", "10"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(200);
+    await w.click("button.big"); await w.waitForTimeout(200);
+    await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
+    const ckTxt = await w.locator(".dlg").innerText();
+    ok("Checklist trước khi chốt (mục XVIII): hiện đúng 20 điểm, báo mã tăng ca 'TC_KHONG_TON_TAI' chưa có trong danh mục",
+      /20 điểm|cảnh báo trên 20 điểm/.test(ckTxt) && /TC_KHONG_TON_TAI/.test(ckTxt), ckTxt.replace(/\s+/g, " ").slice(0, 300));
+    // Nút tiếp tục đổi nhãn/màu theo mức độ (còn LỖI thật từ sản lượng chưa phân bổ hết ở các test trước đó → nút đỏ)
+    await w.click('.dlg footer button:has-text("tiếp tục chốt"), .dlg footer button:has-text("Vẫn chốt dù còn LỖI")'); await w.waitForSelector(".dlg");
+    ok("Sau khi xác nhận checklist, vào đúng hộp xác nhận chốt kỳ như cũ", /Chốt Tháng 10\/2026|Chốt kỳ/.test(await w.locator(".dlg header h3").innerText()));
+    await w.locator(".dlg input").fill("Chốt E2E checklist"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
+    ok("Chốt được kỳ 10/2026 sau khi xem checklist", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
+    await app.close();
+  }
+
   // Cấu trúc dữ liệu nguy hiểm → chỉ xem/khôi phục, file KHÔNG bị đổi 1 byte (bản 1.4.0 thay bảng sai kiểu bằng bảng rỗng)
   for (const [label, bad] of [["bảng Nhân viên sai kiểu", { schemaVersion: 2, nhanvien: { NV001: { "Họ và tên": "A" } }, chamcong: [] }],
     ["file của phiên bản mới hơn (schemaVersion 3)", { schemaVersion: 3, nhanvien: [{ "Mã NV": "NV001" }], bangmoi: [{ x: 1 }] }]]) {

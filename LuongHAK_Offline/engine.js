@@ -349,6 +349,7 @@
 
       // Tăng ca
       var dmT = dmTC[ns["Mã tăng ca"]] || null, tienTC = 0, congTCQuyDoi = 0;
+      if (!dmT && ns["Mã tăng ca"]) out.canhbao.push(ma + ": mã tăng ca '" + ns["Mã tăng ca"] + "' chưa có trong Danh mục tăng ca (hoặc hết hiệu lực) — Tiền tăng ca = 0đ, kiểm tra lại danh mục");
       // Nhãn chấm công chứa "DQ" → Công chuẩn 2 = 40, dùng thay Công chuẩn khi tính TC2 (công thức M thật HAK_DN)
       var congChuan2 = Object.keys(c.nhanTheoNgay).some(function (k) { return /DQ/i.test(c.nhanTheoNgay[k]); }) ? 40 : 0;
       if (cChuan > 0) {
@@ -393,7 +394,7 @@
       // Phụ cấp công tác theo nhãn chấm công
       var dem = {}, pcCT = 0;
       Object.keys(c.nhanTheoNgay).forEach(function (k) { var n = c.nhanTheoNgay[k]; if (n) dem[n] = (dem[n] || 0) + 1; });
-      Object.keys(dem).forEach(function (n) { if (dmPC[n]) pcCT += dem[n] * money(dmPC[n]["Số tiền"]); });
+      Object.keys(dem).forEach(function (n) { if (dmPC[n]) pcCT += dem[n] * money(dmPC[n]["Số tiền"]); else out.canhbao.push(ma + ": nhãn công tác '" + n + "' trên chấm công (" + dem[n] + " ngày) chưa có mã phụ cấp tương ứng trong Danh mục phụ cấp — phụ cấp công tác = 0đ cho nhãn này, kiểm tra lại danh mục"); });
 
       var p = ps[ma] || { "Thưởng": 0, "Thu nhập khác": 0, "Trừ khác": 0 }, u = ung[ma] || { "Tạm ứng": 0 };
       var tongTN = luongTG + luongPhu + luongSL + luongBu + luongBD + tienTC + tienPC + pcCT + luongHT + tienCom + p["Thưởng"] + p["Thu nhập khác"];

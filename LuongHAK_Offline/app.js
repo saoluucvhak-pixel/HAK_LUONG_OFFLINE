@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "luonghak_db_v1";
-  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile;
+  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
 
   // ---------- Định nghĩa bảng ----------
@@ -1228,6 +1228,32 @@
     };
   }
   function exportAll(r, ky) { var x = excelSheets(r, ky); saveXlsx("KyLuong_" + ky + ".xlsx", [x.bl, x.bh, x.tn, x.ck]); }
+  /**
+   * Checklist 20 điểm trước khi chốt kỳ (Master Prompt V3 mục XVIII). Chỉ hiện khi có điểm cần xem
+   * (lỗi hoặc cảnh báo) — dữ liệu sạch thì bỏ qua thẳng, không thêm bước cho trường hợp bình thường.
+   * onContinue() chỉ được gọi khi người dùng chủ động xác nhận tiếp tục (hoặc không có gì phải xem).
+   */
+  function preChotChecklist(fresh, onContinue) {
+    if (!PCC) { onContinue(); return; }
+    var slA = pbAlloc(st.nam, st.thang, "sanluong"), bdA = pbAlloc(st.nam, st.thang, "bandam");
+    var ck = PCC.run({ db: db, kq: fresh, slAlloc: slA, bdAlloc: bdA, quyChe: quyChe() });
+    if (!ck.loiCount && !ck.canhbaoCount) { onContinue(); return; }
+    var ICON = { ok: "✔", canhbao: "⚠", loi: "⛔" };
+    var body = h("div");
+    body.appendChild(h("div", { class: ck.loiCount ? "warn" : "hint", html: "Checklist trước khi chốt kỳ (Master Prompt mục XVIII) — <b>" + ck.loiCount + " lỗi</b>, <b>" + ck.canhbaoCount + "</b> cảnh báo trên 20 điểm. Lỗi nên xử lý TRƯỚC khi chốt; cảnh báo có thể chốt nếu đã kiểm tra là đúng." }));
+    var t = h("table");
+    ck.items.forEach(function (x) {
+      var tr = h("tr");
+      tr.appendChild(h("td", { text: ICON[x.trangThai] + " " + x.id }));
+      tr.appendChild(h("td", { class: "t", html: "<b>" + esc(x.ten) + "</b>" + (x.chiTiet.length ? "<br><span style='color:#6c7a74;font-size:12px'>" + x.chiTiet.slice(0, 5).map(esc).join("<br>") + (x.chiTiet.length > 5 ? "<br>…(" + (x.chiTiet.length - 5) + " dòng nữa)" : "") + "</span>" : "") }));
+      t.appendChild(tr);
+    });
+    body.appendChild(h("div", { class: "tw" }, [t]));
+    modal("Checklist trước khi chốt kỳ lương", body, function (close) {
+      return [btn("Hủy, để tôi kiểm tra lại", "", close),
+        btn(ck.loiCount ? "⚠ Vẫn chốt dù còn LỖI" : "Đã kiểm tra, tiếp tục chốt", ck.loiCount ? "red" : "pri", function () { close(); onContinue(); })];
+    });
+  }
   function chotKy() {
     if (!st.kq || !need("payroll.close")) return;
     var ky = kyStr();
@@ -1239,6 +1265,9 @@
       alert("Dữ liệu đã thay đổi sau lần tính trước. App đã TÍNH LẠI: " + now2.soNV + " NV, tổng thực lĩnh " + fmt(now2.thucLinh) + ".\nHãy kiểm tra lại rồi bấm Chốt lần nữa.");
       return;
     }
+    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); });
+  }
+  function chotKyTiep(ky, fresh, now2) {
     var w = fresh.canhbao.length, badDay = 0;
     db.chamcong.forEach(function (r) { if (VAL.normKy(r["Kỳ"]) === ky) DAYS.forEach(function (d) { if (VAL.dayCell(d, r[d], ky).error) badDay++; }); });
     askText("Chốt " + kyLabel(ky), now2.soNV + " nhân viên · Tổng thực lĩnh " + fmt(now2.thucLinh) + " đ" +

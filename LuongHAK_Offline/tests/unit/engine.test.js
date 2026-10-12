@@ -132,6 +132,21 @@ test("Master Prompt mục 4.5: có xe bơm dăm nhưng chưa có đơn giá bơm
   assert.ok(kq.canhbao.some((w) => /có bơm dăm.*chưa có đơn giá/.test(w)), kq.canhbao.join(" | "));
 });
 
+test("Giai đoạn 5.3 (checklist chốt kỳ #5): Mã tăng ca gán cho nhân viên nhưng không có trong Danh mục tăng ca → cảnh báo, không âm thầm Tiền tăng ca = 0", () => {
+  const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã tăng ca": "TC_LA" })], { chamcong: [ccRow("NV", 2026, 9, "TC", 1, 2)] });
+  assert.equal(row(kq)["Tiền tăng ca"], 0);
+  assert.ok(kq.canhbao.some((w) => /mã tăng ca 'TC_LA' chưa có trong Danh mục tăng ca/.test(w)), kq.canhbao.join(" | "));
+});
+
+test("Giai đoạn 5.3 (checklist chốt kỳ #15): nhãn công tác trên chấm công không có mã phụ cấp tương ứng → cảnh báo, không âm thầm bỏ qua", () => {
+  const db = baseDb();
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", "1XYZ", 3)];
+  const kq = E.tinhBangLuong(db, 2026, 9, false);
+  assert.equal(row(kq)["Phụ cấp công tác"], 0);
+  assert.ok(kq.canhbao.some((w) => /nhãn công tác 'XYZ'.*chưa có mã phụ cấp tương ứng/.test(w)), kq.canhbao.join(" | "));
+});
+
 test("Master Prompt mục 8.1: mã tăng ca MỚI khai 'Loại công thức' = TC3 → dùng đúng công thức TC3, không cần sửa engine", () => {
   const db = baseDb();
   db.dm_tangca.push({ "Mã tăng ca": "TC7", "Nội dung tăng ca": "Mã mới, dùng lại công thức TC3", "Loại công thức": "TC3", "Hệ số tăng ca": 0.5, "Hiệu lực từ": "2020-01-01" });
