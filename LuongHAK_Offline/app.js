@@ -1772,7 +1772,11 @@
     OCRS.stop = false; OCRS.reading = true; render();
     var todo = single ? [single.pg] : OCRS.pages.filter(function (p) { return !p.res && !p.err && !p.stopped; });
     return todo.reduce(function (p, pg) { return p.then(function () { if (OCRS.stop) { markStopped(pg); return; } return analyzePage(pg, single ? single.rot : undefined); }); }, Promise.resolve())
-      .then(function () { var st = OCRS.stop; OCRS.reading = false; OCRS.stop = false; render(); if (st) toast("Đã dừng đọc — trang đã đọc xong vẫn giữ nguyên"); });
+      // ⚠ "st" ĐÃ ĐỔI TÊN (trước là "var st = OCRS.stop;") — "st" là biến trạng thái
+      // render TOÀN CỤC của module (khai báo đầu file: "var st = { tab: ... }").
+      // Tên trùng che khuất biến toàn cục trong scope này — chưa gây lỗi vì không
+      // ai đọc "st" (toàn cục) ở đây, nhưng là cái bẫy cho người sửa code sau.
+      .then(function () { var wasStop = OCRS.stop; OCRS.reading = false; OCRS.stop = false; render(); if (wasStop) toast("Đã dừng đọc — trang đã đọc xong vẫn giữ nguyên"); });
   }
   function ocrNum(v) { var s0 = String(v == null ? "" : v).trim(); if (!s0) return null; var n = +s0.replace(",", "."); return isFinite(n) ? n : NaN; }
   function lineSum(L, days) { var s0 = 0, bad = 0; days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n == null) return; if (isNaN(n)) bad++; else s0 += n; }); return { sum: Math.round(s0 * 100) / 100, bad: bad }; }
@@ -1832,7 +1836,14 @@
     var w = h("div");
     if (!window.hakOcr) { w.appendChild(h("div", { class: "card" }, [h("div", { class: "warn", text: "Chỉ có trong bản cài (.exe) — OCR chạy offline trên máy." })])); return w; }
     var card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
-    bar.appendChild(btn("📂 Chọn ảnh / PDF…", "pri", function () {
+    // ⚠ LỖI THẬT ĐÃ PHÁT HIỆN VÀ SỬA: nút này trước đây KHÔNG BAO GIỜ bị khoá khi
+    // đang xử lý (OCRS.busy — đọc file thành trang ảnh; OCRS.reading — đang OCR
+    // từng trang) — bấm lại trong lúc đó mở thêm 1 luồng đọc file độc lập, rồi gọi
+    // readQueue() lần 2 chạy SONG SONG với luồng đầu trên CÙNG các trang (điều
+    // kiện lọc "chưa đọc" của readQueue() không phân biệt được 2 luồng), kết quả
+    // cuối phụ thuộc luồng nào ghi đè pg.res sau cùng. Khoá nút trong lúc đang xử
+    // lý — mở lại ngay khi cả 2 cờ về false (render() đã gọi ở mọi nơi đổi cờ).
+    var pickBtn = btn("📂 Chọn ảnh / PDF…", "pri", function () {
       var f = h("input", { type: "file", accept: "image/*,.pdf,application/pdf", multiple: "multiple" });
       f.addEventListener("change", function () {
         var files = Array.prototype.slice.call(f.files || []); if (!files.length) return;
@@ -1846,7 +1857,9 @@
           }, function (e) { OCRS.busy = false; OCRS.reading = false; alert("Không mở được file: " + e.message); render(); });
       });
       f.click();
-    }, "Ảnh chụp (JPG, PNG) hoặc PDF quét — nhiều file cùng lúc"));
+    }, "Ảnh chụp (JPG, PNG) hoặc PDF quét — nhiều file cùng lúc");
+    pickBtn.disabled = OCRS.busy || OCRS.reading;
+    bar.appendChild(pickBtn);
     bar.appendChild(h("label", { text: "Cách đọc ô " })); bar.appendChild(modeSel(OCRS.mode, "Cách đọc ô cho file mới", function (v) { OCRS.mode = v; }));
     if (OCRS.reading) bar.appendChild(btn(OCRS.stop ? "Đang dừng…" : "■ Dừng đọc", "red", function () { OCRS.stop = true; render(); }, "Dừng sau lô ô đang đọc; các trang đã đọc xong giữ nguyên, trang chưa đọc bấm Đọc lại sau"));
     if (OCRS.pages.length) {
