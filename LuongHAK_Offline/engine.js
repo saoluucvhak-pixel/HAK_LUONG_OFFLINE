@@ -352,16 +352,16 @@
       var tongTN = luongTG + luongPhu + luongSL + luongBu + luongBD + tienTC + tienPC + pcCT + luongHT + tienCom + p["Thưởng"] + p["Thu nhập khác"];
 
       // BHXH
-      var bh = dmBH[ns["Mã BHXH"]], luongBH = money(ns["Lương cơ bản"]) || (qc2026 ? 0 : luongTTMoi), bhNLD = 0, kpcdNLD = 0, truyThu = 0; // BH theo phụ lục đang hiệu lực (không chia theo Q-22)
+      var bh = dmBH[ns["Mã BHXH"]], luongBH = money(ns["Lương cơ bản"]) || (qc2026 ? 0 : luongTTMoi), bhNLD = 0, truyThu = 0; // BH theo phụ lục đang hiệu lực (không chia theo Q-22)
       if (bh && luongBH > 0 && luongBH < 1000) out.canhbao.push(ma + ": lương đóng BH = " + luongBH + "đ — quá nhỏ, kiểm tra lại 'Lương cơ bản' trong phụ lục hợp đồng");
       var khongLCB = !!(bh && qc2026 && !(luongBH > 0));
       if (khongLCB) { bh = null; out.canhbao.push(ma + ": có mã BHXH nhưng chưa có Lương cơ bản (mức đóng) — quy chế 2026 không tính BH / truy thu (như bảng lương Excel)"); } // 2026 (C8)
       if (bh) {
-        var tlNLD = num(bh["NLD.BHXH"]) + num(bh["NLD.BHYT"]) + num(bh["NLD.BHTN"]); // KPCĐ NLĐ tách riêng (xem kpcdNLD) — không gộp vào Cộng BH NLĐ đóng, đúng như báo cáo RP_BHXH thực tế (Tổng KPCD là cột riêng)
+        var tlNLD = num(bh["NLD.BHXH"]) + num(bh["NLD.BHYT"]) + num(bh["NLD.BHTN"]) + (qc2026 ? num(bh["NLD.KPCD"]) : 0); // 2026 (C7): trừ cả KPCĐ phần NLĐ
         var ng = dmL ? num(dmL["Ngưỡng truy thu BH (công)"]) : 0;
         var du2 = !ng || c.tongCong >= ng;
         var ctyDong = Math.round(luongBH * (num(bh["DN.BHXH"]) + num(bh["DN.BHYT"]) + num(bh["DN.BHTN"]) + num(bh["DN.KPCD"])));
-        if (du2) { bhNLD = Math.round(luongBH * tlNLD); kpcdNLD = Math.round(luongBH * num(bh["NLD.KPCD"])); } else truyThu = ctyDong; // KPCĐ NLĐ áp dụng luôn, không chỉ qc2026 (dữ liệu thực tế T11/2025 đã trừ trước khi quy chế 2026 được duyệt)
+        if (du2) bhNLD = Math.round(luongBH * tlNLD); else truyThu = ctyDong;
         var bhRow = {
           "Mã NV": ma, "Họ và tên": ns["Họ và tên"], "Phòng ban": (pb[ns["Mã PB"]] || {})["Tên phòng ban"] || ns["Mã PB"] || "",
           "Lương đóng BHXH": luongBH,
@@ -369,9 +369,12 @@
           "CTY.BHTN": Math.round(luongBH * num(bh["DN.BHTN"])), "CTY.KPCĐ": Math.round(luongBH * num(bh["DN.KPCD"])),
           "Cộng BH công ty đóng": ctyDong,
           "NLĐ.BHXH": Math.round(luongBH * num(bh["NLD.BHXH"])), "NLĐ.BHYT": Math.round(luongBH * num(bh["NLD.BHYT"])),
-          "NLĐ.BHTN": Math.round(luongBH * num(bh["NLD.BHTN"])), "Cộng BH NLĐ đóng": bhNLD, "NLĐ.KPCĐ": kpcdNLD, "Truy thu bảo hiểm": truyThu,
+          "NLĐ.BHTN": Math.round(luongBH * num(bh["NLD.BHTN"])), "Cộng BH NLĐ đóng": bhNLD, "Truy thu bảo hiểm": truyThu,
           "Ghi chú": du2 ? "Đủ ngưỡng" : "Chưa đủ ngưỡng (" + c.tongCong + "/" + ng + " công)"
         };
+        if (qc2026) { // 2026 (C7): thêm cột KPCĐ NLĐ (cách cũ giữ đúng cột như 1.7)
+          var o2 = {}; Object.keys(bhRow).forEach(function (k) { if (k === "Cộng BH NLĐ đóng") o2["NLĐ.KPCĐ"] = Math.round(luongBH * num(bh["NLD.KPCD"])); o2[k] = bhRow[k]; }); bhRow = o2;
+        }
         out.bhxh.push(bhRow);
       } else if (ns["Mã BHXH"] && !khongLCB) out.canhbao.push(ma + ": mã BHXH '" + ns["Mã BHXH"] + "' chưa có trong Danh mục bảo hiểm");
 
@@ -391,12 +394,12 @@
         if (kieu === "VL" && pct(pt["Mức thuế"]) > 0) tyLeVL = pct(pt["Mức thuế"]);
       } else { kieu = "LT"; out.canhbao.push(ma + ": mã thuế TNCN '" + maT + "' chưa có trong danh mục — tạm tính lũy tiến"); }
       if (kieu === "VL") { chiuThue = tongTN; tinhThue = tongTN; thue = Math.round(tongTN * tyLeVL); }
-      else if (kieu === "MIEN") { chiuThue = tongTN - bhNLD - kpcdNLD; }
+      else if (kieu === "MIEN") { chiuThue = tongTN - bhNLD; }
       else {
         if (!gtBT) out.canhbao.push(ma + ": thuế lũy tiến nhưng không tìm thấy mức giảm trừ bản thân hiệu lực trong kỳ (mã '" + (ns["Mã GT_TNCN_BT"] || "") + "') — thuế có thể bị tính cao");
         if (npt > 0 && !gtPT) out.canhbao.push(ma + ": có " + npt + " người phụ thuộc nhưng không tìm thấy mức giảm trừ người phụ thuộc hiệu lực trong kỳ");
         if (!bieu.length) out.canhbao.push(ma + ": không có biểu thuế lũy tiến hiệu lực trong kỳ — thuế = 0");
-        chiuThue = tongTN - bhNLD - kpcdNLD - tienCom; tinhThue = Math.max(0, chiuThue - tienGTBT - tongGTPT); thue = tinhThueLuyTien(tinhThue, bieu);
+        chiuThue = tongTN - bhNLD - tienCom; tinhThue = Math.max(0, chiuThue - tienGTBT - tongGTPT); thue = tinhThueLuyTien(tinhThue, bieu);
       }
       if (thue > 0) out.tncn.push({
         "Mã NV": ma, "Họ và tên": ns["Họ và tên"], "Thu nhập chịu thuế": chiuThue,
@@ -405,7 +408,7 @@
       });
 
       var truKhac = p["Trừ khác"], tamUng = u["Tạm ứng"];
-      var cl = tongTN - bhNLD - kpcdNLD - truyThu - thue - truKhac - tamUng;
+      var cl = tongTN - bhNLD - truyThu - thue - truKhac - tamUng;
       var thucLinh = cl >= 0 ? Math.round(cl / 1000) * 1000 : 0;
       if (cl < 0) out.canhbao.push(ma + ": các khoản trừ (BH, thuế, tạm ứng, trừ khác) vượt thu nhập " + Math.round(-cl).toLocaleString("vi-VN") + "đ — thực lĩnh để 0, phần còn thiếu CHƯA được chuyển sang kỳ sau, cần xử lý thủ công");
       out.bangluong.push({
@@ -417,7 +420,7 @@
         "Lương bù SL": luongBu, "Số xe bơm dăm": xe, "Lương bơm dăm": luongBD, "Tiền tăng ca": tienTC,
         "Phụ cấp": tienPC, "Phụ cấp công tác": pcCT, "Lương hỗ trợ": luongHT, "Ngày cơm": ngayCom, "Tiền cơm": tienCom,
         "Thưởng": p["Thưởng"], "Thu nhập khác": p["Thu nhập khác"], "Tổng thu nhập": tongTN,
-        "BH trừ NLĐ": bhNLD, "KPCĐ trừ NLĐ": kpcdNLD, "Truy thu BH": truyThu, "Thuế TNCN": thue, "Trừ khác": truKhac, "Tạm ứng": tamUng, "Thực lĩnh": thucLinh
+        "BH trừ NLĐ": bhNLD, "Truy thu BH": truyThu, "Thuế TNCN": thue, "Trừ khác": truKhac, "Tạm ứng": tamUng, "Thực lĩnh": thucLinh
       });
       // Q-19 (R-53): điều chuyển phòng ban trong kỳ → tỷ lệ chia chi phí theo công chính ở từng phòng (không đổi số tiền lương)
       if (ns["Phân bổ phòng ban"]) {
