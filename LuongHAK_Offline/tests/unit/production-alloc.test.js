@@ -20,7 +20,7 @@ test("U-PA-01 chia ĐỀU cho người có mặt; NV vắng so theo từ cuối,
 test("U-PA-02 trùng tên cuối → cả 2 bị coi vắng + cảnh báo; tên vắng không khớp ai → cảnh báo", () => {
   const r = PA.allocate([{ phieu: 2, ngay: "2026-06-01", kl: 6, maPB: "02.02", vang: "Long; Tuấn" }], mem);
   assert.deepEqual(r.shares.map((x) => x.ma), ["B", "C"]);
-  assert.match(r.warnings.join("\n"), /"long" khớp 2 người/); assert.match(r.warnings.join("\n"), /"tuan" không khớp ai/);
+  assert.match(r.warnings.join("\n"), /"Long" khớp 2 người/); assert.match(r.warnings.join("\n"), /"Tuấn" không khớp ai/);
 });
 
 test("U-PA-03 mã tổ lạ / không còn ai có mặt → chưa phân bổ, có cảnh báo, không bỏ sót", () => {
@@ -119,4 +119,15 @@ test("U-PA-09 NV vắng so CÓ DẤU trước: 'Tưởng' vắng không kéo the
   const r2 = PA.allocate([{ phieu: "2", ngay: "2026-07-01", kl: 30, maPB: "02.02", vang: "tuong" }], () => mem); // không dấu → cả 2 vắng + cảnh báo
   assert.deepStrictEqual(r2.shares.map((x) => x.ma), ["C"]);
   assert.ok(r2.warnings.some((w) => /khớp 2 người/.test(w)));
+});
+
+test("U-PA-10 tên vắng không khớp ai (người đã nghỉ việc / chuyển tổ) → 1 cảnh báo gộp cho cả tổ, ghi đúng tên CÓ DẤU, số phiếu, khoảng ngày; phiếu vẫn chia cho người có mặt", () => {
+  const rows = ["2026-09-03", "2026-09-04", "2026-09-05"].map((d, i) => ({ phieu: 12806 + i, ngay: d, kl: 8, maPB: "02.02", vang: "Đức" }));
+  const r = PA.allocate(rows, mem);
+  const w = r.warnings.filter((x) => /Đức/.test(x));
+  assert.equal(w.length, 1, r.warnings.join("\n"));
+  assert.match(w[0], /Tổ 02\.02: NV vắng "Đức" không khớp ai đang làm trong tổ — 3 phiếu \(ngày 03\/09 → 05\/09; phiếu 12806, 12807, 12808\)/);
+  assert.ok(!/"duc"/.test(r.warnings.join("\n")), "không in dạng bỏ dấu");
+  assert.equal(r.shares.filter((x) => x.phieu === 12806).length, 4); // vẫn chia đủ 4 người có mặt
+  assert.match(r.audit[0].note, /"Đức" không khớp/); // chi tiết từng phiếu vẫn còn ở bảng đối soát
 });

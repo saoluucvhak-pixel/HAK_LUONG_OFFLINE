@@ -303,7 +303,7 @@
         var sauCd = [];
         rowsOf(db, "chamcong", ma, ix).forEach(function (r) {
           if (String(r["Kỳ"] || "").slice(0, 7) !== b.dau.slice(0, 7)) return;
-          for (var dd = +cdt.slice(8, 10) + 1; dd <= 31; dd++) { var cv = r[("0" + dd).slice(-2)]; if (cv !== "" && cv != null && sauCd.indexOf(dd) < 0) sauCd.push(dd); }
+          for (var dd = +cdt.slice(8, 10) + 1; dd <= 31; dd++) { var cv = r[("0" + dd).slice(-2)]; if (cv !== "" && cv != null && String(cv).trim() !== "0" && +cv !== 0 && sauCd.indexOf(dd) < 0) sauCd.push(dd); } // ô ghi 0 = không công
         });
         if (sauCd.length) warn.push(ma + " (" + (nv["Họ và tên"] || "") + "): có công sau ngày chấm dứt hợp đồng " + cdt.slice(8, 10) + "/" + cdt.slice(5, 7) + " (ngày " + sauCd.sort(function (x, y) { return x - y; }).join(", ") + ") — kiểm tra lại chấm công; app VẪN tính các công này");
       }

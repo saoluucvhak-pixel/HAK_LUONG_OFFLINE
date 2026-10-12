@@ -13,6 +13,8 @@
   function low(x) { return String(x == null ? "" : x).normalize("NFC").toLowerCase(); }
   function lastWordRaw(name) { var p = String(name || "").trim().split(/\s+/); return low(p[p.length - 1] || ""); }
   function rawTokens(s) { return s ? String(s).split(/[,;/\s]+/).map(low).filter(function (x) { return x && x !== "@"; }) : []; }
+  /** Như rawTokens nhưng giữ nguyên cách viết trên phiếu (để hiện trong cảnh báo) */
+  function shownTokens(s) { return s ? String(s).split(/[,;/\s]+/).map(function (x) { return x.trim(); }).filter(function (x) { return x && x !== "@"; }) : []; }
   function num(v) { if (typeof v === "number") return v; var x = parseFloat(String(v == null ? "" : v).replace(",", ".")); return isNaN(x) ? 0 : x; }
 
   /**
@@ -24,6 +26,13 @@
     opts = opts || {};
     var dv = opts.donVi || "tấn", tenPB = opts.tenPB || function (x) { return x; };
     var shares = [], audit = [], warnings = [], byDept = {}, byEmp = {}, dates = {}, total = 0, unalloc = 0;
+    // Tên vắng không khớp / trùng tên: gộp 1 cảnh báo cho mỗi (tổ, tên) thay vì lặp lại ở từng phiếu (chi tiết từng phiếu vẫn ở audit[].note)
+    var vangWarn = {}, vangOrder = [];
+    var noteVang = function (pb, t, kind, n, phieu, d) {
+      var k = pb + "|" + kind + "|" + t, w = vangWarn[k];
+      if (!w) { w = vangWarn[k] = { pb: pb, t: t, kind: kind, n: n, phieu: [], ngay: [] }; vangOrder.push(k); }
+      w.phieu.push(phieu); if (d && w.ngay.indexOf(d) < 0) w.ngay.push(d);
+    };
     (rows || []).forEach(function (r) {
       var kl = num(r.kl), d = r.ngay || "", pb = String(r.maPB || "").trim();
       total += kl; if (d) dates[d] = 1;
@@ -36,14 +45,16 @@
         dp.unallocated += kl; unalloc += kl; return;
       }
       var vang = {}, notes = [];
-      rawTokens(r.vang).forEach(function (t) {
+      var shown = shownTokens(r.vang);
+      rawTokens(r.vang).forEach(function (t, ti) {
+        var tx = shown[ti] || t; // tên đúng như ghi trên phiếu
         var exact = mem.filter(function (e) { return lastWordRaw(e.hoTen) === t; });
         var f = strip(t).toLowerCase(), list = exact.length ? exact : mem.filter(function (e) { return lastWord(e.hoTen) === f || (e.ma && strip(e.ma).toLowerCase() === f); });
         list.forEach(function (e) { vang[e.ma] = 1; });
-        if (!list.length) notes.push("\"" + f + "\" không khớp ai trong tổ"); else if (list.length > 1) notes.push("\"" + f + "\" khớp " + list.length + " người (trùng tên cuối) — đều bị coi là vắng");
+        if (!list.length) { notes.push("\"" + tx + "\" không khớp ai đang làm trong tổ"); noteVang(pb, tx, "none", 0, r.phieu, d); }
+        else if (list.length > 1) { notes.push("\"" + tx + "\" khớp " + list.length + " người (trùng tên cuối) — đều bị coi là vắng"); noteVang(pb, tx, "dup", list.length, r.phieu, d); }
       });
       var present = mem.filter(function (e) { return !vang[e.ma]; });
-      if (notes.length) warnings.push("Phiếu " + r.phieu + " (ngày " + d + ", tổ " + pb + "): NV vắng " + notes.join("; "));
       if (!present.length) {
         warnings.push("Phiếu " + r.phieu + " (ngày " + d + ", tổ " + pb + ") không còn công nhân nào có mặt để nhận — " + kl + " " + dv + " chưa phân bổ");
         audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: 0, names: [], share: 0, note: "Không có nhân sự phù hợp — chưa phân bổ được" });
@@ -56,6 +67,14 @@
         o.total += share; o.byDay[d] = (o.byDay[d] || 0) + share;
       });
       audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: present.length, names: present.map(function (e) { return e.hoTen; }), share: share, note: notes.join("; ") });
+    });
+    var dm = function (x) { return String(x).slice(8, 10) + "/" + String(x).slice(5, 7); };
+    vangOrder.forEach(function (k) {
+      var w = vangWarn[k], ng = w.ngay.slice().sort(), ds = ng.length ? (ng.length > 1 ? "ngày " + dm(ng[0]) + " → " + dm(ng[ng.length - 1]) : "ngày " + dm(ng[0])) : "";
+      var ph = w.phieu.slice(0, 5).join(", ") + (w.phieu.length > 5 ? "…" : "");
+      warnings.push("Tổ " + w.pb + ": NV vắng \"" + w.t + "\" " + (w.kind === "none"
+        ? "không khớp ai đang làm trong tổ — " + w.phieu.length + " phiếu (" + ds + "; phiếu " + ph + "). Phiếu vẫn chia cho người có mặt; kiểm tra người này đã nghỉ việc / chuyển tổ hay ghi sai tên"
+        : "khớp " + w.n + " người (trùng tên cuối) — đều bị coi là vắng ở " + w.phieu.length + " phiếu (" + ds + "; phiếu " + ph + ")"));
     });
     return { shares: shares, audit: audit, warnings: warnings, byDept: byDept, byEmp: byEmp, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
   }
