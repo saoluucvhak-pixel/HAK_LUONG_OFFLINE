@@ -102,6 +102,7 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 | U-PA-02 | Trùng tên cuối → cả hai vắng + cảnh báo; tên vắng không khớp → cảnh báo |
 | U-PA-09 | NV vắng so có dấu trước ("Tưởng" ≠ "Tường"); không dấu vẫn nhận, trùng → cảnh báo |
 | U-PA-10 | Tên vắng không khớp ai (đã nghỉ / chuyển tổ) → 1 cảnh báo gộp mỗi tổ + tên, đúng tên có dấu, số phiếu, khoảng ngày; phiếu vẫn chia cho người có mặt; chi tiết ở audit |
+| U-PA-11 | (R-72) Đơn nghỉ đã duyệt (không lương, chưa biết ngày về; nghỉ ốm) → không nhận phiếu ngày nghỉ, phiếu ghi vắng người đó không cảnh báo; đơn chờ duyệt không loại |
 | U-PA-03 | Mã tổ lạ / không ai có mặt → chưa phân bổ, cảnh báo |
 | U-PA-04 | Tổ theo ngày cân từ hồ sơ: chưa vào làm / đã nghỉ / đã điều chuyển không nhận; phiếu Mã NV giữ nguyên; không sửa dữ liệu gốc |
 | U-PA-05 | Bù theo ngày bậc thang = công thức công cụ ở 12 trường hợp (lẻ công, Chủ nhật, ngày không SL, PN) |

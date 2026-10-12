@@ -27,7 +27,7 @@
     var dv = opts.donVi || "tấn", tenPB = opts.tenPB || function (x) { return x; };
     var shares = [], audit = [], warnings = [], byDept = {}, byEmp = {}, dates = {}, total = 0, unalloc = 0;
     // Tên vắng không khớp / trùng tên: gộp 1 cảnh báo cho mỗi (tổ, tên) thay vì lặp lại ở từng phiếu (chi tiết từng phiếu vẫn ở audit[].note)
-    var vangWarn = {}, vangOrder = [];
+    var vangWarn = {}, vangOrder = [], nghiInfo = {}, nghiOrder = []; // nghiInfo: người có đơn nghỉ đã duyệt → không chia phiếu các ngày đó
     var noteVang = function (pb, t, kind, n, phieu, d) {
       var k = pb + "|" + kind + "|" + t, w = vangWarn[k];
       if (!w) { w = vangWarn[k] = { pb: pb, t: t, kind: kind, n: n, phieu: [], ngay: [] }; vangOrder.push(k); }
@@ -51,10 +51,16 @@
         var exact = mem.filter(function (e) { return lastWordRaw(e.hoTen) === t; });
         var f = strip(t).toLowerCase(), list = exact.length ? exact : mem.filter(function (e) { return lastWord(e.hoTen) === f || (e.ma && strip(e.ma).toLowerCase() === f); });
         list.forEach(function (e) { vang[e.ma] = 1; });
+        if (!list.length && mem.nghi && mem.nghi.length) { // phiếu ghi vắng người đang có đơn nghỉ đã duyệt → đã loại khỏi tổ, không cảnh báo
+          var nx = mem.nghi.filter(function (e) { return lastWordRaw(e.hoTen) === t; });
+          if (!nx.length) nx = mem.nghi.filter(function (e) { return lastWord(e.hoTen) === f || (e.ma && strip(e.ma).toLowerCase() === f); });
+          if (nx.length) { notes.push("\"" + tx + "\" đang nghỉ (" + nx[0].loai + ", đơn đã duyệt)"); return; }
+        }
         if (!list.length) { notes.push("\"" + tx + "\" không khớp ai đang làm trong tổ"); noteVang(pb, tx, "none", 0, r.phieu, d); }
         else if (list.length > 1) { notes.push("\"" + tx + "\" khớp " + list.length + " người (trùng tên cuối) — đều bị coi là vắng"); noteVang(pb, tx, "dup", list.length, r.phieu, d); }
       });
       var present = mem.filter(function (e) { return !vang[e.ma]; });
+      (mem.nghi || []).forEach(function (e) { if (!(e.ma in nghiInfo)) { nghiInfo[e.ma] = { ma: e.ma, hoTen: e.hoTen, loai: e.loai, ngay: [] }; nghiOrder.push(e.ma); } if (nghiInfo[e.ma].ngay.indexOf(d) < 0) nghiInfo[e.ma].ngay.push(d); });
       if (!present.length) {
         warnings.push("Phiếu " + r.phieu + " (ngày " + d + ", tổ " + pb + ") không còn công nhân nào có mặt để nhận — " + kl + " " + dv + " chưa phân bổ");
         audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: 0, names: [], share: 0, note: "Không có nhân sự phù hợp — chưa phân bổ được" });
@@ -76,7 +82,8 @@
         ? "không khớp ai đang làm trong tổ — " + w.phieu.length + " phiếu (" + ds + "; phiếu " + ph + "). Phiếu vẫn chia cho người có mặt; kiểm tra người này đã nghỉ việc / chuyển tổ hay ghi sai tên"
         : "khớp " + w.n + " người (trùng tên cuối) — đều bị coi là vắng ở " + w.phieu.length + " phiếu (" + ds + "; phiếu " + ph + ")"));
     });
-    return { shares: shares, audit: audit, warnings: warnings, byDept: byDept, byEmp: byEmp, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
+    var nghi = nghiOrder.map(function (k) { var x = nghiInfo[k]; x.ngay.sort(); return x; });
+    return { nghi: nghi, shares: shares, audit: audit, warnings: warnings, byDept: byDept, byEmp: byEmp, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
   }
   /**
    * Gộp thêm các phiếu đã ghi Mã NV (giao trực tiếp) vào kết quả phân bổ — để báo cáo / file xuất có đủ mọi phiếu.

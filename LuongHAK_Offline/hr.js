@@ -67,10 +67,10 @@
       { k: "Năm áp dụng", t: "num", req: 1 }, { k: "Số ngày được cấp", t: "num", req: 1 }, { k: "Số ngày cộng dồn năm trước", t: "num" }, { k: "Ghi chú", t: "area" }] },
     nghiphep: { ten: "Nghỉ phép", icon: "🌴", lv: "hd", f: [
       { k: "Loại nghỉ", t: "sel", o: ["Nghỉ hằng năm", "Nghỉ việc riêng có hưởng lương", "Nghỉ không hưởng lương"], hint: "Để trống = Nghỉ hằng năm (trừ vào phép năm)" },
-      { k: "Từ ngày", t: "date", req: 1 }, { k: "Đến ngày", t: "date", req: 1 }, { k: "Số ngày nghỉ", t: "num", req: 1 },
+      { k: "Từ ngày", t: "date", req: 1 }, { k: "Đến ngày", t: "date", hint: "Để trống = chưa biết ngày đi làm lại (nghỉ đến khi có thông báo) — nhập ngày khi người lao động đi làm lại" }, { k: "Số ngày nghỉ", t: "num", hint: "Để trống nếu chưa biết ngày về" },
       { k: "Trạng thái duyệt", t: "sel", o: ["Chờ duyệt", "Đã duyệt", "Từ chối"], req: 1 }, { k: "Người duyệt" }, { k: "Ghi chú", t: "area" }] },
     nghiom: { ten: "Nghỉ ốm", icon: "🤒", lv: "hd", f: [
-      { k: "Từ ngày", t: "date", req: 1 }, { k: "Đến ngày", t: "date", req: 1 }, { k: "Số ngày nghỉ", t: "num", req: 1 },
+      { k: "Từ ngày", t: "date", req: 1 }, { k: "Đến ngày", t: "date", hint: "Để trống = chưa biết ngày đi làm lại" }, { k: "Số ngày nghỉ", t: "num", hint: "Để trống nếu chưa biết ngày về" },
       { k: "Có giấy chứng nhận BHXH", t: "yesno" }, { k: "Số giấy chứng nhận" },
       { k: "Trạng thái duyệt", t: "sel", o: ["Chờ duyệt", "Đã duyệt", "Từ chối"], req: 1 }, { k: "Ghi chú", t: "area" }] },
     noiquy: { ten: "Nội quy / Kỷ luật", icon: "⚠️", lv: "hd", f: [
@@ -189,6 +189,22 @@
    * - Không có cả hai: "chưa gán", không tính lương cho ai.
    * table: "sanluong" | "bandam". Không sửa dữ liệu gốc.
    */
+  /**
+   * Đơn nghỉ ĐÃ DUYỆT (Nghỉ phép mọi loại, Nghỉ ốm) phủ ngày `ngay` của 1 người — null nếu không nghỉ.
+   * "Đến ngày" trống = nghỉ đến khi có thông báo đi làm lại (chưa biết ngày về).
+   */
+  function nghiNgay(db, ma, ngay, ix) {
+    var hit = null;
+    [["nghiphep", function (r) { return r["Loại nghỉ"] || "Nghỉ hằng năm"; }], ["nghiom", function () { return "Nghỉ ốm"; }]].forEach(function (t) {
+      if (hit) return;
+      rowsOf(db, t[0], ma, ix).forEach(function (r) {
+        if (hit || r["Trạng thái duyệt"] !== "Đã duyệt") return;
+        var tu = d10(r["Từ ngày"]), den = d10(r["Đến ngày"]);
+        if (tu && tu <= ngay && (!den || ngay <= den)) hit = { loai: t[1](r), tu: tu, den: den || "" };
+      });
+    });
+    return hit;
+  }
   function sanLuongKy(db, nam, thang, table) {
     var PA = (typeof module !== "undefined" && module.exports) ? require("./core/production-alloc.js") : root.HAKCore.palloc;
     var b = kyBounds(nam, thang), ky = b.dau.slice(0, 7), ix = buildIndex(db), direct = [], toRows = [], chuaGan = [];
@@ -203,13 +219,17 @@
     var membersOf = function (ngay, pb) {
       var key = ngay + "\u0001" + pb;
       if (cache[key]) return cache[key];
-      var out = [];
+      var out = [], nghi = [];
       (db.nhanvien || []).forEach(function (n) {
         var ma = n["Mã NV"], hd = activeHD(db, ma, ngay, ngay, ix); if (!hd) return;
         var ct = chiTietHD(db, ma, hd["Số HĐLĐ"], ngay, ix);
-        if (ct && String(ct["Phòng ban"] || "").trim() === pb) out.push({ ma: ma, hoTen: n["Họ và tên"] || ma });
+        if (!ct || String(ct["Phòng ban"] || "").trim() !== pb) return;
+        // Có đơn nghỉ đã duyệt phủ ngày cân (mọi loại nghỉ — chủ sở hữu duyệt 12/10/2026) → không chia phiếu, không cần ghi NV vắng
+        var lv = nghiNgay(db, ma, ngay, ix);
+        if (lv) nghi.push({ ma: ma, hoTen: n["Họ và tên"] || ma, loai: lv.loai }); else out.push({ ma: ma, hoTen: n["Họ và tên"] || ma });
       });
-      if (!out.length && !(pb in known)) out = null; // mã tổ lạ
+      if (!out.length && !nghi.length && !(pb in known)) out = null; // mã tổ lạ
+      else out.nghi = nghi;
       cache[key] = out; return out;
     };
     var al = PA.allocate(toRows, membersOf, { donVi: table === "bandam" ? "xe" : "tấn", tenPB: function (pb) { return known[pb]; } });
@@ -237,7 +257,7 @@
       var to = ht === "PN" ? pn : ht === "CL" ? cl : thuong;
       for (var d = 1; d <= last; d++) if (coCong(r[("0" + d).slice(-2)])) to[d] = 1;
     });
-    var ngayCua = function (r) { var tu = d10(r["Từ ngày"]), den = d10(r["Đến ngày"]) || tu, out = []; if (!tu) return out; for (var d = 1; d <= last; d++) { var ds = ky + "-" + ("0" + d).slice(-2); if (ds >= tu && ds <= den) out.push(d); } return out; };
+    var ngayCua = function (r) { var tu = d10(r["Từ ngày"]), den = d10(r["Đến ngày"]) || "9999-12-31", out = []; /* Đến ngày trống = chưa biết ngày về */ if (!tu) return out; for (var d = 1; d <= last; d++) { var ds = ky + "-" + ("0" + d).slice(-2); if (ds >= tu && ds <= den) out.push(d); } return out; };
     var chuNhat = function (d) { return new Date(+ky.slice(0, 4), +ky.slice(5, 7) - 1, d).getDay() === 0; };
     var coLuong = function (r) { return laNghiNam(r) || r["Loại nghỉ"] === "Nghỉ việc riêng có hưởng lương"; };
     var thieuPN = [], trungCong = [], khongLuong = [], om = [], phuPN = {}, cho = 0;
@@ -629,7 +649,7 @@
     };
   }
 
-  var api = { HR: HR, BIEN_DONG: BIEN_DONG, NV_TABS: NV_TABS, HD_TABS: HD_TABS, REFS: REFS, refName: refName, hienHanh: hienHanh, buildIndex: buildIndex, isPayField: isPayField, PAY_HIDDEN: PAY_HIDDEN, staffForPayroll: staffForPayroll, sanLuongKy: sanLuongKy, leaveCheck: leaveCheck, LEAVE_TAG: LEAVE_TAG,
+  var api = { HR: HR, BIEN_DONG: BIEN_DONG, NV_TABS: NV_TABS, HD_TABS: HD_TABS, REFS: REFS, refName: refName, hienHanh: hienHanh, buildIndex: buildIndex, isPayField: isPayField, PAY_HIDDEN: PAY_HIDDEN, staffForPayroll: staffForPayroll, sanLuongKy: sanLuongKy, nghiNgay: nghiNgay, leaveCheck: leaveCheck, LEAVE_TAG: LEAVE_TAG,
     seedDanhMuc: seedDanhMuc, migrate: migrate, reports: reports, uid: uid, today: today, split: split, activeHD: activeHD };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.HRM = api;
 })(typeof window !== "undefined" ? window : this);

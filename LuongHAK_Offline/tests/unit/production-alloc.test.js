@@ -131,3 +131,32 @@ test("U-PA-10 tên vắng không khớp ai (người đã nghỉ việc / chuy�
   assert.equal(r.shares.filter((x) => x.phieu === 12806).length, 4); // vẫn chia đủ 4 người có mặt
   assert.match(r.audit[0].note, /"Đức" không khớp/); // chi tiết từng phiếu vẫn còn ở bảng đối soát
 });
+
+// Chủ sở hữu 12/10/2026: "ông Đức xin nghỉ không lương … phải có giải pháp với người nghỉ không lương" — duyệt: mọi loại nghỉ đã duyệt
+test("U-PA-11 người có đơn nghỉ ĐÃ DUYỆT (không lương, chưa biết ngày về) → tự loại khỏi tổ ngày nghỉ; phiếu ghi vắng người đó không cảnh báo; đơn chờ duyệt / từ chối không loại", () => {
+  const db = hrDb();
+  db.nhanvien.push({ "Mã NV": "D", "Họ và tên": "Trần Văn Đức" });
+  db.hopdong.push({ "Mã NV": "D", "Số HĐLĐ": "D/H", "Ngày vào làm": "2025-01-01", "Ngày chấm dứt": "" });
+  db.chitiethd.push({ "Mã NV": "D", "Số HĐLĐ": "D/H", "Hiệu lực từ": "2025-01-01", "Phòng ban": "02.02", "Mã lương": "SP" });
+  db.nghiphep = [{ "Mã NV": "D", "Số HĐLĐ": "D/H", "Loại nghỉ": "Nghỉ không hưởng lương", "Từ ngày": "2026-10-03", "Đến ngày": "", "Trạng thái duyệt": "Đã duyệt" },
+    { "Mã NV": "T1", "Số HĐLĐ": "T1/H", "Loại nghỉ": "Nghỉ hằng năm", "Từ ngày": "2026-10-04", "Đến ngày": "2026-10-04", "Trạng thái duyệt": "Chờ duyệt" }];
+  db.nghiom = [{ "Mã NV": "T1", "Số HĐLĐ": "T1/H", "Từ ngày": "2026-10-09", "Đến ngày": "2026-10-09", "Trạng thái duyệt": "Đã duyệt" }];
+  db.sanluong = [
+    { "Phiếu cân": "P1", "Ngày cân": "2026-10-02", "KL hàng (Tấn)": "30", "Mã phòng ban": "02.02", "NV vắng": "" },     // T1 T2 T4 D (D chưa nghỉ)
+    { "Phiếu cân": "P2", "Ngày cân": "2026-10-03", "KL hàng (Tấn)": "30", "Mã phòng ban": "02.02", "NV vắng": "" },     // T1 T2 T3 T4 — D nghỉ, phiếu không ghi vắng
+    { "Phiếu cân": "P3", "Ngày cân": "2026-10-04", "KL hàng (Tấn)": "40", "Mã phòng ban": "02.02", "NV vắng": "Đức" },  // T1 T2 T3 T4 — đơn T1 chờ duyệt: vẫn chia
+    { "Phiếu cân": "P4", "Ngày cân": "2026-10-20", "KL hàng (Tấn)": "10", "Mã phòng ban": "02.02", "NV vắng": "" },     // T1 T3 — D nghỉ (chưa biết ngày về)
+    { "Phiếu cân": "P5", "Ngày cân": "2026-10-09", "KL hàng (Tấn)": "8", "Mã phòng ban": "02.02", "NV vắng": "" }      // T3 — T1 nghỉ ốm đã duyệt
+  ];
+  const k = HR.sanLuongKy(db, 2026, 10, "sanluong"), by = {};
+  k.rows.forEach((r) => { by[r["Mã NV"]] = (by[r["Mã NV"]] || 0) + Number(r["KL hàng (Tấn)"]); });
+  assert.equal(by.D, 7.5, "chỉ nhận phiếu trước ngày nghỉ (30 / 4)");
+  assert.equal(by.T1, 7.5 + 7.5 + 10 + 5, "T1: P1 + P2 + P3 (đơn chờ duyệt không loại) + P4; P5 nghỉ ốm");
+  assert.equal(by.T3, 7.5 + 10 + 5 + 8);
+  assert.ok(!k.alloc.warnings.some((w) => /Đức/.test(w)), k.alloc.warnings.join("\n"));
+  assert.match(k.alloc.audit.find((a) => a.phieu === "P3").note, /"Đức" đang nghỉ \(Nghỉ không hưởng lương, đơn đã duyệt\)/);
+  const d = k.alloc.nghi.find((x) => x.ma === "D");
+  assert.deepEqual([d.loai, d.ngay], ["Nghỉ không hưởng lương", ["2026-10-03", "2026-10-04", "2026-10-09", "2026-10-20"]]);
+  assert.deepEqual(HR.nghiNgay(db, "D", "2026-12-31"), { loai: "Nghỉ không hưởng lương", tu: "2026-10-03", den: "" });
+  assert.equal(HR.nghiNgay(db, "D", "2026-10-02"), null);
+});

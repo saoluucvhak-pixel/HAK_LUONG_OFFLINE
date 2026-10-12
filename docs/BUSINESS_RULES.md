@@ -130,6 +130,13 @@
   - người **không trừ** → chọn mã *Không tính thuế / Miễn thuế* (TNCN0 / MT00…), thuế = 0. App không tự đổi mã.
   - Bảng lương Excel CNHAK 9/2026 và HAKQN 7/2026 không trừ thuế dù mã là TNCN2 → khi dùng app, kế toán đổi mã những người cần miễn sang TNCN0.
 - R-71 (Q-31, chủ sở hữu duyệt 12/10/2026: "thống nhất") **Lương sản lượng = tổng tấn cả tháng × đơn giá, làm tròn 1 lần, cho mọi đơn vị** (HAK, CNHAK, HAKQN, Đại Hiệp). Không làm tròn theo từng ngày. So với file Excel cũ của Đại Hiệp (làm tròn theo ngày), lương sản lượng có thể lệch tối đa vài đồng/người — chấp nhận.
+- R-72 (chủ sở hữu 12/10/2026: "ông Đức xin nghỉ không lương nên phải có giải pháp với người nghỉ không lương"; duyệt "mọi loại nghỉ", "chưa biết ngày về") **Người nghỉ (có đơn) không phải người nghỉ việc**:
+  - Nghỉ không lương / nghỉ phép / nghỉ ốm ghi bằng **đơn nghỉ** trong hồ sơ hợp đồng. **Không** ghi ngày chấm dứt hợp đồng, nhân viên vẫn *Đang làm việc*.
+  - "Đến ngày" để trống = chưa biết ngày đi làm lại (nghỉ đến khi có thông báo). Khi người đó đi làm lại thì nhập "Đến ngày".
+  - **Chia sản lượng / bơm dăm theo tổ:** người có đơn nghỉ **đã duyệt** (mọi loại) phủ ngày cân **tự không nhận** phiếu ngày đó, không cần ghi NV vắng. Phiếu vẫn ghi vắng người đó thì không cảnh báo. Đơn *Chờ duyệt* / *Từ chối* không loại.
+  - Lương vẫn theo chấm công. BH theo ngưỡng công (R-57). Phép có lương vẫn trả theo C3.
+  - Đơn nghỉ phủ kỳ đã chốt: sửa = hồi tố (chỉ Admin). Bản chốt lưu kèm đơn nghỉ phủ kỳ.
+  - Excel NL_NHANSU dùng chung cột "Ngày nghỉ/thay đổi" cho cả nghỉ việc lẫn nghỉ không lương. Bộ chuyển đổi coi là nghỉ việc; trường hợp nghỉ không lương phải sửa tay như ông Đức (CNHAK 9/2026).
 
 ## 2. Câu hỏi mở — cần chủ sở hữu / kế toán xác nhận
 Phase 1 **giữ nguyên** hành vi hiện tại cho đến khi có xác nhận.
