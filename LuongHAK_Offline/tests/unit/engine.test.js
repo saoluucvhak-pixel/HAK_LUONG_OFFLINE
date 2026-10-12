@@ -77,6 +77,17 @@ test("lương sản phẩm + bù theo tháng khi dưới ngưỡng", () => {
   assert.equal(r["Lương thời gian"], 200000 * 26);
 });
 
+test("Master Prompt mục 7.15 (Đại Hiệp, bù theo ngày bậc thang): có sản lượng nhưng CHƯA chấm công BT ngày đó → cảnh báo, không âm thầm bù=0", () => {
+  const db = baseDb();
+  db.dm_luong.find((r) => r["Mã lương"] === "SP")["Đơn giá bù lương"] = "200000";
+  db.nhansu = [staff({ "Mã tiền lương 1": "SP", "Lương thỏa thuận": "200000" })];
+  db.chamcong = []; // KHÔNG có chấm công BT ngày 05 (ngày có sản lượng)
+  db.sanluong = [{ "Phiếu cân": "P1", "Ngày cân": "2026-09-05", "KL hàng (Tấn)": "3", "Mã NV": "NV" }];
+  const kq = E.tinhBangLuong(db, 2026, 9, "daihiep");
+  assert.equal(row(kq)["Lương bù SL"], 0);
+  assert.ok(kq.canhbao.some((w) => /có sản lượng nhưng CHƯA chấm công BT ngày 05/.test(w)), kq.canhbao.join(" | "));
+});
+
 test("Master Prompt mục 4.5: có sản lượng/bơm dăm nhưng đơn giá khoán = 0 → cảnh báo, không âm thầm ra 0đ", () => {
   const db = baseDb();
   db.dm_luong.find((r) => r["Mã lương"] === "SP")["Số tiền khoán"] = "0";

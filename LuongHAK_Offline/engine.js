@@ -298,13 +298,16 @@
         if (cheDoBu === "daihiep") {
           // Mỗi NGÀY có sản lượng: tiền ngày = MAX(tấn ngày × đơn giá, bậc thang(công BT ngày) × mức sàn); bù = tổng phần chênh. Không xét ngưỡng.
           if (giaBu > 0) {
-            var snD = sl.ngay[ma] || {}, buF = 0;
+            var snD = sl.ngay[ma] || {}, buF = 0, thieuBT = [];
             Object.keys(snD).forEach(function (t) {
               var tanN = snD[t] || 0; if (tanN <= 0) return;
               var payN = tanN * donGiaSL, chuNhatN = new Date(nam, thang - 1, +t).getDay() === 0;
-              var th = bacThang(c.congBTTheoNgay[t] || 0, chuNhatN) * giaBu;
+              var congBTN = c.congBTTheoNgay[t] || 0;
+              if (congBTN <= 0) thieuBT.push(t); // có sản lượng nhưng chưa chấm công BT ngày đó — không suy đoán, chỉ cảnh báo
+              var th = bacThang(congBTN, chuNhatN) * giaBu;
               if (th > payN) buF += th - payN;
             });
+            if (thieuBT.length) out.canhbao.push(ma + ": có sản lượng nhưng CHƯA chấm công BT ngày " + thieuBT.sort().join(", ") + "/" + thang + " — bù lương sản lượng (theo ngày bậc thang) các ngày này đang tính bằng 0, kiểm tra lại chấm công trước khi chốt kỳ");
             luongBu = Math.round(buF);
           }
         } else if (cheDoBu === "to") {
