@@ -77,6 +77,27 @@ test("lương sản phẩm + bù theo tháng khi dưới ngưỡng", () => {
   assert.equal(r["Lương thời gian"], 200000 * 26);
 });
 
+test("Master Prompt mục 4.5: có sản lượng/bơm dăm nhưng đơn giá khoán = 0 → cảnh báo, không âm thầm ra 0đ", () => {
+  const db = baseDb();
+  db.dm_luong.find((r) => r["Mã lương"] === "SP")["Số tiền khoán"] = "0";
+  db.nhansu = [staff({ "Mã tiền lương 1": "SP", "Lương thỏa thuận": "200000" })];
+  db.chamcong = [ccRow("NV", 2026, 9)];
+  db.sanluong = [{ "Phiếu cân": "P1", "Ngày cân": "2026-09-05", "KL hàng (Tấn)": "30", "Mã NV": "NV" }];
+  const kq = E.tinhBangLuong(db, 2026, 9, false);
+  assert.equal(row(kq)["Lương sản lượng"], 0);
+  assert.ok(kq.canhbao.some((w) => /có sản lượng.*chưa có 'Số tiền khoán'/.test(w)), kq.canhbao.join(" | "));
+});
+
+test("Master Prompt mục 4.5: có xe bơm dăm nhưng chưa có đơn giá bơm dăm → cảnh báo", () => {
+  const db = baseDb();
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã tăng ca": undefined })];
+  db.chamcong = [ccRow("NV", 2026, 9)];
+  db.bandam = [{ "Phiếu cân": "PB1", "Ngày cân": "2026-09-05", "KL hàng (Tấn)": "2", "Mã NV": "NV" }];
+  const kq = E.tinhBangLuong(db, 2026, 9, false);
+  assert.equal(row(kq)["Lương bơm dăm"], 0);
+  assert.ok(kq.canhbao.some((w) => /có bơm dăm.*chưa có đơn giá/.test(w)), kq.canhbao.join(" | "));
+});
+
 test("phụ cấp TN.02 theo tỷ lệ công: dưới ngưỡng (công chuẩn − 5) thì tính theo công", () => {
   const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã phụ cấp": "TN.02" })], { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 18)] });
   assert.equal(row(kq)["Phụ cấp"], Math.round(200000 / 26 * 18)); // 138.462

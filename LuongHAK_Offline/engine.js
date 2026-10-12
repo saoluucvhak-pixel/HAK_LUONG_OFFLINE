@@ -289,6 +289,7 @@
       var tan = sl.tong[ma] || 0, donGiaSL = dmL ? money(dmL["Số tiền khoán"]) : 0;
       var luongSL = 0, luongBu = 0;
       if (laSL) {
+        if (tan > 0 && donGiaSL <= 0) out.canhbao.push(ma + ": có sản lượng (" + Math.round(tan * 1000) / 1000 + " tấn) nhưng mã lương '" + maTL1 + "' chưa có 'Số tiền khoán' (đơn giá) trong Danh mục lương — lương sản lượng = 0đ, kiểm tra lại danh mục");
         luongSL = Math.round(tan * donGiaSL);
         var nguong = num(dmL["ĐK_Bù lương (công tối thiểu)"]), giaBu = money(dmL["Đơn giá bù lương"]);
         if (cheDoBu === "daihiep") {
@@ -327,6 +328,7 @@
       var dm2 = dmLuong[ns["Mã tiền lương 2"]] || null;
       var laSP2 = !!(dm2 && /SP/i.test(dm2["Mã hình thức lương"] || ""));
       var giaBD = laSP2 ? money(dm2["Số tiền khoán"]) : (dmL ? money(dmL["Đơn giá bơm dăm"]) : 0);
+      if (xe > 0 && giaBD <= 0) out.canhbao.push(ma + ": có bơm dăm (" + xe + " xe) nhưng chưa có đơn giá (" + (laSP2 ? "'Số tiền khoán' của mã tiền lương 2" : "'Đơn giá bơm dăm'") + ") trong Danh mục lương — lương bơm dăm = 0đ, kiểm tra lại danh mục");
       var luongBD = Math.round(xe * giaBD);
 
       // Tăng ca
