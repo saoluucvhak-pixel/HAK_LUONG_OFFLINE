@@ -116,6 +116,19 @@ async function launch(dataDir, opt) {
   await w.click('.dlg footer button:has-text("Xem phiếu lương")'); await w.waitForTimeout(150);
   ok("Quay lại phiếu lương từ màn hình cách tính", (await w.locator(".dlg header h3").innerText()) === slipHeader);
   await w.click('.dlg footer button:has-text("Đóng")');
+  // Master Prompt V3 mục XVII: Đối chiếu lương Power Query — nhập 1 Excel tham chiếu, so theo từng người/chỉ tiêu
+  await w.click("#nav button[data-k=doichieu]");
+  const dcWb = new (require(path.join(APP, "exceljs.min.js"))).Workbook(); const dcWs = dcWb.addWorksheet("BangLuongCu");
+  dcWs.getRow(1).values = ["Mã NV", "Họ và tên", "Thực lĩnh", "Tiền tăng ca"];
+  dcWs.getRow(2).values = ["NV001", "E2E Nhân Viên", 11370000 - 50000, 0]; // cố ý lệch 50.000đ so với app (11.370.000)
+  const dcFile = path.join(DL, "..", "doichieu_thamkhao.xlsx");
+  fs.writeFileSync(dcFile, new Uint8Array(await dcWb.xlsx.writeBuffer()));
+  const [fcDC] = await Promise.all([w.waitForEvent("filechooser"), w.click('button:has-text("Chọn file Excel đối chiếu")')]);
+  await fcDC.setFiles(dcFile); await w.waitForTimeout(400);
+  const dcTxt = await w.locator("main").first().innerText();
+  ok("Đối chiếu lương Power Query (mục XVII): nhận file, phát hiện 1 dòng chênh lệch Thực lĩnh (50.000đ), không báo lệch giả ở 'Tiền tăng ca' (cả 2 bên đều 0)",
+    /1 dòng chênh lệch/.test(dcTxt) && /50\.000/.test(dcTxt) && /Thực lĩnh/.test(dcTxt), dcTxt.replace(/\s+/g, " ").slice(0, 400));
+  await w.click("#nav button[data-k=luong]");
   await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
   await w.locator(".dlg input").fill("Chốt bởi E2E"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
   ok("Chốt kỳ lương (hộp nhập của app, không dùng window.prompt)", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
