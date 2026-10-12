@@ -98,6 +98,19 @@ test("Master Prompt mục 4.5: có xe bơm dăm nhưng chưa có đơn giá bơm
   assert.ok(kq.canhbao.some((w) => /có bơm dăm.*chưa có đơn giá/.test(w)), kq.canhbao.join(" | "));
 });
 
+test("Master Prompt mục 8.1: mã tăng ca MỚI khai 'Loại công thức' = TC3 → dùng đúng công thức TC3, không cần sửa engine", () => {
+  const db = baseDb();
+  db.dm_tangca.push({ "Mã tăng ca": "TC7", "Nội dung tăng ca": "Mã mới, dùng lại công thức TC3", "Loại công thức": "TC3", "Hệ số tăng ca": 0.5, "Hiệu lực từ": "2020-01-01" });
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã tăng ca": "TC7" })];
+  const bt = ccRow("NV", 2026, 9, "BT", 1, 20);
+  bt["06"] = 1; // 06/09/2026 là Chủ nhật → 1 công Chủ nhật (BT, không phải TC)
+  db.chamcong = [bt, ccRow("NV", 2026, 9, "TC", 1, 2)]; // 2 công tăng ca ghi nhận
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  const donGiaTG = 9000000 / 26; // TG1, 9/2026: 30 ngày - 4 CN = 26
+  // TC3 = (Công tăng ca + Công chủ nhật) × hệ số = (2 + 1) × 0,5 = 1,5 — khác với mặc định (không map) = 2 × 0,5 = 1
+  assert.equal(r["Tiền tăng ca"], Math.round(donGiaTG * 1.5));
+});
+
 test("phụ cấp TN.02 theo tỷ lệ công: dưới ngưỡng (công chuẩn − 5) thì tính theo công", () => {
   const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã phụ cấp": "TN.02" })], { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 18)] });
   assert.equal(row(kq)["Phụ cấp"], Math.round(200000 / 26 * 18)); // 138.462
