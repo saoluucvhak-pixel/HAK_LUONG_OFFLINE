@@ -41,7 +41,9 @@ test("bộ dữ liệu chuẩn (80 NV × 3 kỳ, số liệu dạng số thuần
       if (ra && ra["Tiền tăng ca"] !== rb["Tiền tăng ca"]) nvTcKhacNhau[rb["Mã NV"]] = true;
     });
     const stripTC = (rows) => rows.map((r) => { if (!nvTcKhacNhau[r["Mã NV"]]) return r; const o = Object.assign({}, r); tcKeys.forEach((k) => delete o[k]); return o; });
-    assert.deepEqual(stripTC(stripKpcd(b.bangluong, "KPCĐ trừ NLĐ")), stripTC(a.bangluong), "bảng lương " + m + "/" + y);
+    // Cột mới "_ct" (Master Prompt mục 16.3, PV-13) — chỉ chứa biến trung gian để UI giải thích công
+    // thức, không phải số tiền; v1.3.0 không có cột này — strip trước khi so.
+    assert.deepEqual(stripTC(stripKpcd(stripKpcd(b.bangluong, "KPCĐ trừ NLĐ"), "_ct")), stripTC(a.bangluong), "bảng lương " + m + "/" + y);
     // "Số sổ BHXH" (PV-7a) cũng mới, luôn rỗng với dữ liệu mẫu — strip trước khi so với baseline
     b.bhxh.forEach((r) => assert.equal(r["Số sổ BHXH"], "", "Số sổ BHXH (BHXH) " + m + "/" + y));
     assert.deepEqual(stripKpcd(stripKpcd(b.bhxh, "NLĐ.KPCĐ"), "Số sổ BHXH"), a.bhxh, "BHXH " + m + "/" + y);
@@ -66,7 +68,7 @@ test("khác biệt CÓ CHỦ ĐÍCH: số tiền nhập dạng VN '500.000' (BUG
   // đã sửa đúng hệ số — xem test trên)
   a.bangluong.filter((r) => r["Mã NV"] !== "NV001").forEach((r) => {
     const rb = Object.assign({}, b.bangluong.find((x) => x["Mã NV"] === r["Mã NV"]));
-    delete rb["KPCĐ trừ NLĐ"];
+    delete rb["KPCĐ trừ NLĐ"]; delete rb["_ct"];
     ["Tiền tăng ca", "Tổng thu nhập", "Thuế TNCN", "Thực lĩnh"].forEach((k) => { delete rb[k]; delete r[k]; });
     assert.deepEqual(rb, r);
   });

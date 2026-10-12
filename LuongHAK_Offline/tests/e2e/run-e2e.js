@@ -105,6 +105,17 @@ async function launch(dataDir, opt) {
   await w.click("#nav button[data-k=luong]"); await w.click("button.big");
   const line = await w.locator("main tbody tr").first().innerText();
   ok("Tính lương: 12.000.000 − BH 630.000 = 11.370.000", /11\.370\.000/.test(line), line.replace(/\t/g, " | "));
+  // Master Prompt V3 mục 16.3: "Xem chi tiết cách tính" — bấm 1 dòng bảng lương → phiếu lương, chuyển sang xem công thức
+  await w.locator("main tbody tr").first().click(); await w.waitForSelector(".dlg");
+  const slipHeader = await w.locator(".dlg header h3").innerText();
+  await w.click('.dlg footer button:has-text("Xem cách tính")'); await w.waitForTimeout(150);
+  const ctTxt = await w.locator(".dlg .bd").innerText();
+  ok("Xem chi tiết cách tính (mục 16.3): hiện công chuẩn, công tính TG, BH, thuế, thực lĩnh với giá trị đã thế",
+    /Công chuẩn/.test(ctTxt) && /Công tính TG/.test(ctTxt) && /Lương thời gian/.test(ctTxt) && /Thuế TNCN/.test(ctTxt) && /Thực lĩnh/.test(ctTxt) && /11\.370\.000/.test(ctTxt),
+    ctTxt.replace(/\s+/g, " ").slice(0, 250));
+  await w.click('.dlg footer button:has-text("Xem phiếu lương")'); await w.waitForTimeout(150);
+  ok("Quay lại phiếu lương từ màn hình cách tính", (await w.locator(".dlg header h3").innerText()) === slipHeader);
+  await w.click('.dlg footer button:has-text("Đóng")');
   await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
   await w.locator(".dlg input").fill("Chốt bởi E2E"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
   ok("Chốt kỳ lương (hộp nhập của app, không dùng window.prompt)", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
