@@ -21,13 +21,18 @@ test("bộ dữ liệu chuẩn (80 NV × 3 kỳ, số liệu dạng số thuần
   let people = 0;
   [[2026, 8], [2026, 9], [2026, 10]].forEach(([y, m]) => {
     const { a, b, sp0, sp } = runBoth(JSON.parse(JSON.stringify(db)), y, m);
-    assert.deepEqual(sp.list, sp0.list, "danh sách nhân sự tính lương " + m + "/" + y);
+    // Khác biệt CÓ CHỦ ĐÍCH: cột mới "Số sổ BHXH" (PV-7a, truyền từ canhan sang nhansu để báo cáo BHXH
+    // không thiếu cột này) — dữ liệu mẫu không có canhan."Số sổ BHXH" nên luôn rỗng, không đổi số liệu
+    sp.list.forEach((r) => assert.equal(r["Số sổ BHXH"], "", "Số sổ BHXH " + m + "/" + y));
+    assert.deepEqual(stripKpcd(sp.list, "Số sổ BHXH"), sp0.list, "danh sách nhân sự tính lương " + m + "/" + y);
     // Khác biệt CÓ CHỦ ĐÍCH: cột mới "KPCĐ trừ NLĐ" / "NLĐ.KPCĐ" (tách riêng khỏi "BH trừ NLĐ", sửa lỗi
     // KPCĐ NLĐ) — dữ liệu mẫu (BH00/BH01) có NLD.KPCD = 0 nên không đổi số tiền, v1.3.0 chưa có cột này
     b.bangluong.forEach((r) => assert.equal(r["KPCĐ trừ NLĐ"], 0, "KPCĐ trừ NLĐ " + m + "/" + y));
     b.bhxh.forEach((r) => assert.equal(r["NLĐ.KPCĐ"], 0, "NLĐ.KPCĐ " + m + "/" + y));
     assert.deepEqual(stripKpcd(b.bangluong, "KPCĐ trừ NLĐ"), a.bangluong, "bảng lương " + m + "/" + y);
-    assert.deepEqual(stripKpcd(b.bhxh, "NLĐ.KPCĐ"), a.bhxh, "BHXH " + m + "/" + y);
+    // "Số sổ BHXH" (PV-7a) cũng mới, luôn rỗng với dữ liệu mẫu — strip trước khi so với baseline
+    b.bhxh.forEach((r) => assert.equal(r["Số sổ BHXH"], "", "Số sổ BHXH (BHXH) " + m + "/" + y));
+    assert.deepEqual(stripKpcd(stripKpcd(b.bhxh, "NLĐ.KPCĐ"), "Số sổ BHXH"), a.bhxh, "BHXH " + m + "/" + y);
     assert.deepEqual(b.tncn, a.tncn, "TNCN " + m + "/" + y);
     // Cảnh báo: bản mới chỉ được THÊM cảnh báo (có chủ đích), không được mất cảnh báo cũ
     a.canhbao.forEach((w) => assert.ok(b.canhbao.indexOf(w) >= 0, "mất cảnh báo: " + w));

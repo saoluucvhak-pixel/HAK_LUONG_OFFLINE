@@ -57,6 +57,8 @@
       { k: "Lương cơ bản", t: "money", hint: "Mức đóng BHXH" }, { k: "Lương thỏa thuận", t: "money", req: 1, hint: "Lương tháng; với mã CN1/CN2/SP là đơn giá 1 công" },
       { k: "HTTT", t: "sel", o: ["Chuyển khoản", "Tiền mặt"], req: 1, label: "Hình thức trả lương" },
       { k: "Mức đóng bảo hiểm", t: "ref", ref: "dm_baohiem", req: 1 }, { k: "Thuế TNCN", t: "ref", ref: "dm_tncn", req: 1 },
+      { k: "Mã GT_TNCN_BT", t: "ref", ref: "dm_giamtru", hint: "Để trống = app tự nhận mã GTBT trong Danh mục giảm trừ (PV-7b). Chỉ cần chọn khi có nhiều hơn 1 mã GTBT." },
+      { k: "Mã GT_TNCN_PT", t: "ref", ref: "dm_giamtru", hint: "Để trống = app tự nhận mã GTNPT trong Danh mục giảm trừ (PV-7b). Chỉ cần chọn khi có nhiều hơn 1 mã GTNPT." },
       { k: "Phụ cấp", t: "ref", ref: "dm_phucap" }, { k: "Hỗ trợ", t: "multi", ref: "dm_hotro" }, { k: "Tăng ca", t: "ref", ref: "dm_tangca" },
       { k: "Ghi chú", t: "area" }],
       cols: ["Loại phụ lục", "Hiệu lực từ", "Phòng ban", "Chức vụ", "Mã lương", "Lương thỏa thuận", "Mức đóng bảo hiểm", "Thuế TNCN"],
@@ -109,7 +111,7 @@
   var REFS = {
     dm_phongban: ["Mã phòng ban", "Tên phòng ban"], dm_chucvu: ["Mã chức vụ", "Tên chức vụ"], dm_luong: ["Mã lương", "Hình thức lương"],
     dm_baohiem: ["Mã bảo hiểm", "Nội dung"], dm_tncn: ["Mã thuế TNCN", "Nội dung"], dm_phucap: ["Mã phụ cấp", "Tên phụ cấp"],
-    dm_hotro: ["Mã hỗ trợ", "Tên hỗ trợ"], dm_tangca: ["Mã tăng ca", "Nội dung tăng ca"]
+    dm_hotro: ["Mã hỗ trợ", "Tên hỗ trợ"], dm_tangca: ["Mã tăng ca", "Nội dung tăng ca"], dm_giamtru: ["Mã giảm trừ", "Số tiền"] // PV-7b
   };
 
   // ---------- tiện ích ngày ----------
@@ -304,9 +306,14 @@
   }
   function staffForPayroll(db, nam, thang) {
     var b = kyBounds(nam, thang), out = [], warn = [], ix = buildIndex(db);
+    // Mặc định (tự nhận diện): lấy mã khớp đầu tiên trong Danh mục giảm trừ — dùng khi phụ lục
+    // HĐ không chọn riêng "Mã GT_TNCN_BT"/"Mã GT_TNCN_PT" (giữ đúng số liệu các kỳ cũ, trước khi
+    // có 2 trường này — PV-7b).
     var gtCodes = (db.dm_giamtru || []).map(function (r) { return r["Mã giảm trừ"]; });
-    var gtBT = gtCodes.filter(function (c) { return /^GTBT|^BT$/i.test(c); })[0] || "";
-    var gtPT = gtCodes.filter(function (c) { return /^GTNPT|^PT$/i.test(c); })[0] || "";
+    var gtBTCand = gtCodes.filter(function (c) { return /^GTBT|^BT$/i.test(c); }), gtBTAuto = gtBTCand[0] || "";
+    var gtPTCand = gtCodes.filter(function (c) { return /^GTNPT|^PT$/i.test(c); }), gtPTAuto = gtPTCand[0] || "";
+    var gtBTAmbig = gtBTCand.filter(function (c, i) { return c !== gtBTCand[0] && gtBTCand.indexOf(c) === i; });
+    var gtPTAmbig = gtPTCand.filter(function (c, i) { return c !== gtPTCand[0] && gtPTCand.indexOf(c) === i; });
     var hotroInfo = {}; (db.dm_hotro || []).forEach(function (r) { hotroInfo[r["Mã hỗ trợ"]] = r; });
     (db.nhanvien || []).forEach(function (nv) {
       var ma = nv["Mã NV"]; if (!ma) return;
@@ -346,6 +353,10 @@
       if (nv["Trạng thái"] === "Đã nghỉ việc" && !hd["Ngày chấm dứt"]) warn.push(ma + " (" + (nv["Họ và tên"] || "") + "): trạng thái 'Đã nghỉ việc' nhưng hợp đồng " + hd["Số HĐLĐ"] + " chưa có Ngày chấm dứt — vẫn đang được tính lương");
       if (ct["HTTT"] === "Chuyển khoản" && !(tk && tk["Số tài khoản"])) warn.push(ma + " (" + (nv["Họ và tên"] || "") + "): trả lương chuyển khoản nhưng chưa có số tài khoản");
       var cn = latestBy(rowsOf(db, "canhan", ma, ix), "Hiệu lực từ", b.cuoi);
+      // PV-7b: phụ lục HĐ được CHỌN RIÊNG mã giảm trừ (ref Danh mục giảm trừ) → ưu tiên; để trống = tự nhận diện như cũ
+      var gtBT = ct["Mã GT_TNCN_BT"] || gtBTAuto, gtPT = ct["Mã GT_TNCN_PT"] || gtPTAuto;
+      if (!ct["Mã GT_TNCN_BT"] && gtBTAmbig.length) warn.push(ma + " (" + (nv["Họ và tên"] || "") + "): Danh mục giảm trừ có " + (gtBTAmbig.length + 1) + " mã GTBT (" + gtBTCand.join(", ") + ") nhưng phụ lục chưa chọn riêng — app tạm dùng '" + gtBTAuto + "', hãy chọn đúng mã ở 'Lương & phụ lục HĐ'");
+      if (!ct["Mã GT_TNCN_PT"] && gtPTAmbig.length) warn.push(ma + " (" + (nv["Họ và tên"] || "") + "): Danh mục giảm trừ có " + (gtPTAmbig.length + 1) + " mã GTNPT (" + gtPTCand.join(", ") + ") nhưng phụ lục chưa chọn riêng — app tạm dùng '" + gtPTAuto + "', hãy chọn đúng mã ở 'Lương & phụ lục HĐ'");
       out.push({
         "Mã nhân viên": ma, "Họ và tên": nv["Họ và tên"], "Mã PB": ct["Phòng ban"] || "", "Mã CV": ct["Chức vụ"] || "",
         "Ngày vào làm": hd["Ngày vào làm"] || "", "Ngày nghỉ/thay đổi": hd["Ngày chấm dứt"] || "",
@@ -354,7 +365,8 @@
         "Mã phụ cấp": ct["Phụ cấp"] || "", "Mã hỗ trợ": ht1, "Mã hỗ trợ 2": ht2,
         "Mã BHXH": ct["Mức đóng bảo hiểm"] || "", "Mã TNCN": ct["Thuế TNCN"] || "",
         "Mã GT_TNCN_BT": gtBT, "Mã GT_TNCN_PT": gtPT, "Người phụ thuộc": soNguoiPhuThuoc(db, ma, b.dau, b.cuoi, ix),
-        "Số CCCD": (cn && cn["Số CCCD"]) || nv["Số CCCD"] || "", "Số tài khoản": tk ? tk["Số tài khoản"] : "", "Tên Ngân hàng": tk ? tk["Tên ngân hàng"] : "",
+        "Số CCCD": (cn && cn["Số CCCD"]) || nv["Số CCCD"] || "", "Số sổ BHXH": (cn && cn["Số sổ BHXH"]) || "",
+        "Số tài khoản": tk ? tk["Số tài khoản"] : "", "Tên Ngân hàng": tk ? tk["Tên ngân hàng"] : "",
         "HTTT": ct["HTTT"] || "", "Số HĐLĐ": hd["Số HĐLĐ"]
       });
       // Q-19 (R-53): phụ lục trong kỳ đổi Phòng ban → ghi các đoạn "Mã PB@từ ngày" để chia chi phí theo công (chỉ thêm khi có đổi phòng ban)

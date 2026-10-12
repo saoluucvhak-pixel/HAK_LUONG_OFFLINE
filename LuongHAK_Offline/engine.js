@@ -196,9 +196,19 @@
     var dmBH = hieuLuc(db.dm_baohiem, "Mã bảo hiểm", nam, thang);
     var dmGT = hieuLuc(db.dm_giamtru, "Mã giảm trừ", nam, thang);
     var bacSrc = (db.dm_bacthue && db.dm_bacthue.length) ? db.dm_bacthue : db.dm_tncn.filter(function (r) { return r["Bậc"] !== "" && r["Bậc"] != null; });
-    var bacMap = hieuLuc(bacSrc, "Bậc", nam, thang);
-    var bieu = Object.keys(bacMap).map(function (k) { return bacMap[k]; })
-      .sort(function (a, b) { return num(a["Thu nhập từ"] || a["Thu nhập tháng (Min)"]) - num(b["Thu nhập từ"] || b["Thu nhập tháng (Min)"]); });
+    // PV-7c: biểu thuế lũy tiến có thể gắn riêng theo "Mã thuế TNCN" (như DM_BAC_TNCN thật — mỗi mã
+    // thuế 1 biểu riêng); dòng không ghi mã thuế = áp dụng chung cho mọi mã (giữ đúng số liệu cũ,
+    // trước khi danh mục có cột này). Chỉ khi CÓ ít nhất 1 dòng ghi rõ mã mới cần lọc theo từng người.
+    var bacCoMa = bacSrc.some(function (r) { return r["Mã thuế TNCN"]; });
+    var bieuCache = {};
+    function bieuCho(maThue) {
+      if (bieuCache[maThue]) return bieuCache[maThue];
+      var src = bacCoMa ? bacSrc.filter(function (r) { return !r["Mã thuế TNCN"] || r["Mã thuế TNCN"] === maThue; }) : bacSrc;
+      var bacMap = hieuLuc(src, "Bậc", nam, thang);
+      var b = Object.keys(bacMap).map(function (k) { return bacMap[k]; })
+        .sort(function (a, c) { return num(a["Thu nhập từ"] || a["Thu nhập tháng (Min)"]) - num(c["Thu nhập từ"] || c["Thu nhập tháng (Min)"]); });
+      bieuCache[maThue] = b; return b;
+    }
     var dmPTThue = hieuLuc(db.dm_tncn.filter(function (r) { return r["Mã thuế TNCN"]; }), "Mã thuế TNCN", nam, thang);
     var pb = byKey(db.dm_phongban, "Mã phòng ban"), cv = byKey(db.dm_chucvu, "Mã chức vụ");
 
@@ -364,6 +374,7 @@
         if (du2) { bhNLD = Math.round(luongBH * tlNLD); kpcdNLD = Math.round(luongBH * num(bh["NLD.KPCD"])); } else truyThu = ctyDong; // KPCĐ NLĐ áp dụng luôn, không chỉ qc2026 (dữ liệu thực tế HAK_DN T11/2025 và Quế Sơn T9/2025 đều đã trừ trước khi quy chế 2026 được duyệt 11/10/2026)
         var bhRow = {
           "Mã NV": ma, "Họ và tên": ns["Họ và tên"], "Phòng ban": (pb[ns["Mã PB"]] || {})["Tên phòng ban"] || ns["Mã PB"] || "",
+          "Số sổ BHXH": ns["Số sổ BHXH"] || "", // PV-7a: báo cáo BHXH thật (RP_BHXH) có cột này
           "Lương đóng BHXH": luongBH,
           "CTY.BHXH": Math.round(luongBH * num(bh["DN.BHXH"])), "CTY.BHYT": Math.round(luongBH * num(bh["DN.BHYT"])),
           "CTY.BHTN": Math.round(luongBH * num(bh["DN.BHTN"])), "CTY.KPCĐ": Math.round(luongBH * num(bh["DN.KPCD"])),
@@ -395,7 +406,8 @@
       else {
         if (!gtBT) out.canhbao.push(ma + ": thuế lũy tiến nhưng không tìm thấy mức giảm trừ bản thân hiệu lực trong kỳ (mã '" + (ns["Mã GT_TNCN_BT"] || "") + "') — thuế có thể bị tính cao");
         if (npt > 0 && !gtPT) out.canhbao.push(ma + ": có " + npt + " người phụ thuộc nhưng không tìm thấy mức giảm trừ người phụ thuộc hiệu lực trong kỳ");
-        if (!bieu.length) out.canhbao.push(ma + ": không có biểu thuế lũy tiến hiệu lực trong kỳ — thuế = 0");
+        var bieu = bieuCho(maT); // PV-7c: biểu thuế lũy tiến tham chiếu theo đúng Mã thuế TNCN của người này (nếu danh mục có phân biệt)
+        if (!bieu.length) out.canhbao.push(ma + ": không có biểu thuế lũy tiến hiệu lực trong kỳ (mã thuế '" + maT + "') — thuế = 0");
         chiuThue = tongTN - bhNLD - kpcdNLD - tienCom; tinhThue = Math.max(0, chiuThue - tienGTBT - tongGTPT); thue = tinhThueLuyTien(tinhThue, bieu);
       }
       if (thue > 0) out.tncn.push({
