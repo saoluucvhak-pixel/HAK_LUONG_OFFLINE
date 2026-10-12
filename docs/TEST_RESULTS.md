@@ -4,7 +4,7 @@
 | Nhóm | Kết quả |
 |---|---|
 | Lint | ✅ 0/0 |
-| `npm test` | ✅ **201/201** (+5 U-OCR, +2 I-OCR chạy Tesseract thật trên ảnh mẫu giả lập) |
+| `npm test` | ✅ **202/202** (+6 U-OCR, +2 I-OCR chạy Tesseract thật trên ảnh mẫu giả lập) |
 | E2E Electron (xvfb, Linux) | ✅ **95/95** (+1: Cách đọc ô Dấu x trên bảng tay 2 khối) |
 | Ảnh viết tay thật của người dùng (chỉ trên máy kiểm thử, **không** đưa vào repo) | ⚠ Bảng dấu x 2 khối rõ nét: đúng các ngày có dấu. Bảng có ô ghi giờ, ghi chú: còn ô đếm sai (4–8 dấu) → tô vàng khi > 3. Bảng có dòng con Ngày / Đêm: chỉ nhận 1 khối. Lịch ca viết tay: nhiều ô "?". 1 ảnh không phải bảng kẻ ô: không đọc. **Cần soát tay.** |
 | Windows thật | ⏳ chưa kiểm |

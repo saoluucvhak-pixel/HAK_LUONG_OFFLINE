@@ -179,3 +179,24 @@ test("U-OCR-13 bảng tay 2 khối (ngày 1–15 | 16–30), mỗi người 1 c�
   });
   assert.deepStrictEqual(T.warnings, []);
 });
+
+test("U-OCR-14 ô ngày gộp 2 dòng con (Ngày / Đêm): cộng 2 dòng; cột nhãn Ngày/Đêm bỏ qua; dòng con không đọc được → '?'", () => {
+  // cột: Ngày (ô cao 2 dòng) | nhãn dòng con (Ngày / Đêm) | Lê Văn An (mỗi dòng con 1 ô)
+  const rowH = 30, X = [[0, 60], [62, 140], [142, 260]], cells = [];
+  const mk = (x, y0, y1, text, val) => { const n = G.parseCellNumber(text); const c = { x0: x[0], y0, x1: x[1], y1, cx: (x[0] + x[1]) / 2, cy: (y0 + y1) / 2, text, conf: 90, num: n == null ? null : /[A-Za-zÀ-ỹ]{2,}/.test(text) ? null : n }; if (val !== undefined) c.val = val; cells.push(c); };
+  mk(X[0], 0, rowH, "Ngày"); mk(X[1], 0, rowH, ""); mk(X[2], 0, rowH, "Lê Văn An");
+  const sub = { 1: [1, 1], 2: [1, null], 3: [null, null], 4: [2, NaN] }; // ngày → [Ngày, Đêm] (số dấu)
+  for (let d = 1; d <= 12; d++) {
+    const y = rowH + 2 + (d - 1) * (2 * rowH + 4), s = sub[d] || [1, null];
+    mk(X[0], y, y + 2 * rowH + 2, String(d));
+    mk(X[1], y, y + rowH, "Ngày"); mk(X[1], y + rowH + 2, y + 2 * rowH + 2, "Đêm");
+    mk(X[2], y, y + rowH, s[0] == null ? "" : "x", s[0]); mk(X[2], y + rowH + 2, y + 2 * rowH + 2, s[1] == null ? "" : "x", s[1]);
+  }
+  const T = TP.parse(cells);
+  assert.strictEqual(T.layout, "B"); assert.strictEqual(T.days.length, 12);
+  const l = T.lines.find((x) => x.name === "Lê Văn An");
+  assert.ok(l && l.kind === "Công", JSON.stringify(T.lines.map((x) => [x.label, x.kind])));
+  assert.strictEqual(l.values[1], 2); assert.strictEqual(l.values[2], 1); assert.strictEqual(l.values[3], null); assert.ok(Number.isNaN(l.values[4]));
+  assert.strictEqual(l.sub[1], 2);
+  assert.ok(!T.lines.some((x) => x.kind && x !== l), "cột nhãn Ngày / Đêm không thành dòng chấm công");
+});

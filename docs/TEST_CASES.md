@@ -139,6 +139,7 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 | U-OCR-11 | (α22) Đếm dấu x trên ảnh vẽ: 1 / 2 / 3 dấu, xxx dính liền = 3, cụm lưng chừng → không chắc, ô trống = 0 |
 | U-OCR-12 | (α22) Vai trò cột bảng dọc: Công / Cơm / Tăng ca; Ngày, Thứ, Ghi chú… bỏ qua; tên → người; kỳ "THÁANG 09/2026", "… 10/2026" |
 | U-OCR-13 | (α22) Bảng 2 khối, mỗi người 1 cột: ghép đủ 30 ngày theo tên, cộng TC 2 khối, dùng giá trị đếm dấu |
+| U-OCR-14 | (α22) Ô ngày gộp 2 dòng con Ngày / Đêm: cộng 2 dòng, cột nhãn dòng con bỏ qua, dòng con không đọc được → "?" |
 
 ## Integration — 2.0-α20 OCR thật (`tests/integration/ocr-fixtures.test.js`, ảnh giả lập `tests/fixtures/ocr/make_fixtures.py`)
 | ID | Nội dung |
