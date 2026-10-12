@@ -52,6 +52,19 @@ test("lương công nhật CN1 không có Mã tăng ca → Tiền tăng ca = 0 (
   assert.equal(row(kq)["Tiền tăng ca"], 0);
 });
 
+test("TC5 (ca làm thêm vị trí khác) cũng phải nhân hệ số tăng ca, không chỉ Tiền cố định/Công chuẩn × công TC", () => {
+  // Đối chiếu M thật (QR_LUONGTG."Lương tăng ca"): TC5 = (Tiền cố định / Công chuẩn) × "Công tính tăng
+  // ca" (đã qua hệ số TC5 trong DM_TANGCA) — hệ số công ty HAK_DN hiện là 100% nên trước đây không lộ
+  // sai số; test này dùng hệ số 50% để chứng minh công thức đúng khi hệ số khác 100%.
+  const db = baseDb();
+  db.dm_tangca = db.dm_tangca.map((r) => r["Mã tăng ca"] === "TC5" ? Object.assign({}, r, { "Hệ số tăng ca": 0.5 }) : r);
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã tăng ca": "TC5" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "TC", 5, 1)]; // 1 ngày, 5 công tăng ca
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  const cChuan = 26; // TG1, 9/2026
+  assert.equal(r["Tiền tăng ca"], Math.round(6000000 / cChuan * (5 * 0.5))); // 576.923, không phải 1.153.846 (nếu bỏ hệ số)
+});
+
 test("lương sản phẩm + bù theo tháng khi dưới ngưỡng", () => {
   const extra = { chamcong: [ccRow("NV", 2026, 9)], sanluong: [{ "Phiếu cân": "P1", "Ngày cân": "2026-09-05", "KL hàng (Tấn)": "30", "Mã NV": "NV" }] };
   const db = baseDb(); db.dm_luong.find((r) => r["Mã lương"] === "SP")["ĐK_Bù lương (công tối thiểu)"] = "5";
