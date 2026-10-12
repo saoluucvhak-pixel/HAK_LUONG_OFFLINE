@@ -121,6 +121,7 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 | U-QC-08 | Danh mục chuẩn có Số ngày giảm trừ; bản chốt ghi quyChe + engine 1.8.0 |
 | U-QC-09 | (C8) Có mã BHXH, Lương cơ bản trống → không BH / truy thu, có cảnh báo |
 | U-QC-11 | (C10) Mã tăng ca TC5: công TC không cộng vào lương TG; mã khác vẫn cộng |
+| U-QC-12 | (R-71) Lương sản lượng = tổng tấn tháng × đơn giá, làm tròn 1 lần (3 ngày × 10,0001 tấn → 180.002, không phải 180.003) |
 | U-QC-10 | (C9) CN2: công chuẩn 26 → phụ cấp đủ / chia theo công; lương = đơn giá × công |
 
 ## Unit — 2.0-α20 OCR chấm công (`tests/unit/timesheet-ocr.test.js`)

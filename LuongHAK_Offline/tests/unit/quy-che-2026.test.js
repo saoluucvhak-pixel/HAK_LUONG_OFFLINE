@@ -131,3 +131,11 @@ test("U-QC-11 (C10) mã tăng ca TC5: công tăng ca trả theo đơn giá ca kh
   const r4 = row(run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "8500000", "Mã tăng ca": "TC4" })], ex, Q));
   assert.equal(r4["Lương thời gian"], Math.round(8500000 / 26 * 36)); // mã khác: công TC vẫn tính vào lương TG (C1) + 50% tăng ca
 });
+
+test("U-QC-12 (R-71, Q-31 'thống nhất') lương sản lượng = tổng tấn cả tháng × đơn giá, làm tròn 1 lần (không làm tròn từng ngày)", () => {
+  const s = [staff({ "Mã nhân viên": "A", "Mã tiền lương 1": "SP" })];
+  const ex = { chamcong: [ccRow("A", 2026, 9, "BT", 1, 3)],
+    sanluong: ["2026-09-01", "2026-09-02", "2026-09-03"].map((d) => ({ "Ngày cân": d, "KL hàng (Tấn)": "10.0001", "Mã NV": "A" })) };
+  // 30,0003 tấn × 6.000 = 180.001,8 → 180.002 (làm tròn từng ngày: 3 × round(60.000,6) = 180.003 — không dùng)
+  [Q, undefined].forEach((opts) => assert.equal(row(run(s, ex, opts), "A")["Lương sản lượng"], 180002));
+});
