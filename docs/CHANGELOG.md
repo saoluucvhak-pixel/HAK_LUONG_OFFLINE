@@ -19,6 +19,7 @@
   - kỳ nhận cả "THÁANG 09/2026" (OCR thừa chữ) và "… 10/2026".
 - **Chữ viết tay thật vẫn đọc chưa tốt** (ảnh thật của người dùng, chỉ kiểm trên máy kiểm thử): bảng dấu x rõ nét đọc đúng phần lớn, ô ghi giờ viết tay, ô có ghi chú và lịch ca viết tay còn nhiều ô "?" — **luôn soát lại trước khi ghi**.
 - **Q-29 đã trả lời** (R-70): thuế TNCN **trừ hằng tháng**; ai không trừ thì chọn mã thuế TNCN *Miễn / Không tính thuế* (TNCN0 / MT00). App vốn đã tính như vậy; thêm test U-TAX-01/02.
+- **Q-31 đã trả lời** (R-71): lương sản lượng làm tròn **1 lần trên tổng tháng**, thống nhất mọi đơn vị (Excel Đại Hiệp cũ làm tròn theo ngày — lệch ≤ 2đ/người, chấp nhận).
 - **Không đổi công thức lương.** Test 204 (+6 U-OCR, +2 I-OCR, +2 U-TAX), E2E 95/95 (+1).
 
 ## [2.0.0-alpha.21] — 11/10/2026 — Quy chế lương HAK Group 2026 (engine 1.8.0)
