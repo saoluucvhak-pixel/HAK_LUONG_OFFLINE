@@ -88,6 +88,29 @@ test("Master Prompt mục 7.15 (Đại Hiệp, bù theo ngày bậc thang): có 
   assert.ok(kq.canhbao.some((w) => /có sản lượng nhưng CHƯA chấm công BT ngày 05/.test(w)), kq.canhbao.join(" | "));
 });
 
+test("chiTietBuNgayDaiHiep (Master Prompt mục XVII): chi tiết từng ngày cộng lại khớp đúng 'Lương bù SL' của tinhBangLuong", () => {
+  const db = baseDb();
+  db.nhansu = [staff({ "Mã tiền lương 1": "SP", "Lương thỏa thuận": "200000" })];
+  db.chamcong = [
+    Object.assign({ "Kỳ": "2026-09", "Mã NV": "NV", "Hình thức công": "BT" }, { "07": 1, "08": 0.5 }),
+  ];
+  db.sanluong = [
+    { "Phiếu cân": "P1", "Ngày cân": "2026-09-07", "KL hàng (Tấn)": "10", "Mã NV": "NV" },
+    { "Phiếu cân": "P2", "Ngày cân": "2026-09-08", "KL hàng (Tấn)": "1", "Mã NV": "NV" },
+  ];
+  const kq = E.tinhBangLuong(db, 2026, 9, "daihiep");
+  const detail = E.chiTietBuNgayDaiHiep(db, 2026, 9);
+  assert.equal(detail.length, 2);
+  const d07 = detail.find((x) => x.ngay === "2026-09-07"), d08 = detail.find((x) => x.ngay === "2026-09-08");
+  // SL_CHUAN_1_NGAY = 200.000 / 6.000 = 33,333333... — không hardcode
+  assert.ok(Math.abs(d07.slChuan - 200000 / 6000) < 1e-9);
+  assert.equal(d07.heSo, 1); assert.equal(d07.slThucTe, 10);
+  assert.equal(d08.heSo, 0.5); assert.equal(d08.slThucTe, 1);
+  const tongBu = Math.round(detail.reduce((a, x) => a + x.tienBu, 0));
+  assert.equal(tongBu, row(kq)["Lương bù SL"]); // phải khớp đúng, không lệch do làm tròn khác bước
+  assert.equal(tongBu, 234000);
+});
+
 test("Master Prompt mục 4.5: có sản lượng/bơm dăm nhưng đơn giá khoán = 0 → cảnh báo, không âm thầm ra 0đ", () => {
   const db = baseDb();
   db.dm_luong.find((r) => r["Mã lương"] === "SP")["Số tiền khoán"] = "0";

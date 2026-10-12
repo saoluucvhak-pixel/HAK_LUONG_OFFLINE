@@ -480,19 +480,22 @@ async function launch(dataDir, opt) {
     const pbTxt = await w.locator("main").first().innerText();
     await w.click('#main button:has-text("mẫu công cụ phân bổ")');
     let xf2 = null; for (let i = 0; i < 40 && !xf2; i++) { await w.waitForTimeout(200); xf2 = fs.readdirSync(DL).filter((x) => /^Phan_bo_khoi_luong_2026-10\.xlsx$/.test(x))[0]; }
-    let tan = {}, bu = {}, sheets = "";
+    let tan = {}, bu = {}, sheets = "", buNgay = {};
     if (xf2) {
       await w.waitForTimeout(300);
       const XLSX = require(path.join(APP, "xlsx.full.min.js")), wb2 = XLSX.read(fs.readFileSync(path.join(DL, xf2)), { type: "buffer" }); sheets = wb2.SheetNames.join("|");
       XLSX.utils.sheet_to_json(wb2.Sheets["Chi tiet cong nhan"], { header: 1 }).forEach((r) => { if (/^T\d$/.test(r[2])) tan[r[2]] = r[r.length - 1]; });
       XLSX.utils.sheet_to_json(wb2.Sheets["Tien luong va bu luong"], { header: 1 }).forEach((r) => { if (/^T\d$/.test(r[2])) bu[r[2]] = r[r.length - 2]; });
+      XLSX.utils.sheet_to_json(wb2.Sheets["Bu luong theo ngay - DH"], { header: 1 }).forEach((r) => { if (/^Tổng bù cả tháng/.test(String(r[0] || ""))) { const ma = /\(([^)]+)\)/.exec(r[0])[1]; buNgay[ma] = r[r.length - 1]; } });
     }
     // R-73: ngày 02/10 chỉ T3 có công (0,5) mà phiếu P3 ghi vắng Hùng (T3) → T1, T2, T4 công 0 = nghỉ → P3 6 tấn chưa phân bổ
     ok("Chia phiếu theo tổ như công cụ: trừ NV vắng, người đã nghỉ việc / công = 0 không nhận — T1 3 · T2 13 · T3 13 · T4 10 tấn; P3 (không ai có công) và phiếu mã tổ lạ chưa phân bổ",
       tan.T1 === 3 && tan.T2 === 13 && tan.T3 === 13 && tan.T4 === 10 && /09\.99/.test(pbTxt) && /chưa phân bổ/.test(pbTxt), JSON.stringify(tan));
     ok("Bù lương theo ngày bậc thang (Đại Hiệp): T2, T3 ngày 01 (1 công BT, 10 tấn) bù 140.000; T1 không có công BT ngày có SL → 0",
       bu.T2 === 140000 && bu.T3 === 140000 && bu.T1 === 0, JSON.stringify(bu));
-    ok("File Excel đủ sheet như công cụ", sheets === "Huong dan su dung|Tong hop phong ban|Phan bo theo phong ban|Chi tiet cong nhan|Doi soat phieu can|Tien luong va bu luong|Du lieu - Khoi luong", sheets);
+    ok("Sheet 'Bu luong theo ngay - DH' (mục XVII): tổng bù cả tháng mỗi người khớp đúng cột 'Bù lương' ở sheet tổng hợp",
+      buNgay.T2 === 140000 && buNgay.T3 === 140000, JSON.stringify(buNgay));
+    ok("File Excel đủ sheet như công cụ", sheets === "Huong dan su dung|Tong hop phong ban|Phan bo theo phong ban|Chi tiet cong nhan|Doi soat phieu can|Tien luong va bu luong|Bu luong theo ngay - DH|Du lieu - Khoi luong", sheets);
     // File mẫu tải từ app = mẫu công cụ
     await w.click("#nav button[data-k=sanluong]"); await w.click('#main button:has-text("Tải file mẫu")');
     let mf = null; for (let i = 0; i < 30 && !mf; i++) { await w.waitForTimeout(200); mf = fs.readdirSync(DL).filter((x) => x === "mau_bang_khoi_luong.xlsx")[0]; }

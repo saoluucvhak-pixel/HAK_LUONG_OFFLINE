@@ -173,6 +173,14 @@
     return { tong: tong, ngay: ngay };
   }
 
+  // Bậc thang "SL tham chiếu" theo công BT của ngày (công cụ HAK / Power Query + DAX Đại Hiệp): hệ số × mức sàn
+  function bacThang(cong, chuNhat) {
+    if (cong < 0.5) return 0;
+    if (cong < 1) return 0.5;
+    if (!chuNhat || cong < 1.5) return 1;
+    return 1.5;
+  }
+
   function tongHopTheoMa(list, cotNgay, nam, thang, cols) {
     var map = {};
     list.forEach(function (r) {
@@ -246,13 +254,6 @@
         o.tien += (sl.tong[ma] || 0) * money(dmL0["Số tiền khoán"]) + (qc2026 ? 0 : (bd.tong[ma] || 0) * gBD); o.n++; // 2026 (C4): tiền tổ chỉ tính sản lượng
       });
       Object.keys(toSum).forEach(function (k) { binhQuanTo[k] = toSum[k].n ? toSum[k].tien / soNgayThang / toSum[k].n : 0; });
-    }
-    // Bậc thang "SL tham chiếu" theo công BT của ngày (công cụ HAK / Power Query + DAX Đại Hiệp): hệ số × mức sàn
-    function bacThang(cong, chuNhat) {
-      if (cong < 0.5) return 0;
-      if (cong < 1) return 0.5;
-      if (!chuNhat || cong < 1.5) return 1;
-      return 1.5;
     }
 
     (db.nhansu || []).forEach(function (ns) {
@@ -462,7 +463,48 @@
     return out;
   }
 
+  /**
+   * Chi tiết bù lương sản lượng Đại Hiệp theo ngày bậc thang (Master Prompt V3 mục XVII — đối chiếu
+   * Excel). Dùng ĐÚNG dữ liệu đã truyền cho `tinhBangLuong` (db.nhansu = staffForPayroll đã resolve,
+   * db.sanluong = sản lượng đã phân bổ theo NV) để tổng tiền bù mỗi người ở đây CỘNG KHỚP đúng cột
+   * "Lương bù SL" của bảng lương chính thức — không tính lại bằng công thức khác, chỉ bóc chi tiết
+   * từng ngày của CHÍNH công thức đó (bacThang(), xem tinhBangLuong, nhánh cheDoBu === "daihiep").
+   * Trả về 1 dòng cho mỗi NGÀY có sản lượng của mỗi nhân viên hưởng lương sản phẩm có "Đơn giá bù
+   * lương" > 0: { ma, hoTen, maPB, ngay, chuNhat, congBT, heSo, slChuan, slThamChieu, slThucTe, slBu, tienBu }.
+   */
+  function chiTietBuNgayDaiHiep(db, nam, thang) {
+    nam = +nam; thang = +thang;
+    var dmLuong = hieuLuc(db.dm_luong || [], "Mã lương", nam, thang);
+    var cc = tongHopChamCong(db.chamcong || [], nam, thang);
+    var sl = tongHopTan(db.sanluong || [], nam, thang);
+    var out = [];
+    (db.nhansu || []).forEach(function (ns) {
+      var ma = ns["Mã nhân viên"]; if (!ma) return;
+      var dmL = dmLuong[ns["Mã tiền lương 1"]] || dmLuong[ns["Mã tiền lương 2"]] || null;
+      var laSL = !!(dmL && /SP/i.test(dmL["Mã hình thức lương"] || ""));
+      if (!laSL) return;
+      var donGiaSL = money(dmL["Số tiền khoán"]), giaBu = money(dmL["Đơn giá bù lương"]);
+      if (donGiaSL <= 0 || giaBu <= 0) return;
+      var slChuan = giaBu / donGiaSL; // SL_CHUAN_1_NGAY — luôn tính từ danh mục, không hardcode
+      var c = cc[ma] || { congBTTheoNgay: {} }, snD = sl.ngay[ma] || {};
+      Object.keys(snD).sort().forEach(function (t) {
+        var tanN = snD[t] || 0; if (tanN <= 0) return;
+        var chuNhatN = new Date(nam, thang - 1, +t).getDay() === 0;
+        var congBTN = c.congBTTheoNgay[t] || 0, heSo = bacThang(congBTN, chuNhatN);
+        var slThamChieu = slChuan * heSo, slBu = Math.max(0, slThamChieu - tanN);
+        var tienBu = Math.max(0, heSo * giaBu - tanN * donGiaSL); // công thức tương đương — không làm tròn ở bước này
+        out.push({
+          ma: ma, hoTen: ns["Họ và tên"] || "", maPB: ns["Mã PB"] || "",
+          ngay: nam + "-" + ("0" + thang).slice(-2) + "-" + t, chuNhat: chuNhatN,
+          congBT: congBTN, heSo: heSo, slChuan: slChuan, slThamChieu: slThamChieu,
+          slThucTe: tanN, slBu: slBu, tienBu: tienBu
+        });
+      });
+    });
+    return out;
+  }
+
   var ENGINE_VERSION = "1.8.0"; // 1.8.0: quy chế lương HAK Group 2026 (opts.quyChe "2026", R-68 — C1…C10); không bật = số như 1.7.0 · 1.5.0: Q-22 áp dụng phụ lục từ ngày hiệu lực · 1.6.0: Q-19 "Phân bổ PB" khi điều chuyển (không dùng = số tiền giống 1.4.0) · 1.7.0: thêm cách bù "daihiep" / "to" (công cụ HAK; 2 cách cũ giữ nguyên số)
-  var api = { ENGINE_VERSION: ENGINE_VERSION, money: money, tinhBangLuong: tinhBangLuong, tinhThueLuyTien: tinhThueLuyTien, congChuan: congChuan, ngayGiamTru: ngayGiamTru, tachCong: tachCong, tongHopChamCong: tongHopChamCong, hieuLuc: hieuLuc, num: num, pct: pct };
+  var api = { ENGINE_VERSION: ENGINE_VERSION, money: money, tinhBangLuong: tinhBangLuong, tinhThueLuyTien: tinhThueLuyTien, congChuan: congChuan, ngayGiamTru: ngayGiamTru, tachCong: tachCong, tongHopChamCong: tongHopChamCong, hieuLuc: hieuLuc, num: num, pct: pct, bacThang: bacThang, chiTietBuNgayDaiHiep: chiTietBuNgayDaiHiep };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.LuongEngine = api;
 })(typeof window !== "undefined" ? window : this);
