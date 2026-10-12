@@ -282,7 +282,16 @@
       // Lương thời gian
       var donGiaTG = cChuan > 0 ? luongTT / cChuan : 0;
       var congTinhTG = Math.min(c.tongCong, cChuan) || c.tongCong;
-      if (qc2026) congTinhTG = maTL1 === "SP" ? (c.congLe || 0) + (c.congPhep || 0) : c.tongCong - (ns["Mã tăng ca"] === "TC5" ? c.congTangCa || 0 : 0); // C10: công TC5 (ca vị trí khác) đã trả riêng — không tính lại vào lương TG // 2026: C1 trả đủ công đi làm (không cắt ở công chuẩn) · C3 công nhân SP chỉ tính lương TG cho công lễ + phép
+      // "Loại công thức" (DM_LUONG, như DM_TANGCA/DM_PHUCAP/DM_HOTRO): để trống = hành vi cũ (C3, lễ+phép).
+      // M thật HAK_DN (Section1.m, "Công tính TG") cho SP = Công lễ + Công TĂNG CA, không phải lễ+phép —
+      // nhưng chưa đối chiếu được bằng số liệu thật nào có công tăng ca/phép ≠ 0 (xem PV-12) — không ép
+      // chung 1 công thức, để từng công ty tự chọn qua danh mục khi đã xác nhận đúng cho dữ liệu của mình.
+      if (qc2026) {
+        if (maTL1 === "SP") {
+          var loaiTG = String(dmL ? dmL["Loại công thức"] : "").trim();
+          congTinhTG = loaiTG === "TG_LE_TANGCA" ? (c.congLe || 0) + (c.congTangCa || 0) : (c.congLe || 0) + (c.congPhep || 0);
+        } else congTinhTG = c.tongCong - (ns["Mã tăng ca"] === "TC5" ? c.congTangCa || 0 : 0); // C10: công TC5 (ca vị trí khác) đã trả riêng — không tính lại vào lương TG // 2026: C1 trả đủ công đi làm (không cắt ở công chuẩn)
+      }
       var luongTG;
       if (maTL1 === "CĐ") luongTG = chiaPL ? Math.round(luongTT) : luongTT;
       else if (maTL1 === "CN1" || maTL1 === "CN2" || maTL1 === "SP") luongTG = Math.round(luongTT * congTinhTG);

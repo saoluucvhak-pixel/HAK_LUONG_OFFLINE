@@ -152,6 +152,23 @@ test("phụ cấp TN.02 theo tỷ lệ công: dưới ngưỡng (công chuẩn �
   assert.equal(row(kq2)["Phụ cấp"], 200000);
 });
 
+test("PV-12: 'Lương thời gian' của SP — 'Loại công thức' để trống = ĐÚNG hành vi cũ (Công lễ + Công phép)", () => {
+  const db = baseDb();
+  db.nhansu = [staff({ "Mã tiền lương 1": "SP", "Lương thỏa thuận": "200000" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 10), ccRow("NV", 2026, 9, "CL", 1, 2), ccRow("NV", 2026, 9, "PN", 1, 1), ccRow("NV", 2026, 9, "TC", 1, 3)];
+  const r = row(E.tinhBangLuong(db, 2026, 9, false, { quyChe: "2026" }));
+  assert.equal(r["Lương thời gian"], 200000 * (2 + 1)); // lễ(2) + phép(1) — không đổi, kể cả có công tăng ca
+});
+
+test("PV-12: 'Lương thời gian' của SP — mã CHỌN 'Loại công thức' = TG_LE_TANGCA → đúng công thức M thật HAK_DN (lễ + tăng ca)", () => {
+  const db = baseDb();
+  db.dm_luong.find((r) => r["Mã lương"] === "SP")["Loại công thức"] = "TG_LE_TANGCA";
+  db.nhansu = [staff({ "Mã tiền lương 1": "SP", "Lương thỏa thuận": "200000" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 10), ccRow("NV", 2026, 9, "CL", 1, 2), ccRow("NV", 2026, 9, "PN", 1, 1), ccRow("NV", 2026, 9, "TC", 1, 3)];
+  const r = row(E.tinhBangLuong(db, 2026, 9, false, { quyChe: "2026" }));
+  assert.equal(r["Lương thời gian"], 200000 * (2 + 3)); // lễ(2) + tăng ca(3), KHÔNG phải lễ+phép (600.000)
+});
+
 test("PV-10/PV-11: phụ cấp — 'Loại công thức' để trống = ĐÚNG hành vi cũ (không đổi số liệu TN.01/TN.02 mẫu HAK_DN)", () => {
   // Có công lễ + phép nhưng KHÔNG khai 'Loại công thức' → vẫn không trừ gì (hành vi cũ, đã được
   // Excel thật CNHAK 9/2026 xác nhận gián tiếp qua việc hoàn tác PV-10 — xem docs PV-10).
