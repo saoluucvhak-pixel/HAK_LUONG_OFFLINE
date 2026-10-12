@@ -89,16 +89,18 @@ test("U-QC-06 (C6) phụ cấp có Cách tính trống: chia theo công (không 
   assert.equal(row(run(s, full, Q))["Phụ cấp"], 200000); // đủ công chuẩn → đủ tiền
 });
 
-test("U-QC-07 (C7) BH: NLĐ đóng cả KPCĐ; thu nhập chịu thuế trừ phần này; báo cáo BH có cột NLĐ.KPCĐ", () => {
+test("U-QC-07 BH: NLĐ đóng KPCĐ tách riêng (không gộp vào Cộng BH NLĐ đóng, đúng như báo cáo RP_BHXH/RP_THLUONG thực tế của HAK_DN và Quế Sơn); áp dụng không phụ thuộc quy chế 2026", () => {
   const dm_baohiem = baseDb().dm_baohiem.concat([{ "Mã bảo hiểm": "BH_KPCD.01", "DN.BHXH": 0.175, "DN.BHYT": 0.03, "DN.BHTN": 0.01, "DN.KPCD": 0.02, "NLD.BHXH": 0.08, "NLD.BHYT": 0.015, "NLD.BHTN": 0.01, "NLD.KPCD": 0.005, "Hiệu lực từ": "2025-09-01" }]);
   const s = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "10000000", "Lương cơ bản": "4554000", "Mã BHXH": "BH_KPCD.01" })];
   const ex = { dm_baohiem, chamcong: [ccRow("NV", 2026, 9)] };
   const k = run(s, ex, Q), r = row(k), b = k.bhxh[0];
-  assert.equal(r["BH trừ NLĐ"], 478170 + 22770); // 4.554.000 × 10,5% + 0,5% KPCĐ
-  assert.equal(b["NLĐ.KPCĐ"], 22770); assert.equal(b["Cộng BH NLĐ đóng"], 500940);
-  assert.equal(r["Thực lĩnh"], Math.round((10000000 - 500940) / 1000) * 1000);
+  assert.equal(r["BH trừ NLĐ"], 478170); // 4.554.000 × 10,5% (BHXH+BHYT+BHTN) — không gộp KPCĐ
+  assert.equal(r["KPCĐ trừ NLĐ"], 22770); // 4.554.000 × 0,5%
+  assert.equal(b["NLĐ.KPCĐ"], 22770); assert.equal(b["Cộng BH NLĐ đóng"], 478170);
+  assert.equal(r["Thực lĩnh"], Math.round((10000000 - 478170 - 22770) / 1000) * 1000);
+  // không điều kiện qc2026: dữ liệu thực tế (HAK_DN T11/2025, Quế Sơn T9/2025) đã trừ KPCĐ NLĐ trước khi quy chế 2026 được duyệt (11/10/2026)
   const k0 = run(s, ex), b0 = k0.bhxh[0];
-  assert.equal(row(k0)["BH trừ NLĐ"], 478170); assert.ok(!("NLĐ.KPCĐ" in b0), "cách cũ giữ đúng cột như 1.7");
+  assert.equal(row(k0)["BH trừ NLĐ"], 478170); assert.equal(row(k0)["KPCĐ trừ NLĐ"], 22770); assert.equal(b0["NLĐ.KPCĐ"], 22770);
 });
 
 test("U-QC-08 danh mục chuẩn có Số ngày giảm trừ (TG3 4, TG4 2, CN2 4); bản chốt ghi quy chế đã dùng", () => {
