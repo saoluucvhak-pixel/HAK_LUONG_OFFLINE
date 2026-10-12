@@ -141,6 +141,12 @@ E2E: `ELECTRON_PATH=<electron> PLAYWRIGHT_MODULE=playwright xvfb-run -a npm run 
 | U-OCR-13 | (α22) Bảng 2 khối, mỗi người 1 cột: ghép đủ 30 ngày theo tên, cộng TC 2 khối, dùng giá trị đếm dấu |
 | U-OCR-14 | (α22) Ô ngày gộp 2 dòng con Ngày / Đêm: cộng 2 dòng, cột nhãn dòng con bỏ qua, dòng con không đọc được → "?" |
 
+## Unit — R-70 thuế TNCN theo mã (`tests/unit/thue-tncn-ma.test.js`)
+| ID | Nội dung |
+|---|---|
+| U-TAX-01 | Cùng thu nhập 40 tr: mã lũy tiến (LT01 / TNCN2) có thuế, vãng lai (VL01) = 10% tổng thu nhập, mã miễn (MT00 / TNCN0 / mã riêng "Không tính thuế") = 0; cả quy chế 2026 và cách cũ |
+| U-TAX-02 | Mã thuế chưa có trong danh mục → tạm tính lũy tiến + cảnh báo (không âm thầm miễn thuế) |
+
 ## Integration — 2.0-α20 OCR thật (`tests/integration/ocr-fixtures.test.js`, ảnh giả lập `tests/fixtures/ocr/make_fixtures.py`)
 | ID | Nội dung |
 |---|---|

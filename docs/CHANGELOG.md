@@ -18,7 +18,8 @@
   - tiêu đề cột là tên người bị đọc thành số ("6") → đọc lại dạng chữ;
   - kỳ nhận cả "THÁANG 09/2026" (OCR thừa chữ) và "… 10/2026".
 - **Chữ viết tay thật vẫn đọc chưa tốt** (ảnh thật của người dùng, chỉ kiểm trên máy kiểm thử): bảng dấu x rõ nét đọc đúng phần lớn, ô ghi giờ viết tay, ô có ghi chú và lịch ca viết tay còn nhiều ô "?" — **luôn soát lại trước khi ghi**.
-- **Không đổi công thức lương.** Test 202 (+6 U-OCR, +2 I-OCR), E2E 95/95 (+1).
+- **Q-29 đã trả lời** (R-70): thuế TNCN **trừ hằng tháng**; ai không trừ thì chọn mã thuế TNCN *Miễn / Không tính thuế* (TNCN0 / MT00). App vốn đã tính như vậy; thêm test U-TAX-01/02.
+- **Không đổi công thức lương.** Test 204 (+6 U-OCR, +2 I-OCR, +2 U-TAX), E2E 95/95 (+1).
 
 ## [2.0.0-alpha.21] — 11/10/2026 — Quy chế lương HAK Group 2026 (engine 1.8.0)
 - **Chủ sở hữu duyệt: HAK, CNHAK, HAKQN cùng một quy chế lương** (R-68). Engine 1.8.0 thêm *Quy chế lương HAK Group 2026* — **mặc định** cho kỳ chưa chốt: (C1) lương thời gian trả đủ công đi làm, (C2) công chuẩn = số ngày − *Số ngày giảm trừ* (TG3 = 26 thay vì 22), (C3) công nhân sản phẩm chỉ hưởng lương thời gian cho công lễ / phép, (C4) bù bình quân tổ chỉ tính tiền sản lượng, (C5) công nhật tính tăng ca theo công thức mã tăng ca (× 50%), (C6) phụ cấp không ghi cách tính thì chia theo công, (C7) trừ KPCĐ 0,5% phần người lao động, (C8) chưa có Lương cơ bản thì không tính BH / truy thu, (C9) công nhật: công chuẩn = số ngày − Số ngày giảm trừ, (C10) công tăng ca mã TC5 (ca vị trí khác) không cộng vào lương thời gian.

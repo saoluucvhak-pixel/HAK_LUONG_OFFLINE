@@ -124,6 +124,11 @@
   - lịch ca: **1 ca = 1 công, "1+2" = 2 công**; X = nghỉ.
   - Bảng mỗi người 1 cột: tên người lấy từ tiêu đề cột, app chỉ gợi ý nhân viên, người dùng xác nhận.
   - App **không tự đổi** số đếm được; ô không chắc tô vàng.
+- R-70 (Q-29, chủ sở hữu trả lời 12/10/2026) **Thuế TNCN trừ vào lương hằng tháng** theo mã thuế TNCN trên phụ lục lương của từng người:
+  - mã *Lũy tiến* (TNCN2 / LT…) → biểu lũy tiến sau giảm trừ;
+  - mã *Khấu trừ vãng lai* (TNCN1 / VL…) → % trên tổng thu nhập;
+  - người **không trừ** → chọn mã *Không tính thuế / Miễn thuế* (TNCN0 / MT00…), thuế = 0. App không tự đổi mã.
+  - Bảng lương Excel CNHAK 9/2026 và HAKQN 7/2026 không trừ thuế dù mã là TNCN2 → khi dùng app, kế toán đổi mã những người cần miễn sang TNCN0.
 
 ## 2. Câu hỏi mở — cần chủ sở hữu / kế toán xác nhận
 Phase 1 **giữ nguyên** hành vi hiện tại cho đến khi có xác nhận.
@@ -158,5 +163,5 @@ Phase 1 **giữ nguyên** hành vi hiện tại cho đến khi có xác nhận.
 | Q-26 | **BH tháng nghỉ việc:** người nghỉ trong tháng, ít / 0 công — (A) giữ R-57 (truy thu phần công ty, phần thiếu kế toán tự xử lý); (B) không tính BH, báo giảm; (C) tính đủ, phần thiếu ghi công nợ | ✅ **Đã trả lời (11/10/2026): phương án A** — giữ công thức hiện có → R-60 |
 | Q-27 | **Đơn nghỉ phép / ốm không tự vào chấm công:** (A) chỉ cảnh báo khi lệch; (B) tạo sẵn dòng PN từ đơn đã duyệt | ✅ **Đã trả lời (11/10/2026): phương án A** → R-64 |
 | Q-28 | **Phân bổ sản lượng khác công cụ HAK** (chia theo tổ + NV vắng; bù bậc thang Đại Hiệp; bù bình quân tổ; biểu mẫu) | ✅ **Đã trả lời (11/10/2026): "làm như công cụ và biểu mẫu cũng như công cụ"** → R-66 |
-| Q-29 | **Thuế TNCN có trừ vào lương hằng tháng không?** Bảng lương CNHAK 9/2026 tính thuế (RP_THUETNCN) nhưng cột *Khấu trừ thuế TNCN* trên RP_THBL để trống; bảng HAKQN 7/2026 không tính thuế; bảng Đại Hiệp 8/2026 **có trừ**; giảm trừ gia cảnh HAKQN / Đại Hiệp / HAK vẫn 11 tr / 4,4 tr (mức trước 2026). App vẫn **trừ** (như trước). | ⏳ Chủ sở hữu trả lời "đều như nhau" (quy chế 3 đơn vị như nhau) — chưa rõ có trừ hằng tháng hay quyết toán sau → **giữ nguyên: trừ hằng tháng**, chờ kế toán xác nhận |
+| Q-29 | **Thuế TNCN có trừ vào lương hằng tháng không?** Bảng lương CNHAK 9/2026 tính thuế (RP_THUETNCN) nhưng cột *Khấu trừ thuế TNCN* trên RP_THBL để trống; bảng HAKQN 7/2026 không tính thuế; bảng Đại Hiệp 8/2026 **có trừ**; giảm trừ gia cảnh HAKQN / Đại Hiệp / HAK vẫn 11 tr / 4,4 tr (mức trước 2026). App vẫn **trừ** (như trước). | ✅ **Đã trả lời (12/10/2026): "có trừ thuế TNCN, trong phần mềm khi chọn mã TNCN sẽ có miễn thuế nếu muốn kg trừ"** → R-70. Giảm trừ gia cảnh / biểu thuế 2026 trong danh mục từng đơn vị: chưa trả lời |
 | Q-30 | (đóng — R-68) "Ngày giảm trừ" của mã lương / công chuẩn TG3, TG4, CN2 | ✅ 11/10/2026: theo danh mục CNHAK (số ngày − ngày giảm trừ), áp dụng cho cả nhóm |
