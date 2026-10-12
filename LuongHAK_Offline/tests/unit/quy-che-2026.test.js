@@ -72,7 +72,11 @@ test("U-QC-05 (C5) công nhật tính tăng ca theo công thức mã tăng ca (n
   const s = [staff({ "Mã tiền lương 1": "CN2", "Lương thỏa thuận": "300000", "Mã tăng ca": "TC4" })];
   const ex = { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 20), ccRow("NV", 2026, 9, "TC", 1, 2)] };
   assert.equal(row(run(s, ex, Q))["Tiền tăng ca"], 300000); // 2 công TC × 50% × 300.000
-  assert.equal(row(run(s, ex))["Tiền tăng ca"], 600000); // cách cũ: không nhân hệ số
+  // Đối chiếu M thật (QR_LUONGTG."Lương tăng ca", file LuongĐN09_27.10.2025.v3T.xlsx, trước khi có quy
+  // chế 2026): CN1/CN2 cũng PHẢI nhân hệ số, không riêng gì quy chế 2026 — "cách cũ: không nhân hệ số"
+  // (600.000) là lỗi thật đã tính SAI GẤP ĐÔI tiền tăng ca của công nhật, không phải 1 cách tính hợp lệ
+  // khác. Đã sửa: bỏ điều kiện qc2026 cho việc nhân hệ số — cả 2 cách giờ ra cùng kết quả đúng.
+  assert.equal(row(run(s, ex))["Tiền tăng ca"], 300000);
   // TC1: công vượt công chuẩn (30 − 4 = 26) cũng tính 50%: 29 công (27 BT + 2 TC) → (29 − 2 − 26) × 0,5 + 2 × 0,5 = 1,5 công
   const s1 = [staff({ "Mã tiền lương 1": "CN2", "Lương thỏa thuận": "300000", "Mã tăng ca": "TC1" })];
   const d = allDays(1); [6, 13, 20].forEach((x) => delete d[x]); // 27 công BT
