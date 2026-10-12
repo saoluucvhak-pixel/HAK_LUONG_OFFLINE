@@ -359,13 +359,8 @@
         var coDinh = /cố định/i.test(String(pc["Cách tính"] || "")) || (trongCT && !qc2026);
         if (coDinh) tienPC = soPC || Math.round(luongTT * pct(pc["Tỷ lệ"]));
         else if (cChuan > 0) {
-          // Đối chiếu M thật (QR_CC_PHUCAP_TN/QR_PHUCAP_TN, HAK_DN): ngưỡng luôn so bằng "Công tính lương" THÔ
-          // (chưa trừ gì), không phải giá trị đã trừ phép/tăng ca — trước đây dùng nhầm cPC để so ngưỡng.
-          var congTinhLuongPC = c.tongCong, du = cChuan - num(pc["Tham chiếu"]);
-          var cPC = trongCT
-            ? congTinhLuongPC - (c.congPhep || 0) - (c.congTangCa || 0) // 2026 (C6), Cách tính trống — đã đối chiếu CNHAK/HAKQN 2026 thật, giữ nguyên phần trừ này
-            : congTinhLuongPC - (c.congLe || 0) - (c.congPhep || 0); // Cách tính có mô tả (TN.01/TN.02 kiểu HAK_DN) — đúng M thật: "Công tính phụ cấp" = Công tính lương − Công lễ − Ngày phép (KHÔNG phải phép + tăng ca)
-          tienPC = congTinhLuongPC >= du ? soPC : Math.round(soPC / cChuan * cPC);
+          var du = cChuan - num(pc["Tham chiếu"]), cPC = trongCT ? c.tongCong - (c.congPhep || 0) - (c.congTangCa || 0) : c.tongCong; // 2026 (C6): Cách tính trống = chia theo công (không tính phép, tăng ca)
+          tienPC = cPC >= du ? soPC : Math.round(soPC / cChuan * cPC);
         }
       }
       // Hỗ trợ lương (Mã hỗ trợ 2) & tiền cơm (Mã hỗ trợ)

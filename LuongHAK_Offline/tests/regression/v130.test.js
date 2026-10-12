@@ -34,32 +34,19 @@ test("bộ dữ liệu chuẩn (80 NV × 3 kỳ, số liệu dạng số thuần
     // 1/hệ số cho người có hệ số ≠ 100%). Công thức chính xác có test riêng (tests/unit/engine.test.js) —
     // ở đây loại "Tiền tăng ca" và các cột cộng dồn từ nó (Tổng thu nhập, Thuế TNCN, Thực lĩnh) khỏi so
     // sánh hàng loạt cho ĐÚNG những người bị ảnh hưởng (Mã NV có "Tiền tăng ca" đổi khác).
-    // Khác biệt CÓ CHỦ ĐÍCH thứ 2: phụ cấp TN.01/TN.02 (cách tính có mô tả, dưới ngưỡng) giờ trừ đúng
-    // "Công lễ + Ngày phép" theo M thật QR_CC_PHUCAP_TN."Công tính phụ cấp" — v1.3.0 không trừ gì (cPC =
-    // tổng công thô). Loại "Phụ cấp" + cột cộng dồn cho ĐÚNG người bị ảnh hưởng (Mã NV có "Phụ cấp" đổi).
-    const cumKeys = ["Tổng thu nhập", "Thuế TNCN", "Thực lĩnh"];
-    const nvTcKhacNhau = {}, nvPcKhacNhau = {};
+    const tcKeys = ["Tiền tăng ca", "Tổng thu nhập", "Thuế TNCN", "Thực lĩnh"];
+    const nvTcKhacNhau = {};
     b.bangluong.forEach((rb) => {
-      const ra = a.bangluong.find((r) => r["Mã NV"] === rb["Mã NV"]); if (!ra) return;
-      if (ra["Tiền tăng ca"] !== rb["Tiền tăng ca"]) nvTcKhacNhau[rb["Mã NV"]] = true;
-      if (ra["Phụ cấp"] !== rb["Phụ cấp"]) nvPcKhacNhau[rb["Mã NV"]] = true;
+      const ra = a.bangluong.find((r) => r["Mã NV"] === rb["Mã NV"]);
+      if (ra && ra["Tiền tăng ca"] !== rb["Tiền tăng ca"]) nvTcKhacNhau[rb["Mã NV"]] = true;
     });
-    const nvBiAnhHuong = (ma) => nvTcKhacNhau[ma] || nvPcKhacNhau[ma];
-    const stripTC = (rows) => rows.map((r) => {
-      if (!nvBiAnhHuong(r["Mã NV"])) return r;
-      var o = Object.assign({}, r);
-      if (nvTcKhacNhau[r["Mã NV"]]) delete o["Tiền tăng ca"];
-      if (nvPcKhacNhau[r["Mã NV"]]) delete o["Phụ cấp"];
-      cumKeys.forEach((k) => delete o[k]);
-      return o;
-    });
+    const stripTC = (rows) => rows.map((r) => { if (!nvTcKhacNhau[r["Mã NV"]]) return r; const o = Object.assign({}, r); tcKeys.forEach((k) => delete o[k]); return o; });
     assert.deepEqual(stripTC(stripKpcd(b.bangluong, "KPCĐ trừ NLĐ")), stripTC(a.bangluong), "bảng lương " + m + "/" + y);
     // "Số sổ BHXH" (PV-7a) cũng mới, luôn rỗng với dữ liệu mẫu — strip trước khi so với baseline
     b.bhxh.forEach((r) => assert.equal(r["Số sổ BHXH"], "", "Số sổ BHXH (BHXH) " + m + "/" + y));
     assert.deepEqual(stripKpcd(stripKpcd(b.bhxh, "NLĐ.KPCĐ"), "Số sổ BHXH"), a.bhxh, "BHXH " + m + "/" + y);
-    // Thuế TNCN của người bị ảnh hưởng bởi lỗi tăng ca CN1/CN2 hoặc phụ cấp TN.01/TN.02 (xem trên) cũng
-    // đổi theo — loại khỏi so sánh
-    const tncnKhongBiAnhHuong = (rows) => rows.filter((r) => !nvBiAnhHuong(r["Mã NV"]));
+    // Thuế TNCN của người bị ảnh hưởng bởi lỗi tăng ca CN1/CN2 (xem trên) cũng đổi theo — loại khỏi so sánh
+    const tncnKhongBiAnhHuong = (rows) => rows.filter((r) => !nvTcKhacNhau[r["Mã NV"]]);
     assert.deepEqual(tncnKhongBiAnhHuong(b.tncn), tncnKhongBiAnhHuong(a.tncn), "TNCN " + m + "/" + y);
     // Cảnh báo: bản mới chỉ được THÊM cảnh báo (có chủ đích), không được mất cảnh báo cũ
     a.canhbao.forEach((w) => assert.ok(b.canhbao.indexOf(w) >= 0, "mất cảnh báo: " + w));
