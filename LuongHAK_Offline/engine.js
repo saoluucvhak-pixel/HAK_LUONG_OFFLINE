@@ -352,23 +352,35 @@
         else if (dmT) tienTC = Math.round(donGiaTG * heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"]));
       }
 
-      // Phụ cấp
+      // Phụ cấp — PV-10/PV-11: "Loại công thức" (danh mục, như DM_TANGCA) cho phép 1 mã CHỌN ĐÚNG công
+      // thức tính thay vì để engine tự đoán qua nội dung "Cách tính" — để trống = hành vi CŨ, không đổi.
       var pc = dmPC[ns["Mã phụ cấp"]], tienPC = 0;
       if (pc) {
         var soPC = money(pc["Số tiền"]);
         var trongCT = !String(pc["Cách tính"] || "").trim();
-        var coDinh = /cố định/i.test(String(pc["Cách tính"] || "")) || (trongCT && !qc2026);
+        var loaiPC = String(pc["Loại công thức"] || "").trim();
+        var coDinh = loaiPC ? loaiPC === "CO_DINH" : (/cố định/i.test(String(pc["Cách tính"] || "")) || (trongCT && !qc2026));
         if (coDinh) tienPC = soPC || Math.round(luongTT * pct(pc["Tỷ lệ"]));
         else if (cChuan > 0) {
-          var du = cChuan - num(pc["Tham chiếu"]), cPC = trongCT ? c.tongCong - (c.congPhep || 0) - (c.congTangCa || 0) : c.tongCong; // 2026 (C6): Cách tính trống = chia theo công (không tính phép, tăng ca)
-          tienPC = cPC >= du ? soPC : Math.round(soPC / cChuan * cPC);
+          var du = cChuan - num(pc["Tham chiếu"]);
+          var kieuPC = loaiPC || (trongCT ? "TYLE_TRU_PHEP_TANGCA" : "TYLE_KHONG_TRU"); // mặc định = đúng hành vi cũ (2026/C6 = trừ phép+tăng ca, đã đối chiếu CNHAK/HAKQN thật; "Cách tính" có mô tả = không trừ gì)
+          var cPC, nguongPC;
+          if (kieuPC === "TYLE_TRU_LE_PHEP") { cPC = c.tongCong - (c.congLe || 0) - (c.congPhep || 0); nguongPC = c.tongCong; } // đối chiếu M thật HAK_DN (QR_CC_PHUCAP_TN) — chỉ áp dụng khi mã CHỌN đúng kiểu này
+          else if (kieuPC === "TYLE_TRU_PHEP_TANGCA") { cPC = c.tongCong - (c.congPhep || 0) - (c.congTangCa || 0); nguongPC = cPC; }
+          else { cPC = c.tongCong; nguongPC = cPC; } // TYLE_KHONG_TRU
+          tienPC = nguongPC >= du ? soPC : Math.round(soPC / cChuan * cPC);
         }
       }
-      // Hỗ trợ lương (Mã hỗ trợ 2) & tiền cơm (Mã hỗ trợ)
-      var ht2 = dmHT[ns["Mã hỗ trợ 2"]], luongHT = 0;
-      if (ht2 && cChuan > 0 && c.tongCong - cChuan <= 0) luongHT = Math.round((cChuan - c.tongCong) * money(ht2["Số tiền"]));
+      // Hỗ trợ lương (Mã hỗ trợ 2) & tiền cơm (Mã hỗ trợ) — "Loại công thức" cho phép 1 mã dùng công
+      // thức khác với vị trí (Mã hỗ trợ / Mã hỗ trợ 2) gán nó; để trống = đúng công thức cũ theo vị trí.
+      var hoTro = function (dm, macDinh, ngay) {
+        var loai = String(dm["Loại công thức"] || "").trim() || macDinh;
+        if (loai === "HT_THIEU_CHUAN") return (cChuan > 0 && c.tongCong - cChuan <= 0) ? Math.round((cChuan - c.tongCong) * money(dm["Số tiền"])) : 0;
+        return Math.round(ngay * money(dm["Số tiền"])); // HT_THEO_NGAY
+      };
+      var ht2 = dmHT[ns["Mã hỗ trợ 2"]], luongHT = ht2 ? hoTro(ht2, "HT_THIEU_CHUAN", 0) : 0;
       var ht1 = dmHT[ns["Mã hỗ trợ"]], ngayCom = (c.congCom || 0) + (comMap[ma] || 0);
-      var tienCom = ht1 ? Math.round(ngayCom * money(ht1["Số tiền"])) : 0;
+      var tienCom = ht1 ? hoTro(ht1, "HT_THEO_NGAY", ngayCom) : 0;
       // Phụ cấp công tác theo nhãn chấm công
       var dem = {}, pcCT = 0;
       Object.keys(c.nhanTheoNgay).forEach(function (k) { var n = c.nhanTheoNgay[k]; if (n) dem[n] = (dem[n] || 0) + 1; });

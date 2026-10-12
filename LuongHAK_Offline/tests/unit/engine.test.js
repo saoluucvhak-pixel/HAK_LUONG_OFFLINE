@@ -152,6 +152,53 @@ test("phụ cấp TN.02 theo tỷ lệ công: dưới ngưỡng (công chuẩn �
   assert.equal(row(kq2)["Phụ cấp"], 200000);
 });
 
+test("PV-10/PV-11: phụ cấp — 'Loại công thức' để trống = ĐÚNG hành vi cũ (không đổi số liệu TN.01/TN.02 mẫu HAK_DN)", () => {
+  // Có công lễ + phép nhưng KHÔNG khai 'Loại công thức' → vẫn không trừ gì (hành vi cũ, đã được
+  // Excel thật CNHAK 9/2026 xác nhận gián tiếp qua việc hoàn tác PV-10 — xem docs PV-10).
+  const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã phụ cấp": "TN.02" })], {
+    chamcong: [ccRow("NV", 2026, 9, "BT", 1, 10), ccRow("NV", 2026, 9, "CL", 1, 2), ccRow("NV", 2026, 9, "PN", 1, 1), ccRow("NV", 2026, 9, "TC", 1, 3)],
+  });
+  const r = row(kq);
+  assert.equal(r["Tổng công"], 16);
+  assert.equal(r["Phụ cấp"], Math.round(200000 / 26 * 16)); // 123.077 — không trừ gì, kể cả có lễ/phép/tăng ca
+});
+
+test("PV-10/PV-11: phụ cấp — mã CHỌN 'Loại công thức' = TYLE_TRU_LE_PHEP → đúng công thức M thật HAK_DN (trừ lễ+phép, ngưỡng so Tổng công thô)", () => {
+  const db = baseDb();
+  db.dm_phucap.push({ "Mã phụ cấp": "TN.06", "Tên phụ cấp": "test (M thật HAK_DN)", "Số tiền": "200000", "Tham chiếu": "5", "Loại công thức": "TYLE_TRU_LE_PHEP", "Hiệu lực từ": "2025-09-01" });
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã phụ cấp": "TN.06" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 10), ccRow("NV", 2026, 9, "CL", 1, 2), ccRow("NV", 2026, 9, "PN", 1, 1), ccRow("NV", 2026, 9, "TC", 1, 3)];
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  assert.equal(r["Tổng công"], 16); // 16 < (26−5=21) → dưới ngưỡng cả theo Tổng công thô
+  assert.equal(r["Phụ cấp"], Math.round(200000 / 26 * (16 - 2 - 1))); // trừ lễ(2)+phép(1) = 100.000, KHÔNG phải 123.077 (không trừ) hay trừ phép+tăng ca
+});
+
+test("PV-11: phụ cấp — 'Loại công thức' = CO_DINH ép tính cố định dù 'Cách tính' có mô tả tỷ lệ", () => {
+  const db = baseDb();
+  db.dm_phucap.push({ "Mã phụ cấp": "TN.07", "Tên phụ cấp": "test cố định ép buộc", "Số tiền": "500000", "Tham chiếu": "5", "Cách tính": "Tổng công >= ... tính theo công", "Loại công thức": "CO_DINH", "Hiệu lực từ": "2025-09-01" });
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã phụ cấp": "TN.07" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 1)]; // rất ít công — nếu tính theo tỷ lệ sẽ ra số nhỏ
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  assert.equal(r["Phụ cấp"], 500000); // CO_DINH → luôn đủ, không chia theo công
+});
+
+test("PV-11: hỗ trợ — 'Loại công thức' để trống = đúng công thức cũ theo vị trí gán (HT.01 theo Ngày cơm, HT.02 thiếu chuẩn)", () => {
+  // "Tiền cơm" (slot 'Mã hỗ trợ') nhân với "Ngày cơm" (chấm công hình thức CC), không phải Tổng công.
+  const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã hỗ trợ": "HT.01", "Mã hỗ trợ 2": "HT.02" })], { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 20), ccRow("NV", 2026, 9, "CC", 1, 20)] });
+  const r = row(kq);
+  assert.equal(r["Tiền cơm"], Math.round(20 * 20000)); // HT.01: theo Ngày cơm
+  assert.equal(r["Lương hỗ trợ"], Math.round((26 - 20) * 150000)); // HT.02: thiếu 6 công (Tổng công, không tính CC) × 150.000
+});
+
+test("PV-11: hỗ trợ — mã CHỌN 'Loại công thức' = HT_THIEU_CHUAN dù gán ở vị trí 'Mã hỗ trợ' (không phải 'Mã hỗ trợ 2')", () => {
+  const db = baseDb();
+  db.dm_hotro.push({ "Mã hỗ trợ": "HT.03", "Tên hỗ trợ": "test thiếu chuẩn ở vị trí hỗ trợ 1", "Số tiền": "150000", "Loại công thức": "HT_THIEU_CHUAN", "Hiệu lực từ": "2025-09-01" });
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã hỗ trợ": "HT.03" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 20)]; // thiếu 6 công so với chuẩn 26; KHÔNG có chấm công CC — nếu vẫn theo công thức "theo ngày" cũ sẽ ra 0
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  assert.equal(r["Tiền cơm"], Math.round((26 - 20) * 150000)); // "Tiền cơm" là cột hiển thị của slot "Mã hỗ trợ" — nhưng ra đúng công thức thiếu-chuẩn vì mã CHỌN HT_THIEU_CHUAN
+});
+
 test("phụ cấp công tác theo nhãn chấm công 1QC", () => {
   const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000" })], { chamcong: [ccRow("NV", 2026, 9, "BT", "1QC", 7)] });
   assert.equal(row(kq)["Phụ cấp công tác"], 700000);
