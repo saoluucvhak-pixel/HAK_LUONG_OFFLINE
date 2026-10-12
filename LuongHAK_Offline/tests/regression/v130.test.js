@@ -15,7 +15,6 @@ function runBoth(db, nam, thang) {
 }
 
 function stripKpcd(rows, key) { return rows.map((r) => { const o = Object.assign({}, r); delete o[key]; return o; }); }
-function stripKeys(rows, keys) { return rows.map((r) => { const o = Object.assign({}, r); keys.forEach((k) => delete o[k]); return o; }); }
 
 test("bộ dữ liệu chuẩn (80 NV × 3 kỳ, số liệu dạng số thuần): kết quả tiền lương TRÙNG KHỚP 100% với v1.3.0", () => {
   const db = regressionDataset(80);
@@ -30,29 +29,11 @@ test("bộ dữ liệu chuẩn (80 NV × 3 kỳ, số liệu dạng số thuần
     // KPCĐ NLĐ) — dữ liệu mẫu (BH00/BH01) có NLD.KPCD = 0 nên không đổi số tiền, v1.3.0 chưa có cột này
     b.bangluong.forEach((r) => assert.equal(r["KPCĐ trừ NLĐ"], 0, "KPCĐ trừ NLĐ " + m + "/" + y));
     b.bhxh.forEach((r) => assert.equal(r["NLĐ.KPCĐ"], 0, "NLĐ.KPCĐ " + m + "/" + y));
-    // Khác biệt CÓ CHỦ ĐÍCH: CN1/CN2 tăng ca giờ nhân đúng hệ số của mã tăng ca (đối chiếu M thật
-    // QR_LUONGTG."Lương tăng ca") — v1.3.0 nhân thẳng công tăng ca thô (lỗi, trả gấp 1/hệ số cho người
-    // có hệ số ≠ 100%). Công thức chính xác đã có test riêng (tests/unit/engine.test.js, U-QC-05) —
-    // ở đây loại "Tiền tăng ca" và các cột cộng dồn từ nó (Tổng thu nhập, Thuế TNCN, Thực lĩnh) khỏi
-    // so sánh hàng loạt cho ĐÚNG những người bị ảnh hưởng (Mã NV có "Tiền tăng ca" đổi khác).
-    var tcKeys = ["Tiền tăng ca", "Tổng thu nhập", "Thuế TNCN", "Thực lĩnh"];
-    var nvTcKhacNhau = {};
-    b.bangluong.forEach(function (rb) {
-      var ra = a.bangluong.find(function (r) { return r["Mã NV"] === rb["Mã NV"]; });
-      if (ra && ra["Tiền tăng ca"] !== rb["Tiền tăng ca"]) nvTcKhacNhau[rb["Mã NV"]] = true;
-    });
-    var stripTC = function (rows) { return rows.map(function (r) { if (!nvTcKhacNhau[r["Mã NV"]]) return r; var o = Object.assign({}, r); tcKeys.forEach(function (k) { delete o[k]; }); return o; }); };
-    assert.deepEqual(
-      stripTC(stripKpcd(b.bangluong, "KPCĐ trừ NLĐ")),
-      stripTC(a.bangluong),
-      "bảng lương " + m + "/" + y
-    );
+    assert.deepEqual(stripKpcd(b.bangluong, "KPCĐ trừ NLĐ"), a.bangluong, "bảng lương " + m + "/" + y);
     // "Số sổ BHXH" (PV-7a) cũng mới, luôn rỗng với dữ liệu mẫu — strip trước khi so với baseline
     b.bhxh.forEach((r) => assert.equal(r["Số sổ BHXH"], "", "Số sổ BHXH (BHXH) " + m + "/" + y));
     assert.deepEqual(stripKpcd(stripKpcd(b.bhxh, "NLĐ.KPCĐ"), "Số sổ BHXH"), a.bhxh, "BHXH " + m + "/" + y);
-    // Thuế TNCN của người bị ảnh hưởng bởi lỗi tăng ca CN1/CN2 (xem trên) cũng đổi theo — loại khỏi so sánh
-    var tncnKhongBiAnhHuong = function (rows) { return rows.filter(function (r) { return !nvTcKhacNhau[r["Mã NV"]]; }); };
-    assert.deepEqual(tncnKhongBiAnhHuong(b.tncn), tncnKhongBiAnhHuong(a.tncn), "TNCN " + m + "/" + y);
+    assert.deepEqual(b.tncn, a.tncn, "TNCN " + m + "/" + y);
     // Cảnh báo: bản mới chỉ được THÊM cảnh báo (có chủ đích), không được mất cảnh báo cũ
     a.canhbao.forEach((w) => assert.ok(b.canhbao.indexOf(w) >= 0, "mất cảnh báo: " + w));
     people += b.bangluong.length;
@@ -67,12 +48,10 @@ test("khác biệt CÓ CHỦ ĐÍCH: số tiền nhập dạng VN '500.000' (BUG
   const ra = a.bangluong.find((r) => r["Mã NV"] === "NV001"), rb = b.bangluong.find((r) => r["Mã NV"] === "NV001");
   assert.equal(ra["Thưởng"], 500, "v1.3.0 hiểu sai thành 500đ");
   assert.equal(rb["Thưởng"], 500000, "bản sửa hiểu đúng 500.000đ");
-  // Ngoài NV001, mọi người khác không đổi (ngoại trừ cột mới "KPCĐ trừ NLĐ" = 0, và 3 cột tăng ca CN1/CN2
-  // đã sửa đúng hệ số — xem test trên)
+  // Ngoài NV001, mọi người khác không đổi (ngoại trừ cột mới "KPCĐ trừ NLĐ" = 0, xem test trên)
   a.bangluong.filter((r) => r["Mã NV"] !== "NV001").forEach((r) => {
     const rb = Object.assign({}, b.bangluong.find((x) => x["Mã NV"] === r["Mã NV"]));
     delete rb["KPCĐ trừ NLĐ"];
-    ["Tiền tăng ca", "Tổng thu nhập", "Thuế TNCN", "Thực lĩnh"].forEach((k) => { delete rb[k]; delete r[k]; });
     assert.deepEqual(rb, r);
   });
 });

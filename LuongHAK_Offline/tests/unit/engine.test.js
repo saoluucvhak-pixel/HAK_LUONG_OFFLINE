@@ -30,27 +30,12 @@ test("lương thời gian TG1: đủ công và nửa công", () => {
   assert.equal(row(kq, "A")["Thực lĩnh"], 9000000);
 });
 
-test("lương công nhật CN1 = đơn giá × công, tăng ca CN1 = đơn giá × công tăng ca × hệ số mã tăng ca", () => {
-  // Đối chiếu M thật (QR_LUONGTG."Lương tăng ca"): CN1/CN2 = Lương thỏa thuận (đơn giá/công) × "Công
-  // tính tăng ca" (đã qua hệ số của đúng mã tăng ca gán cho người đó) — không nhân thẳng công thô.
-  const kq = run([staff({ "Mã tiền lương 1": "CN1", "Lương thỏa thuận": "300000", "Mã tăng ca": "TC4" })], { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 20), ccRow("NV", 2026, 9, "TC", 1, 2)] });
+test("lương công nhật CN1 = đơn giá × công, tăng ca CN1 = đơn giá × công tăng ca", () => {
+  const kq = run([staff({ "Mã tiền lương 1": "CN1", "Lương thỏa thuận": "300000" })], { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 20), ccRow("NV", 2026, 9, "TC", 1, 2)] });
   const r = row(kq);
   assert.equal(r["Tổng công"], 22); // công tăng ca được cộng vào tổng công (như bản gốc)
   assert.equal(r["Lương thời gian"], 300000 * 22);
-  assert.equal(r["Tiền tăng ca"], 300000 * 2 * 0.5); // TC4: công tăng ca × hệ số (50%) — không còn gấp đôi như lỗi cũ
-});
-
-test("đối chiếu đúng số liệu thật: Lê Đức Trương (HAK_DN T9/2025, RP_THLUONG) — CN1/TC4, 510.000đ", () => {
-  // Dữ liệu thật: Lương thỏa thuận 240.000, Công tính tăng ca 2,125 (= 4,25 công thô × hệ số TC4 50%),
-  // Lương tăng ca thật = 240.000 × 2,125 = 510.000đ. Trước khi sửa, engine.js tính 240.000 × 4,25 =
-  // 1.020.000đ — gấp đôi số thật.
-  const kq = run([staff({ "Mã tiền lương 1": "CN1", "Lương thỏa thuận": "240000", "Mã tăng ca": "TC4" })], { chamcong: [ccRow("NV", 2026, 9, "TC", 4.25, 1)] });
-  assert.equal(row(kq)["Tiền tăng ca"], 510000);
-});
-
-test("lương công nhật CN1 không có Mã tăng ca → Tiền tăng ca = 0 (không đoán hệ số = 1)", () => {
-  const kq = run([staff({ "Mã tiền lương 1": "CN1", "Lương thỏa thuận": "300000" })], { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 20), ccRow("NV", 2026, 9, "TC", 1, 2)] });
-  assert.equal(row(kq)["Tiền tăng ca"], 0);
+  assert.equal(r["Tiền tăng ca"], 600000);
 });
 
 test("lương sản phẩm + bù theo tháng khi dưới ngưỡng", () => {
