@@ -72,7 +72,7 @@ function registerIpc() {
   ipcMain.on("store-save", (e, text) => {
     try {
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
-      const v = policy().check(text, who);
+      const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()) });
       if (!v.ok) { e.returnValue = v.error; return; }
       const r = storage.save(text);
       if (r === true) policy().commit();

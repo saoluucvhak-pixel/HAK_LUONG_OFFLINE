@@ -46,9 +46,10 @@ function createPolicy(opts) {
   /**
    * @param text nội dung dữ liệu mới (chuỗi JSON)
    * @param who  { user, perms:[...] } | null (chưa đăng nhập)
+   * @param opts { restoring } — true khi tiến trình chính đang giữ khóa khôi phục Full Backup
    * @returns { ok:true } | { ok:false, error }
    */
-  function check(text, who) {
+  function check(text, who, opts) {
     pending = null;
     let next; try { next = JSON.parse(text); } catch (e) { return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" }; }
     if (!next || typeof next !== "object" || Array.isArray(next)) return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" };
@@ -59,6 +60,8 @@ function createPolicy(opts) {
     if (!changed.length) return { ok: true };
     const perms = who && who.perms || [];
     const has = (p) => perms.indexOf(p) >= 0;
+    // Khôi phục Full Backup đang chạy (main giữ khóa restore sau bước COMMIT tài sản): thay toàn bộ dữ liệu — chỉ Admin có quyền khôi phục + quản trị
+    if (opts && opts.restoring && who && has("backup.restore") && has("system.admin")) return { ok: true, restoring: true };
     const deny = (m) => ({ ok: false, error: "Tiến trình chính từ chối ghi: " + m });
     for (const t of changed) {
       if (!who) {

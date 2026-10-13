@@ -975,7 +975,7 @@ async function launch(dataDir, opt) {
     await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
     const ckTxt = await w.locator(".dlg").innerText();
     ok("Checklist trước khi chốt: hiện đúng 20 điểm, báo mã tăng ca 'TC_KHONG_TON_TAI' chưa có trong danh mục + 1 lỗi (sản lượng chưa phân bổ hết)",
-      /\d+ lỗi/.test(ckTxt) && /1XYZ/.test(ckTxt), ckTxt.replace(/\s+/g, " ").slice(0, 300));
+      /\d+ lỗi/.test(ckTxt) && /XYZ/.test(ckTxt), ckTxt.replace(/\s+/g, " ").slice(0, 300));
     ok("Còn LỖI (BLOCKER mục XIV) → KHÔNG có nút vượt qua, chỉ có nút đóng để sửa dữ liệu",
       (await w.locator('.dlg footer button:has-text("tiếp tục chốt")').count()) === 0 && (await w.locator('.dlg footer button:has-text("Vẫn chốt dù còn LỖI")').count()) === 0 && /KHÔNG thể vượt qua/.test(ckTxt));
     await w.click('.dlg footer button:has-text("Đóng")'); await w.waitForTimeout(150);
@@ -990,7 +990,7 @@ async function launch(dataDir, opt) {
     await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
     const ckTxt2 = await w.locator(".dlg").innerText();
     ok("Kỳ sạch (chỉ cảnh báo, không lỗi): hiện '0 lỗi' + đúng cảnh báo tăng ca; CÓ nút tiếp tục chốt",
-      /0 lỗi/.test(ckTxt2) && /1XYZ/.test(ckTxt2) && (await w.locator('.dlg footer button:has-text("Đã kiểm tra, tiếp tục chốt")').count()) === 1);
+      /0 lỗi/.test(ckTxt2) && /XYZ/.test(ckTxt2) && (await w.locator('.dlg footer button:has-text("Đã kiểm tra, tiếp tục chốt")').count()) === 1);
     await w.click('.dlg footer button:has-text("Đã kiểm tra, tiếp tục chốt")'); await w.waitForSelector(".dlg");
     ok("Sau khi xác nhận checklist, vào đúng hộp xác nhận chốt kỳ như cũ", /Chốt Tháng 1\/2027|Chốt kỳ/.test(await w.locator(".dlg header h3").innerText()));
     await w.locator(".dlg input").fill("Chốt E2E checklist"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");

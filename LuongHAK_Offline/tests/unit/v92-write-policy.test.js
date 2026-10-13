@@ -123,3 +123,13 @@ test("U-WP-08 nhận diện tệp bảng lương và kỳ trong tên tệp; quy�
   assert.deepEqual(permsFor("dm_tncn"), ["dm.edit"]); assert.deepEqual(permsFor("nhanthan"), ["hr.edit"]); assert.deepEqual(permsFor("chamcong"), ["input.edit"]);
   assert.deepEqual(permsFor("hdld_tailieu"), ["hr.edit"]);
 });
+
+test("U-WP-09 khôi phục Full Backup: thay toàn bộ dữ liệu chỉ được khi main đang giữ khóa khôi phục VÀ người dùng là Admin; ngoài cửa sổ đó vẫn bị chặn", () => {
+  const { db, pol } = setup({ kyluong: [{ ky: "2026-01", kq: { a: 1 } }] });
+  const repl = clone(db); repl.kyluong = [{ ky: "2026-01", kq: { a: 2 } }]; repl.nhanvien = [{ "Mã NV": "ZZ" }]; // bản chốt đổi nội dung: bình thường bất biến
+  const t = JSON.stringify(repl);
+  assert.equal(pol.check(t, who("nl", "ketoanluong"), { restoring: true }).ok, false, "không phải Admin");
+  assert.equal(pol.check(t, who("admin", "admin"), { restoring: false }).ok, false, "không trong cửa sổ khôi phục");
+  assert.equal(pol.check(t, null, { restoring: true }).ok, false, "chưa đăng nhập");
+  assert.equal(pol.check(t, who("admin", "admin"), { restoring: true }).ok, true);
+});
