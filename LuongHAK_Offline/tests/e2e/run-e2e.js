@@ -139,6 +139,24 @@ async function launch(dataDir, opt) {
       await w.locator("[data-fchips] button:has-text('Xóa tất cả')").click(); await w.waitForTimeout(150);
       ok("Bộ lọc V9.4: Xóa tất cả → hết chip, mọi popover đóng, bảng đầy đủ", (await w.locator("[data-fchips] .fchip").count()) === 0 && (await pops()) === 0 && /12\.000\.000/.test(await w.locator("table[data-bangtinh]").innerText()));
     } else { await w.keyboard.press("Escape"); ok("Bộ lọc V9.4: (bỏ qua Áp dụng/Hủy: dữ liệu mẫu chỉ có 1 lựa chọn)", true); }
+    // Áp dụng / Hủy / Chọn tất cả / Tìm không dấu trên CHÍNH thành phần của app với dữ liệu thử 3 lựa chọn (dữ liệu mẫu chỉ có 1)
+    await w.evaluate(() => { window.__ap = undefined; const host = document.createElement("div"); host.id = "fp-host"; host.style.cssText = "position:fixed;left:20px;bottom:10px;z-index:5"; document.body.appendChild(host);
+      host.appendChild(window.HAKUI.filter.button({ id: "t:thu", label: "Thử", options: ["Sản xuất", "Văn phòng", "Kho vận"], selected: [], onApply: (v) => { window.__ap = v; } })); });
+    const fbtn = w.locator("#fp-host [data-fkey='t:thu']");
+    await fbtn.click(); const upDir = await w.locator("[data-fpop]").getAttribute("data-dir");
+    await w.locator("[data-fpop] .fpop-row", { hasText: "Sản xuất" }).locator("input").check();
+    const apTick = await w.evaluate(() => window.__ap);
+    await w.locator("[data-fpop] button:has-text('Hủy')").click();
+    ok("Bộ lọc V9.4: tick checkbox KHÔNG áp dụng ngay; Hủy bỏ lựa chọn nháp; popover gần mép dưới mở lên trên", apTick === undefined && (await w.evaluate(() => window.__ap)) === undefined && upDir === "up", String(upDir));
+    await fbtn.click(); await w.locator("[data-fpop] input.i").fill("van phong");
+    const shown = await w.locator("[data-fpop] .fpop-row").allInnerTexts();
+    await w.locator("[data-fpop] .fpop-row input").first().check(); await w.locator("[data-fpop] button:has-text('Áp dụng')").click();
+    ok("Bộ lọc V9.4: tìm không dấu 'van phong' ra 'Văn phòng'; Áp dụng trả đúng giá trị đã chọn", shown.length === 1 && /Văn phòng/.test(shown[0]) && JSON.stringify(await w.evaluate(() => window.__ap)) === '["Văn phòng"]', shown.join(",") + " → " + JSON.stringify(await w.evaluate(() => window.__ap)));
+    await fbtn.click(); await w.locator("[data-fpop] button:has-text('Chọn tất cả')").click(); await w.locator("[data-fpop] button:has-text('Áp dụng')").click();
+    ok("Bộ lọc V9.4: chọn hết = không lọc (trả mảng rỗng)", JSON.stringify(await w.evaluate(() => window.__ap)) === "[]");
+    await fbtn.click(); await w.mouse.click(600, 100);
+    ok("Bộ lọc V9.4: bấm ra ngoài đóng popover", (await pops()) === 0);
+    await w.evaluate(() => document.getElementById("fp-host").remove());
     ok("Bộ lọc V9.4: thao tác liên tiếp không sinh lỗi JavaScript", errs.length === errs0, errs.slice(errs0).join(" | "));
   }
   await w.locator("main button", { hasText: "Xuất PDF" }).click();
