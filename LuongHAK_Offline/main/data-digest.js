@@ -2,7 +2,8 @@
 // từng bảng (chuẩn hóa khóa) + tổng tiền snapshot từng kỳ đã chốt. Dùng ở Full Backup (ghi vào manifest) và POSTCHECK khi khôi phục.
 "use strict";
 const crypto = require("crypto");
-const TABLES = ["nhanvien", "hopdong", "chitiethd", "chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom", "kyluong", "kyluong_lichsu", "chungtu", "chungtu_lienket", "ocr_ten", "auditlog", "dm_congthuc", "congty"];
+// auditlog KHÔNG nằm trong dấu vân tay: nhật ký được ghi thêm ngay sau khi khôi phục ("Khôi phục dữ liệu…") nên luôn khác gói gốc
+const TABLES = ["nhanvien", "hopdong", "chitiethd", "chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom", "kyluong", "kyluong_lichsu", "chungtu", "chungtu_lienket", "ocr_ten", "dm_congthuc", "congty"];
 function canon(v) {
   if (Array.isArray(v)) return "[" + v.map(canon).join(",") + "]";
   if (v && typeof v === "object") return "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}";

@@ -148,3 +148,13 @@ test("U-RS-13 (V9) Full Backup ghi digest vào manifest; khôi phục sai nội 
   assert.ok(p.checks.some((c) => /nội dung dữ liệu lương/.test(c.name) && !c.ok && /nhanvien/.test(c.detail)), JSON.stringify(p.checks));
   t.live = s.dataText; assert.equal(t.rs.postcheck(r.rid).ok, true); t.rs.rollback(r.rid);
 });
+
+test("U-RS-14 (V9) không chạy 2 lần khôi phục đồng thời: stage thứ 2 trong lúc COMMIT bị từ chối; commit lần 2 cùng phiên bị từ chối", () => {
+  const s = source(), t = target(), r1 = t.rs.stage(s.pkg.file), r2 = t.rs.stage(s.pkg.file);
+  assert.equal(r1.ok, true); assert.equal(r2.ok, true, "chuẩn bị song song được, nhưng chỉ một phiên được COMMIT");
+  assert.equal(t.rs.commitAssets(r1.rid).ok, true);
+  const again = t.rs.commitAssets(r2.rid); assert.equal(again.ok, false, "phiên thứ 2 không được commit khi phiên 1 đang chạy");
+  const st3 = t.rs.stage(s.pkg.file); assert.equal(st3.ok, false); assert.match(st3.error, /khác chưa kết thúc/);
+  t.live = s.dataText; assert.equal(t.rs.postcheck(r1.rid).ok, true); t.rs.finish(r1.rid);
+  assert.equal(t.rs.busy(), false);
+});

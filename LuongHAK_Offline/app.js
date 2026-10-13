@@ -350,7 +350,9 @@
     return plans;
   }
   // replan(mode) → danh sách kế hoạch theo chế độ cập nhật ("merge" | "replace")
+  var impBusy = false;
   function importPreview(replan, fileName, done, mode) {
+    impBusy = false;
     mode = mode || "merge";
     var plans = replan(mode);
     // Quyền theo từng bảng + chỉ Admin được ghi dữ liệu hồi tố (Q-14): dòng không đủ quyền → không ghi
@@ -409,6 +411,7 @@
         btn("Hủy", "", close),
         btn(nWrite ? "✔ Ghi " + nWrite + " dòng" : "Không có dòng nào để ghi", "pri", function () {
           if (!nWrite) { close(); return; }
+          if (impBusy) return; impBusy = true; // V9: chống bấm 2 lần → không nhân đôi dòng
           // P1: thao tác này đã có "before" + hoàn tác riêng khi saveNow() thất bại (an toàn dù sao lưu
           // dưới đây có thất bại hay không) — nên chỉ CẢNH BÁO, không chặn, nếu không tạo được bản sao lưu.
           var bkOk = !!backupNow("truoc-nhap-excel");
@@ -1645,6 +1648,7 @@
       (w ? "\n⚠ Còn " + w + " cảnh báo dữ liệu chưa xử lý (xem trên màn hình Tính lương)." : "") +
       "\nSau khi chốt: lưu bảng lương + dữ liệu đầu vào của kỳ, khóa chấm công/sản lượng/thưởng/tạm ứng của kỳ.", { label: "Ghi chú (không bắt buộc)", okText: "🔒 Chốt kỳ lương" }, function (note) {
     if (w && !confirm("Xác nhận CHỐT dù còn " + w + " cảnh báo?")) return;
+    if (kyChot(ky)) { alert(kyLabel(ky) + " đã được chốt (có thể do bấm 2 lần) — không chốt lại."); return; } // V9: chống chốt 2 lần
     var snap = CLS.buildSnapshot(db, ky, fresh, fresh._staff, { note: note, buTheoNgay: st.bu, quyChe: fresh.quyChe || quyChe(), engineVersion: E.ENGINE_VERSION, user: currentUser() });
     CLS.close(db, snap); audit("Chốt kỳ lương", ky + " v" + snap.version + " — " + now2.soNV + " NV, thực lĩnh " + now2.thucLinh);
     if (!saveNow()) { CLS.rollbackClose(db, snap); db.auditlog.pop(); alert("CHỐT KHÔNG THÀNH CÔNG: chưa lưu được dữ liệu xuống đĩa. Kỳ lương vẫn ở trạng thái chưa chốt."); render(); return; }
