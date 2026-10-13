@@ -1238,9 +1238,11 @@
   }
   function exportAll(r, ky) { var x = excelSheets(r, ky); saveXlsx("KyLuong_" + ky + ".xlsx", [x.bl, x.bh, x.tn, x.ck]); }
   /**
-   * Checklist 20 điểm trước khi chốt kỳ (Master Prompt V3 mục XVIII). Chỉ hiện khi có điểm cần xem
-   * (lỗi hoặc cảnh báo) — dữ liệu sạch thì bỏ qua thẳng, không thêm bước cho trường hợp bình thường.
-   * onContinue() chỉ được gọi khi người dùng chủ động xác nhận tiếp tục (hoặc không có gì phải xem).
+   * Checklist trước khi chốt kỳ (Master Prompt mục XIV/XVIII). Chỉ hiện khi có điểm cần xem (lỗi
+   * hoặc cảnh báo) — dữ liệu sạch thì bỏ qua thẳng, không thêm bước cho trường hợp bình thường.
+   * "loi" (⛔) = BLOCKER mục XIV — không có nút vượt qua, phải sửa dữ liệu rồi tính lại.
+   * "canhbao" (⚠) = WARNING — được chốt nếu đã kiểm tra là đúng. onContinue() chỉ được gọi khi
+   * người dùng chủ động xác nhận tiếp tục (hoặc không có gì phải xem).
    */
   function preChotChecklist(fresh, onContinue) {
     if (!PCC) { onContinue(); return; }
@@ -1249,7 +1251,8 @@
     if (!ck.loiCount && !ck.canhbaoCount) { onContinue(); return; }
     var ICON = { ok: "✔", canhbao: "⚠", loi: "⛔" };
     var body = h("div");
-    body.appendChild(h("div", { class: ck.loiCount ? "warn" : "hint", html: "Checklist trước khi chốt kỳ (Master Prompt mục XVIII) — <b>" + ck.loiCount + " lỗi</b>, <b>" + ck.canhbaoCount + "</b> cảnh báo trên 20 điểm. Lỗi nên xử lý TRƯỚC khi chốt; cảnh báo có thể chốt nếu đã kiểm tra là đúng." }));
+    body.appendChild(h("div", { class: ck.loiCount ? "warn" : "hint", html: "Checklist trước khi chốt kỳ — <b>" + ck.loiCount + " lỗi</b>, <b>" + ck.canhbaoCount + "</b> cảnh báo trên " + ck.items.length + " điểm." +
+      (ck.loiCount ? " ⛔ Lỗi là BLOCKER (mục XIV) — phải sửa dữ liệu rồi tính lại, KHÔNG thể vượt qua." : " Cảnh báo có thể chốt nếu đã kiểm tra là đúng.") }));
     var t = h("table");
     ck.items.forEach(function (x) {
       var tr = h("tr");
@@ -1259,8 +1262,9 @@
     });
     body.appendChild(h("div", { class: "tw" }, [t]));
     modal("Checklist trước khi chốt kỳ lương", body, function (close) {
-      return [btn("Hủy, để tôi kiểm tra lại", "", close),
-        btn(ck.loiCount ? "⚠ Vẫn chốt dù còn LỖI" : "Đã kiểm tra, tiếp tục chốt", ck.loiCount ? "red" : "pri", function () { close(); onContinue(); })];
+      // BLOCKER (còn "loi"): chỉ có nút đóng để quay lại sửa — không có đường nào bấm qua được (mục XIV).
+      return ck.loiCount ? [btn("Đóng — sửa dữ liệu rồi tính lại", "pri", close)]
+        : [btn("Hủy, để tôi kiểm tra lại", "", close), btn("Đã kiểm tra, tiếp tục chốt", "pri", function () { close(); onContinue(); })];
     });
   }
   function chotKy() {
@@ -1291,12 +1295,10 @@
       modal("⚠ Dữ liệu đã đổi trước khi chốt " + kyLabel(ky), dBody, function (close) { return [btn("Đóng", "", close)]; });
       return;
     }
-    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); });
-  }
-  function chotKyTiep(ky, fresh, now2) {
-    var w = fresh.canhbao.length, badDay = 0;
-    db.chamcong.forEach(function (r) { if (VAL.normKy(r["Kỳ"]) === ky) DAYS.forEach(function (d) { if (VAL.dayCell(d, r[d], ky).error) badDay++; }); });
     // P0 (BLOCKER — mục IV.2): ô chấm công không hợp lệ trong kỳ đang chốt phải chặn cứng, không chỉ cảnh báo.
+    // Chạy TRƯỚC checklist mềm (preChotChecklist) để không hiện "tiếp tục được" rồi mới chặn cứng ngay sau.
+    var badDay = 0;
+    db.chamcong.forEach(function (r) { if (VAL.normKy(r["Kỳ"]) === ky) DAYS.forEach(function (d) { if (VAL.dayCell(d, r[d], ky).error) badDay++; }); });
     if (badDay) { alert("⛔ KHÔNG THỂ CHỐT — có " + badDay + " ô chấm công không hợp lệ (số âm, chữ lạ, ngày không có trong tháng) trong kỳ " + kyLabel(ky) + ".\nSửa ở Chấm công (hoặc xem Công ty & Sao lưu → Kiểm tra dữ liệu) rồi tính lại."); return; }
     // P0 (BLOCKER — mục IV.2 "thiếu mã lương/tham số thiết yếu"): mã BHXH không có trong Danh mục
     // bảo hiểm → cả khối BH (NLĐ + công ty) bị BỎ QUA HOÀN TOÀN cho người đó (engine.js), không chỉ
@@ -1308,6 +1310,10 @@
         "\n\nSửa Mã BHXH hoặc bổ sung mã vào Danh mục bảo hiểm rồi tính lại.");
       return;
     }
+    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); });
+  }
+  function chotKyTiep(ky, fresh, now2) {
+    var w = fresh.canhbao.length;
     askText("Chốt " + kyLabel(ky), now2.soNV + " nhân viên · Tổng thực lĩnh " + fmt(now2.thucLinh) + " đ" +
       (w ? "\n⚠ Còn " + w + " cảnh báo dữ liệu chưa xử lý (xem trên màn hình Tính lương)." : "") +
       "\nSau khi chốt: lưu bảng lương + dữ liệu đầu vào của kỳ, khóa chấm công/sản lượng/thưởng/tạm ứng của kỳ.", { label: "Ghi chú (không bắt buộc)", okText: "🔒 Chốt kỳ lương" }, function (note) {
