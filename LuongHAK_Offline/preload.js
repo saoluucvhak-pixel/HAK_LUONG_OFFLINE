@@ -52,3 +52,11 @@ contextBridge.exposeInMainWorld("hakDocs", {
   verify: (ids) => ipcRenderer.invoke("doc-verify", ids),            // → { ok, items: [{ id, name, status: ok|missing|mismatch }] }
   open: (id) => ipcRenderer.sendSync("doc-open", id)
 });
+
+// Full Backup / Restore: gói ZIP (dữ liệu + chứng từ + manifest SHA-256). Khôi phục: inspect (chỉ đọc) → app xác nhận → importDocs
+contextBridge.exposeInMainWorld("hakFull", {
+  create: (info) => ipcRenderer.invoke("fb-create", info),     // { user } → { ok, name, dir, size, sha256, docs, warnings, mirrored } | { ok:false, error }
+  list: () => ipcRenderer.invoke("fb-list"),
+  inspect: (name) => ipcRenderer.invoke("fb-inspect", name),   // name tùy chọn (trong thư mục xuất); bỏ trống = hộp thoại chọn file → { ok, problems, manifest, docs, text }
+  importDocs: () => ipcRenderer.invoke("fb-import-docs")        // chỉ nhập chứng từ từ gói vừa inspect OK → { ok, added, same, conflict[], failed[] }
+});

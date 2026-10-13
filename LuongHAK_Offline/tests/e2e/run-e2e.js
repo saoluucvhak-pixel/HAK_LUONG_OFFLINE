@@ -36,7 +36,7 @@ async function auth(w, who) {
 }
 async function launch(dataDir, opt) {
   opt = opt || {};
-  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: dataDir || DATA, HAK_DOWNLOAD_DIR: DL, HAK_NO_SHELL: "1" }) });
+  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: dataDir || DATA, HAK_DOWNLOAD_DIR: DL, HAK_NO_SHELL: "1" }, opt.env || {}) });
   const w = await app.firstWindow(); const errs = [];
   w.on("pageerror", (e) => errs.push(e.message));
   w.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
@@ -782,6 +782,37 @@ async function launch(dataDir, opt) {
     await app.close(); // dữ liệu đã đổi (nhật ký "Đổi lịch sao lưu") → khi đóng app có bản khi-dong
     const afterSet = fs.readdirSync(path.join(DATA, "backups")).filter((f) => /^khi-dong_.*\.json$/.test(f)), after = afterSet.length, moi = afterSet.filter((x) => beforeSet.indexOf(x) < 0);
     ok("Đóng app khi dữ liệu đã đổi → tự sao lưu 'khi-dong' (kèm file kiểm tra; giữ tối đa 10 bản)", moi.length === 1 && after <= 10 && fs.existsSync(path.join(DATA, "backups", moi[0] + ".sha256")), before + " → " + after);
+  }
+
+  // GĐ5: Full Backup (dữ liệu + chứng từ + manifest SHA-256) → gói hỏng bị từ chối → khôi phục đưa chứng từ trở lại
+  {
+    const FB = require(path.join(APP, "main/fullbackup.js"));
+    ({ app, w, errs } = await launch());
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click('[data-fullbackup] button:has-text("Tạo Full Backup")');
+    await w.waitForSelector('[data-fb-msg]:has-text("Đã tạo")', { timeout: 30000 });
+    const zips = fs.readdirSync(DL).filter((f) => /^LuongHAK_FullBackup_.*\.zip$/.test(f)), good = path.join(DL, zips[0] || "none.zip");
+    const rep = zips.length ? FB.inspect(good) : { ok: false, problems: ["không có gói"], docs: [] };
+    ok("Full Backup: tạo được 1 gói .zip + file .sha256, qua kiểm tra (data.json + mọi chứng từ khớp SHA-256)", zips.length === 1 && fs.existsSync(good + ".sha256") && rep.ok && rep.docs.length >= 3 && rep.docs.every((d) => d.state === "new" || d.state === "same"), JSON.stringify({ zips, ok: rep.ok, p: rep.problems, n: rep.docs.length }));
+    await app.close();
+    const bad = path.join(DL, "LuongHAK_FullBackup_hong.zip"), bb = fs.readFileSync(good); bb[45] ^= 0xFF; fs.writeFileSync(bad, bb);
+    const nDocsBefore = rep.docs.length, vdir = path.join(DATA, "documents");
+    ({ app, w, errs } = await launch(null, { env: { HAK_FB_PICK: bad } }));
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click('[data-fullbackup] button:has-text("Khôi phục từ gói")');
+    await w.waitForSelector('[data-fb-msg]:has-text("KHÔNG đạt")', { timeout: 15000 });
+    ok("Gói Full Backup bị sửa 1 byte: bị TỪ CHỐI trước khi ghi gì (không đổi dữ liệu, kho chứng từ nguyên vẹn)", (await w.locator("[data-fb-msg]").innerText()).includes("chưa ghi gì") && (await w.evaluate(async () => (await window.hakDocs.list()).docs.length)) === nDocsBefore);
+    await app.close();
+    fs.rmSync(vdir, { recursive: true, force: true }); // giả lập sang máy mới: mất kho chứng từ
+    ({ app, w, errs } = await launch(null, { env: { HAK_FB_PICK: good } }));
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click('[data-fullbackup] button:has-text("Khôi phục từ gói")');
+    for (let i = 0; i < 60; i++) { await w.waitForTimeout(500); if ((await w.evaluate(async () => (await window.hakDocs.list()).docs.length)) >= nDocsBefore) break; }
+    await w.waitForTimeout(500);
+    const after = await w.evaluate(async () => { const l = await window.hakDocs.list(), v = await window.hakDocs.verify(); return { n: l.docs.length, st: v.items.map((i) => i.status) }; });
+    ok("Khôi phục Full Backup trên kho trống: chứng từ trở lại đủ, đúng DocumentID, SHA-256 đều 'ok'", after.n === nDocsBefore && after.st.every((x) => x === "ok") && rep.docs.every((d) => fs.existsSync(path.join(vdir, d.id.slice(4, 10), d.id + ".json"))), JSON.stringify(after));
+    ok("Không lỗi JavaScript ở Full Backup", errs.length === 0, errs.join(" | "));
+    await app.close();
   }
 
   // Quên mật khẩu Admin → mã khôi phục (mã sai bị từ chối; dùng xong cấp mã mới)

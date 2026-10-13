@@ -6,6 +6,7 @@ const { createExports } = require("./main/exports");
 const { createOcrService, sanitizeOcrItems } = require("./main/ocr-service");
 const pdfSvc = require("./main/pdf");
 const { createVault } = require("./main/documents");
+const fullBackup = require("./main/fullbackup");
 
 // Dữ liệu: %APPDATA%\Tinh Luong HAK\data.json — sao lưu trong thư mục backups (xem main/storage.js).
 // Gỡ cài đặt KHÔNG xóa thư mục này (electron-builder: deleteAppDataOnUninstall mặc định false).
@@ -55,6 +56,34 @@ function registerIpc() {
   ipcMain.handle("doc-read", async (e, id) => { try { const r = vault.read(String(id || "")); return r.ok ? { ok: true, meta: r.meta, data: r.data } : r; } catch (err) { return { ok: false, error: String(err.message || err) }; } });
   ipcMain.handle("doc-verify", async (e, ids) => { try { return { ok: true, items: vault.verify(Array.isArray(ids) ? ids.map(String) : undefined) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } });
   ipcMain.on("doc-open", (e, id) => { const f = vault.pathOf(String(id || "")); if (f) shellDo("open", f); e.returnValue = !!f; });
+  // Full Backup / Restore (GĐ5): gói ZIP = dữ liệu + chứng từ gốc + manifest SHA-256. Giao diện không truyền đường dẫn:
+  // tạo vào thư mục xuất (và chép sang thư mục sao lưu thứ hai nếu có); đọc gói qua hộp thoại chọn file hoặc theo TÊN trong thư mục xuất.
+  let lastInspect = null; // chỉ nhập chứng từ từ đúng gói vừa kiểm tra xong
+  ipcMain.handle("fb-create", async (e, info) => {
+    try {
+      const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
+      const r = fullBackup.create({ dataText: ld.text, vault, destDir: exportsDir.dir(), appVersion: app.getVersion(), user: info && info.user });
+      if (!r.ok) return r;
+      let mirrored = "";
+      try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"); require("fs").mkdirSync(t, { recursive: true }); require("fs").copyFileSync(r.file, path.join(t, r.name)); require("fs").copyFileSync(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
+      return { ok: true, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, warnings: r.warnings, mirrored };
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  });
+  ipcMain.handle("fb-list", async () => { try { return { ok: true, files: exportsDir.list(500).filter((f) => /^LuongHAK_FullBackup_.*\.zip$/i.test(f.name)) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } });
+  ipcMain.handle("fb-inspect", async (e, name) => {
+    try {
+      let f = "";
+      if (name) { f = exportsDir.resolve(String(name)) || ""; if (!/\.zip$/i.test(f)) return { ok: false, problems: ["Không tìm thấy gói trong thư mục xuất"] }; }
+      else if (process.env.HAK_FB_PICK) f = process.env.HAK_FB_PICK;
+      else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup (.zip)", filters: [{ name: "Gói sao lưu", extensions: ["zip"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
+      const rep = fullBackup.inspect(f, vault); lastInspect = rep.ok ? f : null;
+      return { ok: rep.ok, problems: rep.problems, label: path.basename(f), manifest: rep.manifest && { createdAt: rep.manifest.createdAt, createdBy: rep.manifest.createdBy, appVersion: rep.manifest.appVersion, warnings: rep.manifest.warnings }, docs: rep.docs, text: rep.ok ? rep.dataText : null };
+    } catch (err) { return { ok: false, problems: [String(err && err.message || err)] }; }
+  });
+  ipcMain.handle("fb-import-docs", async () => {
+    try { if (!lastInspect) return { ok: false, error: "Chưa kiểm tra gói nào" }; const r = fullBackup.importDocuments(lastInspect, vault); return Object.assign({ ok: true }, r); }
+    catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  });
   ipcMain.on("open-data-folder", () => { shell.openPath(path.dirname(storage.dataFile)); });
   // File xuất (2.0-α16): giao diện chỉ gửi TÊN file — đường dẫn ghép trong thư mục xuất (main/exports.js)
   // OCR bảng chấm công (α20): giao diện gửi ẢNH Ô đã cắt (xám, nhỏ) — không gửi đường dẫn file; chạy offline

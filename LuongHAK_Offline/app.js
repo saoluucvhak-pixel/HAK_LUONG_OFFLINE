@@ -2656,7 +2656,7 @@
     bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: db.auditlog }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); saveNow(); st.kq = null; render(); } }));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: "Hiện có — " + Object.keys(ALL).map(function (k) { return ALL[k].ten + ": " + countOf(k); }).join(" · ") }));
-    var w = h("div"); w.appendChild(cardCongTy()); if (can("system.admin")) w.appendChild(cardUsers()); w.appendChild(c); w.appendChild(cardSchedule()); w.appendChild(cardOffsite()); w.appendChild(cardBackups()); w.appendChild(cardIntegrity()); w.appendChild(cardAudit());
+    var w = h("div"); w.appendChild(cardCongTy()); if (can("system.admin")) w.appendChild(cardUsers()); w.appendChild(c); w.appendChild(cardSchedule()); w.appendChild(cardFull()); w.appendChild(cardOffsite()); w.appendChild(cardBackups()); w.appendChild(cardIntegrity()); w.appendChild(cardAudit());
     return w;
   }
   // ---------- Khôi phục / sao lưu / kiểm tra dữ liệu ----------
@@ -2696,6 +2696,7 @@
     audit("Khôi phục dữ liệu", label + (diff.length ? " — kỳ chốt thay đổi: " + diff.join("; ") : ""));
     if (!saveNow()) { alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!"); }
     st.kq = null; st.tab = "home"; render(); toast("Đã khôi phục từ " + label); if (mm.length) alert(mm.join("\n"));
+    if (opts.after) opts.after();
   }
   /** Lịch sao lưu tự động (α17) — cấu hình theo máy; chỉ Admin đổi được */
   function cardSchedule() {
@@ -2743,6 +2744,44 @@
     }));
     if (bs.mirrorDir && can("system.admin")) bar.appendChild(btn("Bỏ thư mục thứ hai", "ghost", function () { if (!confirm("Bỏ thư mục sao lưu thứ hai? (Các bản đã chép ở đó vẫn giữ nguyên)")) return; store.mirrorClear(); audit("Bỏ thư mục sao lưu thứ hai", bs.mirrorDir); render(); }));
     c.appendChild(bar);
+    return c;
+  }
+  /** Full Backup (GĐ5): 1 gói ZIP gồm dữ liệu + chứng từ gốc + manifest SHA-256. Khôi phục qua bước kiểm tra, chứng từ chỉ thêm không ghi đè. */
+  function cardFull() {
+    var c = h("div", { class: "card", "data-fullbackup": "1" });
+    c.appendChild(h("h3", { text: "📦 Full Backup (dữ liệu + chứng từ gốc)" }));
+    if (!window.hakFull) { c.appendChild(h("div", { class: "hint", text: "Chỉ có trong bản cài (.exe)." })); return c; }
+    c.appendChild(h("div", { class: "hint", text: "Một file .zip chứa toàn bộ dữ liệu lương, mọi chứng từ gốc (ảnh/PDF) và bảng kê SHA-256. Dùng khi đổi máy / cài lại Windows. Gói được kiểm tra lại ngay sau khi tạo; khi khôi phục, gói bị hỏng hoặc bị sửa sẽ bị từ chối trước khi ghi bất cứ thứ gì." }));
+    if (st.fbMsg) c.appendChild(h("div", { class: st.fbMsg.bad ? "warn" : "ok", "data-fb-msg": "1", text: st.fbMsg.text }));
+    c.appendChild(h("div", { class: "bar" }, [
+      btn("📦 Tạo Full Backup", "pri", function () {
+        if (!need("backup.restore", "tạo Full Backup")) return;
+        if (!saveNow()) { alert("Chưa lưu được dữ liệu hiện tại xuống đĩa — không tạo Full Backup."); return; }
+        st.fbMsg = { text: "Đang đóng gói…" }; render();
+        window.hakFull.create({ user: currentUser() }).then(function (r) {
+          if (!r || !r.ok) { st.fbMsg = { bad: true, text: "⚠ Không tạo được Full Backup: " + ((r && r.error) || "lỗi không rõ") }; }
+          else { audit("Tạo Full Backup", r.name + " · " + r.docs + " chứng từ · SHA-256 " + r.sha256.slice(0, 12) + "…"); save(); st.fbMsg = { text: "✓ Đã tạo " + r.name + " (" + Math.round(r.size / 1024) + " KB, " + r.docs + " chứng từ) trong thư mục xuất file" + (r.mirrored ? " và chép sang " + r.mirrored : "") + (r.warnings.length ? " — ⚠ " + r.warnings.join("; ") : "") + ". SHA-256: " + r.sha256 }; }
+          render();
+        }, function (e) { st.fbMsg = { bad: true, text: "⚠ " + e.message }; render(); });
+      }, "Tạo file .zip trong thư mục xuất file (và chép sang thư mục sao lưu thứ hai nếu đã chọn)"),
+      btn("📥 Khôi phục từ gói Full Backup…", "", function () {
+        if (!need("backup.restore")) return;
+        window.hakFull.inspect().then(function (r) {
+          if (r && r.cancelled) return;
+          if (!r || !r.ok) { st.fbMsg = { bad: true, text: "⚠ Gói KHÔNG đạt kiểm tra — chưa ghi gì: " + (((r && r.problems) || ["lỗi không rõ"]).join("; ")) }; render(); return; }
+          var cnt = { new: 0, same: 0, conflict: 0 }; (r.docs || []).forEach(function (d) { cnt[d.state] = (cnt[d.state] || 0) + 1; });
+          var info = "Gói " + r.label + " — tạo " + fmtTime(r.manifest.createdAt) + (r.manifest.createdBy ? " bởi " + r.manifest.createdBy : "") + ". Đã kiểm tra SHA-256 mọi file: ĐẠT.\nChứng từ: " + cnt.new + " mới sẽ được thêm, " + cnt.same + " đã có sẵn, " + cnt.conflict + " trùng mã nhưng khác nội dung (giữ bản đang có, không ghi đè).";
+          if (!confirm(info + "\n\nTiếp tục sang bước khôi phục dữ liệu?")) return;
+          restoreFromText(r.text, "Full Backup " + r.label, { after: function () {
+            window.hakFull.importDocs().then(function (d) {
+              var linked = (db.chungtu || []).length;
+              st.fbMsg = { bad: !d.ok || (d.conflict || []).length > 0 || (d.failed || []).length > 0, text: d.ok ? "✓ Khôi phục xong. Chứng từ: thêm " + d.added + ", đã có " + d.same + (d.conflict.length ? ", TRÙNG MÃ KHÁC NỘI DUNG (giữ bản cũ): " + d.conflict.join(", ") : "") + (d.failed.length ? ", LỖI: " + d.failed.join("; ") : "") + ". Hồ sơ chứng từ trong dữ liệu: " + linked : "⚠ Khôi phục dữ liệu xong nhưng nhập chứng từ lỗi: " + d.error };
+              audit("Khôi phục chứng từ từ Full Backup", st.fbMsg.text); save(); render(); if (st.fbMsg.bad) alert(st.fbMsg.text); else toast(st.fbMsg.text);
+            });
+          } });
+        });
+      }, "Chọn file .zip Full Backup: kiểm tra toàn vẹn → xác nhận → khôi phục dữ liệu (tự sao lưu bản hiện tại trước) → thêm chứng từ còn thiếu")
+    ]));
     return c;
   }
   function cardBackups() {
