@@ -20,7 +20,7 @@ Nhánh: `feature/luong-hak-offline-v9-2-business-completion` (từ nhánh V9). P
 | Chặn chốt/xuất theo 8 loại lỗi | **Xong** ở main + renderer | `payroll-gate` | Mã tăng ca lạ nay là **blocker** (trước là cảnh báo) |
 | Hiệu năng | Có số đo | mục 2 | Chỉ đo bằng Node, không đo trong Electron/Windows |
 | Đối chiếu workbook nguồn | **`BLOCKED_SOURCE_DATA`** | `docs/V9_PAYROLL_RECONCILIATION.md` | Không có file Excel nguồn trong môi trường này; không dùng dữ liệu giả làm bằng chứng |
-| Build Windows | **Chưa** | — | Môi trường Linux, không có Windows/wine đã kiểm |
+| Build Windows | **Một phần**: `electron-builder --win dir` tạo được `dist/win-unpacked/Tinh Luong HAK.exe` trên Linux | log build | Chưa tạo/ký bộ cài NSIS, **chưa chạy thử trên Windows thật** |
 
 ## 2. Hiệu năng (`node tests/perf/v92-bench.js`, 1 lần đo, ±20%)
 | NV | Dòng NPT | Dựng DS lương gồm NPT | Tính lương 1 kỳ | Kiểm tra cấu hình thuế | Kiểm tra NPT |
@@ -43,4 +43,7 @@ Chú ý: biểu thuế trong fixture chỉ có vài bậc nên “kiểm tra c�
 3. E2E checklist dùng mã tăng ca lạ làm “cảnh báo”; theo V9.2 đó là blocker. Đổi sang nhãn công tác lạ.
 
 ## 4. Việc còn lại
-Mã hóa dữ liệu trên đĩa; tiến độ chuyển thư mục; e2e cho thanh lọc và đính kèm HĐLĐ; lọc theo công ty; đối chiếu workbook thật; build + thử Windows.
+Mã hóa dữ liệu trên đĩa; tiến độ chuyển thư mục; e2e cho thanh lọc và đính kèm HĐLĐ; lọc theo công ty; đối chiếu workbook thật; bộ cài NSIS + chạy thử trên Windows thật.
+
+## 5. Kết quả kiểm tra cuối
+`npm test`: 508 pass / 0 fail · ESLint `--max-warnings 0`: sạch · e2e (Electron + xvfb): 155/155 đạt.
