@@ -155,3 +155,20 @@ test("U-OCR8-14 liên kết ô: ghi 1 lần/ô; nhập lại cùng nguồn khôn
   assert.equal(AL.history(list, rid, "05").length, 2);
   assert.equal(AL.record(list, [{ recordId: rid, day: "06", docId: "", key: "x", value: "1" }]), 0, "không có chứng từ gốc → không tạo liên kết giả");
 });
+
+test("U-OCR8-15: cặp dễ nhầm 1/7, 3/8, 0/6, 5/6, 0.5/0.6, X/- được nhận diện; cặp khác thì không", () => {
+  const L = require("../../core/ocr-learning/library.js").lookalike;
+  [["1", "7"], ["3", "8"], ["0", "6"], ["5", "6"], ["0,5", "0.6"], ["0.5", "0.6"], ["X", "-"], ["x", "-"], ["12", "72"]].forEach(([a, b]) => assert.equal(L(a, b), true, a + "/" + b));
+  [["1", "2"], ["0.5", "0.5"], ["10", "1"], ["", "1"], ["4", "9"]].forEach(([a, b]) => assert.equal(L(a, b), false, a + "/" + b));
+});
+
+test("U-OCR8-16: mẫu '1' đã học nhưng Tesseract đọc '7' → không AUTO_ACCEPT, chỉ SUGGESTED", () => {
+  const st = createStore(tmp()), rng = S.prng(5);
+  for (let i = 0; i < 6; i++) { const im = S.render("1", rng); st.record({ raw: im.g, clean: im.g, w: im.w, h: im.h, cellType: "digit", docId: "T", page: 1, bbox: bb(i, i, i + 1, i + 1), before: "", after: "1" }); }
+  st.approve({ docId: "T" });
+  const im = S.render("1", rng);
+  const base = st.lookup([{ clean: im.g, w: im.w, h: im.h }])[0];
+  const withTess = st.lookup([{ clean: im.g, w: im.w, h: im.h, ocrText: "7", ocrConf: 40 }])[0];
+  assert.equal(base.label, "1");
+  assert.notEqual(withTess.status, "AUTO_ACCEPT");
+});

@@ -19,6 +19,14 @@
     return c;
   }
   function normLabel(v) { return String(v == null ? "" : v).trim().replace(",", "."); }
+  // Cặp ký tự dễ nhầm khi đọc chữ viết tay: nếu hai nhãn chỉ khác nhau ở các cặp này thì KHÔNG tự chấp nhận
+  var LOOK = { "1": "7", "7": "1", "3": "8", "8": "3", "0": "6", "6": "0|5", "5": "6", "x": "-", "-": "x", "X": "-" };
+  function lookalike(a, b) {
+    a = normLabel(a); b = normLabel(b);
+    if (!a || !b || a === b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) { if (a[i] === b[i]) continue; var m = LOOK[a[i]]; if (!m || ("|" + m + "|").indexOf("|" + b[i] + "|") < 0) return false; }
+    return true;
+  }
   function cellKeyOf(p) {
     if (!p.bbox && p.cellRef) return [p.docId || "-", p.page || 0, "ref", String(p.cellRef)].join("|"); // không có tọa độ ô: khóa theo tham chiếu (mã NV|ngày)
     var b = p.bbox || {}; return [p.docId || "-", p.page || 0, Math.round(b.x0 || 0), Math.round(b.y0 || 0), Math.round(b.x1 || 0), Math.round(b.y1 || 0), p.rot || 0].join("|");
@@ -201,6 +209,8 @@
       if (bs >= cfg.autoThreshold && cons >= 0.8 && clear && agree) res.status = "AUTO_ACCEPT"; else res.reason = !clear ? "có mẫu nhãn " + rival.label + " gần tương đương" : !agree ? "chỉ 1 mẫu ủng hộ" : cons < 0.8 ? "mẫu bất đồng nhãn" : "độ giống chưa đủ ngưỡng tự nhận";
       // cặp dễ nhầm từng bị sửa: nhãn đối lập có mẫu trong dải gần → hạ xuống SUGGESTED
       if (res.status === "AUTO_ACCEPT" && rival && bs - rival.sim < cfg.confusionBand && confusionCount(best, rival.label) > 0) { res.status = "SUGGESTED"; res.reason = "cặp " + best + "/" + rival.label + " từng bị nhầm — cần xác minh"; }
+      if (res.status === "AUTO_ACCEPT" && rival && bs - rival.sim < cfg.confusionBand * 2 && lookalike(best, rival.label)) { res.status = "SUGGESTED"; res.reason = "cặp dễ nhầm " + best + "/" + rival.label + " — cần người xác nhận"; }
+      if (res.status === "AUTO_ACCEPT" && opt.ocrText != null && lookalike(best, opt.ocrText)) { res.status = "SUGGESTED"; res.reason = "Tesseract đọc " + opt.ocrText + " (dễ nhầm với " + best + ") — cần người xác nhận"; }
       if (opt.ocrText != null && normLabel(opt.ocrText) !== "" && normLabel(opt.ocrText) !== best && res.status === "AUTO_ACCEPT" && (opt.ocrConf || 0) >= 85) { res.status = "SUGGESTED"; res.reason = "Tesseract (tin cậy " + opt.ocrConf + ") đọc khác: " + opt.ocrText; }
       return res;
     }
@@ -223,8 +233,8 @@
       var totalRefs = 0; Object.keys(refs).forEach(function (k) { totalRefs += refs[k]; });
       return { total: order.length, labels: Object.keys(labels).length, byStatus: by, bySource: kinds, edits: edits.length, refs: totalRefs, confusions: confusions().length };
     }
-    return { cfg: cfg, STATUS: ST, apply: apply, defer: defer, commit: commit, recordCorrection: recordCorrection, undoEdit: undoEdit, assignedCells: cellsOf, cellSample: function (k) { return active[k] || null; }, recordConfirmed: recordConfirmed, approve: approve, setStatus: setStatus, relabel: relabel, undoCell: undoCell, lookup: lookup, noteRefs: noteRefs, list: list, get: function (id) { return samples[id] || null; }, edits: function () { return edits.slice(); }, confusions: confusions, stats: stats, activeFor: function (key) { return active[key] || null; }, refsOf: function (id) { return refs[id] || 0; }, size: function () { return order.length; } };
+    return { cfg: cfg, STATUS: ST, apply: apply, defer: defer, commit: commit, lookalike: lookalike, recordCorrection: recordCorrection, undoEdit: undoEdit, assignedCells: cellsOf, cellSample: function (k) { return active[k] || null; }, recordConfirmed: recordConfirmed, approve: approve, setStatus: setStatus, relabel: relabel, undoCell: undoCell, lookup: lookup, noteRefs: noteRefs, list: list, get: function (id) { return samples[id] || null; }, edits: function () { return edits.slice(); }, confusions: confusions, stats: stats, activeFor: function (key) { return active[key] || null; }, refsOf: function (id) { return refs[id] || 0; }, size: function () { return order.length; } };
   }
-  var api = { createLibrary: createLibrary, STATUS: ST, DEFAULT_CFG: DEFAULT_CFG, cellKeyOf: cellKeyOf, normLabel: normLabel };
+  var api = { createLibrary: createLibrary, STATUS: ST, DEFAULT_CFG: DEFAULT_CFG, cellKeyOf: cellKeyOf, normLabel: normLabel, lookalike: lookalike };
   if (NODE) module.exports = api; else { root.HAKCore = root.HAKCore || {}; root.HAKCore.ocrLib = api; }
 })(typeof window !== "undefined" ? window : this);
