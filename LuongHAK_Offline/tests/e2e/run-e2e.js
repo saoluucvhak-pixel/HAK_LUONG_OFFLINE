@@ -313,7 +313,7 @@ async function launch(dataDir, opt) {
     let kf = null; for (let i = 0; i < 15 && !kf; i++) { await w.waitForTimeout(200); kf = fs.readdirSync(DL).filter((f) => /^ThanhToanLuong_2026-09\.xlsx$/.test(f))[0]; }
     if (nErr) ok("V9.4: bảng thanh toán có lỗi nghiêm trọng → CHẶN xuất chính thức (không tạo file)", !kf && dialogs.some((d) => /Không xuất chính thức/.test(d)), dialogs.join(" | ").slice(0, 200));
     else {
-      const ExcelJS = require(path.join(APP, "exceljs.min.js")), wbk = new ExcelJS.Workbook(); await wbk.xlsx.readFile(path.join(DL, kf)); const wsk = wbk.worksheets[0];
+      const ExcelJS = require(path.join(APP, "exceljs.min.js")), wbk = new ExcelJS.Workbook(); await wbk.xlsx.load(fs.readFileSync(path.join(DL, kf))); const wsk = wbk.worksheets[0];
       ok("V9.4: Excel thanh toán lương mở được, tiêu đề IN HOA, in A4 vừa chiều ngang, lặp tiêu đề, đóng băng", !!kf && wsk.getCell("A2").value === wsk.getCell("A2").value.toLocaleUpperCase("vi-VN") && wsk.pageSetup.fitToWidth === 1 && !!wsk.pageSetup.printTitlesRow && wsk.views[0].state === "frozen", String(wsk.getCell("A2").value));
     }
     await w.click("#nav button[data-k=rp_ck]");
