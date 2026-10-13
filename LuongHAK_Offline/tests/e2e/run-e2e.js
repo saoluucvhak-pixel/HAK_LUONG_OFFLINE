@@ -142,7 +142,7 @@ async function launch(dataDir, opt) {
     ok("Bộ lọc V9.4: thao tác liên tiếp không sinh lỗi JavaScript", errs.length === errs0, errs.slice(errs0).join(" | "));
   }
   await w.locator("main button", { hasText: "Xuất PDF" }).click();
-  let pdfName = null; for (let i = 0; i < 100 && !pdfName; i++) { await w.waitForTimeout(300); pdfName = fs.readdirSync(DL).filter((f) => /^BangTinhLuongNoiBo_2026-09\.pdf$/.test(f))[0]; }
+  let pdfName = null; for (let i = 0; i < 100 && !pdfName; i++) { await w.waitForTimeout(300); pdfName = fs.readdirSync(DL).filter((f) => /^BangTinhLuong_2026-09\.pdf$/.test(f))[0]; }
   const pdfBuf = pdfName ? fs.readFileSync(path.join(DL, pdfName)) : Buffer.alloc(0);
   const pdfTxt = pdfBuf.toString("latin1");
   ok("Xuất PDF: file thật (%PDF-), có ≥1 trang, kích thước hợp lý", pdfBuf.slice(0, 5).toString() === "%PDF-" && /\/Type\s*\/Page(?![s\w])/.test(pdfTxt) && pdfBuf.length > 2000, pdfName + " " + pdfBuf.length + "B");
@@ -289,7 +289,7 @@ async function launch(dataDir, opt) {
     if (nChiTiet) {
       await w.locator('#main table button:has-text("Chi tiết")').first().click(); await w.waitForTimeout(300);
       const open1 = await w.locator("[data-tax-child]").count(), childTxt = await w.locator("#main").innerText();
-      ok("V9.4: Thuế TNCN — bấm 'Chi tiết' mở panel bậc thuế con của đúng mã/phiên bản (mã & hiệu lực tự gán)", before === 0 && open1 === 1 && /Biểu thuế mã/.test(childTxt), "before=" + before + " open=" + open1);
+      ok("V9.4: Thuế TNCN — bấm 'Chi tiết' mở panel bậc thuế con của đúng mã/phiên bản (mã & hiệu lực tự gán)", before === 0 && open1 === 1 && /Các bậc của mã/.test(childTxt), "before=" + before + " open=" + open1);
       await w.locator('#main table button:has-text("Chi tiết")').first().click(); await w.waitForTimeout(200);
       ok("V9.4: Thuế TNCN — bấm 'Chi tiết' lần nữa đóng panel", (await w.locator("[data-tax-child]").count()) === 0);
     } else ok("V9.4: Thuế TNCN — có nút 'Chi tiết' ở bảng phiên bản", false, "không thấy nút");
@@ -306,16 +306,20 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=rp_thanhtoan]");
     const tt0 = await w.locator("[data-pay-report]").innerText();
     ok("V9.4: bảng thanh toán có Thực lĩnh / Đã thanh toán / Còn phải thanh toán, trạng thái ban đầu 'Chưa thanh toán'", /Còn phải thanh toán/.test(tt0) && /Chưa thanh toán/.test(tt0), tt0.replace(/\s+/g, " ").slice(0, 240));
-    await w.click("#nav button[data-k=rp_ck]");
+    await w.click("#nav button[data-k=rp_thanhtoan]");
     const nErr = await w.locator("[data-pay-errors]").count();
-    dialogs = []; fs.readdirSync(DL).filter((f) => /^KeChuyenKhoan_/.test(f)).forEach((f) => fs.unlinkSync(path.join(DL, f)));
+    dialogs = []; fs.readdirSync(DL).filter((f) => /^ThanhToanLuong_/.test(f)).forEach((f) => fs.unlinkSync(path.join(DL, f)));
     await w.click('button:has-text("Xuất Excel")'); await w.waitForTimeout(700);
-    let kf = null; for (let i = 0; i < 15 && !kf; i++) { await w.waitForTimeout(200); kf = fs.readdirSync(DL).filter((f) => /^KeChuyenKhoan_2026-09\.xlsx$/.test(f))[0]; }
-    if (nErr) ok("V9.4: kê chuyển khoản có lỗi nghiêm trọng → CHẶN xuất chính thức (không tạo file)", !kf && dialogs.some((d) => /Không xuất chính thức/.test(d)), dialogs.join(" | ").slice(0, 200));
+    let kf = null; for (let i = 0; i < 15 && !kf; i++) { await w.waitForTimeout(200); kf = fs.readdirSync(DL).filter((f) => /^ThanhToanLuong_2026-09\.xlsx$/.test(f))[0]; }
+    if (nErr) ok("V9.4: bảng thanh toán có lỗi nghiêm trọng → CHẶN xuất chính thức (không tạo file)", !kf && dialogs.some((d) => /Không xuất chính thức/.test(d)), dialogs.join(" | ").slice(0, 200));
     else {
       const ExcelJS = require(path.join(APP, "exceljs.min.js")), wbk = new ExcelJS.Workbook(); await wbk.xlsx.readFile(path.join(DL, kf)); const wsk = wbk.worksheets[0];
-      ok("V9.4: Excel kê chuyển khoản mở được, tiêu đề IN HOA, in A4 vừa chiều ngang, lặp tiêu đề, đóng băng", !!kf && wsk.getCell("A2").value === wsk.getCell("A2").value.toLocaleUpperCase("vi-VN") && wsk.pageSetup.fitToWidth === 1 && !!wsk.pageSetup.printTitlesRow && wsk.views[0].state === "frozen", String(wsk.getCell("A2").value));
+      ok("V9.4: Excel thanh toán lương mở được, tiêu đề IN HOA, in A4 vừa chiều ngang, lặp tiêu đề, đóng băng", !!kf && wsk.getCell("A2").value === wsk.getCell("A2").value.toLocaleUpperCase("vi-VN") && wsk.pageSetup.fitToWidth === 1 && !!wsk.pageSetup.printTitlesRow && wsk.views[0].state === "frozen", String(wsk.getCell("A2").value));
     }
+    await w.click("#nav button[data-k=rp_ck]");
+    const ckRows = await w.locator("[data-pay-report] tbody tr").count(), ckErr = await w.locator("[data-pay-errors]").count();
+    dialogs = []; await w.click('button:has-text("Xuất Excel")'); await w.waitForTimeout(500);
+    ok("V9.4: kê chuyển khoản — thiếu dữ liệu tài khoản thì chặn; không có dòng thì báo; hợp lệ thì tạo file", ckErr ? dialogs.some((d) => /Không xuất chính thức/.test(d)) : (ckRows === 0 || fs.readdirSync(DL).some((f) => /^KeChuyenKhoan_2026-09\.xlsx$/.test(f))), "rows=" + ckRows + " err=" + ckErr + " " + dialogs.join(" | ").slice(0, 120));
     const ttAfter = await (async () => { await w.click("#nav button[data-k=rp_thanhtoan]"); return w.locator("[data-pay-report]").innerText(); })();
     ok("V9.4: xuất file KHÔNG làm đổi trạng thái thanh toán (vẫn 'Chưa thanh toán')", /Chưa thanh toán/.test(ttAfter) && !/Đã thanh toán\s*\n?\s*[1-9]/.test(ttAfter.replace(/Đã thanh toán\n/, "")));
     await w.click("#nav button[data-k=rp_tm]");

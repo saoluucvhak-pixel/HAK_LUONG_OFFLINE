@@ -163,3 +163,8 @@ test("U-WP-11 (V9.4) sổ thanh toán lương: cần quyền payment.record; dò
   const d4 = clone(d1); d4.ttluong.push({ "Số chứng từ": "PC-202609-001", "Kỳ": "2026-09", "Mã NV": "C", "Số tiền": 10, "Trạng thái": "Đã lập" });
   assert.equal(save(d4, kt).ok, true, "thêm chứng từ mới được");
 });
+
+test("U-WP-12 (V9.4) tên file báo cáo lương mới đều được nhận là file bảng lương (bị chặn khi kỳ chưa chốt còn lỗi)", () => {
+  for (const n of ["BangTinhLuong_2026-10.xlsx", "TongHopLuong_2026-10.xlsx", "ThanhToanLuong_2026-10.pdf", "KeChuyenKhoan_2026-10.xlsx", "ThanhToanTienMat_2026-10.xlsx", "PhieuLuong_2026-10.pdf"]) assert.equal(PG.isPayrollFile(n), true, n);
+  assert.equal(PG.isPayrollFile("Phan_bo_khoi_luong_2026-10.xlsx"), false);
+});
