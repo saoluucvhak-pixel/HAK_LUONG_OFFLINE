@@ -699,7 +699,7 @@
           mucBuDmLuong: laSL && dmL ? money(dmL["Đơn giá bù lương"]) : 0,
           binhQuanTo: laSL && cheDoBu === "to" ? Math.round(binhQuanTo[ns["Mã PB"] || ""] || 0) : null,
           maPhuCap: ns["Mã phụ cấp"] || "", loaiCongThucPhuCap: pc ? (loaiPC || (trongCT ? "TYLE_TRU_PHEP_TANGCA" : "TYLE_KHONG_TRU")) : "",
-          maThueTNCN: maT, phuongPhapThue: kieu, thuNhapTinhThue: Math.round(tinhThue), nguonThue: ppT.nguon || null, nguoiPhuThuoc: ns["DS người phụ thuộc"] || ""
+          maThueTNCN: maT, phuongPhapThue: kieu, thuNhapTinhThue: Math.round(tinhThue), nguonThue: ppT.nguon || null
         }
       });
       // Q-19 (R-53): điều chuyển phòng ban trong kỳ → tỷ lệ chia chi phí theo công chính ở từng phòng (không đổi số tiền lương)

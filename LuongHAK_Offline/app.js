@@ -704,6 +704,7 @@
       } else {
         el = h("input", { value: v });
         if (f.t === "date") el.type = "date";
+        if (f.t === "month") el.type = "month";
         if (f.t === "num" || f.t === "money" || f.t === "pct") el.className = "num";
         if (f.t === "money") { el.addEventListener("blur", function () { var n = VAL.parseMoney(el.value); if (el.value && !isNaN(n)) el.value = fmt(n); }); if (v) { var n0v = VAL.parseMoney(v); el.value = isNaN(n0v) ? v : fmt(n0v); } }
         getters[f.k] = function () { var x = el.value.trim(); return f.t === "money" && x ? VAL.normMoney(x) : x; };
@@ -1527,6 +1528,9 @@
     kq.cheDoBu = String(st.bu); kq.quyChe = qc;
     var by = {}; sp.list.forEach(function (x) { by[x["Mã nhân viên"]] = x; });
     kq.bangluong.forEach(function (r) { var x = by[r["Mã NV"]] || {}; r["HTTT"] = x["HTTT"] || ""; r["Số tài khoản"] = x["Số tài khoản"] || ""; r["Ngân hàng"] = x["Tên Ngân hàng"] || ""; r["Người phụ thuộc"] = x["Người phụ thuộc"] || 0; r["Số HĐLĐ"] = x["Số HĐLĐ"] || ""; r["Mã PB"] = x["Mã PB"] || ""; });
+    // V9.2: truy ngược người phụ thuộc được giảm trừ trong kỳ (chỉ tên — không đưa CCCD/MST vào bản chốt)
+    var ixNPT = HRM.buildIndex ? HRM.buildIndex(db) : null, bDau = nam + "-" + ("0" + thang).slice(-2) + "-01", bCuoi = nam + "-" + ("0" + thang).slice(-2) + "-31";
+    kq.bangluong.forEach(function (r) { if (r._ct) r._ct.nguoiPhuThuoc = HRM.dsNguoiPhuThuoc(db, r["Mã NV"], bDau, bCuoi, ixNPT).map(function (x) { return x["Họ tên nhân thân"] || ""; }).join("; "); });
     kq.canhbao = sp.warn.concat(kq.canhbao); kq.ky = nam + "-" + ("0" + thang).slice(-2);
     Object.defineProperty(kq, "_staff", { value: sp.list, enumerable: false });
     return kq;
