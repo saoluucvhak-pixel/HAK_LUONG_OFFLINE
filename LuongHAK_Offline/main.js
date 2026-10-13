@@ -85,7 +85,6 @@ function registerIpc() {
   ipcMain.on("doc-open", (e, id) => { if (guard.deny(e, "input.view")) { e.returnValue = false; return; } const f = vault.pathOf(String(id || "")); if (f) shellDo("open", f); e.returnValue = !!f; });
   // Full Backup / Restore (GĐ5): gói ZIP = dữ liệu + chứng từ gốc + manifest SHA-256. Giao diện không truyền đường dẫn:
   // tạo vào thư mục xuất (và chép sang thư mục sao lưu thứ hai nếu có); đọc gói qua hộp thoại chọn file hoặc theo TÊN trong thư mục xuất.
-  let lastInspect = null; // chỉ nhập chứng từ từ đúng gói vừa kiểm tra xong
   // Thư mục Full Backup chính: cấu hình `backupDir` (Cài đặt → Lưu trữ) hoặc thư mục xuất file
   const fbDir = () => { const d = storage.readSettings().backupDir; return d || exportsDir.dir(); };
   const fbList = () => { const d = storage.readSettings().backupDir; if (!d) return exportsDir.list(500); try { return require("fs").readdirSync(d).filter((n) => /^LuongHAK_FullBackup_.*\.zip$/i.test(n)).map((n) => { const st = require("fs").statSync(path.join(d, n)); return { name: n, size: st.size, mtime: st.mtime.toISOString() }; }); } catch (e) { return []; } };
@@ -99,9 +98,28 @@ function registerIpc() {
     const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn thư mục: " + (SP.LABEL[kind] || ""), properties: ["openDirectory", "createDirectory"] });
     return r && r[0] ? { ok: true, dir: r[0] } : { ok: false, cancelled: true };
   }));
+  // Quản lý 5 thư mục: mở / dung lượng / kiểm tra toàn vẹn (chỉ đọc)
+  const spKinds = SP.KINDS.concat(["export"]);
+  ipcMain.handle("paths-info", guarded("backup.restore", async () => { const p = spCur(), out = {}; SP.KINDS.forEach((k) => { out[k] = p[k] ? SP.info(p[k]) : { exists: false, files: 0, bytes: 0, free: null }; }); out.export = SP.info(exportsDir.dir()); return { ok: true, info: out, exportDir: exportsDir.dir() }; }));
+  ipcMain.handle("paths-open", guarded("backup.restore", async (e, kind) => { const k = String(kind); if (spKinds.indexOf(k) < 0) return { ok: false, error: "loại thư mục không hợp lệ" }; const d = k === "export" ? exportsDir.dir() : spCur()[k]; if (!d || !require("fs").existsSync(d)) return { ok: false, error: "Thư mục chưa tồn tại" }; if (process.env.HAK_NO_SHELL) return { ok: true, dir: d }; const er = await shell.openPath(d); return er ? { ok: false, error: er } : { ok: true, dir: d }; }));
+  ipcMain.handle("paths-verify", guarded("backup.restore", async (e, kind) => {
+    try {
+      const k = String(kind), p = spCur();
+      if (k === "docs") { const v = vault.verify(), bad = v.filter((x) => x.status !== "ok"); return { ok: true, good: bad.length === 0, total: v.length, bad: bad.slice(0, 20), text: v.length - bad.length + "/" + v.length + " chứng từ nguyên vẹn (SHA-256)" }; }
+      if (k === "ocrLib") { const v = ocrLib.verify(); return { ok: true, good: v.ok, total: v.samples, bad: v.bad.slice(0, 20), text: (v.samples - v.bad.length) + "/" + v.samples + " mẫu có ảnh nguyên vẹn" + (v.corruptLines ? ", " + v.corruptLines + " dòng nhật ký hỏng" : "") }; }
+      if (k === "backup" || k === "export") { const d = k === "export" ? exportsDir.dir() : p.backup, fs2 = require("fs"); const zips = fs2.existsSync(d) ? fs2.readdirSync(d).filter((n) => /^LuongHAK_(Full|Partial)Backup_.*\.zip$/i.test(n)) : []; return { ok: true, good: true, total: zips.length, text: zips.length + " gói sao lưu trong thư mục" }; }
+      if (k === "mirror") { if (!p.mirror) return { ok: true, good: true, total: 0, text: "Chưa chọn thư mục sao lưu dự phòng" }; const bad = require("./main/storage-paths").validate("mirror", p.mirror, Object.assign({}, p, { mirror: "" })); return { ok: true, good: !bad, total: 0, text: bad ? "Không dùng được: " + bad : "Ghi được, không lồng thư mục khác" }; }
+      return { ok: false, error: "loại thư mục không hợp lệ" };
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  }));
   ipcMain.handle("paths-move", guardedW("backup.restore", async (e, kind, dir) => {
     try {
       return SP.move({ kind: String(kind), dir: String(dir || ""), userData: app.getPath("userData"), settings: storage.readSettings(), exportsDir: exportsDir.dir(), writeSettings: storage.writeSettings,
+        verifyStore: (k, d) => { // mở thử kho ở thư mục MỚI trước khi đổi cấu hình
+          if (k === "docs") { const bad = createVault(d).verify().filter((x) => x.status !== "ok"); return bad.length ? bad.length + " chứng từ lỗi/mất" : ""; }
+          if (k === "ocrLib") { const v = require("./main/ocr-library").createStore(d, { spoolDir: path.join(require("os").tmpdir(), "hak-verify-spool") }).verify(); return v.ok ? "" : v.bad.length + " ảnh mẫu lỗi, " + v.corruptLines + " dòng nhật ký hỏng"; }
+          return "";
+        },
         onApplied: (n) => { if (kind === "docs") vault = createVault(n.docs); else if (kind === "ocrLib") ocrLib = require("./main/ocr-library").createStore(n.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") }); } });
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
@@ -123,7 +141,7 @@ function registerIpc() {
       if (name) { f = fbResolve(String(name)); if (!/\.zip$/i.test(f)) return { ok: false, problems: ["Không tìm thấy gói trong thư mục xuất"] }; }
       else if (process.env.HAK_FB_PICK) f = process.env.HAK_FB_PICK;
       else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup (.zip)", filters: [{ name: "Gói sao lưu", extensions: ["zip"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
-      const rep = fullBackup.inspect(f, vault); lastInspect = rep.ok ? f : null;
+      const rep = fullBackup.inspect(f, vault);
       return { ok: rep.ok, problems: rep.problems, label: path.basename(f), manifest: rep.manifest && { createdAt: rep.manifest.createdAt, createdBy: rep.manifest.createdBy, appVersion: rep.manifest.appVersion, warnings: rep.manifest.warnings }, docs: rep.docs, ocrSamples: rep.ocrSamples || 0, text: rep.ok ? rep.dataText : null };
     } catch (err) { return { ok: false, problems: [String(err && err.message || err)] }; }
   }));
@@ -233,6 +251,7 @@ app.whenReady().then(() => {
   vault = createVault(spaths.docs);
   ocrLib = require("./main/ocr-library").createStore(spaths.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") });
   restorer = require("./main/restore").createRestorer({ userData: app.getPath("userData"), getVault: () => vault, getOcrLib: () => ocrLib, readData: () => storage.load(), maxSchema: require("./core/schema.js").SUPPORTED_SCHEMA, appVersion: app.getVersion() });
+  try { require("./main/storage-paths").markUsed(app.getPath("userData"), storage.readSettings(), "", storage.writeSettings); } catch (e) { /* không chặn khởi động */ }
   try { const rc = restorer.recover(); if (rc.note) { const st0 = storage.readSettings(); st0.lastRestoreNote = rc.note; storage.writeSettings(st0); } } catch (e) { /* không chặn khởi động */ }
   exportsDir = createExports({ readSettings: storage.readSettings, writeSettings: storage.writeSettings, defaultDir: path.join(app.getPath("documents"), "Tinh Luong HAK", "File xuat"), fixedDir: process.env.HAK_DOWNLOAD_DIR || "" });
   try { storage.backup("startup"); } catch (e) { /* lần đầu chưa có dữ liệu */ }

@@ -37,7 +37,7 @@ function create(o) {
   const metas = o.vault ? o.vault.list() : [], status = {}; (o.vault ? o.vault.verify() : []).forEach((x) => { status[x.id] = x.status; });
   const okDocs = [];
   metas.forEach((m) => { if (status[m.id] === "ok") okDocs.push(m); else missing.push({ kind: "document", id: m.id, name: m.name, problem: status[m.id] === "missing" ? "mất file" : "sai SHA-256" }); });
-  let ocrFiles = [], ocrInfo = null;
+  let ocrFiles = [];
   if (o.ocrLib) {
     try { o.ocrLib.load(); } catch (e) { return failed("Không đọc được thư viện mẫu OCR: " + (e.message || e)); }
     const lv = o.ocrLib.verify();

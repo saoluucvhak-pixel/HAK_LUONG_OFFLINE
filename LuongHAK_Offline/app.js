@@ -2975,24 +2975,39 @@
     if (!window.hakPaths) { c.appendChild(h("div", { class: "hint", text: "Chỉ có trong bản cài (.exe)." })); return c; }
     if (!STG.data) { window.hakPaths.get().then(function (r) { if (r && r.ok) { STG.data = r; if (st.tab === "backup") render(); } }); c.appendChild(h("div", { class: "hint", text: "Đang đọc cấu hình…" })); return c; }
     c.appendChild(h("div", { class: "hint", text: "Bấm \"Đổi…\" để chọn thư mục mới. App chép toàn bộ dữ liệu sang thư mục mới, kiểm tra SHA-256 từng file, chỉ khi đạt mới chuyển; dữ liệu cũ KHÔNG bị xóa. Chỉ Admin / người có quyền khôi phục thao tác được." }));
+    if (!STG.info) { window.hakPaths.info().then(function (r) { if (r && r.ok) { STG.info = r.info; STG.exportDir = r.exportDir; if (st.tab === "backup") render(); } }); }
+    var fmtB = function (n) { return n >= 1073741824 ? (n / 1073741824).toFixed(2) + " GB" : n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.ceil(n / 1024) + " KB"; };
     var t = h("table", { class: "t" });
-    ["docs", "ocrLib", "backup"].forEach(function (k) {
-      var row = h("tr", { "data-stg": k }, [h("td", { text: STG.data.labels[k] }), h("td", { text: STG.data.paths[k], style: "word-break:break-all" }), h("td", {}, [btn("Đổi…", "ghost", function () {
-        if (!need("backup.restore", "đổi thư mục lưu trữ") || STG.busy) return;
-        window.hakPaths.pick(k).then(function (p) {
-          if (!p || !p.ok) return;
-          if (!confirm("Chuyển \"" + STG.data.labels[k] + "\" sang:\n" + p.dir + "\n\nDữ liệu sẽ được CHÉP và kiểm tra SHA-256; dữ liệu cũ vẫn giữ nguyên. Tiếp tục?")) return;
-          STG.busy = true; toast("Đang chép và kiểm tra dữ liệu…");
-          window.hakPaths.move(k, p.dir).then(function (r) {
-            STG.busy = false; STG.data = null;
-            STG.msg = r && r.ok ? { bad: false, text: "✓ Đã chuyển " + r.files + " file sang " + r.to + " (đã kiểm SHA-256). " + r.note } : { bad: true, text: "⚠ " + ((r && r.error) || "không chuyển được") + " — giữ nguyên thư mục cũ" };
-            audit("Đổi thư mục lưu trữ", k + " → " + p.dir + " · " + (r && r.ok ? "đạt" : "không đạt")); render();
+    t.appendChild(h("tr", {}, ["Thư mục", "Đường dẫn hiện tại", "Dung lượng", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
+    var KS = [["docs", "Chứng từ gốc"], ["ocrLib", "Thư viện mẫu OCR"], ["backup", "Sao lưu chính (Full Backup)"], ["mirror", "Sao lưu dự phòng"], ["export", "Thư mục xuất file"]];
+    KS.forEach(function (kk) {
+      var k = kk[0], movable = k !== "export", inf = STG.info && STG.info[k];
+      var verify = STG.ver && STG.ver[k];
+      var acts = h("td", {}, [
+        movable ? btn("Chọn / Chuyển…", "ghost", function () {
+          if (!need("backup.restore", "đổi thư mục lưu trữ") || STG.busy) return;
+          window.hakPaths.pick(k).then(function (p) {
+            if (!p || !p.ok) return;
+            if (!confirm("Chuyển \"" + kk[1] + "\" sang:\n" + p.dir + "\n\nDữ liệu sẽ được CHÉP và kiểm tra SHA-256, kho mới được mở thử trước khi đổi cấu hình; dữ liệu cũ vẫn giữ nguyên. Tiếp tục?")) return;
+            STG.busy = true; toast("Đang chép và kiểm tra dữ liệu…");
+            window.hakPaths.move(k, p.dir).then(function (r) {
+              STG.busy = false; STG.data = null; STG.info = null; STG.ver = null;
+              STG.msg = r && r.ok ? { bad: false, text: "✓ Đã chuyển " + r.files + " file sang " + r.to + " (đã kiểm SHA-256). " + r.note } : { bad: true, text: "⚠ " + ((r && r.error) || "không chuyển được") + " — giữ nguyên thư mục cũ" };
+              audit("Đổi thư mục lưu trữ", k + " → " + p.dir + " · " + (r && r.ok ? "đạt" : "không đạt")); render();
+            });
           });
-        });
-      })])]);
-      t.appendChild(row);
+        }, "Chọn thư mục mới và chuyển dữ liệu sang (chép + kiểm SHA-256, không xóa dữ liệu cũ)") : null,
+        btn("Mở", "ghost", function () { window.hakPaths.open(k).then(function (r) { if (!r || !r.ok) toast("⚠ " + ((r && r.error) || "không mở được")); }); }, "Mở thư mục trong Windows Explorer"),
+        btn("Kiểm tra", "ghost", function () {
+          STG.ver = STG.ver || {}; STG.ver[k] = { text: "Đang kiểm tra…" }; render();
+          window.hakPaths.verify(k).then(function (r) { STG.ver[k] = r && r.ok ? { good: r.good, text: r.text } : { good: false, text: (r && r.error) || "lỗi" }; render(); });
+        }, "Kiểm tra toàn vẹn (chỉ đọc, không sửa gì)"),
+        btn("↻ Dung lượng", "ghost", function () { STG.info = null; render(); })]);
+      t.appendChild(h("tr", { "data-stg": k }, [h("td", { text: kk[1] }), h("td", { text: (k === "mirror" ? (STG.data.paths.mirror || "(chưa chọn)") : (k === "export" ? STG.exportDir || "(thư mục xuất file mặc định)" : STG.data.paths[k])), style: "word-break:break-all" }),
+        h("td", { text: inf ? (inf.exists ? inf.files + " file · " + fmtB(inf.bytes) + (inf.free != null ? " · trống " + fmtB(inf.free) : "") : "chưa tạo") : "…" }),
+        acts]));
+      if (verify) t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: verify.good === false ? "warn" : "ok", "data-stg-verify": k, text: (verify.good === false ? "✕ " : verify.good ? "✓ " : "") + verify.text })]));
     });
-    t.appendChild(h("tr", { "data-stg": "mirror" }, [h("td", { text: "Sao lưu dự phòng" }), h("td", { text: STG.data.paths.mirror || "(chưa chọn)", style: "word-break:break-all" }), h("td", { class: "hint", text: "đặt ở mục \"Sao lưu ra ngoài máy (thư mục thứ hai)\" bên dưới" })]));
     c.appendChild(t);
     if (STG.msg) c.appendChild(h("div", { class: STG.msg.bad ? "warn" : "ok", "data-stg-msg": "1", text: STG.msg.text }));
     return c;

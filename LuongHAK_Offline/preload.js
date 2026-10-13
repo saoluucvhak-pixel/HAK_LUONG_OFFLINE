@@ -57,7 +57,8 @@ contextBridge.exposeInMainWorld("hakOcrLib", {
   layouts: () => ipcRenderer.invoke("ocrlib-layouts"), layoutMatch: (sig) => ipcRenderer.invoke("ocrlib-layout-match", sig), layoutSave: (sig, name, user) => ipcRenderer.invoke("ocrlib-layout-save", sig, name, user)
 });
 contextBridge.exposeInMainWorld("hakPaths", {
-  get: () => ipcRenderer.invoke("paths-get"), pick: (kind) => ipcRenderer.invoke("paths-pick", kind), move: (kind, dir) => ipcRenderer.invoke("paths-move", kind, dir)
+  get: () => ipcRenderer.invoke("paths-get"), pick: (kind) => ipcRenderer.invoke("paths-pick", kind), move: (kind, dir) => ipcRenderer.invoke("paths-move", kind, dir),
+  info: () => ipcRenderer.invoke("paths-info"), open: (kind) => ipcRenderer.invoke("paths-open", kind), verify: (kind) => ipcRenderer.invoke("paths-verify", kind)
 });
 contextBridge.exposeInMainWorld("hakDocs", {
   add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }

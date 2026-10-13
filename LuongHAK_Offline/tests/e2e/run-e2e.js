@@ -837,7 +837,7 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch(DATA, { env: { HAK_PICK_DIR: NEWD } }));
     const n0 = await w.evaluate(async () => (await window.hakOcrLib.list({})).samples.length);
     await w.click("#nav button[data-k=backup]"); await w.waitForSelector('[data-stg="ocrLib"]');
-    await w.locator('[data-stg="ocrLib"] button:has-text("Đổi")').click(); await w.waitForSelector('[data-stg-msg]', { timeout: 30000 });
+    await w.locator('[data-stg="ocrLib"] button:has-text("Chuyển")').click(); await w.waitForSelector('[data-stg-msg]', { timeout: 30000 });
     const msg = await w.locator("[data-stg-msg]").innerText();
     const set = JSON.parse(fs.readFileSync(path.join(DATA, "settings.json"), "utf8"));
     const n1 = await w.evaluate(async () => { const r = await window.hakOcrLib.list({}); const v = await window.hakOcrLib.verify(); return { n: r.samples.length, ok: v.report.ok }; });
