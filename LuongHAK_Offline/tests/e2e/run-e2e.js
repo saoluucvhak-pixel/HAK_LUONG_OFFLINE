@@ -815,6 +815,17 @@ async function launch(dataDir, opt) {
     await app.close();
   }
 
+  // GĐ6: lệnh nhạy cảm ở tiến trình chính bị chặn khi chưa đăng nhập; đăng nhập xong chạy được; đăng xuất lại bị chặn
+  {
+    ({ app, w, errs } = await launch(null, { noAuth: true }));
+    const pre = await w.evaluate(async () => ({ l: await window.hakDocs.list(), f: await window.hakFull.create({}), p: await window.hakReport.pdf({ html: "<p>x</p>", name: "x" }), o: await window.hakOcr.batch([]).catch((e) => ({ ok: false, error: String(e.message || e) })) }));
+    ok("Chưa đăng nhập: kho chứng từ, Full Backup, PDF, OCR đều bị tiến trình chính từ chối ('Chưa đăng nhập')", [pre.l, pre.f, pre.p].every((r) => r.ok === false && /Chưa đăng nhập/.test(r.error)) && /Chưa đăng nhập/.test(pre.o.error || ""), JSON.stringify(pre).slice(0, 300));
+    await auth(w);
+    const post = await w.evaluate(async () => ({ l: await window.hakDocs.list() }));
+    ok("Đăng nhập Admin xong: lệnh kho chứng từ chạy được", post.l.ok === true, JSON.stringify(post).slice(0, 200));
+    await app.close();
+  }
+
   // Quên mật khẩu Admin → mã khôi phục (mã sai bị từ chối; dùng xong cấp mã mới)
   ({ app, w, errs } = await launch(null, { noAuth: true }));
   await w.click('button:has-text("Quên mật khẩu Admin")');

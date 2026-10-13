@@ -3148,7 +3148,16 @@
     }, { drawer: true });
     return closeFn;
   }
+  /** Báo quyền hiện tại cho tiến trình chính (GĐ6) — chỉ gửi khi đổi; đăng xuất/khóa tài khoản → danh sách rỗng. */
+  var sessSig = null;
+  function syncSession() {
+    if (!store || !store.session) return;
+    var r = session && !session.khoa ? PERM.roleOf(session) : null, list = r ? r.perms.slice().sort() : [], sig = list.join(",");
+    if (sig === sessSig) return;
+    try { var ok = store.session(list); if (ok && ok.ok) sessSig = sig; } catch (e) { /* thử lại lần vẽ sau */ }
+  }
   function render() {
+    syncSession();
     try { renderInner(); }
     catch (e) {
       var m = $("#main"); if (!m) return;
