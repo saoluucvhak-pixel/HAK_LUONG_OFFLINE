@@ -193,3 +193,16 @@ test("U-OCRL-17 lớp chữ PDF: bảng chấm công dạng chữ được dựn
   const m = PT.mergeRuns([{ str: "0", x0: 10, x1: 16, y0: 0, y1: 14 }, { str: ",", x0: 16.5, x1: 19, y0: 0, y1: 14 }, { str: "5", x0: 19.5, x1: 26, y0: 0, y1: 14 }]);
   assert.equal(m.length, 1); assert.equal(m[0].str, "0,5");
 });
+
+test("U-OCRL-18 kịch bản nghiệp vụ: 0,5→0,6 (nhãn thập phân), ô trống→1 (có nét), xóa giá trị, X là ký hiệu chưa rõ loại, ảnh gần trùng không phình thư viện", () => {
+  const st = createStore(tmp()), im = (l, sd) => S.render(l, S.prng(sd)), mk = (l, sd, o) => { const i = im(l, sd); return Object.assign({ raw: i.g, clean: i.g, w: i.w, h: i.h, cellType: "digit", docId: "D", page: 1, bbox: bb(1, 1, 2, 2), mode: "so" }, o); };
+  st.record(mk("5", 1, { before: "0,5", after: "0,6", ocrValue: "0,5" }));
+  assert.equal(st.lib.list()[0].label, "0.6"); assert.equal(st.lib.list()[0].ocrValue, "0.5"); assert.equal(st.lib.edits()[0].from, "0.5");
+  st.record(mk("1", 2, { before: "", after: "1", bbox: bb(9, 9, 10, 10) })); assert.equal(st.lib.list().length, 2); // ô trống → 1
+  st.record(mk("1", 2, { before: "1", after: "", bbox: bb(9, 9, 10, 10) })); // xóa giá trị: ghi sự kiện, KHÔNG tạo mẫu
+  assert.equal(st.lib.list().length, 2); assert.equal(st.lib.edits().length, 3);
+  st.record(mk("x", 3, { before: "", after: "X", mode: "mark", cellType: "mark", bbox: bb(20, 20, 21, 21) }));
+  const x = st.lib.list().find((s) => s.label === "X"); assert.equal(x.labelKind, "UNKNOWN");
+  st.lib.cfg.nearDupSim = 0.9; // hai ảnh "1" khác hạt giống nhưng rất giống nhau → gần trùng
+  const n0 = st.lib.size(); st.record(mk("1", 4, { before: "", after: "1", bbox: bb(30, 30, 31, 31) })); assert.equal(st.lib.size(), n0);
+});

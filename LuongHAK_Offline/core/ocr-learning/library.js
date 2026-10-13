@@ -9,7 +9,7 @@
   var NODE = typeof module !== "undefined" && module.exports;
   var F = NODE ? require("./features.js") : root.HAKCore.ocrFeat;
   var ST = { PENDING: "PENDING_APPROVAL", VERIFIED: "VERIFIED", SUPERSEDED: "SUPERSEDED", REJECTED: "REJECTED", CONFLICT: "CONFLICT" };
-  var DEFAULT_CFG = { autoThreshold: 0.93, suggestThreshold: 0.85, minAgree: 2, singleAutoThreshold: 0.975, margin: 0.04, conflictSim: 0.96, confusionBand: 0.06, topK: 5, coarseKeep: 200, saveConfirmed: false };
+  var DEFAULT_CFG = { autoThreshold: 0.93, suggestThreshold: 0.85, minAgree: 2, singleAutoThreshold: 0.975, margin: 0.04, conflictSim: 0.96, nearDupSim: 0.995, confusionBand: 0.06, topK: 5, coarseKeep: 200, saveConfirmed: false };
   var COARSE = 16;
 
   function coarseOf(vec) { // 12×12 → 4×4 (trung bình 3×3) rồi chuẩn hóa: bước lọc thô của chỉ mục
@@ -70,12 +70,18 @@
       }
       var dupId = null; (bySha[p.pngSha] || []).forEach(function (id) { var s = samples[id]; if (s && s.label === after && s.cellType === p.cellType && (s.status === ST.PENDING || s.status === ST.VERIFIED)) dupId = id; });
       if (dupId) { edit.sampleId = dupId; edit.note = "ảnh trùng byte với mẫu đã có — không lưu thêm"; recs.push(edit); emit(recs); return { records: recs, sampleId: dupId, note: edit.note }; }
+      // gần trùng (cùng nhãn, ảnh gần như giống hệt mẫu đã có) → dùng lại mẫu cũ, không phình thư viện
+      var near = nearDup(p.vec, after, p.cellType || "digit"); if (near) { edit.sampleId = near; edit.note = "ảnh gần trùng mẫu đã có — không lưu thêm"; recs.push(edit); emit(recs); return { records: recs, sampleId: near, note: edit.note }; }
       var id = newId("SMP");
       var rec = { t: "sample", id: id, source: "CORRECTED", status: ST.PENDING, cellType: p.cellType || "digit", label: after, labelKind: kind, ocrValue: ocr, prevValue: before, docId: p.docId || "", page: p.page || 0, bbox: p.bbox || null, rot: p.rot || 0, scale: p.scale || 1,
         employeeId: p.employeeId || "", ky: p.ky || "", company: p.company || "", mode: p.mode || "so", ocrVersion: p.ocrVersion || "", ocrRunId: p.ocrRunId || "", ocrConf: p.ocrConf == null ? null : p.ocrConf,
         cellKey: key, pngSha: p.pngSha, w: p.w, h: p.h, createdAt: at, createdBy: p.user || "", flags: p.layoutSuspect ? ["LAYOUT"] : [], vec: p.vec, rawPng: p.rawPng };
       edit.sampleId = id; recs.push(edit); recs.push(rec); emit(recs);
       return { records: recs, sampleId: id, note: kind === "UNKNOWN" ? "chờ xác định loại nhãn (ký hiệu hay giá trị công)" : "" };
+    }
+    function nearDup(vec, label, cellType) {
+      var best = null; order.forEach(function (id) { var o = samples[id]; if (!o || o.label !== label || o.cellType !== cellType || !o.vec || (o.status !== ST.PENDING && o.status !== ST.VERIFIED)) return; if (F.similarity(vec, o.vec) >= cfg.nearDupSim) best = id; });
+      return best;
     }
     /** Ô OCR đọc đúng và người dùng đã xem ảnh ô (không sửa) — CONFIRMED_SAMPLE. Chỉ khi cfg.saveConfirmed. */
     function recordConfirmed(p) {
