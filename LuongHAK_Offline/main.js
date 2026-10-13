@@ -28,6 +28,12 @@ if (process.platform === "win32") app.setAppUserModelId("vn.hak.luong");
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
 function registerIpc() {
+  // Mọi lệnh đồng bộ (ipcMain.on) chỉ nhận từ đúng trang index.html của app; nguồn lạ nhận null/false, không chạm dữ liệu
+  const _on = ipcMain.on.bind(ipcMain);
+  ipcMain.on = (ch, fn) => _on(ch, (e, ...a) => { if (!guard.trusted(e)) { e.returnValue = null; return; } return fn(e, ...a); });
+  // Mọi lệnh bất đồng bộ (ipcMain.handle) cũng phải đúng nguồn (lớp dưới guarded: thêm đăng nhập + quyền)
+  const _handle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (ch, fn) => _handle(ch, (e, ...a) => (guard.trusted(e) ? fn(e, ...a) : { ok: false, error: "Nguồn lệnh không hợp lệ" }));
   // Lệnh nhạy cảm: kiểm nguồn + đăng nhập + quyền trước khi chạy
   const wl = (fn) => async (e, ...a) => (restorer && restorer.busy() ? { ok: false, error: "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" } : fn(e, ...a)); // khóa ghi trong lúc COMMIT khôi phục
   const guardedW = (perm, fn) => guarded(perm, wl(fn)); // lệnh GHI: bị chặn trong lúc COMMIT khôi phục
