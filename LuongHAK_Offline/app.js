@@ -2089,20 +2089,68 @@
   }
   // ---------- Bộ lọc báo cáo dùng chung + xuất PDF (Master V5) ----------
   /** Thanh lọc dùng chung: cùng một st.rf cho Tính lương, Bảng tính lương nội bộ, Excel và PDF. */
-  function reportFilterBar(allRows, opt) {
-    opt = opt || {}; var op = RF.options(allRows), spec = RF.normalize(st.rf), bar = h("div", { class: "bar", "data-rf": "1" });
-    var sel = function (label, key, list) {
-      var s = h("select", { "data-rf-key": key }); s.appendChild(h("option", { value: "", text: "— " + label + ": tất cả —" }));
-      list.forEach(function (x) { s.appendChild(h("option", { value: x, text: x })); });
-      s.value = spec[key][0] || ""; s.addEventListener("change", function () { st.rf = Object.assign({}, RF.normalize(st.rf)); st.rf[key] = s.value ? [s.value] : []; render(); });
-      return s;
+  // ---- Bộ lọc dùng chung (V8): chọn NHIỀU giá trị, tìm không dấu, chọn tất cả/bỏ chọn, lưu bộ lọc, đặt lại ----
+  var RFCTX_KEY = "", RFCTX_LAST = {};
+  function rfContext() {
+    var key = st.nam + "-" + st.thang + "|" + (db.chamcong || []).length + "|" + (db.dm_phongban || []).length;
+    if (key === RFCTX_KEY) return RFCTX_LAST;
+    var kmap = {}; (db.dm_phongban || []).forEach(function (p) { if (p && p["Tên phòng ban"]) kmap[p["Tên phòng ban"]] = p["Tên khối"] || ""; });
+    var forms = {}, ky = st.nam + "-" + ("0" + st.thang).slice(-2);
+    (db.chamcong || []).forEach(function (r) { if (r && r["Kỳ"] === ky && r["Mã NV"]) { var f = (forms[r["Mã NV"]] = forms[r["Mã NV"]] || []); var c = r["Hình thức công"] || "BT"; if (f.indexOf(c) < 0) f.push(c); } });
+    RFCTX_KEY = key; RFCTX_LAST = { khoiOf: function (pb) { return kmap[pb] || ""; }, formsOf: function (ma) { return forms[ma] || []; } };
+    return RFCTX_LAST;
+  }
+  function rfPresets() { try { return JSON.parse(localStorage.getItem("hak.rf.presets") || "{}") || {}; } catch (e) { return {}; } }
+  function rfPresetsSave(o) { try { localStorage.setItem("hak.rf.presets", JSON.stringify(o)); return true; } catch (e) { return false; } }
+  /** Ô chọn nhiều giá trị: items = [string | {value,label}]; chọn tất cả / bỏ chọn / tìm không phân biệt dấu. */
+  function multiSelect(label, key, items, spec) {
+    var norm = items.map(function (x) { return typeof x === "string" ? { value: x, label: x } : x; });
+    var cur = (spec[key] || []).slice(), box = h("details", { class: "msel", "data-rf-key": key });
+    if (st.rfOpen === key) box.setAttribute("open", "");
+    box.addEventListener("toggle", function () { if (box.open) st.rfOpen = key; else if (st.rfOpen === key) st.rfOpen = ""; });
+    box.appendChild(h("summary", { text: label + (cur.length ? " (" + cur.length + ")" : ": tất cả"), title: cur.join(", ") }));
+    var pop = h("div", { class: "mselpop" }), q = h("input", { class: "i", placeholder: "Tìm…", value: (st.rfq && st.rfq[key]) || "" }), list = h("div", { class: "mselist" });
+    var commit = function (arr) { st.rf = Object.assign({}, RF.normalize(st.rf)); st.rf[key] = arr; st.rfOpen = key; render(); };
+    var draw = function () {
+      list.innerHTML = ""; var f = RF.fold(q.value);
+      norm.forEach(function (o) {
+        if (f && RF.fold(o.label).indexOf(f) < 0) return;
+        var cb = h("input", { type: "checkbox" }); cb.checked = cur.indexOf(o.value) >= 0;
+        cb.addEventListener("change", function () { var i = cur.indexOf(o.value); if (cb.checked && i < 0) cur.push(o.value); if (!cb.checked && i >= 0) cur.splice(i, 1); commit(cur.slice()); });
+        list.appendChild(h("label", { class: "mselrow" }, [cb, document.createTextNode(" " + o.label)]));
+      });
+      if (!list.children.length) list.appendChild(h("div", { class: "hint", text: "Không có lựa chọn khớp" }));
     };
-    bar.appendChild(sel("Phòng ban", "phongBan", op.phongBan)); if (!opt.compact) { bar.appendChild(sel("Mã lương", "maLuong", op.maLuong)); bar.appendChild(sel("Thanh toán", "httt", op.httt)); }
+    q.addEventListener("input", function () { st.rfq = st.rfq || {}; st.rfq[key] = q.value; draw(); });
+    pop.appendChild(q);
+    pop.appendChild(h("div", { class: "bar" }, [
+      btn("Chọn tất cả", "ghost", function () { var f = RF.fold(q.value); commit(norm.filter(function (o) { return !f || RF.fold(o.label).indexOf(f) >= 0; }).map(function (o) { return o.value; })); }),
+      btn("Bỏ chọn", "ghost", function () { commit([]); })]));
+    pop.appendChild(list); box.appendChild(pop); draw(); return box;
+  }
+  function reportFilterBar(allRows, opt) {
+    opt = opt || {}; RF.setContext(rfContext());
+    var op = RF.options(allRows), spec = RF.normalize(st.rf), bar = h("div", { class: "bar", "data-rf": "1" });
+    if (op.khoi.length) bar.appendChild(multiSelect("Khối", "khoi", op.khoi, spec));
+    bar.appendChild(multiSelect("Phòng ban", "phongBan", op.phongBan, spec));
+    if (op.to.length) bar.appendChild(multiSelect("Tổ", "to", op.to, spec));
+    if (!opt.compact) {
+      bar.appendChild(multiSelect("Mã lương", "maLuong", op.maLuong, spec)); bar.appendChild(multiSelect("Thanh toán", "httt", op.httt, spec));
+      if (op.hinhThucCong.length) bar.appendChild(multiSelect("Hình thức công", "hinhThucCong", op.hinhThucCong, spec));
+      if (op.nhanVien.length <= 3000) bar.appendChild(multiSelect("Nhân viên", "maNV", op.nhanVien, spec));
+    }
     var q = h("input", { class: "i", placeholder: "Tìm mã / tên…", value: spec.tuKhoa, "data-rf-key": "tuKhoa" });
     q.addEventListener("change", function () { st.rf = Object.assign({}, RF.normalize(st.rf), { tuKhoa: q.value }); render(); });
     var cb = h("input", { type: "checkbox" }); cb.checked = spec.chiCoThuNhap; cb.addEventListener("change", function () { st.rf = Object.assign({}, RF.normalize(st.rf), { chiCoThuNhap: cb.checked }); render(); });
     bar.appendChild(q); if (!opt.compact) bar.appendChild(h("label", {}, [cb, document.createTextNode(" chỉ người có thu nhập")]));
-    if (!RF.isEmpty(spec)) bar.appendChild(btn("✕ Xóa lọc", "", function () { st.rf = {}; render(); }));
+    // bộ lọc đã lưu (theo máy này)
+    var pr = rfPresets(), ps = h("select", { "data-rf-presets": "1", "aria-label": "Bộ lọc đã lưu" }); ps.appendChild(h("option", { value: "", text: "— Bộ lọc đã lưu —" }));
+    Object.keys(pr).sort().forEach(function (n) { ps.appendChild(h("option", { value: n, text: n })); });
+    ps.addEventListener("change", function () { if (ps.value && pr[ps.value]) { st.rf = RF.normalize(pr[ps.value]); render(); } });
+    bar.appendChild(ps);
+    bar.appendChild(btn("💾 Lưu bộ lọc", "ghost", function () { if (RF.isEmpty(spec)) { toast("Chưa chọn điều kiện lọc nào"); return; } askText("Lưu bộ lọc", "Tên bộ lọc:", {}, function (name) { name = String(name || "").trim(); if (!name) return; var p2 = rfPresets(); p2[name] = spec; toast(rfPresetsSave(p2) ? "Đã lưu bộ lọc “" + name + "”" : "⚠ Không lưu được bộ lọc trên máy này"); render(); }); }, "Lưu điều kiện lọc hiện tại để dùng lại (lưu trên máy này)"));
+    if (ps.value === "" && Object.keys(pr).length) bar.appendChild(btn("🗑 Xóa bộ lọc đã lưu", "ghost", function () { askText("Xóa bộ lọc đã lưu", "Tên bộ lọc cần xóa:", {}, function (name) { var p2 = rfPresets(); if (p2[String(name || "").trim()]) { delete p2[String(name).trim()]; rfPresetsSave(p2); toast("Đã xóa"); render(); } else toast("Không có bộ lọc tên đó"); }); }));
+    if (!RF.isEmpty(spec)) bar.appendChild(btn("✕ Đặt lại", "", function () { st.rf = {}; st.rfq = {}; st.rfOpen = ""; render(); }, "Bỏ toàn bộ điều kiện lọc"));
     return bar;
   }
   function pdfFallbackPrint(html) {
