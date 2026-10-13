@@ -211,6 +211,12 @@ async function launch(dataDir, opt) {
   await w.click('.dlg footer button:has-text("Xem phiếu lương")'); await w.waitForTimeout(150);
   ok("Quay lại phiếu lương từ màn hình cách tính", (await w.locator(".dlg header h3").innerText()) === slipHeader);
   await w.click('.dlg footer button:has-text("Đóng")');
+  // V10: màn hình Kiểm tra bảng lương
+  await w.click("#nav button[data-k=ktbl]"); await w.waitForSelector("table.kt");
+  const ktTxt = await w.locator("#main").innerText(), ktRows = await w.locator("table.kt tbody tr").count();
+  ok("V10: Kiểm tra bảng lương — có bảng kiểm tra phân mức ERROR/WARNING/INFO, nút Kiểm tra lại, Xuất Excel", ktRows >= 20 && /Kiểm tra lại/.test(ktTxt) && /Xuất Excel/.test(ktTxt) && /INFO/.test(ktTxt), "rows=" + ktRows);
+  await w.click('#main button:has-text("Thông tin (")');
+  ok("V10: Kiểm tra bảng lương — lọc theo mức chỉ còn đúng mức đã chọn", (await w.locator('table.kt tbody tr:not([data-sev="INFO"])').count()) === 0);
   // Master Prompt mục VII: Danh mục → Công thức tiền lương — 7 tab, lọc theo Loại, thư viện biến, mẫu, chạy thử, lịch sử
   await w.click("#nav button[data-k=caidat]");
   const ctTabs = await w.locator(".bar.sub button").allInnerTexts();
