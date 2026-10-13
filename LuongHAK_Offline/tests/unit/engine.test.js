@@ -256,6 +256,27 @@ test("PV-11: hỗ trợ — mã CHỌN 'Loại công thức' = HT_THIEU_CHUAN d�
   assert.equal(r["Tiền cơm"], Math.round((26 - 20) * 150000)); // "Tiền cơm" là cột hiển thị của slot "Mã hỗ trợ" — nhưng ra đúng công thức thiếu-chuẩn vì mã CHỌN HT_THIEU_CHUAN
 });
 
+test("Dynamic Payroll Formula Engine (mục V): mã phụ cấp MỚI có công thức tự khai trong db.dm_congthuc (Loại=ALLOWANCE) → engine tự tính theo công thức đó, không cần sửa code", () => {
+  const db = baseDb();
+  db.dm_phucap.push({ "Mã phụ cấp": "PC99", "Tên phụ cấp": "test công thức tự khai", "Số tiền": "300000", "Tham chiếu": "26", "Loại công thức": "PC_NGUONG_RIENG", "Hiệu lực từ": "2025-09-01" });
+  // Công thức: đủ ngưỡng (NGUONG_PHU_CAP) thì hưởng đủ, không đủ thì chia theo công chuẩn — giống PC03 mục V.2
+  db.dm_congthuc = [{ "Mã công thức": "PC_NGUONG_RIENG", "Loại": "ALLOWANCE", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2020-01-01", "Biểu thức": "IF(CONG_HUONG_PHU_CAP >= NGUONG_PHU_CAP, MUC_PHU_CAP, MUC_PHU_CAP * CONG_HUONG_PHU_CAP / CONG_CHUAN)" }];
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã phụ cấp": "PC99" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 20)]; // Tổng công = 20 < NGUONG_PHU_CAP(26) → chia theo tỷ lệ
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  assert.equal(r["Phụ cấp"], Math.round(300000 * 20 / 26));
+});
+
+test("Dynamic Payroll Formula Engine (mục VI): mã hỗ trợ MỚI có công thức tự khai trong db.dm_congthuc (Loại=SUPPORT) → engine tự tính theo công thức đó, không cần sửa code", () => {
+  const db = baseDb();
+  db.dm_hotro.push({ "Mã hỗ trợ": "HT99", "Tên hỗ trợ": "test công thức tự khai", "Số tiền": "150000", "Loại công thức": "HT_GAP_DOI", "Hiệu lực từ": "2025-09-01" });
+  db.dm_congthuc = [{ "Mã công thức": "HT_GAP_DOI", "Loại": "SUPPORT", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2020-01-01", "Biểu thức": "SO_NGAY_DUOC_HUONG * MUC_HO_TRO * 2" }];
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã hỗ trợ": "HT99" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 20), ccRow("NV", 2026, 9, "CC", 1, 5)];
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  assert.equal(r["Tiền cơm"], Math.round(5 * 150000 * 2));
+});
+
 test("phụ cấp công tác theo nhãn chấm công 1QC", () => {
   const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000" })], { chamcong: [ccRow("NV", 2026, 9, "BT", "1QC", 7)] });
   assert.equal(row(kq)["Phụ cấp công tác"], 700000);

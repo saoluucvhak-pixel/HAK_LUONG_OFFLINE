@@ -35,7 +35,17 @@
     { name: "SO_XE", label: "Số xe", unit: "xe", source: "Bơm dăm đã phân bổ cho nhân viên trong kỳ", missing: "zero", desc: "Số xe bơm dăm đã được phân bổ hợp lệ cho nhân viên." },
     { name: "LUONG_SAN_LUONG", label: "Tiền sản lượng", unit: "đ", source: "SL_TAN × Đơn giá khoán (DM_LUONG mã SP)", missing: "zero", desc: "Tiền lương sản lượng đã tính (trước khi cộng tiền bù)." },
     { name: "LUONG_BU", label: "Lương bù", unit: "đ", source: "core/production-engine (bù bình quân tổ HAK / bậc thang theo ngày Đại Hiệp)", missing: "zero", desc: "Tiền bù lương sản lượng theo phương pháp của công ty (xem mục VIII/X)." },
-    { name: "SO_NGAY_THANG", label: "Ngày trong tháng", unit: "ngày", source: "new Date(nam, thang, 0).getDate()", missing: "error", desc: "Tổng số ngày của tháng đang tính lương (28–31)." }
+    { name: "SO_NGAY_THANG", label: "Ngày trong tháng", unit: "ngày", source: "new Date(nam, thang, 0).getDate()", missing: "error", desc: "Tổng số ngày của tháng đang tính lương (28–31)." },
+    // Phụ cấp theo tỷ lệ công (mục V.2 PC02/PC03) — bổ sung khi migrate DM_PHUCAP sang công thức động.
+    { name: "CONG_HUONG_PHU_CAP", label: "Công hưởng phụ cấp", unit: "công", source: "Tổng công (trừ lễ/phép/tăng ca tùy 'Loại công thức' đã chọn — xem engine.js khối Phụ cấp)", missing: "zero", desc: "Số công dùng làm căn cứ tính tỷ lệ phụ cấp khi chưa đủ công chuẩn." },
+    { name: "NGUONG_PHU_CAP", label: "Ngưỡng phụ cấp", unit: "công", source: "DM_PHUCAP.\"Tham chiếu\"", missing: "zero", desc: "Mốc công để so sánh: đủ ngưỡng thì hưởng phụ cấp đầy đủ, không đủ thì chia theo tỷ lệ." },
+    // Hỗ trợ (mục VI.2 HT02-HT05) — bổ sung khi migrate DM_HOTRO sang công thức động.
+    { name: "CONG_THUC_TE", label: "Công thực tế", unit: "công", source: "Tổng công trong kỳ (chấm công)", missing: "zero", desc: "Tổng công thực tế, dùng để so với Công chuẩn khi tính hỗ trợ thiếu công." },
+    { name: "SO_LUOT_HOP_LE", label: "Số lượt hợp lệ", unit: "lượt", source: "Tùy nghiệp vụ hỗ trợ cụ thể", missing: "zero", desc: "Số lượt được tính hỗ trợ trong kỳ (VD số lượt công tác, số lượt giao hàng...)." },
+    { name: "DU_DIEU_KIEN_HO_TRO", label: "Đủ điều kiện hỗ trợ", unit: "0/1", source: "Tùy nghiệp vụ hỗ trợ cụ thể", missing: "zero", desc: "1 nếu nhân viên đủ điều kiện nhận mức hỗ trợ cố định trong kỳ, 0 nếu không." },
+    { name: "SO_XE_HOP_LE", label: "Số xe hợp lệ", unit: "xe", source: "core/production-alloc.js — bơm dăm đã phân bổ hợp lệ", missing: "zero", desc: "Số xe bơm dăm hợp lệ dùng làm căn cứ tính hỗ trợ theo xe (khác SO_XE nếu có điều kiện lọc riêng)." },
+    { name: "DON_GIA_HO_TRO", label: "Đơn giá hỗ trợ", unit: "đ", source: "DM_HOTRO.\"Số tiền\" (= MUC_HO_TRO, đặt tên riêng cho rõ ngữ cảnh \"theo xe\")", missing: "zero", desc: "Đơn giá hỗ trợ cho 1 đơn vị (1 xe/1 lượt), dùng khi công thức tính theo đơn giá × số lượng." },
+    { name: "SO_NGAY_DUOC_HUONG", label: "Số ngày được hưởng", unit: "ngày", source: "Tùy nghiệp vụ hỗ trợ/phụ cấp cụ thể", missing: "zero", desc: "Số ngày được tính phụ cấp/hỗ trợ trong kỳ (VD số ngày công tác, số ngày trực...)." }
   ];
 
   var BY_NAME = {};

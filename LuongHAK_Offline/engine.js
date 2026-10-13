@@ -401,11 +401,28 @@
         else if (cChuan > 0) {
           var du = cChuan - num(pc["Tham chiếu"]);
           var kieuPC = loaiPC || (trongCT ? "TYLE_TRU_PHEP_TANGCA" : "TYLE_KHONG_TRU"); // mặc định = đúng hành vi cũ (2026/C6 = trừ phép+tăng ca, đã đối chiếu CNHAK/HAKQN thật; "Cách tính" có mô tả = không trừ gì)
-          var cPC, nguongPC;
-          if (kieuPC === "TYLE_TRU_LE_PHEP") { cPC = c.tongCong - (c.congLe || 0) - (c.congPhep || 0); nguongPC = c.tongCong; } // đối chiếu M thật HAK_DN (QR_CC_PHUCAP_TN) — chỉ áp dụng khi mã CHỌN đúng kiểu này
-          else if (kieuPC === "TYLE_TRU_PHEP_TANGCA") { cPC = c.tongCong - (c.congPhep || 0) - (c.congTangCa || 0); nguongPC = cPC; }
-          else { cPC = c.tongCong; nguongPC = cPC; } // TYLE_KHONG_TRU
-          tienPC = nguongPC >= du ? soPC : Math.round(soPC / cChuan * cPC);
+          var KIEU_PC_CO_SAN = { TYLE_TRU_LE_PHEP: 1, TYLE_TRU_PHEP_TANGCA: 1, TYLE_KHONG_TRU: 1 };
+          var cPC, nguongPC, pcRec = null;
+          // Dynamic Payroll Formula Engine (mục V): "Loại công thức" KHÔNG khớp 3 kiểu có sẵn ở trên →
+          // tra db.dm_congthuc (Loại=ALLOWANCE) trước khi coi là TYLE_KHONG_TRU theo mặc định cũ.
+          if (!KIEU_PC_CO_SAN[kieuPC] && fmlCtx.records && fmlCtx.records.length) pcRec = FML.resolve(fmlCtx.records, { code: kieuPC, type: "ALLOWANCE", nam: fmlCtx.nam, thang: fmlCtx.thang });
+          if (pcRec && pcRec["Biểu thức"]) {
+            try {
+              tienPC = Math.round(FML.evaluate(pcRec["Biểu thức"], {
+                MUC_PHU_CAP: soPC, CONG_CHUAN: cChuan, CONG_HUONG_PHU_CAP: c.tongCong, NGUONG_PHU_CAP: num(pc["Tham chiếu"]),
+                CONG_TINH_LUONG: c.tongCong, CONG_LE: c.congLe, CONG_PHEP: c.congPhep, CONG_TC: c.congTangCa
+              }));
+            } catch (e) {
+              out.canhbao.push(ma + ": mã phụ cấp '" + ns["Mã phụ cấp"] + "' — công thức cấu hình (" + pcRec["Biểu thức"] + ") lỗi khi tính (" + e.message + ") — tạm dùng công thức mặc định, kiểm tra lại công thức trong Danh mục công thức tiền lương");
+              pcRec = null;
+            }
+          }
+          if (!pcRec) {
+            if (kieuPC === "TYLE_TRU_LE_PHEP") { cPC = c.tongCong - (c.congLe || 0) - (c.congPhep || 0); nguongPC = c.tongCong; } // đối chiếu M thật HAK_DN (QR_CC_PHUCAP_TN) — chỉ áp dụng khi mã CHỌN đúng kiểu này
+            else if (kieuPC === "TYLE_TRU_PHEP_TANGCA") { cPC = c.tongCong - (c.congPhep || 0) - (c.congTangCa || 0); nguongPC = cPC; }
+            else { cPC = c.tongCong; nguongPC = cPC; } // TYLE_KHONG_TRU (hoặc "Loại công thức" lạ chưa có công thức cấu hình — giữ đúng hành vi cũ)
+            tienPC = nguongPC >= du ? soPC : Math.round(soPC / cChuan * cPC);
+          }
         }
       }
       // Hỗ trợ lương (Mã hỗ trợ 2) & tiền cơm (Mã hỗ trợ) — "Loại công thức" cho phép 1 mã dùng công
@@ -413,7 +430,19 @@
       var hoTro = function (dm, macDinh, ngay) {
         var loai = String(dm["Loại công thức"] || "").trim() || macDinh;
         if (loai === "HT_THIEU_CHUAN") return (cChuan > 0 && c.tongCong - cChuan <= 0) ? Math.round((cChuan - c.tongCong) * money(dm["Số tiền"])) : 0;
-        return Math.round(ngay * money(dm["Số tiền"])); // HT_THEO_NGAY
+        if (loai !== "HT_THEO_NGAY" && fmlCtx.records && fmlCtx.records.length) {
+          // Dynamic Payroll Formula Engine (mục VI): "Loại công thức" không phải HT_THIEU_CHUAN/HT_THEO_NGAY
+          // → tra db.dm_congthuc (Loại=SUPPORT) trước khi coi là HT_THEO_NGAY theo mặc định cũ.
+          var htRec = FML.resolve(fmlCtx.records, { code: loai, type: "SUPPORT", nam: fmlCtx.nam, thang: fmlCtx.thang });
+          if (htRec && htRec["Biểu thức"]) {
+            try {
+              return Math.round(FML.evaluate(htRec["Biểu thức"], { MUC_HO_TRO: money(dm["Số tiền"]), CONG_CHUAN: cChuan, CONG_THUC_TE: c.tongCong, SO_NGAY_COM: ngay, SO_NGAY_DUOC_HUONG: ngay }));
+            } catch (e) {
+              out.canhbao.push(ma + ": mã hỗ trợ '" + (dm["Mã hỗ trợ"] || "") + "' — công thức cấu hình (" + htRec["Biểu thức"] + ") lỗi khi tính (" + e.message + ") — tạm dùng công thức mặc định, kiểm tra lại công thức trong Danh mục công thức tiền lương");
+            }
+          }
+        }
+        return Math.round(ngay * money(dm["Số tiền"])); // HT_THEO_NGAY (hoặc "Loại công thức" lạ chưa có công thức cấu hình — giữ đúng hành vi cũ)
       };
       var ht2 = dmHT[ns["Mã hỗ trợ 2"]], luongHT = ht2 ? hoTro(ht2, "HT_THIEU_CHUAN", 0) : 0;
       var ht1 = dmHT[ns["Mã hỗ trợ"]], ngayCom = (c.congCom || 0) + (comMap[ma] || 0);
