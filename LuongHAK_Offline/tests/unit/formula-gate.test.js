@@ -43,9 +43,11 @@ test("HT99 mới: được nhận diện (không lỗi công thức), ngày cơm
   assert.equal(kq.loiCongThuc.length, 0);
   assert.equal(row(kq)["Ngày cơm"], 12); assert.equal(row(kq)["Tiền cơm"], 10 * 50000); // MIN(12,10) × 50.000
 });
-test("Bản nháp của TC7 chưa áp dụng cho đến khi chuyển 'Hiệu lực'; tắt (Ngừng) → quay về mặc định", () => {
+test("Bản nháp của TC7 chưa áp dụng cho đến khi chuyển 'Hiệu lực'; bản nháp thì mã lạ báo FORMULA_ERROR (P2-01: 0đ, không tính ngầm)", () => {
   const db = gateDb(); db.dm_congthuc[0]["Trạng thái"] = "Nháp";
-  assert.equal(row(E.tinhBangLuong(db, 2026, 9, false))["Tiền tăng ca"], Math.round(DG * 2 * 2));
+  const kq = E.tinhBangLuong(db, 2026, 9, false);
+  assert.equal(row(kq)["Tiền tăng ca"], 0);
+  assert.ok(kq.loiCongThuc.some((e) => e.maCongThuc === "TC7" && e.maLoi === "UNKNOWN_CODE"));
 });
 test("Đổi giữa kỳ: bản mới có hiệu lực từ 2026-10-01 không đổi kỳ 9, có đổi kỳ 10", () => {
   const db = gateDb();
@@ -65,4 +67,18 @@ test("Kỳ đã chốt: snapshot lưu danh mục công thức; sửa công thứ
   const truoc = JSON.stringify(CLOSE.current(db, "2026-09").kq.bangluong);
   db.dm_congthuc[0]["Biểu thức"] = "CONG_TC * 100";
   assert.equal(JSON.stringify(CLOSE.current(db, "2026-09").kq.bangluong), truoc);
+});
+
+test("P2-01: mã tăng ca lạ (không TC1–TC6, không công thức) → FORMULA_ERROR UNKNOWN_CODE, 0đ, checklist điểm 21 chặn chốt; TC1–TC6 không bị ảnh hưởng", () => {
+  const CHK = require("../../core/pre-close-checklist.js");
+  const db = gateDb(); db.dm_congthuc = [];
+  const kq = E.tinhBangLuong(db, 2026, 9, false);
+  assert.equal(row(kq)["Tiền tăng ca"], 0);
+  const e = kq.loiCongThuc.find((x) => x.maLoi === "UNKNOWN_CODE");
+  assert.ok(e && e.maCongThuc === "TC7" && /TC1–TC6/.test(e.message) && e.huongXuLy);
+  const it = CHK.run({ db, kq }).items.find((x) => x.id === 21);
+  assert.equal(it.trangThai, "loi"); assert.ok(/TC7/.test(it.chiTiet[0]));
+  const db2 = gateDb(); db2.dm_congthuc = []; db2.dm_tangca.forEach((r) => { r["Mã tăng ca"] = "TC4"; }); db2.nhansu.forEach((n) => { n["Mã tăng ca"] = "TC4"; });
+  const k2 = E.tinhBangLuong(db2, 2026, 9, false);
+  assert.equal(k2.loiCongThuc.length, 0); assert.ok(row(k2)["Tiền tăng ca"] > 0);
 });

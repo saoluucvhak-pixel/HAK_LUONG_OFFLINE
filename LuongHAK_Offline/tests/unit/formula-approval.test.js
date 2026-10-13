@@ -78,7 +78,7 @@ test("kỳ đã chốt: nháp/duyệt không bị coi là hồi tố; kích ho�
   assert.equal(s.run("update", row, { "Trạng thái": "Hiệu lực" }).code, "retro");           // người duyệt thường không có retro.edit
   s.as("admin", "admin1"); assert.ok(s.run("update", row, { "Trạng thái": "Hiệu lực" }).ok);
 });
-test("công thức Hiệu lực áp dụng vào bảng lương; bản Ngừng thì quay về mặc định", () => {
+test("công thức Hiệu lực áp dụng vào bảng lương; bản Ngừng thì mã lạ báo lỗi (P2-01)", () => {
   const db = baseDb();
   db.dm_tangca.push({ "Mã tăng ca": "TC7", "Nội dung tăng ca": "x", "Hệ số tăng ca": 2, "Hiệu lực từ": "2020-01-01" });
   db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã tăng ca": "TC7" })];
@@ -87,8 +87,9 @@ test("công thức Hiệu lực áp dụng vào bảng lương; bản Ngừng th
   const row = s.run("insert", null, Object.assign({}, NEW, { "Biểu thức": "CONG_TC * HE_SO_TC + 1", "Hiệu lực từ": "2026-01-01" })).row;
   const tc = () => E.tinhBangLuong(db, 2026, 9, false).bangluong[0]["Tiền tăng ca"];
   const base = Math.round(9000000 / 26 * 4);
-  assert.equal(tc(), base);                                   // nháp: chưa áp dụng
+  assert.equal(tc(), 0);                                      // nháp: chưa áp dụng, TC7 không thuộc TC1–TC6 → FORMULA_ERROR, 0đ
   ["Chờ duyệt", "Đã duyệt", "Hiệu lực"].forEach((t) => s.run("update", row, { "Trạng thái": t }));
   assert.equal(tc(), Math.round(9000000 / 26 * 5));
-  s.run("update", row, { "Trạng thái": "Ngừng" }); assert.equal(tc(), base);
+  s.run("update", row, { "Trạng thái": "Ngừng" }); assert.equal(tc(), 0);
+  assert.ok(E.tinhBangLuong(db, 2026, 9, false).loiCongThuc.some((e) => e.maLoi === "UNKNOWN_CODE"));
 });

@@ -185,7 +185,18 @@
       }
     }
     // Không có cấu hình công ty → công thức mặc định của hệ thống (dữ liệu trong formula-defaults.js, đã test tương đương switch cũ).
-    var mac = FML.defaults.overtime(key) || FML.defaults.OVERTIME_FALLBACK;
+    var mac = FML.defaults.overtime(key);
+    if (!mac) {
+      // P2-01 (chủ sở hữu chọn phương án B): mã tăng ca không có công thức hiệu lực của công ty và không thuộc TC1–TC6
+      // → FORMULA_ERROR (0đ + chặn chốt kỳ), KHÔNG tính ngầm theo CÔNG_TC × HỆ_SỐ. Gọi không kèm ngữ cảnh báo lỗi (test/cũ) thì giữ mặc định cũ.
+      if (fmlCtx && typeof fmlCtx.error === "function") {
+        baoLoiCongThuc(fmlCtx, { loai: "OVERTIME", maCongThuc: String(key || ""), bieuThuc: "", maLoi: "UNKNOWN_CODE", bien: "",
+          message: "mã tăng ca chưa có công thức (không thuộc TC1–TC6 và chưa khai báo trong Công thức tiền lương)",
+          huongXuLy: "Danh mục → Công thức tiền lương → Tăng ca: thêm công thức cho mã này (Nháp → Gửi duyệt → Hiệu lực) hoặc sửa mã tăng ca của nhân viên về TC1–TC6, rồi tính lại" });
+        return 0;
+      }
+      mac = FML.defaults.OVERTIME_FALLBACK;
+    }
     return FML.evaluate(mac.bieuThuc, {
       CONG_TINH_LUONG: cCTL, CONG_TRUNG_CHUYEN: cTC, CONG_LE: cLe, CONG_CHUAN: cChuan, CONG_CHU_NHAT: cCN,
       CONG_TC: cTang, HE_SO_TC: heSo, CONG_PHEP: cPhep, CONG_DI_CHUYEN: cDC, CONG_CHUAN_2: congChuan2
