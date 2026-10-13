@@ -18,6 +18,7 @@
     validate: VALIDATOR.validate,
     evaluate: EVAL.evaluate,
     resolve: REGISTRY.resolve,
+    resolveEx: REGISTRY.resolveEx,
     versionsOf: REGISTRY.versionsOf,
     variables: VARLIB,
     functions: FN,
