@@ -18,7 +18,9 @@ contextBridge.exposeInMainWorld("hakStore", {
   scheduleGet: () => ipcRenderer.sendSync("backup-schedule-get"),     // { ok, everyHours, onClose, keepDaily, lastAuto }
   scheduleSet: (o) => ipcRenderer.sendSync("backup-schedule-set", o),  // { everyHours?, onClose?, keepDaily? }
   noteExternal: () => ipcRenderer.sendSync("backup-note-external"),
-  session: (perms) => ipcRenderer.sendSync("auth-session", perms), // báo quyền người đang đăng nhập cho tiến trình chính (lệnh nhạy cảm chỉ chạy khi có quyền)
+  login: (name, pw) => ipcRenderer.sendSync("auth-login", name, pw), // V9: tiến trình chính tự xác thực & cấp quyền (renderer không gửi được danh sách quyền)
+  logout: () => ipcRenderer.sendSync("auth-logout"),
+  authState: () => ipcRenderer.sendSync("auth-state"), // quyền HIỆN TẠI do main xác định (chỉ để ẩn/hiện giao diện)
   whoami: () => ipcRenderer.sendSync("app-user"),            // { user, host } — tài khoản Windows đang dùng
   authSalt: () => ipcRenderer.sendSync("auth-salt"),
   authHash: (pw, salt, iter) => ipcRenderer.sendSync("auth-hash", pw, salt, iter),

@@ -160,7 +160,13 @@
     make: function (pw) { var salt = AUTH.salt(), iter = PERM.ITER; return AUTH.hash(pw, salt, iter).then(function (hash) { return { salt: salt, iter: iter, hash: hash }; }); }
   };
   function randomCode() { var a = AUTH.salt().toUpperCase(); return a.slice(0, 4) + "-" + a.slice(4, 8) + "-" + a.slice(8, 12) + "-" + a.slice(12, 16); }
-  function logout(reason) { if (session) audit("Đăng xuất", reason || ""); session = null; st.kq = null; if (!readOnly) saveNow(); render(); }
+  /** V9: xin tiến trình chính cấp phiên tin cậy (main tự kiểm mật khẩu với dữ liệu đã lưu trên đĩa). Bản trình duyệt không có main → true. */
+  function mainLogin(name, pw) {
+    if (!store || !store.login) return true;
+    try { var r = store.login(name, pw); if (r && r.ok) return true; toast("⛔ " + ((r && r.error) || "Tiến trình chính từ chối phiên đăng nhập")); } catch (e) { toast("⛔ Không thiết lập được phiên đăng nhập tin cậy"); }
+    return false;
+  }
+  function logout(reason) { if (session) audit("Đăng xuất", reason || ""); try { if (store && store.logout) store.logout(); } catch (e) { /* main hết phiên cũng được */ } session = null; st.kq = null; if (!readOnly) saveNow(); render(); }
   ["mousedown", "keydown"].forEach(function (ev) { document.addEventListener(ev, function () { lastActive = Date.now(); }, true); });
   // Ctrl+F: nhảy tới ô tìm kiếm của màn hình đang mở (nếu có)
   document.addEventListener("keydown", function (e) {
@@ -3279,6 +3285,7 @@
           return setRecovery(code).then(function () {
             session = u; audit("Khởi tạo tài khoản Admin", u.tenDangNhap);
             if (!saveNow()) { db.nguoidung = []; db.baomat = []; session = null; throw new Error("Không lưu được xuống đĩa — chưa tạo tài khoản"); }
+            if (!mainLogin(u.tenDangNhap, v.p)) { session = null; throw new Error("Đã tạo tài khoản nhưng chưa thiết lập được phiên — đăng nhập lại"); }
             showRecoveryCode(code);
           });
         });
@@ -3293,6 +3300,7 @@
         if (u.khoa) throw new Error("Tài khoản đã bị khóa — liên hệ Admin");
         PERM.noteOk(v.u); session = u; lastActive = Date.now(); u.dangNhapLuc = new Date().toISOString();
         audit("Đăng nhập", u.tenDangNhap); saveNow();
+        if (!mainLogin(u.tenDangNhap, v.p)) { session = null; throw new Error("Tiến trình chính không xác nhận được phiên đăng nhập — thử lại"); }
         if (u.phaiDoiMK) { render(); changePassword(true); return; }
         render();
       });
@@ -3317,7 +3325,8 @@
             return setRecovery(code).then(function () {
               session = u; audit("Khôi phục quyền Admin bằng mã khôi phục", u.tenDangNhap + " — đã cấp mã khôi phục mới");
               if (!saveNow()) throw new Error("Không lưu được xuống đĩa");
-              st.authView = ""; showRecoveryCode(code);
+              st.authView = ""; if (!mainLogin(u.tenDangNhap, v.p)) { session = null; throw new Error("Đã đặt lại mật khẩu nhưng chưa thiết lập được phiên — đăng nhập lại"); }
+              showRecoveryCode(code);
             });
           });
         });
@@ -3542,13 +3551,12 @@
     }, { drawer: true });
     return closeFn;
   }
-  /** Báo quyền hiện tại cho tiến trình chính (GĐ6) — chỉ gửi khi đổi; đăng xuất/khóa tài khoản → danh sách rỗng. */
-  var sessSig = null;
+  /** V9: quyền do TIẾN TRÌNH CHÍNH quyết định. Giao diện chỉ hỏi lại; nếu main đã thu hồi/hết hạn phiên → đăng xuất. */
+  var sessChecked = 0;
   function syncSession() {
-    if (!store || !store.session) return;
-    var r = session && !session.khoa ? PERM.roleOf(session) : null, list = r ? r.perms.slice().sort() : [], sig = list.join(",");
-    if (sig === sessSig) return;
-    try { var ok = store.session(list); if (ok && ok.ok) sessSig = sig; } catch (e) { /* thử lại lần vẽ sau */ }
+    if (!store || !store.authState || !session) return;
+    var t = Date.now(); if (t - sessChecked < 2000) return; sessChecked = t;
+    try { var r = store.authState(); if (r && !r.ok) { session = null; toast("Phiên đăng nhập đã hết hiệu lực hoặc quyền đã bị thu hồi — đăng nhập lại"); } } catch (e) { /* lần vẽ sau thử lại */ }
   }
   function render() {
     syncSession();
