@@ -39,3 +39,7 @@ contextBridge.exposeInMainWorld("hakFiles", {
   setOpenAfter: (on) => ipcRenderer.sendSync("files-open-after", !!on),
   onDone: (cb) => { ipcRenderer.on("download-done", (e, info) => { try { cb(info); } catch (err) { /* lỗi giao diện không làm hỏng tải file */ } }); }
 });
+
+contextBridge.exposeInMainWorld("hakReport", {
+  pdf: (payload) => ipcRenderer.invoke("report-pdf", payload) // { html, name, landscape, footer } → { ok, name, dir, size, pages } | { ok:false, error }
+});

@@ -4,6 +4,7 @@ const os = require("os");
 const { createStorage } = require("./main/storage");
 const { createExports } = require("./main/exports");
 const { createOcrService, sanitizeOcrItems } = require("./main/ocr-service");
+const pdfSvc = require("./main/pdf");
 
 // Dữ liệu: %APPDATA%\Tinh Luong HAK\data.json — sao lưu trong thư mục backups (xem main/storage.js).
 // Gỡ cài đặt KHÔNG xóa thư mục này (electron-builder: deleteAppDataOnUninstall mặc định false).
@@ -32,6 +33,17 @@ function registerIpc() {
   ipcMain.on("store-verify", (e) => { try { e.returnValue = storage.verifyAll(); } catch (err) { e.returnValue = []; } });
   ipcMain.on("store-read", (e, name) => { try { e.returnValue = storage.readBackup(name); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
   ipcMain.on("store-quarantine", (e) => { try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
+  // Xuất PDF báo cáo: giao diện gửi HTML (đã escape) + TÊN file; đường dẫn lưu do tiến trình chính quyết (thư mục xuất, không ghi đè)
+  ipcMain.handle("report-pdf", async (e, payload) => {
+    try {
+      const bad = pdfSvc.validate(payload); if (bad) return { ok: false, error: bad };
+      const buf = await pdfSvc.renderPdf({ BrowserWindow }, payload);
+      let name = exportsDir.cleanName(payload.name || "BaoCao"); if (!/\.pdf$/i.test(name)) name = name.replace(/\.[^.]*$/, "") + ".pdf";
+      const f = exportsDir.target(name); require("fs").writeFileSync(f, buf);
+      const opened = exportsDir.openAfter(); if (opened) shellDo("show", f);
+      return { ok: true, name: path.basename(f), dir: path.dirname(f), size: buf.length, pages: pdfSvc.countPages(buf), opened };
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  });
   ipcMain.on("open-data-folder", () => { shell.openPath(path.dirname(storage.dataFile)); });
   // File xuất (2.0-α16): giao diện chỉ gửi TÊN file — đường dẫn ghép trong thư mục xuất (main/exports.js)
   // OCR bảng chấm công (α20): giao diện gửi ẢNH Ô đã cắt (xám, nhỏ) — không gửi đường dẫn file; chạy offline

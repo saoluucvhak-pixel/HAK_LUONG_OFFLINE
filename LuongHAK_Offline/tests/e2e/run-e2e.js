@@ -105,6 +105,21 @@ async function launch(dataDir, opt) {
   await w.click("#nav button[data-k=luong]"); await w.click("button.big");
   const line = await w.locator("main tbody tr").first().innerText();
   ok("Tính lương: 12.000.000 − BH 630.000 = 11.370.000", /11\.370\.000/.test(line), line.replace(/\t/g, " | "));
+  // V5: Bảng tính lương nội bộ + bộ lọc dùng chung + xuất PDF thật
+  await w.click("#nav button[data-k=bangtinh]");
+  const btHead = (await w.locator("table[data-bangtinh] thead").innerText()).replace(/\s+/g, " ");
+  const btBody = (await w.locator("table[data-bangtinh]").innerText()).replace(/\s+/g, " ");
+  ok("Bảng tính lương nội bộ: có Tổng thu nhập, KHÔNG có BH/Thuế/Thực lĩnh", /Tổng thu nhập/.test(btHead) && !/Thực lĩnh|BH trừ|Thuế|Tạm ứng/.test(btHead) && /12\.000\.000/.test(btBody), btHead);
+  await w.locator("[data-rf-key=tuKhoa]").fill("zzzkhongco"); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
+  ok("Bộ lọc dùng chung: từ khóa không khớp → 'Không có dòng nào khớp bộ lọc'", (await w.locator("main").innerText()).includes("Không có dòng nào khớp bộ lọc"));
+  await w.locator("[data-rf-key=tuKhoa]").fill(""); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
+  ok("Bộ lọc dùng chung: bỏ từ khóa → hiện lại dòng", /12\.000\.000/.test(await w.locator("table[data-bangtinh]").innerText()));
+  await w.locator("main button", { hasText: "Xuất PDF" }).click();
+  let pdfName = null; for (let i = 0; i < 100 && !pdfName; i++) { await w.waitForTimeout(300); pdfName = fs.readdirSync(DL).filter((f) => /^BangTinhLuongNoiBo_2026-09\.pdf$/.test(f))[0]; }
+  const pdfBuf = pdfName ? fs.readFileSync(path.join(DL, pdfName)) : Buffer.alloc(0);
+  const pdfTxt = pdfBuf.toString("latin1");
+  ok("Xuất PDF: file thật (%PDF-), có ≥1 trang, kích thước hợp lý", pdfBuf.slice(0, 5).toString() === "%PDF-" && /\/Type\s*\/Page(?![s\w])/.test(pdfTxt) && pdfBuf.length > 2000, pdfName + " " + pdfBuf.length + "B");
+  await w.click("#nav button[data-k=luong]"); if (await w.locator("button.big").count()) await w.click("button.big");
   // Master Prompt V3 mục 16.3: "Xem chi tiết cách tính" — bấm 1 dòng bảng lương → phiếu lương, chuyển sang xem công thức
   await w.locator("main tbody tr").first().click(); await w.waitForSelector(".dlg");
   const slipHeader = await w.locator(".dlg header h3").innerText();

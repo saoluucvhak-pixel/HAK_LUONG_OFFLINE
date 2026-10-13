@@ -7,7 +7,7 @@ Cột "Trạng thái" được cập nhật theo từng commit; chỉ ghi "Xong"
 
 | Bộ test | Kết quả | Ghi chú |
 | --- | --- | --- |
-| `npm test` (unit + integration + regression) | 314/314 PASS (sau GĐ2: 354/354) | cần `npm ci` trước (6 test OCR cần `tesseract.js`) |
+| `npm test` (unit + integration + regression) | 314/314 PASS (sau GĐ3: 361/361) | cần `npm ci` trước (6 test OCR cần `tesseract.js`) |
 | `npm run test:e2e` (Electron + Playwright + xvfb, **Linux**) | 121/121 PASS | Không thay thế kiểm thử trên Windows |
 | `tests/perf/bench.js` | chạy được | chỉ đo tính lương/đọc ghi, chưa có benchmark công thức, OCR, báo cáo |
 | ESLint | chưa chạy | chưa cài trong môi trường kiểm thử |
@@ -21,9 +21,9 @@ Cột "Trạng thái" được cập nhật theo từng commit; chỉ ghi "Xong"
 | P0-05 | Phân bổ sản lượng: NV vắng trùng tên | `core/production-alloc.js` | Chia đều; `PENDING_ATTENDANCE` khi cả tổ chưa có BT | Trùng tên cuối → **tự loại tất cả người trùng** | P0 | Ưu tiên Mã NV; trùng tên → `PENDING_IDENTITY`: giữ nguyên phiếu, liệt kê ứng viên, yêu cầu ghi Mã NV; bảo toàn khối lượng | `tests/unit/production-alloc.test.js` (U-PA-02/02b/02c/09) | **Xong** |
 | P0-03 | Kho chứng từ gốc | `app.js` (OCR), `main/` | OCR ảnh/PDF bằng Tesseract | **Không có kho chứng từ**: không lưu bản gốc, không DocumentID, không SHA-256 của chứng từ, không liên kết trang/ô với dòng chấm công | P0 | Module `main/documents` + metadata + đường dẫn tương đối | — | Chưa làm |
 | P0-04 | Full Backup chứa chứng từ | `main/storage.js` | Backup **JSON** + `.sha256`, thư mục sao lưu thứ hai | Không có gói Full Backup (không ZIP/manifest), chưa có chứng từ để sao lưu, chưa có Restore Wizard | P0 | Gói ZIP + manifest + SHA-256 + staging restore | — | Chưa làm (phụ thuộc P0-03) |
-| P1-01 | PDF Reporting Engine | — | Xuất Excel (ExcelJS) + in một số biểu mẫu | Không có `printToPDF`/thư viện PDF; không xuất PDF | P1 | Dùng Electron `printToPDF` từ Report View Model | — | Chưa làm |
-| P1-02 | Bộ lọc báo cáo dùng chung | `app.js`, `hr.js` | Tìm kiếm/lọc phòng ban rải rác | Không có `ReportFilterEngine` | P1 | `core/reporting/report-filter.js` | — | Chưa làm |
-| P1-03 | Bảng tính lương nội bộ | `app.js` | Màn hình Tính lương (có khấu trừ + thực lĩnh) | Chưa có màn hình chỉ gồm các khoản tính lương | P1 | Menu Tính lương → Bảng tính lương nội bộ | — | Chưa làm |
+| P1-01 | PDF Reporting Engine | `main/pdf.js`, `core/reporting/report-html.js`, `main.js` (IPC `report-pdf`), `preload.js` | `printToPDF` của Electron | HTML dựng từ view-model (escape, CSP, không script), cửa sổ ẩn khóa mạng/script/điều hướng; lưu vào thư mục xuất không ghi đè; chạy bằng trình duyệt → hộp thoại In | P1 | — | `report-filter.test.js` (HTML), e2e: file `%PDF-` ≥1 trang | **Xong** cho Bảng tính nội bộ; các báo cáo khác chưa nối |
+| P1-02 | Bộ lọc báo cáo dùng chung | `core/reporting/report-filter.js`, `app.js` (`reportFilterBar`) | `ReportFilterEngine`: phòng ban, mã lương, HTTT, từ khóa không dấu, chỉ có thu nhập, khoảng thực lĩnh | Một `st.rf` dùng cho Tính lương, Bảng tính nội bộ, Excel, PDF | P1 | — | `report-filter.test.js` (7), e2e | **Xong** cho Tính lương + Bảng tính nội bộ; chưa nối Báo cáo lương/Chấm công/Thanh toán |
+| P1-03 | Bảng tính lương nội bộ | `core/reporting/internal-payroll.js`, `app.js` (`tabBangTinhNoiBo`) | Menu Kỳ lương → Bảng tính lương nội bộ | Chỉ khoản thu nhập, nhóm theo phòng ban + tổng, kiểm tra tổng thành phần = Tổng thu nhập engine, Excel + PDF | P1 | — | `report-filter.test.js`, e2e | **Xong** |
 | P1-04 | OCR PDF nhiều trang | `app.js:2224` | OCR PDF | `Math.min(pdf.numPages, 30)` — **âm thầm bỏ trang sau 30** | P1 | Xử lý theo lô, hoặc báo rõ và cho tiếp tục | — | Chưa làm |
 | P1-05 | Tầng B kiểm tra tiền làm thêm theo luật | `core/payroll/formula-variables.js` (chỉ có biến `LUONG_GIO_OT`) | Công thức tăng ca nội bộ | Không có `legal-overtime-check` / bảng mức tối thiểu theo hiệu lực | P1 | Module riêng + bảng cấu hình có hiệu lực (cần xác minh luật hiện hành tại kỳ) | — | Chưa làm |
 | P2-01 | Tăng ca mã ngoài TC1–TC6 không có cấu hình | `engine.js` `heSoTangCa` | `switch` lịch sử | Mã lạ không có công thức → rơi `default: CONG_TC × HE_SO_TC` im lặng (giữ nguyên để tương thích; **chưa** coi là lỗi) | P2 | Cần quyết định nghiệp vụ trước khi chặn | — | Mở — cần chủ sở hữu quyết định |
