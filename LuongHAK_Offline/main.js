@@ -106,11 +106,12 @@ function registerIpc() {
   ipcMain.handle("fb-create", guarded("backup.restore", async (e, info) => {
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
-      const r = fullBackup.create({ dataText: ld.text, vault, ocrLib, destDir: fbDir(), appVersion: app.getVersion(), user: info && info.user });
-      if (!r.ok) return r;
+      const r = fullBackup.create({ dataText: ld.text, vault, ocrLib, destDir: fbDir(), appVersion: app.getVersion(), user: info && info.user, allowPartial: !!(info && info.allowPartial === true),
+        restoreConfig: { note: "đường dẫn thư mục là của máy gốc; khi khôi phục sang máy khác dùng thư mục mặc định hoặc chọn lại", customPaths: Object.keys(storage.readSettings()).filter((k) => /Dir$/.test(k)) } });
+      if (!r.file) return r; // FAILED / CANCELLED: không có gói
       let mirrored = "";
       try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"); require("fs").mkdirSync(t, { recursive: true }); require("fs").copyFileSync(r.file, path.join(t, r.name)); require("fs").copyFileSync(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
-      return { ok: true, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored };
+      return { ok: r.ok, status: r.status, partial: !!r.partial, missing: r.missing, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   ipcMain.handle("fb-list", guarded("backup.restore", async () => { try { return { ok: true, files: fbList().filter((f) => /^LuongHAK_FullBackup_.*\.zip$/i.test(f.name)) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));

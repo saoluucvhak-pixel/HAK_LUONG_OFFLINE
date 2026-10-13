@@ -869,7 +869,7 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
     await w.click('[data-fullbackup] button:has-text("Tạo Full Backup")');
-    await w.waitForSelector('[data-fb-msg]:has-text("Đã tạo")', { timeout: 30000 });
+    await w.waitForSelector('[data-fb-msg]:has-text("ĐẦY ĐỦ")', { timeout: 30000 });
     const zips = fs.readdirSync(DL).filter((f) => /^LuongHAK_FullBackup_.*\.zip$/.test(f)), good = path.join(DL, zips[0] || "none.zip");
     const rep = zips.length ? FB.inspect(good) : { ok: false, problems: ["không có gói"], docs: [] };
     ok("Full Backup: tạo được 1 gói .zip + file .sha256, qua kiểm tra (data.json + mọi chứng từ khớp SHA-256)", zips.length === 1 && fs.existsSync(good + ".sha256") && rep.ok && rep.docs.length >= 3 && rep.docs.every((d) => d.state === "new" || d.state === "same"), JSON.stringify({ zips, ok: rep.ok, p: rep.problems, n: rep.docs.length }));

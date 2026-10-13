@@ -12,16 +12,17 @@ function createStore(root, opts) {
   opts = opts || {};
   const logFile = path.join(root, "library.jsonl"), imgDir = path.join(root, "images");
   const lib = L.createLibrary(Object.assign({}, opts.libOpts || {}));
-  let corrupt = 0, loaded = false;
+  let corrupt = 0, tailCut = 0, loaded = false;
   const imgPath = (h) => path.join(imgDir, h.slice(0, 2), h + ".png");
 
   function load() {
     if (loaded) return { corrupt };
     loaded = true; if (!fs.existsSync(logFile)) return { corrupt };
     const text = fs.readFileSync(logFile, "utf8");
-    text.split("\n").forEach((line) => {
+    const parts = text.split("\n");
+    parts.forEach((line, idx) => {
       if (!line.trim()) return;
-      let r; try { r = JSON.parse(line); } catch (e) { corrupt++; return; }
+      let r; try { r = JSON.parse(line); } catch (e) { if (idx === parts.length - 1) tailCut++; else corrupt++; return; } // dòng cuối không có '\n' = bị cắt dở khi mất điện, không phải hỏng giữa file
       lib.apply(r);
     });
     return { corrupt };
@@ -104,7 +105,7 @@ function createStore(root, opts) {
   function verify() {
     load(); const bad = []; let n = 0;
     lib.list().forEach((s) => { n++; const b = readImage(s.pngSha); if (!b) bad.push({ id: s.id, error: "thiếu ảnh" }); else if (sha(b) !== s.pngSha) bad.push({ id: s.id, error: "ảnh sai SHA-256" }); });
-    return { ok: bad.length === 0 && corrupt === 0, samples: n, corruptLines: corrupt, bad };
+    return { ok: bad.length === 0 && corrupt === 0, samples: n, corruptLines: corrupt, truncatedTail: tailCut, bad };
   }
   /** Danh sách file thuộc thư viện (để đóng gói Full Backup). */
   function files() {
@@ -143,6 +144,6 @@ function createStore(root, opts) {
     const fd = fs.openSync(logFile, "a"); try { fs.writeSync(fd, lines.join("\n") + "\n"); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     norm.forEach((r) => lib.apply(r));
   }
-  return { lib, root, spoolPut, spoolList, spoolRemove, recordSpooled, addLayoutRecord, layouts, layoutMatch, layoutSave, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt };
+  return { lib, root, spoolPut, spoolList, spoolRemove, recordSpooled, addLayoutRecord, layouts, layoutMatch, layoutSave, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt + tailCut };
 }
 module.exports = { createStore };
