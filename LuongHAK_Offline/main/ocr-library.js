@@ -4,7 +4,7 @@
 // Thứ tự ghi: ảnh trước (tmp → rename), rồi dòng nhật ký (fsync). Dòng cuối bị cắt dở khi mất điện bị bỏ qua khi nạp (đếm trong `corrupt`).
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
-const L = require("../core/ocr-learning/library.js"), F = require("../core/ocr-learning/features.js");
+const LY = require("../core/ocr-learning/layout.js"), L = require("../core/ocr-learning/library.js"), F = require("../core/ocr-learning/features.js");
 const { encodeGrayPNG } = require("./ocr-service");
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 
@@ -85,10 +85,30 @@ function createStore(root, opts) {
   }
   /** Danh sách file thuộc thư viện (để đóng gói Full Backup). */
   function files() {
-    const out = []; if (fs.existsSync(logFile)) out.push({ rel: "library.jsonl", abs: logFile });
+    const out = []; if (fs.existsSync(logFile)) out.push({ rel: "library.jsonl", abs: logFile }); if (fs.existsSync(layFile)) out.push({ rel: "layouts.jsonl", abs: layFile });
     if (fs.existsSync(imgDir)) fs.readdirSync(imgDir).forEach((d) => fs.readdirSync(path.join(imgDir, d)).forEach((f) => { if (/^[0-9a-f]{64}\.png$/.test(f)) out.push({ rel: "images/" + d + "/" + f, abs: path.join(imgDir, d, f) }); }));
     return out;
   }
+  // ----- thư viện bố cục: layouts.jsonl (thêm vào cuối) -----
+  const layFile = path.join(root, "layouts.jsonl"); let lays = null;
+  function layLoad() {
+    if (lays) return lays; lays = {};
+    if (fs.existsSync(layFile)) fs.readFileSync(layFile, "utf8").split("\n").forEach((ln) => { if (!ln.trim()) return; let r; try { r = JSON.parse(ln); } catch (e) { corrupt++; return; }
+      if (r.t === "layout") lays[r.id] = Object.assign({ uses: 0, lastUsed: "" }, r); else if (r.t === "layoutUse" && lays[r.id]) { lays[r.id].uses++; lays[r.id].lastUsed = r.at; } });
+    return lays;
+  }
+  function layAppend(r) { fs.mkdirSync(root, { recursive: true }); const fd = fs.openSync(layFile, "a"); try { fs.writeSync(fd, JSON.stringify(r) + "\n"); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
+  function layouts() { return Object.keys(layLoad()).map((k) => { const l = lays[k]; return { id: l.id, name: l.name, cols: l.sig.nCols, rows: l.sig.nRows, uses: l.uses, lastUsed: l.lastUsed, createdAt: l.at, by: l.by, sig: l.sig }; }); }
+  function layoutMatch(sig, th) { return LY.match(sig, layouts(), th); }
+  function layoutSave(sig, name, user) {
+    if (!sig || !sig.nCols) throw new Error("chữ ký bố cục không hợp lệ");
+    const m = layoutMatch(sig); const at = new Date().toISOString();
+    if (m.status === "MATCH") { layAppend({ t: "layoutUse", id: m.id, at }); layLoad(); lays[m.id].uses++; lays[m.id].lastUsed = at; return { id: m.id, created: false }; }
+    const id = "LAY-" + at.replace(/\D/g, "").slice(0, 14) + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+    const rec = { t: "layout", id, name: String(name || "Bố cục " + (Object.keys(layLoad()).length + 1)).slice(0, 80), sig, at, by: user || "" };
+    layAppend(rec); lays[id] = Object.assign({ uses: 1, lastUsed: at }, rec); layAppend({ t: "layoutUse", id, at }); return { id, created: true };
+  }
+  function addLayoutRecord(r) { layLoad(); if (lays[r.id]) return; layAppend(r); lays[r.id] = Object.assign({ uses: 0, lastUsed: "" }, r); }
   /** Đặt ảnh mẫu (đã kiểm SHA-256 khớp tên) */
   function putImage(h, buf) { if (sha(buf) !== h) throw new Error("ảnh sai SHA-256"); writeImage(h, buf); }
   /** Nạp bản ghi từ gói sao lưu (dạng dòng nhật ký: sample có `feat` base64 thay vec). Ghi bền rồi mới áp. */
@@ -100,6 +120,6 @@ function createStore(root, opts) {
     const fd = fs.openSync(logFile, "a"); try { fs.writeSync(fd, lines.join("\n") + "\n"); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     norm.forEach((r) => lib.apply(r));
   }
-  return { lib, root, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt };
+  return { lib, root, addLayoutRecord, layouts, layoutMatch, layoutSave, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt };
 }
 module.exports = { createStore };

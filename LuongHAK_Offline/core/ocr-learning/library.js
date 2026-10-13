@@ -126,10 +126,17 @@
     function lookup(vec, cellType, opt) {
       opt = opt || {}; var g = (index || buildIndex())[cellType];
       if (!g || !g.n) return { status: "UNRECOGNIZED", label: "", score: 0, consensus: 0, top: [], reason: "thư viện chưa có mẫu đã xác minh cho loại ô này" };
-      var q = coarseOf(vec), n = g.n, cand = [], i, j;
-      for (i = 0; i < n; i++) { var d = 0, o = i * COARSE; for (j = 0; j < COARSE; j++) d += q[j] * g.mat[o + j]; cand.push([d, i]); }
-      cand.sort(function (a, b) { return b[0] - a[0]; });
-      var top = cand.slice(0, cfg.coarseKeep).map(function (c) { var s = samples[g.ids[c[1]]]; return { id: s.id, label: s.label, sim: F.similarity(vec, s.vec) }; }).sort(function (a, b) { return b.sim - a.sim; });
+      var q = coarseOf(vec), n = g.n, K = Math.min(cfg.coarseKeep, n), i, j;
+      // chọn K ứng viên có điểm thô cao nhất bằng min-heap (O(n log K)) — không sắp xếp toàn bộ n mẫu
+      var hs = new Float64Array(K), hi = new Int32Array(K), hn = 0;
+      function up(k) { while (k > 0) { var p = (k - 1) >> 1; if (hs[p] <= hs[k]) break; var ts = hs[p]; hs[p] = hs[k]; hs[k] = ts; var ti = hi[p]; hi[p] = hi[k]; hi[k] = ti; k = p; } }
+      function down(k) { for (;;) { var l = 2 * k + 1, r = l + 1, m = k; if (l < hn && hs[l] < hs[m]) m = l; if (r < hn && hs[r] < hs[m]) m = r; if (m === k) break; var ts = hs[m]; hs[m] = hs[k]; hs[k] = ts; var ti = hi[m]; hi[m] = hi[k]; hi[k] = ti; k = m; } }
+      for (i = 0; i < n; i++) {
+        var d = 0, o = i * COARSE; for (j = 0; j < COARSE; j++) d += q[j] * g.mat[o + j];
+        if (hn < K) { hs[hn] = d; hi[hn] = i; hn++; up(hn - 1); } else if (d > hs[0]) { hs[0] = d; hi[0] = i; down(0); }
+      }
+      var top = []; for (i = 0; i < hn; i++) { var s0 = samples[g.ids[hi[i]]]; top.push({ id: s0.id, label: s0.label, sim: F.similarity(vec, s0.vec) }); }
+      top.sort(function (a, b) { return b.sim - a.sim; });
       var tk = top.slice(0, cfg.topK), byLabel = {};
       tk.forEach(function (t) { var w = Math.pow(t.sim, 8); var e = byLabel[t.label] || (byLabel[t.label] = { w: 0, best: 0, n: 0 }); e.w += w; e.n++; if (t.sim > e.best) e.best = t.sim; });
       var labels = Object.keys(byLabel).sort(function (a, b) { return byLabel[b].w - byLabel[a].w; }), best = labels[0], second = labels[1];

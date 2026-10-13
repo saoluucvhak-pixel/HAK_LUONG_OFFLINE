@@ -776,6 +776,16 @@ async function launch(dataDir, opt) {
       const g6 = await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => [tr.querySelector("input.i").value, tr.querySelectorAll("select")[1].value, tr.querySelector("input[data-day='9']").value, tr.children[tr.children.length - 2].textContent]));
       ok("Cách đọc ô Dấu x: bảng tay 2 khối, mỗi người 1 cột → tên lấy từ tiêu đề cột, loại Công; xx = 2, ô '7h-15h' = 1; tổng 47 / 35 / 29", pm === "mark" && g6.map((r) => r.join(":")).join("|") === "Lê Văn An:Công:1:47|Trần Bình:Công:1:35|Ngô Cường:Công:2:29", pm + " " + JSON.stringify(g6));
     }
+    // V7: PDF có lớp chữ → lấy chữ trực tiếp (không OCR ảnh), tốc độ tức thì, số chính xác; thêm PDF scan vẫn đi đường OCR
+    {
+      await w.click('#main button:has-text("Xóa danh sách")');
+      const [fcT] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
+      await fcT.setFiles([path.join(FX, "bang-cham-cong-lop-chu.pdf")]);
+      let gt = []; for (let i = 0; i < 120 && gt.length < 3; i++) { await w.waitForTimeout(500); gt = await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => [tr.querySelector("input.i").value, tr.querySelector("input[data-day='4']").value, tr.children[tr.children.length - 2].textContent])); }
+      const srcK = await w.locator('[data-src-kind="pdf-text"]').count();
+      ok("PDF có lớp chữ: dựng bảng thẳng từ chữ trong PDF (hiện 'Nguồn: lớp chữ của PDF'), 3 người đúng số và tổng 8,5 / 10 / 5",
+        srcK === 1 && gt.map((r) => r.join(":")).join("|") === "Nguyen Van An:0,5:8,5|Pham Minh Khoa:1:10|Le Thi Bich:0,5:5", srcK + " " + JSON.stringify(gt));
+    }
     // GĐ4: bản gốc được lưu vào kho chứng từ (SHA-256, sidecar), siêu dữ liệu vào db.chungtu; PDF > 30 trang đọc tiếp, không bỏ trang
     {
       const vdir = path.join(DATA, "documents"), docs = fs.existsSync(vdir) ? fs.readdirSync(vdir).flatMap((d) => fs.readdirSync(path.join(vdir, d)).map((x) => path.join(d, x))) : [];
@@ -797,6 +807,22 @@ async function launch(dataDir, opt) {
       ok("Đọc tiếp: đủ 35 trang, hết nút 'Đọc tiếp'; PDF 35 trang cũng vào kho chứng từ (thêm đúng 1 file)", t2 === 35 && (await w.evaluate(async () => (await window.hakDocs.list()).docs.length)) === nBefore + 1, "tabs=" + t2);
     }
     ok("Không lỗi JavaScript ở Đọc ảnh chấm công", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
+
+  // V7 GĐ7: đổi thư mục thư viện mẫu OCR sang ổ khác — chép + kiểm SHA-256, mẫu còn nguyên, nguồn không bị xóa
+  {
+    const NEWD = path.join(os.tmpdir(), "e2e-ocrlib-" + Date.now());
+    ({ app, w, errs } = await launch(DATA, { env: { HAK_PICK_DIR: NEWD } }));
+    const n0 = await w.evaluate(async () => (await window.hakOcrLib.list({})).samples.length);
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector('[data-stg="ocrLib"]');
+    await w.locator('[data-stg="ocrLib"] button:has-text("Đổi")').click(); await w.waitForSelector('[data-stg-msg]', { timeout: 30000 });
+    const msg = await w.locator("[data-stg-msg]").innerText();
+    const set = JSON.parse(fs.readFileSync(path.join(DATA, "settings.json"), "utf8"));
+    const n1 = await w.evaluate(async () => { const r = await window.hakOcrLib.list({}); const v = await window.hakOcrLib.verify(); return { n: r.samples.length, ok: v.report.ok }; });
+    ok("Đổi thư mục thư viện mẫu OCR: chép + kiểm SHA-256, cấu hình ghi lại, mẫu còn nguyên và đọc được từ vị trí mới; thư mục cũ không bị xóa",
+      /Đã chuyển/.test(msg) && set.ocrLibDir === NEWD && n0 > 0 && n1.n === n0 && n1.ok && fs.existsSync(path.join(NEWD, "library.jsonl")) && fs.existsSync(path.join(DATA, "ocr_library", "library.jsonl")), msg + " | " + JSON.stringify({ n0, n1, set: set.ocrLibDir }));
+    ok("Không lỗi JavaScript ở cài đặt lưu trữ", errs.length === 0, errs.join(" | "));
     await app.close();
   }
 

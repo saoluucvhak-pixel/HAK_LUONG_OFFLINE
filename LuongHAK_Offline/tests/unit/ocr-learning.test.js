@@ -151,3 +151,45 @@ test("U-OCRL-14 luật nghiệp vụ OCR: ngày ngoài tháng, trùng NV, mã l�
   const g = R.check({ ky: "2026-02", mode: "ca", days: [1], lines: [{ ma: "NV1", kind: "Công", vals: { 1: "8" } }] }, { maSet: { NV1: 1 } });
   assert.equal(g.issues.length, 0); assert.equal(R.daysIn("2024-02"), 29);
 });
+
+function gridRes(nc, nr, o) { // bảng tổng hợp nc cột × nr dòng; o: {x0,y0,cw,ch,jx}
+  o = Object.assign({ x0: 100, y0: 200, cw: 40, ch: 30, jx: 0 }, o || {}); const cells = [];
+  for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) { const x0 = o.x0 + c * o.cw + (c % 2 ? o.jx : 0), y0 = o.y0 + r * o.ch; cells.push({ x0, y0, x1: x0 + o.cw, y1: y0 + o.ch, cx: x0 + o.cw / 2, cy: y0 + o.ch / 2 }); }
+  return { cells, box: { x0: o.x0, y0: o.y0, x1: o.x0 + nc * o.cw, y1: o.y0 + nr * o.ch }, w: 2000, h: 2800 };
+}
+test("U-OCRL-15 bố cục: cùng khung ở vị trí/độ phân giải khác vẫn khớp; số dòng khác vẫn khớp; số cột khác → MISMATCH", () => {
+  const LY = require("../../core/ocr-learning/layout.js"), a = LY.signature(gridRes(33, 10));
+  const lays = [{ id: "L1", name: "Chấm công kho", sig: a }];
+  assert.equal(LY.match(LY.signature(gridRes(33, 10, { x0: 340, y0: 90, cw: 80, ch: 60 })), lays).status, "MATCH"); // phóng 2× và dịch chỗ
+  assert.equal(LY.match(LY.signature(gridRes(33, 14)), lays).status, "MATCH");
+  assert.equal(LY.match(LY.signature(gridRes(20, 10)), lays).status, "MISMATCH");
+  assert.equal(LY.match(LY.signature(gridRes(33, 10)), []).status, "NEW");
+  assert.equal(LY.match(null, lays).status, "MISMATCH");
+});
+test("U-OCRL-16 thư viện bố cục lưu bền, đếm lượt dùng, đi theo Full Backup", () => {
+  const LY = require("../../core/ocr-learning/layout.js"), FB = require("../../main/fullbackup.js"), { createVault } = require("../../main/documents");
+  const st = createStore(tmp()), sig = LY.signature(gridRes(33, 10));
+  const r1 = st.layoutSave(sig, "Kho A", "u"); assert.equal(r1.created, true);
+  const r2 = st.layoutSave(LY.signature(gridRes(33, 12)), "", "u"); assert.equal(r2.created, false); assert.equal(r2.id, r1.id);
+  assert.equal(createStore(st.root).layouts()[0].uses, 2);
+  const root = tmp(), pk = FB.create({ dataText: "{}", vault: createVault(path.join(root, "d")), ocrLib: st, destDir: path.join(root, "o") });
+  assert.equal(pk.ok, true); const dst = createStore(tmp()); const imp = FB.importOcrLibrary(pk.file, dst);
+  assert.equal(imp.addedLayouts, 1); assert.equal(dst.layoutMatch(sig).status, "MATCH");
+});
+
+test("U-OCRL-17 lớp chữ PDF: bảng chấm công dạng chữ được dựng không cần OCR; PDF scan (ít chữ) → không dùng", () => {
+  const PT = require("../../core/ocr-learning/pdf-text.js"), items = [];
+  const put = (str, x, y, w) => items.push({ str, x0: x, x1: x + (w || 30), y0: y, y1: y + 14 });
+  put("Bảng chấm công tháng 11/2026", 20, 40, 300); put("Họ và tên", 20, 100, 120); for (let d = 1; d <= 10; d++) put(String(d), 150 + d * 40, 100); put("Tổng công", 150 + 11 * 40, 100, 70);
+  [["Nguyễn Văn An", 1], ["Trần Thị Bình", 0.5]].forEach(([n, v], r) => { const y = 130 + r * 30; put(n, 20, y, 120); let s = 0; for (let d = 1; d <= 10; d++) { put(String(v).replace(".", ","), 150 + d * 40, y); s += v; } put(String(s).replace(".", ","), 150 + 11 * 40, y, 70); });
+  const r = PT.analyze(items, { w: 1000, h: 800 });
+  assert.equal(r.usable, true, r.reason); assert.ok(r.table.lines.length >= 2);
+  const l = r.table.lines.find((x) => /An/.test(x.name)); assert.ok(l, JSON.stringify(r.table.lines.map((x) => x.name)));
+  assert.equal(l.values[3], 1); const b = r.table.lines.find((x) => /Bình/.test(x.name)); assert.equal(b.values[3], 0.5);
+  assert.equal(r.period, "2026-11"); assert.ok(r.title.some((t) => /tháng/.test(t)));
+  assert.equal(PT.analyze(items.slice(0, 5), { w: 1000, h: 800 }).usable, false);
+  assert.equal(PT.analyze([], {}).usable, false);
+  // gộp mảnh "0" "," "5" cùng dòng
+  const m = PT.mergeRuns([{ str: "0", x0: 10, x1: 16, y0: 0, y1: 14 }, { str: ",", x0: 16.5, x1: 19, y0: 0, y1: 14 }, { str: "5", x0: 19.5, x1: 26, y0: 0, y1: 14 }]);
+  assert.equal(m.length, 1); assert.equal(m[0].str, "0,5");
+});
