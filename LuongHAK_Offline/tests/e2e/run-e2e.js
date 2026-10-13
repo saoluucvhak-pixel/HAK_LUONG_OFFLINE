@@ -473,15 +473,19 @@ async function launch(dataDir, opt) {
     ok("V9.4: xuất file KHÔNG làm đổi trạng thái thanh toán (vẫn 'Chưa thanh toán')", /Chưa thanh toán/.test(ttAfter) && !/Đã thanh toán\s*\n?\s*[1-9]/.test(ttAfter.replace(/Đã thanh toán\n/, "")));
     await w.click("#nav button[data-k=rp_tm]");
     ok("V9.4: có sổ chứng từ thanh toán lương trên màn hình tiền mặt", (await w.locator("[data-pay-ledger]").count()) === 1);
-    await w.click("#nav button[data-k=rp_ck]");
-    if (!nErr && (await w.locator('[data-pay-report] tbody tr').count()) > 1) {
-      await w.click('button:has-text("Lập chứng từ chuyển khoản")'); await w.waitForTimeout(500);
+    for (const [nav, btnTxt, pre] of [["rp_ck", "Lập chứng từ chuyển khoản", "UNC-202609-001"], ["rp_tm", "Lập phiếu chi tiền mặt", "PC-202609-001"]]) {
+      await w.click("#nav button[data-k=" + nav + "]");
+      const hasRows = (await w.locator("[data-pay-report] tbody tr").count()) > 1, hasErr = (await w.locator("[data-pay-errors]").count()) > 0;
+      if (!hasRows || hasErr) { ok("V9.4: " + nav + " — " + (hasErr ? "có lỗi nên không lập chứng từ" : "không có người thuộc hình thức này (bỏ qua lập chứng từ)"), true); continue; }
+      await w.click('button:has-text("' + btnTxt + '")'); await w.waitForTimeout(500);
       const lg = await w.locator("[data-pay-ledger]").innerText();
-      ok("V9.4: lập chứng từ chuyển khoản → xuất hiện trong sổ với trạng thái 'Đã lập'", /UNC-202609-001/.test(lg) && /Đã lập/.test(lg), lg.replace(/\s+/g, " ").slice(0, 200));
+      ok("V9.4: lập chứng từ → xuất hiện trong sổ với trạng thái 'Đã lập' (" + nav + ")", lg.includes(pre) && /Đã lập/.test(lg), lg.replace(/\s+/g, " ").slice(0, 200));
       dialogs = []; await w.locator('[data-pay-ledger] button:has-text("Duyệt")').click(); await w.waitForTimeout(300);
       ok("V9.4: người lập không tự duyệt chứng từ (tách nhiệm vụ)", dialogs.some((d) => /khác người lập/.test(d)), dialogs.join(" | "));
-      await w.click('button:has-text("Lập chứng từ chuyển khoản")'); await w.waitForTimeout(300);
-      ok("V9.4: không lập trùng chứng từ cho người đã có chứng từ chờ chi", dialogs.some((d) => /Không có khoản nào cần lập|đang chờ/.test(d)), dialogs.join(" | ").slice(0, 200));
+      dialogs = []; await w.click('button:has-text("' + btnTxt + '")'); await w.waitForTimeout(300);
+      ok("V9.4: không lập trùng chứng từ cho người đã có chứng từ chờ chi", dialogs.some((d) => /Không có khoản nào cần lập/.test(d)), dialogs.join(" | ").slice(0, 200));
+      await w.locator('[data-pay-ledger] button:has-text("Hủy")').click(); await w.waitForSelector(".dlg"); await w.locator(".dlg input, .dlg textarea").first().fill("Hủy thử e2e"); await w.click(".dlg footer button.pri"); await w.waitForTimeout(400);
+      ok("V9.4: hủy chứng từ có lý do → trả lại khoản phải thanh toán", /Đã hủy/.test(await w.locator("[data-pay-ledger]").innerText()));
     }
   }
   // mở lại
