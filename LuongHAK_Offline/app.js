@@ -32,6 +32,15 @@
       cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã công thức", "Tên công thức", "Loại", "Công ty", "Biểu thức", "Tham số", "Đơn vị tính", "Mức tiền", "Hệ số", "Đối tượng áp dụng", "Trạng thái", "Mô tả"],
       def: { "Trạng thái": "Nháp" },
       hint: "'Loại': OVERTIME (tăng ca) · ALLOWANCE (phụ cấp) · SUPPORT (hỗ trợ) — khớp đúng 'Mã công thức' đã gán cho nhân viên (Mã tăng ca / Mã phụ cấp / Mã hỗ trợ), engine tự tra công thức này TRƯỚC, không cần sửa phần mềm. 'Trạng thái': chỉ 'Hiệu lực' mới được dùng để tính lương chính thức — 'Nháp'/'Đã duyệt' dùng để soạn & chạy thử (tab Kiểm tra công thức) trước khi kích hoạt; 'Ngừng' = thôi áp dụng. 'Công ty': để trống = áp dụng mọi công ty; ghi cụ thể để ưu tiên hơn bản chung. 'Biểu thức' dùng tên biến ở tab Thư viện biến (CONG_TC, MUC_PHU_CAP, HE_SO_TC…), hàm MIN/MAX/ROUND/IF… Xem tab Mẫu công thức để copy công thức có sẵn."
+    },
+    // Master Prompt mục VIII: CompanyID → PolicyVersion → PayrollMethod — phương pháp bù sản lượng
+    // CHÍNH THỨC (dùng khi chốt kỳ) không được quyết định bởi lựa chọn tự do trên màn hình Tính
+    // lương; phải lấy từ đây (bản "Hiệu lực"). Màn hình Tính lương vẫn cho chọn tự do để XEM THỬ.
+    dm_quychebu: {
+      ten: "Quy chế bù sản lượng",
+      cols: ["Hiệu lực từ", "Hiệu lực đến", "Cách bù", "Trạng thái", "Người phê duyệt", "Mô tả"],
+      def: { "Trạng thái": "Nháp" },
+      hint: "'Cách bù' (đúng 1 trong 4 mã, xem Tính lương để biết tên hiển thị): false = theo THÁNG (từng người) · true = theo NGÀY liên tục (cách cũ) · daihiep = theo NGÀY bậc thang (công cụ HAK/Đại Hiệp) · to = theo BÌNH QUÂN TỔ (công cụ HAK). Chỉ bản 'Trạng thái'='Hiệu lực' mới được dùng để CHỐT kỳ — màn hình Tính lương vẫn cho chọn phương pháp khác để xem thử/so sánh, nhưng khi chốt app tự tính lại theo đúng bản Hiệu lực ở đây. Chưa có bản Hiệu lực nào cho kỳ đang chốt (và kỳ đó có sản lượng cần bù) → KHÔNG chốt được."
     }
   };
   var HRT = {}; Object.keys(HRM.HR).forEach(function (k) { HRT[k] = { ten: HRM.HR[k].ten, cols: HRM.HR[k].store, hr: true }; });
@@ -435,7 +444,8 @@
     if (col === "Hình thức công") { var hs = db.dm_cc.map(function (r) { return r["Hình thức công"]; }).filter(Boolean); return hs.length ? hs.filter(function (v, i) { return hs.indexOf(v) === i; }) : ["BT", "CL", "PN", "CC", "TC", "DC", "TRCH"]; }
     if (col === "Mã hình thức lương") return ["LTG", "LSP"];
     if (tableKey === "dm_congthuc" && col === "Loại") return ["OVERTIME", "ALLOWANCE", "SUPPORT"];
-    if (tableKey === "dm_congthuc" && col === "Trạng thái") return ["Nháp", "Đã duyệt", "Hiệu lực", "Ngừng"];
+    if ((tableKey === "dm_congthuc" || tableKey === "dm_quychebu") && col === "Trạng thái") return ["Nháp", "Đã duyệt", "Hiệu lực", "Ngừng"];
+    if (tableKey === "dm_quychebu" && col === "Cách bù") return BU_OPTS.map(function (o) { return o[0]; });
     var s = src[col]; if (!s) return null;
     var seen = {}, out = []; db[s[0]].forEach(function (r) { var v = r[s[1]]; if (v && !seen[v]) { seen[v] = 1; out.push(v); } });
     return out;
@@ -1536,6 +1546,27 @@
         "\n\nSửa Mã BHXH hoặc bổ sung mã vào Danh mục bảo hiểm rồi tính lại.");
       return;
     }
+    // P0 (BLOCKER — mục VIII "CompanyID → PolicyVersion → PayrollMethod"): phương pháp bù sản lượng
+    // CHÍNH THỨC khi chốt KHÔNG được quyết định bởi lựa chọn tự do (st.bu) trên màn hình Tính lương —
+    // phải lấy từ bản "Hiệu lực" trong Danh mục → Quy chế bù sản lượng. Chỉ chặn khi kỳ này THỰC SỰ
+    // có sản lượng cần bù (laSanLuong) — công ty không dùng lương sản phẩm không bị ảnh hưởng.
+    var VALID_BU = { "false": 1, "true": 1, daihiep: 1, to: 1 };
+    var coSanLuong = fresh.bangluong.some(function (b) { return b["_ct"] && b["_ct"].laSanLuong; });
+    if (coSanLuong) {
+      var qcBuChot = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
+      var maChinhThuc = qcBuChot && String(qcBuChot["Cách bù"] || "").trim();
+      if (!qcBuChot || !VALID_BU[maChinhThuc]) {
+        alert("⛔ KHÔNG THỂ CHỐT — kỳ " + kyLabel(ky) + " có sản lượng cần bù lương nhưng CHƯA có Quy chế bù sản lượng CHÍNH THỨC hợp lệ (Trạng thái = Hiệu lực) cho kỳ này.\nVào Danh mục → Quy chế bù sản lượng để khai báo và duyệt (Trạng thái = Hiệu lực), rồi chốt lại.\nMàn hình Tính lương vẫn dùng được để xem tạm/so sánh nhiều phương pháp.");
+        return;
+      }
+      var buChinhThuc = maChinhThuc === "true" ? true : maChinhThuc === "false" ? false : maChinhThuc;
+      if (String(buChinhThuc) !== String(st.bu)) {
+        // Không chốt theo lựa chọn xem tạm — tự chuyển đúng phương pháp đã duyệt rồi tính lại trước khi chốt.
+        st.bu = buChinhThuc; saveUi();
+        fresh = tinhLuong(); now2 = CLS.totals(fresh);
+        toast("Đã tự chuyển sang đúng phương pháp bù đã duyệt (" + buLabel(buChinhThuc) + ") theo Quy chế bù sản lượng để chốt.");
+      }
+    }
     preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); });
   }
   function chotKyTiep(ky, fresh, now2) {
@@ -1985,6 +2016,17 @@
       audit("Đổi quy chế tính lương", qcLabel(cu) + " → " + qcLabel(qs.value)); st.kq = null; render(); toast("Đã đổi: " + qcLabel(qs.value) + " — bấm Tính lương lại");
     });
     bar.appendChild(qs); card.appendChild(bar);
+    // Mục VIII: lựa chọn "Cách bù lương sản lượng" ở trên chỉ để XEM THỬ/so sánh — khi Chốt kỳ, app
+    // tự dùng đúng bản "Hiệu lực" trong Danh mục → Quy chế bù sản lượng (nếu có), không theo lựa chọn này.
+    // Chỉ hiện khi công ty này có dùng lương sản phẩm (mã hình thức lương chứa SP) — không làm phiền
+    // công ty không bù sản lượng.
+    if (db.dm_luong.some(function (l) { return /SP/.test(l["Mã hình thức lương"] || ""); })) {
+      var qcBu = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
+      if (qcBu) {
+        var dungPP = String(qcBu["Cách bù"]) === String(st.bu);
+        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", text: (dungPP ? "✓ " : "⚠ ") + "Quy chế bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; khi Chốt kỳ, app sẽ tự tính lại theo đúng quy chế chính thức.") }));
+      } else card.appendChild(h("div", { class: "warn", text: "⚠ Chưa có Quy chế bù sản lượng CHÍNH THỨC (Danh mục → Quy chế bù sản lượng, Trạng thái = Hiệu lực) cho kỳ " + st.thang + "/" + st.nam + " — lựa chọn ở trên chỉ để xem thử/so sánh. Nếu kỳ này có sản lượng cần bù, sẽ KHÔNG chốt được cho đến khi khai báo quy chế." }));
+    }
     if (!st.kq) {
       card.appendChild(h("div", { class: "hint", text: "Kiểm tra dữ liệu kỳ " + st.thang + "/" + st.nam + " rồi bấm nút xanh. Có thể tính lại bất cứ lúc nào." }));
       var cc = db.chamcong.filter(function (r) { return r["Kỳ"] === kyStr(); }).length;

@@ -337,3 +337,37 @@ test("cảnh báo khi thuế lũy tiến mà thiếu mức giảm trừ", () => 
   const kq = run([staff({ "Lương thỏa thuận": "20000000", "Mã TNCN": "LT01", "Mã GT_TNCN_BT": "KHONG_CO" })], { chamcong: [ccRow("NV", 2026, 9)] });
   assert.ok(kq.canhbao.some((w) => /giảm trừ bản thân/.test(w)));
 });
+
+// Mục VIII: CompanyID → PolicyVersion → PayrollMethod — quyCheBuChinhThuc() chọn đúng bản "Hiệu lực"
+// cho kỳ đang chốt, bỏ qua Nháp/Đã duyệt/Ngừng và bản ngoài hiệu lực.
+test("quyCheBuChinhThuc: không có danh mục → null (chưa có cấu hình hợp lệ)", () => {
+  assert.equal(E.quyCheBuChinhThuc([], 2026, 9), null);
+  assert.equal(E.quyCheBuChinhThuc(undefined, 2026, 9), null);
+});
+test("quyCheBuChinhThuc: chỉ có bản Nháp/Đã duyệt/Ngừng → không được dùng, vẫn null", () => {
+  const list = [
+    { "Cách bù": "to", "Trạng thái": "Nháp", "Hiệu lực từ": "2020-01-01" },
+    { "Cách bù": "daihiep", "Trạng thái": "Đã duyệt", "Hiệu lực từ": "2020-01-01" },
+    { "Cách bù": "true", "Trạng thái": "Ngừng", "Hiệu lực từ": "2020-01-01" }
+  ];
+  assert.equal(E.quyCheBuChinhThuc(list, 2026, 9), null);
+});
+test("quyCheBuChinhThuc: bản Hiệu lực đúng kỳ → trả về đúng bản đó", () => {
+  const list = [{ "Cách bù": "to", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2020-01-01" }];
+  assert.equal(E.quyCheBuChinhThuc(list, 2026, 9)["Cách bù"], "to");
+});
+test("quyCheBuChinhThuc: nhiều bản Hiệu lực khác 'Hiệu lực từ' → lấy bản MỚI NHẤT còn hiệu lực trong kỳ", () => {
+  const list = [
+    { "Cách bù": "to", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2020-01-01" },
+    { "Cách bù": "daihiep", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2026-01-01" },
+    { "Cách bù": "true", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2030-01-01" } // chưa tới kỳ 9/2026
+  ];
+  assert.equal(E.quyCheBuChinhThuc(list, 2026, 9)["Cách bù"], "daihiep");
+});
+test("quyCheBuChinhThuc: bản Hiệu lực đã hết hạn trước kỳ ('Hiệu lực đến') → bỏ qua", () => {
+  const list = [
+    { "Cách bù": "to", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2020-01-01", "Hiệu lực đến": "2025-12-31" },
+    { "Cách bù": "daihiep", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2030-01-01" } // chưa tới kỳ
+  ];
+  assert.equal(E.quyCheBuChinhThuc(list, 2026, 9), null);
+});

@@ -444,7 +444,11 @@
         [4, 60000000, 100000000, 0.30, "2026-01-01"], [5, 100000000, 0, 0.35, "2026-01-01"]]),
       dm_giamtru: r(["Mã giảm trừ", "Số người", "Số tiền", "Hiệu lực từ", "Hiệu lực đến"], [
         ["GTBT.01", 1, 11000000, "2020-07-01", "2025-12-31"], ["GTNPT.01", 1, 4400000, "2020-07-01", "2025-12-31"],
-        ["GTBT.01", 1, 15500000, "2026-01-01"], ["GTNPT.01", 1, 6200000, "2026-01-01"]])
+        ["GTBT.01", 1, 15500000, "2026-01-01"], ["GTNPT.01", 1, 6200000, "2026-01-01"]]),
+      // Master Prompt mục VIII: HAK dùng bình quân tổ ("to") làm phương pháp bù sản lượng CHÍNH THỨC
+      // (R-68 — chủ sở hữu HAK Group đã duyệt). Công ty khác tự khai báo/duyệt bản của mình ở đây.
+      dm_quychebu: r(["Cách bù", "Trạng thái", "Người phê duyệt", "Hiệu lực từ", "Mô tả"], [
+        ["to", "Hiệu lực", "Chủ sở hữu HAK Group", N, "Bù sản lượng theo bình quân tổ — quy chế HAK Group đã xác nhận (R-68/mục VIII)."]])
     };
   }
 

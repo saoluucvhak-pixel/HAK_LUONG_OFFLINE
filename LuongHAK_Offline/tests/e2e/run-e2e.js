@@ -574,6 +574,53 @@ async function launch(dataDir, opt) {
     await app.close();
   }
 
+  // Mục VIII: CompanyID → PolicyVersion → PayrollMethod — không dùng lựa chọn tự do trên Tính lương
+  // để quyết định bù sản lượng CHÍNH THỨC; thiếu Quy chế bù sản lượng hợp lệ (Trạng thái = Hiệu lực)
+  // → KHÔNG chốt được kỳ có sản lượng cần bù; có quy chế khác lựa chọn đang xem → tự chuyển đúng rồi chốt.
+  {
+    const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-bu-"));
+    ({ app, w, errs } = await launch(SD));
+    await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(200);
+    await app.close();
+    const fb = path.join(SD, "data.json"), db2 = JSON.parse(fs.readFileSync(fb, "utf8"));
+    db2.nhanvien.push({ _id: "bu1", "Mã NV": "BU1", "Họ và tên": "E2E Bù SL", "Trạng thái": "Đang làm việc" });
+    db2.hopdong.push({ _id: "bu1hd", "Mã NV": "BU1", "Số HĐLĐ": "BU1/HĐ", "Hình thức HĐLĐ": "Xác định thời hạn", "Ngày vào làm": "2026-01-01" });
+    db2.chitiethd.push({ _id: "bu1pl", "Mã NV": "BU1", "Số HĐLĐ": "BU1/HĐ", "Hiệu lực từ": "2026-01-01", "Phòng ban": "02.01", "Mã hình thức lương": "LSP", "Mã lương": "SP", "Lương thỏa thuận": "0", "HTTT": "Tiền mặt", "Thuế TNCN": "MT00" });
+    db2.chamcong.push({ "Kỳ": "2026-11", "Mã NV": "BU1", "Hình thức công": "BT", "01": "1" });
+    db2.sanluong.push({ "Phiếu cân": "EBU1", "Ngày cân": "2026-11-01", "Mã NV": "BU1", "KL hàng (Tấn)": 1 });
+    fs.writeFileSync(fb, JSON.stringify(db2));
+    ({ app, w, errs } = await launch(SD));
+    // Xóa bản "to"/Hiệu lực đã nạp sẵn (HAK) → mô phỏng công ty CHƯA khai báo quy chế bù sản lượng
+    await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Quy chế bù sản lượng")');
+    dialogs = []; await w.locator("main tbody tr").first().locator('button[title="Xóa dòng"]').click(); await w.waitForTimeout(200);
+    ok("Xóa bản Quy chế bù sản lượng đã nạp sẵn (giả lập công ty chưa khai báo)", (await w.locator("main tbody tr").count()) === 0);
+    await w.click("#nav button[data-k=luong]");
+    await w.selectOption("#top select", "11"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(200);
+    const warnNoPolicy = await w.locator("main").first().innerText();
+    ok("Tính lương: chưa có Quy chế bù sản lượng CHÍNH THỨC → cảnh báo ngay trên màn hình (lựa chọn hiện tại chỉ để xem thử)", /Chưa có Quy chế bù sản lượng CHÍNH THỨC/.test(warnNoPolicy));
+    await w.click("button.big"); await w.waitForTimeout(200);
+    dialogs = []; await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForTimeout(200);
+    ok("Chốt kỳ có sản lượng cần bù mà CHƯA có Quy chế bù sản lượng hợp lệ → chặn cứng (mục VIII), không chốt được", dialogs.some((d) => /KHÔNG THỂ CHỐT/.test(d) && /Quy chế bù sản lượng/.test(d)) && !(await w.locator(".locked").count()), dialogs.join(" | "));
+    // Khai báo quy chế CHÍNH THỨC = "to" (bình quân tổ), khác lựa chọn đang xem ("false" — mặc định màn hình Tính lương)
+    await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Quy chế bù sản lượng")');
+    await w.click('main button:has-text("Thêm dòng")');
+    const qbRow = w.locator("main tbody tr").last().locator("input");
+    await qbRow.nth(0).fill("2020-01-01"); await qbRow.nth(0).dispatchEvent("change");
+    await qbRow.nth(2).fill("to"); await qbRow.nth(2).dispatchEvent("change");
+    await qbRow.nth(3).fill("Hiệu lực"); await qbRow.nth(3).dispatchEvent("change");
+    await w.click("#nav button[data-k=luong]");
+    await w.selectOption("#top select", "11"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(200);
+    const warnMoPhong = await w.locator("main").first().innerText();
+    ok("Tính lương: có Quy chế Hiệu lực ('to') khác lựa chọn đang xem ('false') → báo rõ đang XEM THỬ, không phải chính thức", /Quy chế bù sản lượng CHÍNH THỨC kỳ 11\/2026: Bù SL theo BÌNH QUÂN TỔ/.test(warnMoPhong) && /đang XEM THỬ phương pháp khác/.test(warnMoPhong), warnMoPhong.replace(/\s+/g, " ").slice(0, 300));
+    await w.click("button.big"); await w.waitForTimeout(200);
+    await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
+    ok("Có Quy chế hợp lệ nhưng khác lựa chọn xem thử → app TỰ chuyển đúng phương pháp đã duyệt rồi mới chốt (không chốt theo lựa chọn tự do)", /Chốt Tháng 11\/2026|Chốt kỳ/.test(await w.locator(".dlg header h3").innerText()));
+    await w.locator(".dlg input").fill("Chốt E2E mục VIII"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
+    ok("Chốt thành công sau khi có Quy chế bù sản lượng CHÍNH THỨC hợp lệ", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
+    ok("Không lỗi JavaScript ở Quy chế bù sản lượng (mục VIII)", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
+
   // α21: Quy chế tính lương — chọn ở Tính lương, lưu theo dữ liệu (hồ sơ công ty), ghi nhật ký; đổi lại cách cũ được để đối chiếu
   {
     ({ app, w, errs } = await launch());

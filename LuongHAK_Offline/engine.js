@@ -73,6 +73,27 @@
     return map;
   }
 
+  /**
+   * Quy chế bù sản lượng CHÍNH THỨC (mục VIII — "CompanyID → PolicyVersion → PayrollMethod"): chỉ
+   * bản ghi "Trạng thái" = "Hiệu lực" và hiệu lực trong kỳ mới được dùng để QUYẾT ĐỊNH phương pháp
+   * bù khi CHỐT — không dùng lựa chọn tự do trên màn hình Tính lương (xem app.js chotKy()). Nhiều
+   * bản "Hiệu lực" cùng hiệu lực trong kỳ → lấy "Hiệu lực từ" lớn nhất (bản mới nhất).
+   * @returns bản ghi (có "Cách bù") hoặc null nếu chưa có cấu hình hợp lệ cho kỳ này.
+   */
+  function quyCheBuChinhThuc(list, nam, thang) {
+    var dauKy = nam * 10000 + thang * 100 + 1, cuoiKy = nam * 10000 + thang * 100 + 31;
+    var dn = function (s) { var k = String(s || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); return k ? (+k[1]) * 10000 + (+k[2]) * 100 + (+k[3]) : null; };
+    var best = null;
+    (list || []).forEach(function (r) {
+      if (String(r["Trạng thái"] || "") !== "Hiệu lực") return;
+      var tu = dn(r["Hiệu lực từ"]), den = dn(r["Hiệu lực đến"]);
+      if (tu != null && tu > cuoiKy) return;
+      if (den != null && den < dauKy) return;
+      if (!best || (tu || 0) >= (dn(best["Hiệu lực từ"]) || 0)) best = r;
+    });
+    return best;
+  }
+
   function tinhThueLuyTien(tn, bieu) {
     if (!tn || tn <= 0) return 0;
     var thue = 0;
@@ -600,6 +621,6 @@
   }
 
   var ENGINE_VERSION = "1.8.0"; // 1.8.0: quy chế lương HAK Group 2026 (opts.quyChe "2026", R-68 — C1…C10); không bật = số như 1.7.0 · 1.5.0: Q-22 áp dụng phụ lục từ ngày hiệu lực · 1.6.0: Q-19 "Phân bổ PB" khi điều chuyển (không dùng = số tiền giống 1.4.0) · 1.7.0: thêm cách bù "daihiep" / "to" (công cụ HAK; 2 cách cũ giữ nguyên số)
-  var api = { ENGINE_VERSION: ENGINE_VERSION, money: money, tinhBangLuong: tinhBangLuong, tinhThueLuyTien: tinhThueLuyTien, congChuan: congChuan, ngayGiamTru: ngayGiamTru, tachCong: tachCong, tongHopChamCong: tongHopChamCong, hieuLuc: hieuLuc, num: num, pct: pct, bacThang: bacThang, chiTietBuNgayDaiHiep: chiTietBuNgayDaiHiep };
+  var api = { ENGINE_VERSION: ENGINE_VERSION, money: money, tinhBangLuong: tinhBangLuong, tinhThueLuyTien: tinhThueLuyTien, congChuan: congChuan, ngayGiamTru: ngayGiamTru, tachCong: tachCong, tongHopChamCong: tongHopChamCong, hieuLuc: hieuLuc, num: num, pct: pct, bacThang: bacThang, chiTietBuNgayDaiHiep: chiTietBuNgayDaiHiep, quyCheBuChinhThuc: quyCheBuChinhThuc };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.LuongEngine = api;
 })(typeof window !== "undefined" ? window : this);
