@@ -73,3 +73,72 @@ test("U-OCR8-07 sửa lặp 100 lần cùng ô: đúng 1 mẫu hiệu lực, 100
   for (let i = 0; i < 100; i++) { const l = String(i % 2 ? 7 : 1); st.record(P(l, 10 + i, { before, after: l })); before = l; }
   assert.equal(act(st).length, 1); assert.equal(st.lib.edits().length, 100);
 });
+
+// ---- V8 P0-4: chỉ duyệt mẫu của ô thực sự đã nhập ----
+test("U-OCR8-08 trang 30 dòng: 25 dòng nhập được + 5 dòng lỗi → chỉ 25 mẫu VERIFIED, 5 mẫu còn PENDING", () => {
+  const st = createStore(tmp()), keys = [];
+  for (let i = 0; i < 30; i++) { const l = String(i % 9 + 1); st.record(P(l, 100 + i, { bbox: bb(i * 50, 0, i * 50 + 40, 60), employeeId: "NV" + i })); }
+  st.lib.edits().forEach((e, i) => { if (i < 25) keys.push({ key: e.cellKey, value: st.lib.get(e.sampleId).label }); });
+  const r = st.approve({ cellKeys: keys, batchId: "IMP-1", user: "u" });
+  assert.equal(r.verified + r.conflict, 25);
+  assert.equal(st.lib.list({ status: "PENDING_APPROVAL" }).length, 5);
+});
+
+test("U-OCR8-09 giá trị đã nhập khác nhãn mẫu → không duyệt; ô không có mẫu gán → bỏ qua", () => {
+  const st = createStore(tmp()); st.record(P("7", 1));
+  const k = st.lib.edits()[0].cellKey;
+  const r = st.approve({ cellKeys: [{ key: k, value: "1" }, { key: "không|có|ô", value: "3" }] });
+  assert.equal(r.verified, 0); assert.equal(r.skippedMismatch, 1); assert.equal(r.skippedNotAssigned, 1);
+  assert.equal(st.lib.list({ status: "PENDING_APPROVAL" }).length, 1);
+});
+
+test("U-OCR8-10 nhãn UNKNOWN / nghi lỗi bố cục không được duyệt dù ô đã nhập", () => {
+  const st = createStore(tmp());
+  st.record(P("x", 1, { mode: "mark", cellType: "mark", after: "X", bbox: bb(0, 0, 9, 9) }));
+  st.record(P("3", 2, { layoutSuspect: true, bbox: bb(20, 0, 29, 9) }));
+  const keys = st.lib.edits().map((e) => ({ key: e.cellKey }));
+  const r = st.approve({ cellKeys: keys });
+  assert.equal(r.verified, 0); assert.equal(r.skippedUnknownKind, 1); assert.equal(r.skippedLayout, 1);
+});
+
+// ---- V8 P0-3: sự kiện cho mọi ô sửa, hàng đợi bền, idempotent ----
+test("U-OCR8-11 TransactionID: gửi lại cùng một lần sửa không tạo sự kiện/mẫu trùng", () => {
+  const st = createStore(tmp()); const p = P("7", 1, { txId: "TXabc123" });
+  st.record(p); st.record(p); st.record(p);
+  assert.equal(st.lib.edits().length, 1); assert.equal(st.lib.list().length, 1);
+  const st2 = createStore(st.root); st2.load(); st2.record(p); // sau khởi động lại vẫn nhận ra
+  assert.equal(st2.lib.edits().length, 1);
+});
+
+test("U-OCR8-12 hàng đợi bền: ghi lỗi → spool đĩa → 'khởi động lại' nạp lại → ghi được, không trùng, spool sạch", async () => {
+  const SV = require("../../core/ocr-learning/service.js");
+  const root = tmp(), spoolDir = tmp(), store = createStore(root, { spoolDir });
+  let down = true;
+  const api = {
+    record: async (p) => { if (down) return { ok: false, error: "đĩa lỗi" }; const r = store.recordSpooled(p); return { ok: true, sampleId: r.sampleId }; },
+    spoolPut: async (p) => { store.spoolPut(p); return { ok: true }; }, spoolList: async () => ({ ok: true, items: store.spoolList() }), spoolRemove: async (t) => { store.spoolRemove(t); return { ok: true }; },
+  };
+  const sv = SV.createService({ api, user: () => "u" });
+  const W = 60, H = 80, g = new Uint8Array(W * H).fill(240); for (let y = 15; y < 65; y++) g[y * W + 30] = 10;
+  const res = { g, clean: g, w: W, h: H, scale: 1 }, cell = { x0: 5, y0: 5, x1: 55, y1: 75, conf: 50 }, pg = { docId: "D", trang: 1, mode: "so" };
+  const r = await sv.onEdit({ res, cell, pg, ma: "NV1", before: "1", after: "7" });
+  assert.equal(r.queued, true); assert.equal(r.durable, true); assert.equal(sv.pending(), 1);
+  assert.equal(store.spoolList().length, 1);
+  const sv2 = SV.createService({ api, user: () => "u" }); // mô phỏng mở lại ứng dụng
+  assert.equal((await sv2.restoreQueue()).restored, 1); assert.equal(sv2.pending(), 1);
+  down = false;
+  const f = await sv2.flush(); assert.equal(f.sent, 1); assert.equal(sv2.pending(), 0);
+  assert.equal(store.spoolList().length, 0); assert.equal(store.lib.edits().length, 1);
+  await sv.flush(); // bản cũ trong RAM của phiên trước thử lại → trùng TransactionID, không tạo thêm
+  assert.equal(store.lib.edits().length, 1); assert.equal(store.lib.list().length, 1);
+});
+
+test("U-OCR8-13 ô sửa không có ô (cell) / không có ảnh: vẫn ghi sự kiện + cờ MISSING_SOURCE_IMAGE, không mẫu giả", async () => {
+  const SV = require("../../core/ocr-learning/service.js"), store = createStore(tmp());
+  const api = { record: async (p) => { const r = store.record(p); return { ok: true, sampleId: r.sampleId, missingSource: r.missingSource }; } };
+  const sv = SV.createService({ api, user: () => "u" });
+  const r = await sv.onEdit({ res: null, cell: null, ref: "NV1|05", pg: { docId: "D", trang: 2 }, ma: "NV1", before: "1", after: "7" });
+  assert.equal(r.ok, true); assert.equal(r.missingSource, true);
+  assert.equal(store.lib.list().length, 0);
+  const e = store.lib.edits()[0]; assert.deepEqual(e.flags, ["MISSING_SOURCE_IMAGE"]); assert.match(e.cellKey, /\|ref\|NV1\|05$/);
+});

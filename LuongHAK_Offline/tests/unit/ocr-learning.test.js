@@ -114,7 +114,7 @@ test("U-OCRL-12 dịch vụ: sửa ô → gọi ghi mẫu kèm ảnh+bbox; khôn
   assert.equal(r.ok, false); assert.equal(sv.pending(), 1);
   assert.equal(calls[0].page, 3); assert.equal(calls[0].user, "kt1"); assert.equal(calls[0].after, "7"); assert.ok(calls[0].raw.length === calls[0].w * calls[0].h);
   fail = false; const f = await sv.flush(); assert.equal(f.sent, 1); assert.equal(sv.pending(), 0);
-  const a = await sv.approvePages([{ docId: "DOC-1", trang: 3 }]); assert.equal(a.verified, 2);
+  const a = await sv.approveCells([{ key: "DOC-1|3|20|10|60|60|0", value: "7" }], "B1"); assert.equal(a.verified, 2);
 });
 
 test("U-OCRL-13 Full Backup gồm thư viện mẫu OCR; khôi phục sang máy mới không phải học lại; gói sửa 1 byte bị từ chối", () => {

@@ -48,7 +48,7 @@ contextBridge.exposeInMainWorld("hakReport", {
 // Kho chứng từ gốc: chỉ thêm / đọc / kiểm tra theo DocumentID — không có hàm xóa
 contextBridge.exposeInMainWorld("hakOcrLib", {
   record: (p) => ipcRenderer.invoke("ocrlib-record", p), confirm: (p) => ipcRenderer.invoke("ocrlib-confirm", p),
-  approve: (q) => ipcRenderer.invoke("ocrlib-approve", q), undo: (key, user) => ipcRenderer.invoke("ocrlib-undo", key, user),
+  approve: (q) => ipcRenderer.invoke("ocrlib-approve", q), spoolPut: (p) => ipcRenderer.invoke("ocrlib-spool-put", p), spoolList: () => ipcRenderer.invoke("ocrlib-spool-list"), spoolRemove: (t) => ipcRenderer.invoke("ocrlib-spool-remove", t), undo: (key, user) => ipcRenderer.invoke("ocrlib-undo", key, user),
   lookup: (items) => ipcRenderer.invoke("ocrlib-lookup", items), list: (f) => ipcRenderer.invoke("ocrlib-list", f),
   edits: () => ipcRenderer.invoke("ocrlib-edits"), image: (sha) => ipcRenderer.invoke("ocrlib-image", sha),
   setStatus: (id, st, user, reason) => ipcRenderer.invoke("ocrlib-set-status", id, st, user, reason),

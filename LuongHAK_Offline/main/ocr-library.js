@@ -63,6 +63,29 @@ function createStore(root, opts) {
   function setStatus(id, st, user, reason) { return commitAll(() => lib.setStatus(id, st, user, reason)); }
   function relabel(id, label, kind, user, reason) { return commitAll(() => lib.relabel(id, label, kind, user, reason)); }
   function undoCell(key, user) { return commitAll(() => lib.undoCell(key, user)); }
+  // ---- Hàng đợi bền (V8): mẫu chưa ghi được vào thư viện được giữ trên đĩa (thư mục riêng, NGOÀI thư viện) để thử lại sau khi khởi động lại ----
+  // Mỗi mục là 1 tệp <txId>.json (ghi tmp → fsync → rename). txId là khóa idempotent: ghi lại nhiều lần không tạo trùng.
+  const spoolDir = opts.spoolDir || path.join(path.dirname(root), "ocr-spool");
+  const okTx = (t) => /^[A-Za-z0-9_-]{6,80}$/.test(String(t || ""));
+  const enc = (v) => (v instanceof Uint8Array || Array.isArray(v)) ? { __u8: Buffer.from(v).toString("base64") } : v;
+  const dec = (v) => (v && typeof v === "object" && v.__u8 != null) ? new Uint8Array(Buffer.from(v.__u8, "base64")) : v;
+  function spoolPut(p) {
+    if (!p || !okTx(p.txId)) throw new Error("thiếu TransactionID hợp lệ");
+    fs.mkdirSync(spoolDir, { recursive: true });
+    const o = Object.assign({}, p); o.raw = enc(p.raw); o.clean = enc(p.clean);
+    const f = path.join(spoolDir, p.txId + ".json"), tmp = f + ".tmp" + process.pid;
+    const fd = fs.openSync(tmp, "w"); try { fs.writeSync(fd, JSON.stringify(o)); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    fs.renameSync(tmp, f); return { txId: p.txId };
+  }
+  function spoolList() {
+    if (!fs.existsSync(spoolDir)) return [];
+    const out = [];
+    fs.readdirSync(spoolDir).filter((n) => /\.json$/.test(n)).sort().forEach((n) => { try { const o = JSON.parse(fs.readFileSync(path.join(spoolDir, n), "utf8")); o.raw = dec(o.raw); o.clean = dec(o.clean); out.push(o); } catch (e) { /* tệp hỏng: bỏ qua, không chặn các mục khác */ } });
+    return out;
+  }
+  function spoolRemove(txId) { if (!okTx(txId)) return false; const f = path.join(spoolDir, txId + ".json"); if (fs.existsSync(f)) fs.unlinkSync(f); return true; }
+  /** Ghi 1 mục: thành công (hoặc đã có — trùng txId) thì gỡ khỏi hàng đợi bền. */
+  function recordSpooled(p) { const r = record(p); if (p && okTx(p.txId)) spoolRemove(p.txId); return r; }
   function lookup(items, ctx) {
     load(); const counts = {};
     const out = items.map((it) => {
@@ -120,6 +143,6 @@ function createStore(root, opts) {
     const fd = fs.openSync(logFile, "a"); try { fs.writeSync(fd, lines.join("\n") + "\n"); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     norm.forEach((r) => lib.apply(r));
   }
-  return { lib, root, addLayoutRecord, layouts, layoutMatch, layoutSave, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt };
+  return { lib, root, spoolPut, spoolList, spoolRemove, recordSpooled, addLayoutRecord, layouts, layoutMatch, layoutSave, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt };
 }
 module.exports = { createStore };

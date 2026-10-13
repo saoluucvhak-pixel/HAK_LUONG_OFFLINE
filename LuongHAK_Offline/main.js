@@ -54,9 +54,12 @@ function registerIpc() {
   // Thư viện mẫu OCR (V7): ghi tự động khi người dùng sửa ô; quản lý (duyệt/từ chối/đổi nhãn) cần quyền ocr.library. Không có thao tác xóa mẫu.
   const olWrap = (fn) => async (e, ...a) => { try { return Object.assign({ ok: true }, await fn(...a)); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } };
   const olStrip = (s) => { const o = Object.assign({}, s); delete o.vec; delete o.coarse; return o; };
-  ipcMain.handle("ocrlib-record", guarded("input.edit", olWrap((p) => { const r = ocrLib.record(p || {}); return { sampleId: r.sampleId, note: r.note || "" }; })));
+  ipcMain.handle("ocrlib-record", guarded("input.edit", olWrap((p) => { const r = ocrLib.recordSpooled(p || {}); return { sampleId: r.sampleId, note: r.note || "", duplicate: !!r.duplicate, missingSource: !!r.missingSource }; })));
+  ipcMain.handle("ocrlib-spool-put", guarded("input.edit", olWrap((p) => ocrLib.spoolPut(p || {}))));
+  ipcMain.handle("ocrlib-spool-list", guarded("input.edit", olWrap(() => ({ items: ocrLib.spoolList() }))));
+  ipcMain.handle("ocrlib-spool-remove", guarded("input.edit", olWrap((txId) => ({ removed: ocrLib.spoolRemove(String(txId || "")) }))));
   ipcMain.handle("ocrlib-confirm", guarded("input.edit", olWrap((p) => { const r = ocrLib.confirm(p || {}); return { sampleId: r.sampleId }; })));
-  ipcMain.handle("ocrlib-approve", guarded("input.edit", olWrap((q) => { const r = ocrLib.approve(q || {}); return { verified: r.verified, conflict: r.conflict, skippedUnknownKind: r.skippedUnknownKind, skippedLayout: r.skippedLayout }; })));
+  ipcMain.handle("ocrlib-approve", guarded("input.edit", olWrap((q) => { const r = ocrLib.approve(q || {}); return { verified: r.verified, conflict: r.conflict, skippedMismatch: r.skippedMismatch, skippedNotAssigned: r.skippedNotAssigned, skippedUnknownKind: r.skippedUnknownKind, skippedLayout: r.skippedLayout }; })));
   ipcMain.handle("ocrlib-undo", guarded("input.edit", olWrap((key, user) => { ocrLib.undoCell(String(key || ""), user); return {}; })));
   ipcMain.handle("ocrlib-lookup", guarded("input.view", olWrap((items) => ({ results: ocrLib.lookup(Array.isArray(items) ? items : []).map((r) => ({ status: r.status, label: r.label, score: r.score, consensus: r.consensus, reason: r.reason, top: (r.top || []).slice(0, 5) })) }))));
   ipcMain.handle("ocrlib-list", guarded("input.view", olWrap((f) => { ocrLib.load(); return { samples: ocrLib.lib.list(f || {}).map((x) => Object.assign(olStrip(x), { uses: ocrLib.lib.refsOf(x.id) })), stats: ocrLib.lib.stats(), confusions: ocrLib.lib.confusions() }; })));
@@ -97,7 +100,7 @@ function registerIpc() {
   ipcMain.handle("paths-move", guarded("backup.restore", async (e, kind, dir) => {
     try {
       return SP.move({ kind: String(kind), dir: String(dir || ""), userData: app.getPath("userData"), settings: storage.readSettings(), exportsDir: exportsDir.dir(), writeSettings: storage.writeSettings,
-        onApplied: (n) => { if (kind === "docs") vault = createVault(n.docs); else if (kind === "ocrLib") ocrLib = require("./main/ocr-library").createStore(n.ocrLib); } });
+        onApplied: (n) => { if (kind === "docs") vault = createVault(n.docs); else if (kind === "ocrLib") ocrLib = require("./main/ocr-library").createStore(n.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") }); } });
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   ipcMain.handle("fb-create", guarded("backup.restore", async (e, info) => {
@@ -214,7 +217,7 @@ app.whenReady().then(() => {
   storage = createStorage(app.getPath("userData"));
   const spaths = require("./main/storage-paths").resolve(app.getPath("userData"), storage.readSettings(), "");
   vault = createVault(spaths.docs);
-  ocrLib = require("./main/ocr-library").createStore(spaths.ocrLib);
+  ocrLib = require("./main/ocr-library").createStore(spaths.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") });
   exportsDir = createExports({ readSettings: storage.readSettings, writeSettings: storage.writeSettings, defaultDir: path.join(app.getPath("documents"), "Tinh Luong HAK", "File xuat"), fixedDir: process.env.HAK_DOWNLOAD_DIR || "" });
   try { storage.backup("startup"); } catch (e) { /* lần đầu chưa có dữ liệu */ }
   registerIpc();

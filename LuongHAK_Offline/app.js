@@ -401,7 +401,7 @@
             alert("⚠ KHÔNG lưu được xuống đĩa — đã hủy toàn bộ lần nhập này, dữ liệu giữ nguyên như trước khi nhập.");
             return;
           }
-          close(); if (done) done(true); else render();
+          close(); if (done) done(true, plans); else render();
           toast("Đã ghi " + n + " dòng (" + tot.add + " mới, " + tot.update + " cập nhật" + (tot.merged ? ", gộp " + tot.merged : "") + ")" + (bkOk ? "" : " · ⚠ KHÔNG tạo được bản sao lưu trước khi nhập — kiểm tra dung lượng đĩa"));
         })];
     });
@@ -2397,7 +2397,7 @@
   function titleName(title) { var t = (title || []).filter(function (x) { return /lịch|lich/i.test(C.tsparse.fold(x)); })[0] || ""; return t.replace(/^.*?(lịch làm|lich lam)\s*/i, "").trim(); }
   // Tự học từ chỉnh sửa (V7): mỗi ô OCR người dùng sửa tự ghi 1 mẫu "chờ duyệt"; duyệt khi ghi bảng vào Chấm công
   var OCRL = null;
-  function ocrLearn() { if (!OCRL && window.hakOcrLib && C.ocrLearn) OCRL = C.ocrLearn.createService({ api: window.hakOcrLib, user: function () { return session ? session.tenDangNhap : currentUser(); }, cfg: function () { return { saveConfirmed: !!congTy()["OCR lưu mẫu xác nhận"] }; }, ocrVersion: "tsocr-v7" }); return OCRL; }
+  function ocrLearn() { if (!OCRL && window.hakOcrLib && C.ocrLearn) OCRL = C.ocrLearn.createService({ api: window.hakOcrLib, user: function () { return session ? session.tenDangNhap : currentUser(); }, cfg: function () { return { saveConfirmed: !!congTy()["OCR lưu mẫu xác nhận"] }; }, ocrVersion: "tsocr-v7" }); if (OCRL && !OCRL._restored) { OCRL._restored = true; OCRL.restoreQueue().then(function (r) { if (r && r.restored) { toast("⚠ Có " + r.restored + " mẫu học từ lần trước chưa ghi vào thư viện — đã nạp lại, bấm \"Thử lại\" ở màn OCR"); } }); } return OCRL; }
   /** Tra cứu thư viện mẫu cho các ô số: AUTO_ACCEPT → dùng nhãn thư viện (ghi rõ nguồn); SUGGESTED → đánh dấu "không chắc" + gợi ý; còn lại giữ nguyên kết quả OCR. */
   function libEnrich(lr, res, pg) {
     if (pg.mode && pg.mode !== "so") return Promise.resolve();
@@ -2461,7 +2461,7 @@
   function lineSum(L, days) { var s0 = 0, bad = 0; days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n == null) return; if (isNaN(n)) bad++; else s0 += n; }); return { sum: Math.round(s0 * 100) / 100, bad: bad }; }
   /** Dòng dữ liệu sẵn sàng ghi: { chamcong: [...], tiencom: [...], skip: [...] } */
   function ocrRows(pages) {
-    var cc = [], tc = [], skip = [];
+    var cc = [], tc = [], skip = [], mcc = [], mtc = [];
     pages.forEach(function (pg) {
       (pg.lines || []).forEach(function (L) {
         if (!L.kind) return;
@@ -2469,27 +2469,36 @@
         var bad = pg.days.filter(function (d) { var n = ocrNum(L.vals[d]); return n !== null && (isNaN(n) || n < 0); });
         if (bad.length) { skip.push(pg.name + ": " + (L.name || L.ma) + " — ô ngày " + bad.join(", ") + " chưa sửa (dấu ?)"); return; }
         var ky = pg.ky || kyStr();
-        if (L.kind === "Cơm") pg.days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n) tc.push({ "Ngày": ky + "-" + ("0" + d).slice(-2), "Mã NV": L.ma, "Số suất cơm": n, "Ghi chú": "OCR: " + pg.name }); });
+        // meta[] song song với dòng ghi: __line = vị trí+1 → sau khi nhập biết CHÍNH XÁC ô OCR nào đã được ghi (ImportBatch → ô → mẫu)
+        function cellsOf(days) { var out = []; days.forEach(function (d) { var cell = L.src && L.src.cells ? L.src.cells[d] : null, v = String(L.vals[d] == null ? "" : L.vals[d]).trim(); if (v) out.push({ key: C.ocrLearn.cellKey(pg.docId, pg.trang || 1, cell, pg.rot || 0, L.ma + "|" + d), value: v }); }); return out; }
+        if (L.kind === "Cơm") pg.days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n) { mtc.push({ cells: cellsOf([d]) }); tc.push({ "Ngày": ky + "-" + ("0" + d).slice(-2), "Mã NV": L.ma, "Số suất cơm": n, "Ghi chú": "OCR: " + pg.name, __line: mtc.length }); } });
         else {
           var row = { "Kỳ": ky, "Mã NV": L.ma, "Hình thức công": L.kind === "Tăng ca" ? "TC" : "BT" }, any = false;
           pg.days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n != null) { row[("0" + d).slice(-2)] = String(n).replace(".", ","); any = true; } });
-          if (any) cc.push(row);
+          if (any) { mcc.push({ cells: cellsOf(pg.days) }); row.__line = mcc.length; cc.push(row); }
         }
       });
     });
-    return { chamcong: cc, tiencom: tc, skip: skip };
+    return { chamcong: cc, tiencom: tc, skip: skip, meta: { chamcong: mcc, tiencom: mtc } };
+  }
+  /** Ô OCR đã THỰC SỰ nằm trong dữ liệu vừa ghi (dòng add/update/merged của kế hoạch nhập đã commit) — dòng lỗi/bỏ qua/trùng/khóa không tính. */
+  function ocrImportedCells(plans, meta) {
+    var out = [], seen = {};
+    (plans || []).forEach(function (p) { var m = meta[p.table]; if (!m) return; p.items.forEach(function (it) { if (it.action !== "add" && it.action !== "update" && it.action !== "merged") return; var mm = m[(it.line || 0) - 1]; if (mm) mm.cells.forEach(function (c) { if (!seen[c.key]) { seen[c.key] = 1; out.push(c); } }); }); });
+    return out;
   }
   function ocrApply(pages) {
     if (!need("input.edit", "ghi chấm công / suất cơm")) return;
     var rr = ocrRows(pages);
     if (!rr.chamcong.length && !rr.tiencom.length) { alert("Chưa có dòng nào ghi được." + (rr.skip.length ? "\n\n" + rr.skip.join("\n") : "")); return; }
+    var lrChk = ocrLearn(); if (lrChk && lrChk.pending() && !confirm("⚠ Còn " + lrChk.pending() + " mẫu học từ các ô đã sửa CHƯA ghi vào thư viện OCR (lỗi: " + lrChk.lastError() + ").\nChấm công vẫn ghi được, nhưng những mẫu này chưa được tính là đã học và sẽ không được duyệt.\n\nVẫn tiếp tục ghi chấm công?")) return;
     if (rr.skip.length && !confirm("Các dòng sau CHƯA ghi được (sửa xong bấm lại):\n" + rr.skip.join("\n") + "\n\nVẫn ghi các dòng còn lại?")) return;
     importPreview(function (mode) {
       var pl = [];
       if (rr.chamcong.length) { var p1 = IMP.plan(db, "chamcong", ALL.chamcong.cols, rr.chamcong, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p1.sheet = "Ảnh chấm công"; pl.push(p1); }
       if (rr.tiencom.length) { var p2 = IMP.plan(db, "tiencom", ALL.tiencom.cols, rr.tiencom, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p2.sheet = "Ảnh chấm cơm"; pl.push(p2); }
       return pl;
-    }, "OCR " + pages.map(function (p) { return p.name + (p.docId ? " [" + p.docId + "]" : ""); }).join(", "), function (ok) { if (ok && window.hakOcrLib && window.hakOcrLib.layoutSave) pages.forEach(function (p) { if (p.layoutSig && p.layoutStatus !== "MISMATCH" && !p.layoutSuspect) window.hakOcrLib.layoutSave(p.layoutSig, "", session ? session.tenDangNhap : ""); }); var lr = ok && ocrLearn(); if (lr) lr.approvePages(pages.map(function (p) { return { docId: p.docId, page: p.trang || 1 }; })).then(function (r) { if (r && r.verified) toast("Thư viện mẫu OCR: " + r.verified + " mẫu đã được xác nhận" + (r.conflict ? " · " + r.conflict + " mẫu xung đột cần xem" : "")); }); render(); });
+    }, "OCR " + pages.map(function (p) { return p.name + (p.docId ? " [" + p.docId + "]" : ""); }).join(", "), function (ok, donePlans) { if (ok && window.hakOcrLib && window.hakOcrLib.layoutSave) pages.forEach(function (p) { if (p.layoutSig && p.layoutStatus !== "MISMATCH" && !p.layoutSuspect) window.hakOcrLib.layoutSave(p.layoutSig, "", session ? session.tenDangNhap : ""); }); var lr = ok && ocrLearn(); if (lr) { var impCells = ocrImportedCells(donePlans, rr.meta); lr.approveCells(impCells, "IMP-" + Date.now().toString(36)).then(function (r) { if (r && (r.verified || r.unsaved)) toast((r.verified ? "Thư viện mẫu OCR: " + r.verified + " mẫu của ô đã nhập được xác nhận" + (r.conflict ? " · " + r.conflict + " mẫu xung đột cần xem" : "") : "") + (r.unsaved ? " · ⚠ còn " + r.unsaved + " mẫu học CHƯA ghi được — bấm \"Thử lại\" ở màn OCR" : "")); }); } render(); });
   }
   function ocrExport(pages) {
     var sheets = pages.filter(function (p) { return p.lines && p.lines.length; }).map(function (pg, i) {
@@ -2513,7 +2522,7 @@
   }
   // ---------- Thư viện mẫu OCR (V7): xem / duyệt / từ chối / đổi nhãn / khôi phục — KHÔNG có thao tác xóa mẫu ----------
   var OLS = { tab: "so", loaded: false, loading: false, samples: [], edits: [], stats: null, confusions: [], page: 0, q: "", err: "", urls: {} };
-  var OL_TABS = [["so", "Số"], ["kyhieu", "Ký hiệu"], ["chu", "Chữ viết tay"], ["bocuc", "Bố cục"], ["cho", "Chờ xác nhận"], ["nham", "Dễ nhầm"], ["lichsu", "Lịch sử sửa"], ["thongke", "Thống kê"]];
+  var OL_TABS = [["so", "Số"], ["kyhieu", "Ký hiệu"], ["chu", "Chữ viết tay"], ["bocuc", "Bố cục"], ["cho", "Chờ xác nhận"], ["nham", "Dễ nhầm"], ["xuly", "Cần xử lý"], ["lichsu", "Lịch sử sửa"], ["thongke", "Thống kê"]];
   var OL_ST = { PENDING_APPROVAL: "Chờ xác nhận", VERIFIED: "Đã xác nhận", SUPERSEDED: "Đã bị thay thế", REJECTED: "Bị từ chối", CONFLICT: "Xung đột" };
   function olLoad(force) {
     if (!window.hakOcrLib || OLS.loading || (OLS.loaded && !force)) return;
@@ -2559,6 +2568,15 @@
       if (!OLS.confusions.length) c.appendChild(h("div", { class: "hint", text: "Chưa có cặp nhầm lẫn nào." }));
       else { var tc = h("table", { class: "t" }); tc.appendChild(h("tr", {}, ["OCR đọc", "Sửa thành", "Số lần"].map(function (x) { return h("th", { text: x }); }))); OLS.confusions.forEach(function (x) { tc.appendChild(h("tr", {}, [h("td", { text: x.ocr || "(trống)" }), h("td", { text: x.corrected }), h("td", { class: "r", text: String(x.count) })])); }); c.appendChild(tc); }
       return w;
+    }
+    if (OLS.tab === "xuly") {
+      var miss = OLS.edits.filter(function (e) { return e.flags && e.flags.indexOf("MISSING_SOURCE_IMAGE") >= 0; }).reverse();
+      c.appendChild(h("h3", { text: "Ô đã sửa nhưng KHÔNG có ảnh nguồn (" + miss.length + ")" }));
+      c.appendChild(h("div", { class: "hint", text: "Các lần sửa này đã được ghi vào lịch sử nhưng không tạo mẫu học (không có ảnh ô thật). Không nằm trong tập mẫu chính thức. Mở lại chứng từ gốc để kiểm tra nếu cần." }));
+      var tx = h("table", { class: "t" });
+      tx.appendChild(h("tr", {}, ["Lúc", "Người sửa", "Chứng từ / trang", "Mã NV", "Từ", "Thành", "Ghi chú"].map(function (x) { return h("th", { text: x }); })));
+      miss.slice(OLS.page * 50, OLS.page * 50 + 50).forEach(function (e) { tx.appendChild(h("tr", {}, [fmtTime(e.at), e.by, (e.docId || "-") + " / " + (e.page || ""), e.employeeId, e.from, e.to, e.note].map(function (x) { return h("td", { text: String(x == null ? "" : x) }); }))); });
+      c.appendChild(tx); olPager(c, miss.length); return w;
     }
     if (OLS.tab === "lichsu") {
       c.appendChild(h("h3", { text: "Lịch sử sửa ô (mới nhất trước)" }));
@@ -2668,7 +2686,7 @@
       tb.appendChild(btn("↶ Hoàn tác ô đã sửa", "ghost", function () {
         var u = (pg.undo || []).pop(); if (!u) { toast("Chưa có ô nào để hoàn tác"); return; }
         var lr = ocrLearn(); u.L.vals[u.d] = u.prev; u.inp.value = u.prev;
-        if (lr && window.hakOcrLib) window.hakOcrLib.undo(C.ocrLearn.cellKey(pg.docId, pg.trang || 1, u.cell, pg.rot || 0), session ? session.tenDangNhap : "").then(function () { toast("Đã hoàn tác ô và mẫu học của lần sửa đó"); });
+        if (lr && window.hakOcrLib) window.hakOcrLib.undo(C.ocrLearn.cellKey(pg.docId, pg.trang || 1, u.cell, pg.rot || 0, u.L.ma + "|" + u.d), session ? session.tenDangNhap : "").then(function () { toast("Đã hoàn tác ô và mẫu học của lần sửa đó"); });
         render();
       }, "Trả ô về giá trị trước khi sửa; mẫu học của lần sửa gần nhất chuyển sang 'Bị từ chối' (vẫn giữ lịch sử)"));
       var lrq = ocrLearn(); if (lrq && lrq.pending()) tb.appendChild(btn("⚠ " + lrq.pending() + " mẫu học chưa ghi được — Thử lại", "ghost", function () { lrq.flush().then(function (r) { toast(r.left ? "Vẫn còn " + r.left + " mẫu chưa ghi được: " + lrq.lastError() : "Đã ghi " + r.sent + " mẫu"); render(); }); }));
@@ -2728,7 +2746,7 @@
         if (L.vals[d] === "?") inp.classList.add("bad");
         inp.addEventListener("focus", function () { inp._viewed = true; inp._changed = false; showCell(cell, (L.name || "Dòng " + (li + 1)) + " · ngày " + d); });
         inp.addEventListener("blur", function () { var lr = ocrLearn(); if (lr && cell && inp._viewed && !inp._changed && String(L.vals[d]).trim() && String(L.vals[d]) === String(L.orig ? L.orig[d] : "")) lr.onViewedUnchanged({ res: pg.res, cell: cell, pg: pg, ma: L.ma, value: L.vals[d] }); inp._viewed = false; });
-        inp.addEventListener("change", function () { var prevV = L.vals[d]; inp._changed = true; if (cell && prevV !== inp.value.trim()) { (pg.undo = pg.undo || []).push({ L: L, d: d, prev: prevV, cell: cell, inp: inp }); } L.vals[d] = inp.value.trim(); var lr = ocrLearn(); if (lr && cell) lr.onEdit({ res: pg.res, cell: cell, pg: pg, ma: L.ma, before: prevV, after: L.vals[d], ocrValue: L.orig ? L.orig[d] : prevV }).then(function (r) { if (r && r.ok === false) toast("⚠ Chưa lưu được mẫu học từ ô vừa sửa — sẽ thử lại (" + (r.error || "") + ")"); }); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
+        inp.addEventListener("change", function () { var prevV = L.vals[d]; inp._changed = true; if (prevV !== inp.value.trim()) { (pg.undo = pg.undo || []).push({ L: L, d: d, prev: prevV, cell: cell, inp: inp }); } L.vals[d] = inp.value.trim(); var lr = ocrLearn(); if (lr) lr.onEdit({ res: pg.res, cell: cell, ref: L.ma + "|" + d, pg: pg, ma: L.ma, before: prevV, after: L.vals[d], ocrValue: L.orig ? L.orig[d] : prevV }).then(function (r) { if (r && r.ok === false) toast("⚠ Chưa lưu được mẫu học từ ô vừa sửa — " + (r.durable ? "đã giữ lại trên đĩa, sẽ thử lại" : "CHỈ giữ tạm trong bộ nhớ, hãy bấm Thử lại trước khi đóng") + " (" + (r.error || "") + ")"); else if (r && r.missingSource) toast("Ô này không có ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu học"); }); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
         tr.appendChild(h("td", { class: "oc" }, [inp]));
       });
       tr.appendChild(sumTd); tr.appendChild(totTd); upd();
