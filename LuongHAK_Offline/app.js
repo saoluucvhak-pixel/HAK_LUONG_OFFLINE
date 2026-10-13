@@ -2876,14 +2876,14 @@
   // opts.quarantine: cất file dữ liệu hỏng hiện tại (chỉ làm SAU khi người dùng đã xác nhận khôi phục)
   function restoreFromText(text, label, opts) {
     opts = opts || {};
-    if (session && !need("backup.restore")) return; // màn hình khôi phục khi file hỏng: chưa đăng nhập được (xem RISK-05)
+    if (session && !need("backup.restore")) return opts.onCancel && opts.onCancel(); // màn hình khôi phục khi file hỏng: chưa đăng nhập được (xem RISK-05)
     var o;
-    try { o = JSON.parse(text); } catch (e) { alert("File không phải dữ liệu hợp lệ (JSON lỗi)."); return; }
-    if (!o || typeof o !== "object" || Array.isArray(o)) { alert("File không đúng cấu trúc dữ liệu của app."); return; }
+    try { o = JSON.parse(text); } catch (e) { alert("File không phải dữ liệu hợp lệ (JSON lỗi)."); return opts.onCancel && opts.onCancel(); }
+    if (!o || typeof o !== "object" || Array.isArray(o)) { alert("File không đúng cấu trúc dữ liệu của app."); return opts.onCancel && opts.onCancel(); }
     var known = Object.keys(ALL).concat(["kyluong", "nhansu", "congty"]).filter(function (k) { return Array.isArray(o[k]); });
-    if (!known.length) { alert("File không chứa bảng dữ liệu nào của app — không khôi phục."); return; }
+    if (!known.length) { alert("File không chứa bảng dữ liệu nào của app — không khôi phục."); return opts.onCancel && opts.onCancel(); }
     var rep = SCH.validate(o, { tables: Object.keys(ALL), hrTables: Object.keys(HRT) });
-    if (rep.fatal.length) { alert("KHÔNG khôi phục được — cấu trúc file không an toàn:\n- " + rep.fatal.join("\n- ")); return; }
+    if (rep.fatal.length) { alert("KHÔNG khôi phục được — cấu trúc file không an toàn:\n- " + rep.fatal.join("\n- ")); return opts.onCancel && opts.onCancel(); }
     // So sánh các kỳ lương đã chốt: khôi phục bản cũ có thể làm MẤT bản chốt mới hơn
     var cur = loadError ? {} : chotSummary(db), nxt = chotSummary(o), diff = [];
     Object.keys(cur).forEach(function (k) { if (!nxt[k]) diff.push("MẤT bản chốt " + kyLabel(k) + " (" + cur[k] + ")"); else if (nxt[k] !== cur[k]) diff.push(kyLabel(k) + ": " + cur[k] + " → " + nxt[k]); });
@@ -2891,23 +2891,32 @@
     if (!confirm("KHÔI PHỤC từ " + label + "\n\nFile này: " + summarize(o) + "\nHiện tại: " + (loadError ? "(không đọc được)" : summarize(db)) +
       (diff.length ? "\n\n⚠ KỲ LƯƠNG ĐÃ CHỐT thay đổi:\n- " + diff.join("\n- ") : "\n\nKỳ lương đã chốt: không thay đổi.") +
       (rep.errors.length ? "\n\n⚠ File có " + rep.errors.length + " vấn đề dữ liệu (xem Kiểm tra dữ liệu sau khi khôi phục)." : "") +
-      "\n\nToàn bộ dữ liệu hiện tại sẽ được THAY THẾ. App sẽ tự sao lưu dữ liệu hiện tại trước khi khôi phục. Tiếp tục?")) return;
+      "\n\nToàn bộ dữ liệu hiện tại sẽ được THAY THẾ. App sẽ tự sao lưu dữ liệu hiện tại trước khi khôi phục. Tiếp tục?")) return opts.onCancel && opts.onCancel();
     // P1: hộp thoại trên hứa "App sẽ tự sao lưu dữ liệu hiện tại trước khi khôi phục" — khác với nhập
     // Excel/mở chốt/gộp chấm công (có "before" + hoàn tác riêng), một khi đã ghi đè `db` và saveNow()
     // thành công thì KHÔNG còn đường nào lấy lại dữ liệu hiện tại ngoài chính bản sao lưu này — nên
     // CHẶN CỨNG nếu không tạo được, đúng với lời hứa đã đưa ra.
     if (opts.quarantine && store && store.quarantine) store.quarantine();
-    else if (!readOnly && !backupOrBlock("truoc-khoi-phuc", "khôi phục dữ liệu")) return;
-    var prev = db, prevRO = readOnly, prevErr = loadError;
-    try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
-    catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; alert("Không khôi phục được: " + e.message); render(); return; }
-    // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
-    var me = session && PERM.findUser(db, session.tenDangNhap);
-    session = me && !me.khoa ? me : null;
-    audit("Khôi phục dữ liệu", label + (diff.length ? " — kỳ chốt thay đổi: " + diff.join("; ") : ""));
-    if (!saveNow()) { alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!"); }
-    st.kq = null; st.tab = "home"; render(); toast("Đã khôi phục từ " + label); if (mm.length) alert(mm.join("\n"));
-    if (opts.after) opts.after();
+    else if (!readOnly && !backupOrBlock("truoc-khoi-phuc", "khôi phục dữ liệu")) return opts.onCancel && opts.onCancel();
+    var apply = function () {
+      var prev = db, prevRO = readOnly, prevErr = loadError, prevSession = session;
+      var revert = function (why) { db = prev; readOnly = prevRO; loadError = prevErr; session = prevSession; try { ensureTables(); } catch (e0) { /* giữ nguyên */ } saveNow(); render(); if (opts.onFail) opts.onFail(why); };
+      try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
+      catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; render(); if (opts.onFail) opts.onFail("Không nạp được dữ liệu: " + e.message); else alert("Không khôi phục được: " + e.message); return; }
+      // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
+      var me = session && PERM.findUser(db, session.tenDangNhap);
+      session = me && !me.khoa ? me : null;
+      audit("Khôi phục dữ liệu", label + (diff.length ? " — kỳ chốt thay đổi: " + diff.join("; ") : ""));
+      if (!saveNow()) {
+        if (opts.strict) { revert("Không ghi được dữ liệu xuống đĩa — đã hoàn tác"); return; } // khôi phục theo giao dịch: không báo thành công khi chưa ghi được
+        alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!");
+      }
+      var fin = function () { st.kq = null; st.tab = "home"; render(); toast("Đã khôi phục từ " + label); if (mm.length) alert(mm.join("\n")); if (opts.after) opts.after(); };
+      if (opts.verify) opts.verify().then(function (r) { if (r && r.ok) fin(); else revert((r && r.msg) || "Kiểm tra sau khôi phục không đạt"); }, function (e) { revert(String(e && e.message || e)); });
+      else fin();
+    };
+    if (opts.prepare) opts.prepare().then(function (r) { if (r && r.ok) apply(); else if (opts.onFail) opts.onFail((r && r.msg) || "Không chuẩn bị được"); }, function (e) { if (opts.onFail) opts.onFail(String(e && e.message || e)); });
+    else apply();
   }
   /** Lịch sao lưu tự động (α17) — cấu hình theo máy; chỉ Admin đổi được */
   function cardSchedule() {
@@ -3017,20 +3026,42 @@
       }, "Tạo file .zip trong thư mục xuất file (và chép sang thư mục sao lưu thứ hai nếu đã chọn)"),
       btn("📥 Khôi phục từ gói Full Backup…", "", function () {
         if (!need("backup.restore")) return;
-        window.hakFull.inspect().then(function (r) {
-          if (r && r.cancelled) return;
-          if (!r || !r.ok) { st.fbMsg = { bad: true, text: "⚠ Gói KHÔNG đạt kiểm tra — chưa ghi gì: " + (((r && r.problems) || ["lỗi không rõ"]).join("; ")) }; render(); return; }
-          var cnt = { new: 0, same: 0, conflict: 0 }; (r.docs || []).forEach(function (d) { cnt[d.state] = (cnt[d.state] || 0) + 1; });
-          var info = "Gói " + r.label + " — tạo " + fmtTime(r.manifest.createdAt) + (r.manifest.createdBy ? " bởi " + r.manifest.createdBy : "") + ". Đã kiểm tra SHA-256 mọi file: ĐẠT.\nChứng từ: " + cnt.new + " mới sẽ được thêm, " + cnt.same + " đã có sẵn, " + cnt.conflict + " trùng mã nhưng khác nội dung (giữ bản đang có, không ghi đè).";
-          if (!confirm(info + "\n\nTiếp tục sang bước khôi phục dữ liệu?")) return;
-          restoreFromText(r.text, "Full Backup " + r.label, { after: function () {
-            window.hakFull.importDocs().then(function (d) {
-              var linked = (db.chungtu || []).length;
-              st.fbMsg = { bad: !d.ok || (d.conflict || []).length > 0 || (d.failed || []).length > 0, text: d.ok ? "✓ Khôi phục xong. Chứng từ: thêm " + d.added + ", đã có " + d.same + (d.conflict.length ? ", TRÙNG MÃ KHÁC NỘI DUNG (giữ bản cũ): " + d.conflict.join(", ") : "") + (d.ocr ? ". Thư viện mẫu OCR: thêm " + d.ocr.addedSamples + " mẫu, " + d.ocr.addedEdits + " lần sửa" : "") + (d.failed.length ? ", LỖI: " + d.failed.join("; ") : "") + ". Hồ sơ chứng từ trong dữ liệu: " + linked : "⚠ Khôi phục dữ liệu xong nhưng nhập chứng từ lỗi: " + d.error };
-              audit("Khôi phục chứng từ từ Full Backup", st.fbMsg.text); save(); render(); if (st.fbMsg.bad) alert(st.fbMsg.text); else toast(st.fbMsg.text);
+        var fail = function (msg) { st.fbMsg = { bad: true, text: msg }; render(); alert(msg); };
+        var run = function (acceptPartial) {
+          window.hakFull.stage({ acceptPartial: !!acceptPartial }).then(function (r) {
+            if (r && r.cancelled) return;
+            if (r && r.needsPartialAck) {
+              if (confirm("Gói này là SAO LƯU MỘT PHẦN (không phải Full Backup). Thiếu:\n" + (r.missing || []).map(function (x) { return "• " + x.kind + " " + x.id + " — " + x.problem; }).join("\n") + "\n\nVẫn tiếp tục khôi phục phần có trong gói?")) run(true);
+              return;
+            }
+            if (!r || !r.ok) { st.fbMsg = { bad: true, text: "⚠ Gói KHÔNG đạt kiểm tra (" + ((r && r.phase) || "") + ") — chưa ghi gì: " + ((r && (r.error || (r.problems || []).join("; "))) || "lỗi không rõ") }; render(); return; }
+            var cnt = { new: 0, same: 0, conflict: 0 }; (r.docs || []).forEach(function (d) { cnt[d.state] = (cnt[d.state] || 0) + 1; });
+            var info = "Gói " + r.label + " — tạo " + fmtTime(r.manifest.createdAt) + (r.manifest.createdBy ? " bởi " + r.manifest.createdBy : "") + (r.partial ? " · ⚠ GÓI MỘT PHẦN" : "") + ".\n" +
+              r.phases.map(function (p) { return "✓ " + p.name + ": " + p.detail; }).join("\n") +
+              "\nChứng từ: " + cnt.new + " mới sẽ được thêm, " + cnt.same + " đã có sẵn, " + cnt.conflict + " trùng mã nhưng khác nội dung (giữ bản đang có, không ghi đè)." + (r.warnings && r.warnings.length ? "\n⚠ " + r.warnings.join("\n⚠ ") : "");
+            if (!confirm(info + "\n\nGói đã được giải nén & kiểm tra ở thư mục tạm, CHƯA ghi gì vào dữ liệu đang chạy. Tiếp tục sang bước ghi?")) { window.hakFull.discard(r.rid); return; }
+            restoreFromText(r.text, "Full Backup " + r.label, {
+              strict: true,
+              // COMMIT tài sản (chứng từ + thư viện OCR, có nhật ký hoàn tác) chạy SAU xác nhận & sao lưu "trước khôi phục" và TRƯỚC khi thay dữ liệu lương
+              prepare: function () {
+                return window.hakFull.commit(r.rid).then(function (c) { if (c && c.ok) r._commit = c; return c && c.ok ? { ok: true } : { ok: false, msg: "Không ghi được chứng từ/thư viện OCR: " + ((c && c.error) || "lỗi không rõ") }; });
+              },
+              verify: function () { // POSTCHECK sau khi dữ liệu lương đã ghi xuống đĩa
+                return window.hakFull.postcheck(r.rid).then(function (p) { return p && p.ok ? { ok: true } : { ok: false, msg: "Kiểm tra sau khôi phục KHÔNG đạt: " + ((p && p.checks) || []).filter(function (k) { return !k.ok; }).map(function (k) { return k.name + " (" + k.detail + ")"; }).join("; ") }; });
+              },
+              onCancel: function () { window.hakFull.discard(r.rid); },
+              onFail: function (why) { window.hakFull.rollback(r.rid).then(function () { fail("⚠ Khôi phục KHÔNG hoàn tất — đã hoàn tác, dữ liệu như trước khi khôi phục. Lý do: " + why); }); },
+              after: function () {
+                window.hakFull.finish(r.rid).then(function () {
+                  var d = (r._commit || {}).docs || { added: 0, same: 0, conflict: [] }, o2 = (r._commit || {}).ocr;
+                  st.fbMsg = { bad: (d.conflict || []).length > 0, text: "✓ Khôi phục xong. Chứng từ: thêm " + d.added + ", đã có " + d.same + ((d.conflict || []).length ? ", TRÙNG MÃ KHÁC NỘI DUNG (giữ bản cũ): " + d.conflict.join(", ") : "") + (o2 ? ". Thư viện mẫu OCR: thêm " + o2.addedSamples + " mẫu, " + o2.addedEdits + " lần sửa" : "") + (r.partial ? ". ⚠ Đây là gói MỘT PHẦN." : "") + ". Đã kiểm tra mở lại nhân viên, bảng chấm công, kỳ lương, chứng từ, mẫu OCR." };
+                  audit("Khôi phục Full Backup", st.fbMsg.text); save(); render(); if (st.fbMsg.bad) alert(st.fbMsg.text); else toast(st.fbMsg.text);
+                });
+              }
             });
-          } });
-        });
+          });
+        };
+        run(false);
       }, "Chọn file .zip Full Backup: kiểm tra toàn vẹn → xác nhận → khôi phục dữ liệu (tự sao lưu bản hiện tại trước) → thêm chứng từ còn thiếu")
     ]));
     return c;

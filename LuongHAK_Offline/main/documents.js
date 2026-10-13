@@ -82,7 +82,7 @@ function createVault(root, opts) {
     if (!Buffer.isBuffer(buf) || sha256(buf) !== meta.sha256 || buf.length !== meta.size) return { ok: false, error: "Nội dung không khớp SHA-256 trong gói" };
     scan(); const old = byId[meta.id];
     if (old) return { ok: true, id: meta.id, status: old.sha256 === meta.sha256 ? "same" : "conflict" };
-    const m = { id: meta.id, sha256: meta.sha256, name: cleanName(meta.name), ext: extOf(meta.name) || String(meta.ext || "").toLowerCase(), size: buf.length, addedAt: String(meta.addedAt || now().toISOString()), addedBy: String(meta.addedBy || ""), note: String(meta.note || ""), pages: Number(meta.pages) || 0 };
+    const m = { id: meta.id, sha256: meta.sha256, name: cleanName(meta.name), ext: extOf(meta.name) || String(meta.ext || "").toLowerCase(), size: buf.length, addedAt: String(meta.addedAt || now().toISOString()), restoreId: String(meta.restoreId || ""), addedBy: String(meta.addedBy || ""), note: String(meta.note || ""), pages: Number(meta.pages) || 0 };
     if (!EXT_OK.includes(m.ext)) return { ok: false, error: "Loại file không được hỗ trợ: ." + m.ext };
     fs.mkdirSync(dirFor(m.id), { recursive: true });
     fs.writeFileSync(fileFor(m), buf, { flag: "wx" }); fs.writeFileSync(sideFor(m), JSON.stringify(m, null, 1), { flag: "wx" });
@@ -91,6 +91,14 @@ function createVault(root, opts) {
   }
   /** Đường dẫn file gốc + sidecar (để đóng gói) */
   function filesOf(id) { const m = find(id); return m ? { meta: m, file: fileFor(m), side: sideFor(m) } : null; }
-  return { importDoc, filesOf, add, list, find, read, pathOf, verify, root: () => root };
+  /** Hoàn tác một lần khôi phục: CHỈ xóa chứng từ do chính lần khôi phục đó thêm (restoreId khớp và có trong danh sách) — không bao giờ động tới chứng từ có sẵn. */
+  function rollbackRestore(restoreId, ids) {
+    scan(); const out = { removed: [], kept: [] };
+    (ids || []).forEach((id) => { const m = byId[id]; if (!m || !restoreId || m.restoreId !== restoreId) { out.kept.push(id); return; }
+      try { fs.unlinkSync(fileFor(m)); } catch (e) { /* đã mất */ } try { fs.unlinkSync(sideFor(m)); } catch (e) { /* đã mất */ }
+      delete byId[id]; if (bySha[m.sha256] && bySha[m.sha256].id === id) delete bySha[m.sha256]; out.removed.push(id); });
+    return out;
+  }
+  return { importDoc, rollbackRestore, filesOf, add, list, find, read, pathOf, verify, root: () => root };
 }
 module.exports = { createVault, sha256, EXT_OK, MAX_BYTES };

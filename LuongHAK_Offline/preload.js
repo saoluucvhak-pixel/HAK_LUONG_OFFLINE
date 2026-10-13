@@ -72,5 +72,7 @@ contextBridge.exposeInMainWorld("hakFull", {
   create: (info) => ipcRenderer.invoke("fb-create", info),     // { user } → { ok, name, dir, size, sha256, docs, warnings, mirrored } | { ok:false, error }
   list: () => ipcRenderer.invoke("fb-list"),
   inspect: (name) => ipcRenderer.invoke("fb-inspect", name),   // name tùy chọn (trong thư mục xuất); bỏ trống = hộp thoại chọn file → { ok, problems, manifest, docs, text }
-  importDocs: () => ipcRenderer.invoke("fb-import-docs")        // chỉ nhập chứng từ từ gói vừa inspect OK → { ok, added, same, conflict[], failed[] }
+  // Khôi phục theo giao dịch: stage(opt{name?,acceptPartial?}) → commit(rid) → [giao diện thay dữ liệu] → postcheck(rid) → finish(rid) | rollback(rid)
+  stage: (opt) => ipcRenderer.invoke("rs-stage", opt), commit: (rid) => ipcRenderer.invoke("rs-commit", rid), postcheck: (rid) => ipcRenderer.invoke("rs-postcheck", rid),
+  rollback: (rid) => ipcRenderer.invoke("rs-rollback", rid), finish: (rid) => ipcRenderer.invoke("rs-finish", rid), discard: (rid) => ipcRenderer.invoke("rs-discard", rid)
 });

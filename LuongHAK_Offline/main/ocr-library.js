@@ -11,7 +11,7 @@ const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 function createStore(root, opts) {
   opts = opts || {};
   const logFile = path.join(root, "library.jsonl"), imgDir = path.join(root, "images");
-  const lib = L.createLibrary(Object.assign({}, opts.libOpts || {}));
+  let lib = L.createLibrary(Object.assign({}, opts.libOpts || {}));
   let corrupt = 0, tailCut = 0, loaded = false;
   const imgPath = (h) => path.join(imgDir, h.slice(0, 2), h + ".png");
 
@@ -113,6 +113,14 @@ function createStore(root, opts) {
     if (fs.existsSync(imgDir)) fs.readdirSync(imgDir).forEach((d) => fs.readdirSync(path.join(imgDir, d)).forEach((f) => { if (/^[0-9a-f]{64}\.png$/.test(f)) out.push({ rel: "images/" + d + "/" + f, abs: path.join(imgDir, d, f) }); }));
     return out;
   }
+  // ---- điểm khôi phục cho Restore (V8): ghi lại kích thước nhật ký; hoàn tác = cắt về kích thước đó + xóa ảnh mới thêm + nạp lại bộ nhớ ----
+  const sizeOf = (f) => { try { return fs.statSync(f).size; } catch (e) { return 0; } };
+  function pos() { return { log: sizeOf(logFile), lay: sizeOf(path.join(root, "layouts.jsonl")) }; }
+  function rollbackTo(p, newImages) {
+    [[logFile, p.log], [path.join(root, "layouts.jsonl"), p.lay]].forEach(([f, n]) => { if (fs.existsSync(f)) { if (n === 0 && sizeOf(f) > 0) fs.truncateSync(f, 0); else if (sizeOf(f) > n) fs.truncateSync(f, n); } });
+    (newImages || []).forEach((h) => { if (/^[0-9a-f]{64}$/.test(h)) { try { fs.unlinkSync(imgPath(h)); } catch (e) { /* đã không còn */ } } });
+    lib = L.createLibrary(Object.assign({}, opts.libOpts || {})); loaded = false; corrupt = 0; tailCut = 0; lays = null; load();
+  }
   // ----- thư viện bố cục: layouts.jsonl (thêm vào cuối) -----
   const layFile = path.join(root, "layouts.jsonl"); let lays = null;
   function layLoad() {
@@ -144,6 +152,6 @@ function createStore(root, opts) {
     const fd = fs.openSync(logFile, "a"); try { fs.writeSync(fd, lines.join("\n") + "\n"); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     norm.forEach((r) => lib.apply(r));
   }
-  return { lib, root, spoolPut, spoolList, spoolRemove, recordSpooled, addLayoutRecord, layouts, layoutMatch, layoutSave, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt + tailCut };
+  return { get lib() { return lib; }, root, pos, rollbackTo, spoolPut, spoolList, spoolRemove, recordSpooled, addLayoutRecord, layouts, layoutMatch, layoutSave, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt + tailCut };
 }
 module.exports = { createStore };

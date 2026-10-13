@@ -134,43 +134,50 @@ function inspect(file, vault) {
   } finally { zip.close(); }
 }
 
-/** Thêm chứng từ từ gói vào kho (đã qua inspect). Không ghi đè. → { added, same, conflict[], failed[] } */
-function importDocuments(file, vault) {
-  const zip = Z.openZip(file), out = { added: 0, same: 0, conflict: [], failed: [] };
-  try {
-    const m = JSON.parse(zip.readBuffer(zip.byName["manifest.json"], 8 * 1048576).toString("utf8"));
-    (m.documents || []).forEach((d) => {
-      try {
-        const meta = JSON.parse(zip.readBuffer(zip.byName["documents/" + d.id + ".json"], 1048576).toString("utf8"));
-        if (meta.id !== d.id || meta.sha256 !== d.sha256) throw new Error("siêu dữ liệu không khớp manifest");
-        const r = vault.importDoc(meta, zip.readBuffer(zip.byName[d.path], 256 * 1048576));
-        if (!r.ok) out.failed.push(d.id + ": " + r.error); else if (r.status === "added") out.added++; else if (r.status === "same") out.same++; else out.conflict.push(d.id);
-      } catch (e) { out.failed.push(d.id + ": " + (e.message || e)); }
-    });
-  } finally { zip.close(); }
+// ---- đọc nội dung gói qua "reader": trực tiếp từ ZIP hoặc từ thư mục staging đã giải nén & kiểm tra ----
+function zipReader(zip) { return { has: (n) => !!zip.byName[n], buf: (n, max) => zip.readBuffer(zip.byName[n], max) }; }
+function dirReader(dir) {
+  const root = path.resolve(dir), real = fs.realpathSync(root);
+  const abs = (n) => { const p = path.resolve(root, n); if (p !== root && !p.startsWith(root + path.sep)) throw new Error("Đường dẫn ngoài thư mục staging: " + n); const rp = fs.realpathSync(p); if (rp !== real && !rp.startsWith(real + path.sep)) throw new Error("Liên kết/junction trỏ ra ngoài staging: " + n); return p; };
+  return { has: (n) => { try { return fs.lstatSync(abs(n)).isFile(); } catch (e) { return false; } }, buf: (n, max) => { const p = abs(n), st = fs.lstatSync(p); if (!st.isFile()) throw new Error("Không phải file thường: " + n); if (st.size > (max || 1 << 30)) throw new Error("Mục quá lớn: " + n); return fs.readFileSync(p); } };
+}
+/** Thêm chứng từ từ gói vào kho (đã qua inspect/staging). Không ghi đè. opts.restoreId đánh dấu để hoàn tác đúng các chứng từ vừa thêm.
+ *  → { added, same, conflict[], failed[], addedIds[] } */
+function importDocumentsFrom(rd, vault, opts) {
+  const out = { added: 0, same: 0, conflict: [], failed: [], addedIds: [] };
+  const m = JSON.parse(rd.buf("manifest.json", 8 * 1048576).toString("utf8"));
+  (m.documents || []).forEach((d) => {
+    try {
+      const meta = JSON.parse(rd.buf("documents/" + d.id + ".json", 1048576).toString("utf8"));
+      if (meta.id !== d.id || meta.sha256 !== d.sha256) throw new Error("siêu dữ liệu không khớp manifest");
+      if (opts && opts.restoreId) meta.restoreId = opts.restoreId;
+      const r = vault.importDoc(meta, rd.buf(d.path, 256 * 1048576));
+      if (!r.ok) out.failed.push(d.id + ": " + r.error); else if (r.status === "added") { out.added++; out.addedIds.push(d.id); } else if (r.status === "same") out.same++; else out.conflict.push(d.id);
+    } catch (e) { out.failed.push(d.id + ": " + (e.message || e)); }
+  });
   return out;
 }
-/** Khôi phục thư viện mẫu OCR từ gói (đã qua inspect). Thư viện đích rỗng → chép nguyên; không rỗng → chỉ THÊM mẫu/sự kiện chưa có (không ghi đè). → { addedSamples, addedEdits, images } */
-function importOcrLibrary(file, store) {
-  const zip = Z.openZip(file), out = { addedSamples: 0, addedEdits: 0, images: 0 };
-  try {
-    const lye = zip.byName["ocr_library/layouts.jsonl"];
-    if (lye) { // bố cục: thêm bố cục chưa có (theo id), cộng lượt dùng không cần thiết khi khôi phục
-      const have = new Set(store.layouts().map((x) => x.id)); out.addedLayouts = 0;
-      zip.readBuffer(lye, 64 * 1048576).toString("utf8").split("\n").forEach((ln) => { if (!ln.trim()) return; let r; try { r = JSON.parse(ln); } catch (e) { return; } if (r.t === "layout" && !have.has(r.id)) { store.addLayoutRecord(r); out.addedLayouts++; } });
-    }
-    const le = zip.byName["ocr_library/library.jsonl"]; if (!le) return out;
-    store.load(); const have = new Set(store.lib.list().map((x) => x.id)), haveEd = new Set(store.lib.edits().map((x) => x.id)), newIds = new Set();
-    const text = zip.readBuffer(le, 1024 * 1048576).toString("utf8"), recs = [];
-    text.split("\n").forEach((ln) => { if (!ln.trim()) return; let r; try { r = JSON.parse(ln); } catch (e) { return; }
-      if (r.t === "sample") { if (have.has(r.id)) return; newIds.add(r.id); recs.push(r); out.addedSamples++; }
-      else if (r.t === "edit") { if (haveEd.has(r.id)) return; recs.push(r); out.addedEdits++; }
-      else if (r.t === "status" || r.t === "relabel") { if (newIds.has(r.id)) recs.push(r); }
-      else if (r.t === "assign" || r.t === "unassign") { if (newIds.has(r.sampleId)) recs.push(r); }
-      else if (r.t === "refs") recs.push(r); });
-    recs.forEach((r) => { if (r.t !== "sample") return; const e = zip.byName["ocr_library/" + r.png]; if (e && !store.readImage(r.pngSha)) { store.putImage(r.pngSha, zip.readBuffer(e, 64 * 1048576)); out.images++; } });
-    store.restoreRecords(recs);
-  } finally { zip.close(); }
+function importDocuments(file, vault, opts) { const zip = Z.openZip(file); try { return importDocumentsFrom(zipReader(zip), vault, opts); } finally { zip.close(); } }
+/** Khôi phục thư viện mẫu OCR (đã qua inspect/staging). Thư viện đích rỗng → chép nguyên; không rỗng → chỉ THÊM mẫu/sự kiện chưa có (không ghi đè).
+ *  → { addedSamples, addedEdits, images, newImages[], addedLayouts } */
+function importOcrLibraryFrom(rd, store) {
+  const out = { addedSamples: 0, addedEdits: 0, images: 0, newImages: [], addedLayouts: 0 };
+  if (rd.has("ocr_library/layouts.jsonl")) {
+    const have = new Set(store.layouts().map((x) => x.id));
+    rd.buf("ocr_library/layouts.jsonl", 64 * 1048576).toString("utf8").split("\n").forEach((ln) => { if (!ln.trim()) return; let r; try { r = JSON.parse(ln); } catch (e) { return; } if (r.t === "layout" && !have.has(r.id)) { store.addLayoutRecord(r); out.addedLayouts++; } });
+  }
+  if (!rd.has("ocr_library/library.jsonl")) return out;
+  store.load(); const have = new Set(store.lib.list().map((x) => x.id)), haveEd = new Set(store.lib.edits().map((x) => x.id)), newIds = new Set();
+  const text = rd.buf("ocr_library/library.jsonl", 1024 * 1048576).toString("utf8"), recs = [];
+  text.split("\n").forEach((ln) => { if (!ln.trim()) return; let r; try { r = JSON.parse(ln); } catch (e) { return; }
+    if (r.t === "sample") { if (have.has(r.id)) return; newIds.add(r.id); recs.push(r); out.addedSamples++; }
+    else if (r.t === "edit") { if (haveEd.has(r.id)) return; recs.push(r); out.addedEdits++; }
+    else if (r.t === "status" || r.t === "relabel") { if (newIds.has(r.id)) recs.push(r); }
+    else if (r.t === "assign" || r.t === "unassign") { if (newIds.has(r.sampleId)) recs.push(r); }
+    else if (r.t === "refs") recs.push(r); });
+  recs.forEach((r) => { if (r.t !== "sample") return; const n = "ocr_library/" + r.png; if (rd.has(n) && !store.readImage(r.pngSha)) { store.putImage(r.pngSha, rd.buf(n, 64 * 1048576)); out.images++; out.newImages.push(r.pngSha); } });
+  store.restoreRecords(recs);
   return out;
 }
-module.exports = { STATUS: ST, create, inspect, importDocuments, importOcrLibrary, FORMAT, VERSION };
+function importOcrLibrary(file, store) { const zip = Z.openZip(file); try { return importOcrLibraryFrom(zipReader(zip), store); } finally { zip.close(); } }
+module.exports = { STATUS: ST, create, inspect, importDocuments, importOcrLibrary, importDocumentsFrom, importOcrLibraryFrom, zipReader, dirReader, FORMAT, VERSION };
