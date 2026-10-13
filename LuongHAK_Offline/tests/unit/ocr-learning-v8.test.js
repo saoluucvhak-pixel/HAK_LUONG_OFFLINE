@@ -32,7 +32,7 @@ test("U-OCR8-03 C: 0,5→0,6→Undo: ô về 0,5, mẫu 0,5 hiệu lực lại, 
   const st = createStore(tmp());
   const a = st.record(P("5", 1, { before: "", after: "0,5" })), b = st.record(P("6", 2, { before: "0,5", after: "0,6" }));
   const u = st.undoCell(key(st), "u");
-  assert.equal(u.value, "0,5");
+  assert.equal(u.value, "0.5"); // nhãn đã chuẩn hóa dấu phẩy → chấm
   assert.equal(st.lib.cellSample(key(st)), a.sampleId);
   assert.equal(st.lib.get(a.sampleId).status, "PENDING_APPROVAL");
   assert.equal(st.lib.get(b.sampleId).status, "REJECTED");
