@@ -490,29 +490,10 @@
   }
 
   // ---------- Bộ lọc dùng chung V9.2 ----------
-  /** Hộp chọn nhiều giá trị (có ô tìm không dấu). options: [[value,label]]; sel: mảng value đang chọn; onChange(mảng mới). */
-  function multiPick(label, options, sel, onChange) {
-    var d = h("details", { class: "mpick" }), sm = h("summary", { class: "btn", "aria-label": label });
-    var upd = function () { sm.textContent = label + (sel.length ? ": " + sel.length + " đã chọn" : ": tất cả"); };
-    upd(); d.appendChild(sm);
-    var panel = h("div", { class: "card", style: "position:absolute;z-index:20;padding:8px;max-height:280px;overflow:auto;min-width:220px" }), find = h("input", { class: "i", placeholder: "Tìm (không dấu)…", style: "width:100%" }), list = h("div");
-    var draw = function () {
-      list.innerHTML = ""; var q = LF.fold(find.value);
-      options.forEach(function (o) {
-        if (q && LF.fold(o[1]).indexOf(q) < 0) return;
-        var cb = h("input", { type: "checkbox" }); cb.checked = sel.indexOf(o[0]) >= 0;
-        cb.addEventListener("change", function () { var i = sel.indexOf(o[0]); if (cb.checked && i < 0) sel.push(o[0]); if (!cb.checked && i >= 0) sel.splice(i, 1); upd(); onChange(sel.slice()); });
-        list.appendChild(h("label", { style: "display:block;padding:2px 0;white-space:nowrap" }, [cb, document.createTextNode(" " + o[1])]));
-      });
-    };
-    find.addEventListener("input", draw); draw();
-    panel.appendChild(find); panel.appendChild(h("div", {}, [btn("Bỏ chọn hết", "ghost", function () { sel.length = 0; upd(); draw(); onChange([]); })])); panel.appendChild(list);
-    d.appendChild(panel); return d;
-  }
   /** Thanh lọc Sản lượng / Bơm dăm (cùng một thành phần, cùng logic ngày/phòng ban; tổng của mỗi bảng tính riêng). */
   function phieuCanFilterBar(key, onChange) {
     var f = (st.plf = st.plf || {})[key] = st.plf[key] || { pb: [], tu: "", den: "", thang: "", ky: "" };
-    var bar = h("div", { class: "bar", "data-pc-filter": key });
+    var bar = h("div", { class: "bar" });
     var depts = {}; db[key].forEach(function (r) { var v = String(r["Mã phòng ban"] || "").trim(); if (v) depts[v] = 1; });
     var opts = [[LF.NONE, "(Không có phòng ban)"]].concat(Object.keys(depts).sort().map(function (x) { return [x, x]; }));
     var inp = function (lbl, k, type) {
@@ -527,8 +508,17 @@
     Object.keys(kyIds).sort().reverse().forEach(function (k) { ks.appendChild(h("option", { value: k, text: "Kỳ " + k.slice(5) + "/" + k.slice(0, 4) + (kyChot(k) ? " 🔒" : "") })); });
     ks.value = f.ky || ""; ks.addEventListener("change", function () { f.ky = ks.value; st.pg[key] = 0; onChange(); });
     bar.appendChild(ks);
-    bar.appendChild(btn("Xóa lọc", "ghost", function () { st.plf[key] = { pb: [], tu: "", den: "", thang: "", ky: "" }; st.pg[key] = 0; render(); }));
-    return bar;
+    bar.classList.add("fbar-row");
+    var clearAll = function () { st.plf[key] = { pb: [], tu: "", den: "", thang: "", ky: "" }; st.pg[key] = 0; render(); };
+    bar.appendChild(btn("✕ Đặt lại", "ghost", clearAll));
+    var items = [], rm = function (k, v) { return function () { f[k] = v; st.pg[key] = 0; render(); }; };
+    if (f.pb.length) items.push({ text: "Phòng ban: " + (f.pb.length === 1 ? (f.pb[0] === LF.NONE ? "(không)" : f.pb[0]) : f.pb.length + " mục"), onRemove: rm("pb", []) });
+    if (f.tu) items.push({ text: "Từ ngày: " + f.tu, onRemove: rm("tu", "") }); if (f.den) items.push({ text: "Đến ngày: " + f.den, onRemove: rm("den", "") });
+    if (f.thang) items.push({ text: "Tháng: " + f.thang, onRemove: rm("thang", "") }); if (f.ky) items.push({ text: "Kỳ: " + f.ky, onRemove: rm("ky", "") });
+    var wrap = h("div", { class: "fbar-wrap" + (st.fbarOpen ? " open" : ""), "data-pc-filter": key });
+    wrap.appendChild(h("button", { type: "button", class: "btn fbar-toggle", text: "Bộ lọc" + (items.length ? " ●" : ""), on: { click: function () { st.fbarOpen = !st.fbarOpen; wrap.classList.toggle("open", st.fbarOpen); } } }));
+    wrap.appendChild(bar); wrap.appendChild(FP.chips(items, { expanded: !!st.rfExpand, onExpand: function () { st.rfExpand = true; render(); }, onClear: clearAll }));
+    return wrap;
   }
   /** Có điều kiện ngày/tháng/kỳ riêng thì KHÔNG bó theo kỳ đang chọn trên thanh trên cùng. */
   function pcScopeText(key) {
@@ -2414,34 +2404,29 @@
   function rfPresets() { try { return JSON.parse(localStorage.getItem("hak.rf.presets") || "{}") || {}; } catch (e) { return {}; } }
   function rfPresetsSave(o) { try { localStorage.setItem("hak.rf.presets", JSON.stringify(o)); return true; } catch (e) { return false; } }
   /** Ô chọn nhiều giá trị: items = [string | {value,label}]; chọn tất cả / bỏ chọn / tìm không phân biệt dấu. */
+  /** Bộ lọc nhiều lựa chọn của báo cáo: dùng popover chung (một menu mở tại một thời điểm, Áp dụng/Hủy). */
+  var FP = window.HAKUI && window.HAKUI.filter;
   function multiSelect(label, key, items, spec) {
     var norm = items.map(function (x) { return typeof x === "string" ? { value: x, label: x } : x; });
-    var cur = (spec[key] || []).slice(), box = h("details", { class: "msel", "data-rf-key": key });
-    if (st.rfOpen === key) box.setAttribute("open", "");
-    box.addEventListener("toggle", function () { if (box.open) st.rfOpen = key; else if (st.rfOpen === key) st.rfOpen = ""; });
-    box.appendChild(h("summary", { text: label + (cur.length ? " (" + cur.length + ")" : ": tất cả"), title: cur.join(", ") }));
-    var pop = h("div", { class: "mselpop" }), q = h("input", { class: "i", placeholder: "Tìm…", value: (st.rfq && st.rfq[key]) || "" }), list = h("div", { class: "mselist" });
-    var commit = function (arr) { st.rf = Object.assign({}, RF.normalize(st.rf)); st.rf[key] = arr; st.rfOpen = key; render(); };
-    var draw = function () {
-      list.innerHTML = ""; var f = RF.fold(q.value);
-      norm.forEach(function (o) {
-        if (f && RF.fold(o.label).indexOf(f) < 0) return;
-        var cb = h("input", { type: "checkbox" }); cb.checked = cur.indexOf(o.value) >= 0;
-        cb.addEventListener("change", function () { var i = cur.indexOf(o.value); if (cb.checked && i < 0) cur.push(o.value); if (!cb.checked && i >= 0) cur.splice(i, 1); commit(cur.slice()); });
-        list.appendChild(h("label", { class: "mselrow" }, [cb, document.createTextNode(" " + o.label)]));
-      });
-      if (!list.children.length) list.appendChild(h("div", { class: "hint", text: "Không có lựa chọn khớp" }));
-    };
-    q.addEventListener("input", function () { st.rfq = st.rfq || {}; st.rfq[key] = q.value; draw(); });
-    pop.appendChild(q);
-    pop.appendChild(h("div", { class: "bar" }, [
-      btn("Chọn tất cả", "ghost", function () { var f = RF.fold(q.value); commit(norm.filter(function (o) { return !f || RF.fold(o.label).indexOf(f) >= 0; }).map(function (o) { return o.value; })); }),
-      btn("Bỏ chọn", "ghost", function () { commit([]); })]));
-    pop.appendChild(list); box.appendChild(pop); draw(); return box;
+    return FP.button({ id: "rf:" + key, label: label, options: norm, selected: (spec[key] || []).slice(), onApply: function (arr) { st.rf = Object.assign({}, RF.normalize(st.rf)); st.rf[key] = arr; render(); } });
+  }
+  /** Bản dùng cho các lưới (Chấm công, Sản lượng, Bơm dăm): sel là mảng đang áp dụng; áp dụng xong cập nhật sel tại chỗ rồi gọi onChange. */
+  function multiPick(label, options, sel, onChange) {
+    var norm = options.map(function (x) { return typeof x === "string" ? { value: x, label: x } : { value: x[0], label: x[1] }; }), b;
+    var mk = function () { return FP.button({ id: "mp:" + label, label: label, options: norm, selected: sel.slice(), onApply: function (arr) { sel.length = 0; arr.forEach(function (v) { sel.push(v); }); var nb = mk(); b.replaceWith(nb); b = nb; onChange(sel.slice()); } }); };
+    b = mk(); return b;
+  }
+  var RF_NAMES = { khoi: "Khối", phongBan: "Phòng ban", to: "Tổ", maLuong: "Mã lương", httt: "Thanh toán", hinhThucCong: "Hình thức công", maNV: "Nhân viên" };
+  function rfChips(spec) {
+    var items = [];
+    Object.keys(RF_NAMES).forEach(function (k) { var v = spec[k] || []; if (v.length) items.push({ id: k, text: RF_NAMES[k] + ": " + (v.length === 1 ? v[0] : v.length + " mục"), onRemove: function () { st.rf = Object.assign({}, RF.normalize(st.rf)); st.rf[k] = []; render(); } }); });
+    if (spec.tuKhoa) items.push({ id: "q", text: "Tìm: " + spec.tuKhoa, onRemove: function () { st.rf = Object.assign({}, RF.normalize(st.rf), { tuKhoa: "" }); render(); } });
+    if (spec.chiCoThuNhap) items.push({ id: "tn", text: "Chỉ người có thu nhập", onRemove: function () { st.rf = Object.assign({}, RF.normalize(st.rf), { chiCoThuNhap: false }); render(); } });
+    return FP.chips(items, { expanded: !!st.rfExpand, onExpand: function () { st.rfExpand = true; render(); }, onClear: function () { st.rf = {}; st.rfq = {}; st.rfExpand = false; render(); } });
   }
   function reportFilterBar(allRows, opt) {
     opt = opt || {}; RF.setContext(rfContext());
-    var op = RF.options(allRows), spec = RF.normalize(st.rf), bar = h("div", { class: "bar", "data-rf": "1" });
+    var op = RF.options(allRows), spec = RF.normalize(st.rf), bar = h("div", { class: "bar fbar-row", "data-rf": "1" });
     if (op.khoi.length) bar.appendChild(multiSelect("Khối", "khoi", op.khoi, spec));
     bar.appendChild(multiSelect("Phòng ban", "phongBan", op.phongBan, spec));
     if (op.to.length) bar.appendChild(multiSelect("Tổ", "to", op.to, spec));
@@ -2461,8 +2446,11 @@
     bar.appendChild(ps);
     bar.appendChild(btn("💾 Lưu bộ lọc", "ghost", function () { if (RF.isEmpty(spec)) { toast("Chưa chọn điều kiện lọc nào"); return; } askText("Lưu bộ lọc", "Tên bộ lọc:", {}, function (name) { name = String(name || "").trim(); if (!name) return; var p2 = rfPresets(); p2[name] = spec; toast(rfPresetsSave(p2) ? "Đã lưu bộ lọc “" + name + "”" : "⚠ Không lưu được bộ lọc trên máy này"); render(); }); }, "Lưu điều kiện lọc hiện tại để dùng lại (lưu trên máy này)"));
     if (ps.value === "" && Object.keys(pr).length) bar.appendChild(btn("🗑 Xóa bộ lọc đã lưu", "ghost", function () { askText("Xóa bộ lọc đã lưu", "Tên bộ lọc cần xóa:", {}, function (name) { var p2 = rfPresets(); if (p2[String(name || "").trim()]) { delete p2[String(name).trim()]; rfPresetsSave(p2); toast("Đã xóa"); render(); } else toast("Không có bộ lọc tên đó"); }); }));
-    if (!RF.isEmpty(spec)) bar.appendChild(btn("✕ Đặt lại", "", function () { st.rf = {}; st.rfq = {}; st.rfOpen = ""; render(); }, "Bỏ toàn bộ điều kiện lọc"));
-    return bar;
+    if (!RF.isEmpty(spec)) bar.appendChild(btn("✕ Đặt lại", "", function () { FP.close(); st.rf = {}; st.rfq = {}; st.rfExpand = false; render(); }, "Bỏ toàn bộ điều kiện lọc"));
+    var wrap = h("div", { class: "fbar-wrap" + (st.fbarOpen ? " open" : ""), "data-fbar": "1" });
+    wrap.appendChild(h("button", { type: "button", class: "btn fbar-toggle", text: "Bộ lọc" + (RF.isEmpty(spec) ? "" : " ●"), on: { click: function () { st.fbarOpen = !st.fbarOpen; wrap.classList.toggle("open", st.fbarOpen); } } }));
+    wrap.appendChild(bar); wrap.appendChild(rfChips(spec));
+    return wrap;
   }
   function pdfFallbackPrint(html) {
     var f = document.createElement("iframe"); f.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px"; document.body.appendChild(f);
@@ -3921,6 +3909,7 @@
     try { var r = store.authState(); if (r && !r.ok) { session = null; toast("Phiên đăng nhập đã hết hiệu lực hoặc quyền đã bị thu hồi — đăng nhập lại"); } } catch (e) { /* lần vẽ sau thử lại */ }
   }
   function render() {
+    if (window.HAKUI && window.HAKUI.filter) window.HAKUI.filter.close();
     syncSession();
     try { renderInner(); }
     catch (e) {

@@ -114,6 +114,33 @@ async function launch(dataDir, opt) {
   ok("Bộ lọc dùng chung: từ khóa không khớp → 'Không có dòng nào khớp bộ lọc'", (await w.locator("main").innerText()).includes("Không có dòng nào khớp bộ lọc"));
   await w.locator("[data-rf-key=tuKhoa]").fill(""); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
   ok("Bộ lọc dùng chung: bỏ từ khóa → hiện lại dòng", /12\.000\.000/.test(await w.locator("table[data-bangtinh]").innerText()));
+  { // V9.4: bộ lọc mới — một popover tại một thời điểm, Áp dụng/Hủy, Escape, chip, Đặt lại; không lỗi JS
+    const errs0 = errs.length, keys = await w.locator("[data-rf] button.fbtn").evaluateAll((bs) => bs.map((b) => b.getAttribute("data-fkey")));
+    const pops = () => w.locator("[data-fpop]").count();
+    ok("Bộ lọc V9.4: thanh lọc là nút (không còn dropdown details), có ≥3 nhóm", keys.length >= 3 && (await w.locator("details.msel").count()) === 0, keys.join(","));
+    await w.locator('[data-fkey="' + keys[0] + '"]').click(); const p1 = await pops();
+    await w.locator('[data-fkey="' + keys[1] + '"]').click(); const p2 = await pops(), id2 = await w.locator("[data-fpop]").getAttribute("data-fpop");
+    ok("Bộ lọc V9.4: mở nhóm khác thì nhóm trước tự đóng — luôn đúng 1 popover", p1 === 1 && p2 === 1 && id2 === keys[1], p1 + "," + p2 + "," + id2);
+    await w.keyboard.press("Escape"); const p3 = await pops();
+    await w.locator('[data-fkey="' + keys[1] + '"]').click(); await w.locator('[data-fkey="' + keys[1] + '"]').click(); const p4 = await pops();
+    await w.locator('[data-fkey="' + keys[1] + '"]').click(); await w.mouse.click(5, 5); const p5 = await pops();
+    ok("Bộ lọc V9.4: Escape / bấm lại nút / bấm ra ngoài đều đóng popover", p3 === 0 && p4 === 0 && p5 === 0, [p3, p4, p5].join(","));
+    // popover nằm trong cửa sổ và không tràn
+    await w.locator('[data-fkey="' + keys[0] + '"]').click();
+    const box = await w.locator("[data-fpop]").boundingBox(), vp = w.viewportSize() || { width: 1280, height: 800 };
+    ok("Bộ lọc V9.4: popover nằm trọn trong cửa sổ", box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1, JSON.stringify(box));
+    const rows = await w.locator("[data-fpop] .fpop-row").count();
+    if (rows >= 2) {
+      await w.locator("[data-fpop] .fpop-row input").first().check(); await w.locator("[data-fpop] button:has-text('Hủy')").click();
+      const lblCancel = await w.locator('[data-fkey="' + keys[0] + '"]').innerText();
+      await w.locator('[data-fkey="' + keys[0] + '"]').click(); await w.locator("[data-fpop] .fpop-row input").first().check(); await w.locator("[data-fpop] button:has-text('Áp dụng')").click(); await w.waitForTimeout(150);
+      const lblApply = await w.locator('[data-fkey="' + keys[0] + '"]').innerText(), chips = await w.locator("[data-fchips] .fchip").count();
+      ok("Bộ lọc V9.4: Hủy giữ nguyên ('Tất cả'); Áp dụng mới lọc → nhãn '(1)' và có chip điều kiện", /Tất cả/.test(lblCancel) && /\(1\)/.test(lblApply) && chips === 1, lblCancel + " | " + lblApply + " | chips=" + chips);
+      await w.locator("[data-fchips] button:has-text('Xóa tất cả')").click(); await w.waitForTimeout(150);
+      ok("Bộ lọc V9.4: Xóa tất cả → hết chip, mọi popover đóng, bảng đầy đủ", (await w.locator("[data-fchips] .fchip").count()) === 0 && (await pops()) === 0 && /12\.000\.000/.test(await w.locator("table[data-bangtinh]").innerText()));
+    } else { await w.keyboard.press("Escape"); ok("Bộ lọc V9.4: (bỏ qua Áp dụng/Hủy: dữ liệu mẫu chỉ có 1 lựa chọn)", true); }
+    ok("Bộ lọc V9.4: thao tác liên tiếp không sinh lỗi JavaScript", errs.length === errs0, errs.slice(errs0).join(" | "));
+  }
   await w.locator("main button", { hasText: "Xuất PDF" }).click();
   let pdfName = null; for (let i = 0; i < 100 && !pdfName; i++) { await w.waitForTimeout(300); pdfName = fs.readdirSync(DL).filter((f) => /^BangTinhLuongNoiBo_2026-09\.pdf$/.test(f))[0]; }
   const pdfBuf = pdfName ? fs.readFileSync(path.join(DL, pdfName)) : Buffer.alloc(0);
