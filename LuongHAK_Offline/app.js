@@ -95,7 +95,7 @@
   }
   // Chỉ TẠO bảng còn thiếu; bảng có nhưng sai kiểu đã bị chặn ở bước kiểm tra cấu trúc (không bao giờ thay bằng bảng rỗng)
   function ensureTables() {
-    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "chungtu_lienket"]).forEach(function (k) {
+    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "ocr_ten", "chungtu_lienket"]).forEach(function (k) {
       if (db[k] === undefined) db[k] = [];
       else if (!Array.isArray(db[k])) throw new Error("Bảng " + k + " sai cấu trúc — không tự thay thế");
     });
@@ -277,8 +277,22 @@
     if (/^\d\d$/.test(col) && /^\d+([.,]\d+)?$/.test(String(v))) return E.num(v);
     return v;
   }
+  /** V9: bảng lương CÓ FORMULA_ERROR (kỳ chưa chốt) không được xuất như bản chính thức — chặn xuất, yêu cầu sửa công thức trước. */
+  var PAYROLL_FILE = /luong|thanhtoan|payslip|phieu ?luong|bangtinh|tonghop ?luong/i;
+  function formulaErrorsBlock(what) {
+    try {
+      if (!PAYROLL_FILE.test(slug(String(what || "")) ) && !PAYROLL_FILE.test(String(what || ""))) return false;
+      if (!db.nhanvien || !db.nhanvien.length) return false;
+      var src = kqKy(st.nam, st.thang); if (src.chot) return false;
+      var errs = (src.kq.canhbao || []).filter(function (w) { return String(w).indexOf("FORMULA_ERROR") === 0; });
+      if (!errs.length) return false;
+      alert("⛔ Không xuất được: bảng lương kỳ " + st.thang + "/" + st.nam + " đang có " + errs.length + " lỗi công thức (FORMULA_ERROR) nên số liệu CHƯA đáng tin cậy.\n\n" + errs.slice(0, 4).join("\n") + (errs.length > 4 ? "\n…" : "") + "\n\nHãy sửa/duyệt lại công thức rồi xuất lại (kết quả tạm lỗi không được xuất như bản chính thức và không chốt được).");
+      return true;
+    } catch (e) { return false; }
+  }
   function saveXlsx(filename, sheets, kind) { // sheets: [{name, cols, rows}] · kind "template" = file mẫu trống (không chứa dữ liệu)
     if (kind !== "template" && !need("export", "xuất dữ liệu ra Excel")) return;
+    if (kind !== "template" && formulaErrorsBlock(filename)) return;
     if (!window.XLSX) { alert("Thiếu thư viện Excel"); return; }
     var wb = XLSX.utils.book_new();
     sheets.forEach(function (sh) {
@@ -2166,6 +2180,7 @@
   /** Xuất PDF: bản cài (.exe) → file PDF thật trong thư mục xuất; chạy bằng trình duyệt → hộp thoại In (chọn "Lưu thành PDF"). */
   function exportPdf(vm, fileName, opt) {
     if (!need("export", "xuất PDF")) return;
+    if (formulaErrorsBlock((fileName || "") + " " + (vm && vm.title || ""))) return;
     var html = RH.table(vm, opt);
     if (!window.hakReport) { pdfFallbackPrint(html); toast("Bản chạy bằng trình duyệt: chọn “Lưu thành PDF” trong hộp thoại In"); return; }
     toast("Đang tạo PDF…");
@@ -2177,6 +2192,7 @@
   /** PDF cho báo cáo dạng nhiều bảng (mảng đối tượng): dùng chung đường xuất với exportPdf. */
   function exportSheetsPdf(vm, fileName, opt) {
     if (!need("export", "xuất PDF")) return;
+    if (formulaErrorsBlock((fileName || "") + " " + (vm && vm.title || ""))) return;
     vm = Object.assign({ congTy: congTy()["Tên công ty"] || "" }, vm);
     if (!vm.sheets.some(function (x) { return x.rows && x.rows.length; })) { toast("Không có dữ liệu để xuất PDF"); return; }
     var html = RH.sheets(vm, opt || {});
@@ -2527,12 +2543,16 @@
       pg.res = res; pg.rot = res.rot; pg.view = grayCanvas(res.g, res.w, res.h); pg.ms = Date.now() - t0; pg.runId = "RUN-" + t0.toString(36); pg.page = pg.trang || 1; pg.layoutSuspect = !res.table || !res.table.layout;
       var T = res.table, list = nvChoices(), nm0 = T.layout === "B" ? titleName(res.title) : "";
       pg.lines = (T.lines || []).map(function (l) {
-        var nm = l.name || nm0, sug = C.tsparse.matchName(nm, list);
+        var nm = l.name || nm0, sug = C.tsparse.matchName(nm, list), memo = C.ocrNameMemory && C.ocrNameMemory.suggest(db.ocr_ten || [], nm, list);
+        // V9: bộ nhớ tên đã xác nhận → đưa lên đầu gợi ý (chỉ chọn sẵn khi xác nhận ≥ 2 chứng từ, không trùng tên, không xung đột)
+        if (memo && memo.ma) { sug = [{ ma: memo.ma, ten: memo.ten, score: memo.preselect ? 0.99 : 0.59, memo: memo.why }].concat(sug.filter(function (x) { return x.ma !== memo.ma; })); }
+        // V9: hai người cùng điểm cao nhất (trùng họ tên) → không tự chọn, người dùng chọn theo mã
+        var nameDup = sug.length > 1 && sug[0].score >= 0.6 && sug[1].score === sug[0].score && C.ocrNameMemory && C.ocrNameMemory.fold(sug[0].ten) === C.ocrNameMemory.fold(sug[1].ten);
         // bảng dọc: tiêu đề cột viết tay không đọc được nhưng cột có ≥ 5 ô có số (cách đọc dấu x / số ca) → coi là cột chấm công của 1 người
         var nNum = Object.keys(l.values).filter(function (d) { return typeof l.values[d] === "number" && l.values[d] > 0; }).length;
         var kind = T.layout === "B" ? l.kind || (!l.skip && pg.mode && pg.mode !== "so" && nNum >= 5 ? "Công" : "") : (l.kind || "Công");
         var vals = {}; T.days.forEach(function (d) { var v = l.values[d]; vals[d] = v == null ? "" : (typeof v === "number" && isFinite(v) ? String(v).replace(".", ",") : "?"); });
-        return { src: l, name: nm, ma: sug[0] && sug[0].score >= 0.6 ? sug[0].ma : "", sug: sug.slice(0, 5), kind: kind, vals: vals, orig: Object.assign({}, vals) };
+        return { src: l, name: nm, rawName: nm, ma: !nameDup && sug[0] && sug[0].score >= 0.6 ? sug[0].ma : "", maAuto: !nameDup && sug[0] && sug[0].score >= 0.6 ? sug[0].ma : "", nameDup: nameDup, memo: memo ? memo.why : "", sug: sug.slice(0, 5), kind: kind, vals: vals, orig: Object.assign({}, vals) };
       });
       pg.days = T.days.slice(); pg.ky = pg.ky || res.period || kyStr();
       pg.status = T.layout ? "Đã đọc " + pg.lines.length + " dòng · " + Math.round(pg.ms / 1000) + " giây" : "Không dựng được bảng";
@@ -2563,6 +2583,7 @@
         var bad = pg.days.filter(function (d) { var n = ocrNum(L.vals[d]); return n !== null && (isNaN(n) || n < 0); });
         if (bad.length) { skip.push(pg.name + ": " + (L.name || L.ma) + " — ô ngày " + bad.join(", ") + " chưa sửa (dấu ?)"); return; }
         var ky = pg.ky || kyStr();
+        var nameEv = nameEventOf(pg, L, ky);
         // meta[] song song với dòng ghi: __line = vị trí+1 → sau khi nhập biết CHÍNH XÁC ô OCR nào đã được ghi (ImportBatch → ô → mẫu)
         function cellsOf(days, recId) {
           var out = [];
@@ -2574,15 +2595,28 @@
           });
           return out;
         }
-        if (L.kind === "Cơm") pg.days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n) { mtc.push({ cells: cellsOf([d], ["SC", ky + "-" + ("0" + d).slice(-2), L.ma].join("|")) }); tc.push({ "Ngày": ky + "-" + ("0" + d).slice(-2), "Mã NV": L.ma, "Số suất cơm": n, "Ghi chú": "OCR: " + pg.name, __line: mtc.length }); } });
+        if (L.kind === "Cơm") pg.days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n) { mtc.push({ cells: cellsOf([d], ["SC", ky + "-" + ("0" + d).slice(-2), L.ma].join("|")), nameEv: nameEv }); tc.push({ "Ngày": ky + "-" + ("0" + d).slice(-2), "Mã NV": L.ma, "Số suất cơm": n, "Ghi chú": "OCR: " + pg.name, __line: mtc.length }); } });
         else {
           var row = { "Kỳ": ky, "Mã NV": L.ma, "Hình thức công": L.kind === "Tăng ca" ? "TC" : "BT" }, any = false;
           pg.days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n != null) { row[("0" + d).slice(-2)] = String(n).replace(".", ","); any = true; } });
-          if (any) { mcc.push({ cells: cellsOf(pg.days, ["CC", ky, L.ma, row["Hình thức công"]].join("|")) }); row.__line = mcc.length; cc.push(row); }
+          if (any) { mcc.push({ cells: cellsOf(pg.days, ["CC", ky, L.ma, row["Hình thức công"]].join("|")), nameEv: nameEv }); row.__line = mcc.length; cc.push(row); }
         }
       });
     });
     return { chamcong: cc, tiencom: tc, skip: skip, meta: { chamcong: mcc, tiencom: mtc } };
+  }
+  /** Sự kiện "chuỗi tên trên giấy ↔ Mã NV" của 1 dòng OCR (chỉ ghi vào bộ nhớ khi dòng đã được nhập thật). */
+  function nameEventOf(pg, L, ky) {
+    var raw = String(L.rawName || (L.src && L.src.name) || L.name || "").trim(); if (!raw || !L.ma) return null;
+    var emp = db.nhanvien.filter(function (n) { return n["Mã NV"] === L.ma; })[0], nc = L.src && L.src.nameCell;
+    return { raw: raw, typed: L.name, ma: L.ma, tenDM: emp ? emp["Họ và tên"] : "", docId: pg.docId || "", page: pg.trang || 1, runId: pg.runId || "", ky: ky,
+      cellKey: C.ocrLearn.cellKey(pg.docId, pg.trang || 1, nc || null, pg.rot || 0, "name|" + (pg.lines ? pg.lines.indexOf(L) : 0)), sua: L.ma !== L.maAuto || String(L.name).trim() !== raw,
+      bbox: nc ? { x0: nc.x0, y0: nc.y0, x1: nc.x1, y1: nc.y1 } : null };
+  }
+  function recordNameLinks(plans, meta) {
+    if (!C.ocrNameMemory) return 0; db.ocr_ten = db.ocr_ten || []; var n = 0, who = session ? session.tenDangNhap : currentUser();
+    (plans || []).forEach(function (p) { var m = meta[p.table]; if (!m) return; p.items.forEach(function (it) { if (it.action !== "add" && it.action !== "update" && it.action !== "merged") return; var mm = m[(it.line || 0) - 1]; if (mm && mm.nameEv && C.ocrNameMemory.record(db.ocr_ten, Object.assign({ user: who }, mm.nameEv))) n++; }); });
+    return n;
   }
   /** Ô OCR đã THỰC SỰ nằm trong dữ liệu vừa ghi (dòng add/update/merged của kế hoạch nhập đã commit) — dòng lỗi/bỏ qua/trùng/khóa không tính. */
   function ocrImportedCells(plans, meta) {
@@ -2601,7 +2635,7 @@
       if (rr.chamcong.length) { var p1 = IMP.plan(db, "chamcong", ALL.chamcong.cols, rr.chamcong, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p1.sheet = "Ảnh chấm công"; pl.push(p1); }
       if (rr.tiencom.length) { var p2 = IMP.plan(db, "tiencom", ALL.tiencom.cols, rr.tiencom, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p2.sheet = "Ảnh chấm cơm"; pl.push(p2); }
       return pl;
-    }, "OCR " + pages.map(function (p) { return p.name + (p.docId ? " [" + p.docId + "]" : ""); }).join(", "), function (ok, donePlans) { if (ok && window.hakOcrLib && window.hakOcrLib.layoutSave) pages.forEach(function (p) { if (p.layoutSig && p.layoutStatus !== "MISMATCH" && !p.layoutSuspect) window.hakOcrLib.layoutSave(p.layoutSig, "", session ? session.tenDangNhap : ""); }); var lr = ok && ocrLearn(); if (lr) { var impCells = ocrImportedCells(donePlans, rr.meta), batchId = "IMP-" + Date.now().toString(36); if (recordCellLinks(impCells, batchId)) save(); lr.approveCells(impCells, batchId).then(function (r) { if (r && (r.verified || r.unsaved)) toast((r.verified ? "Thư viện mẫu OCR: " + r.verified + " mẫu của ô đã nhập được xác nhận" + (r.conflict ? " · " + r.conflict + " mẫu xung đột cần xem" : "") : "") + (r.unsaved ? " · ⚠ còn " + r.unsaved + " mẫu học CHƯA ghi được — bấm \"Thử lại\" ở màn OCR" : "")); }); } render(); });
+    }, "OCR " + pages.map(function (p) { return p.name + (p.docId ? " [" + p.docId + "]" : ""); }).join(", "), function (ok, donePlans) { if (ok && window.hakOcrLib && window.hakOcrLib.layoutSave) pages.forEach(function (p) { if (p.layoutSig && p.layoutStatus !== "MISMATCH" && !p.layoutSuspect) window.hakOcrLib.layoutSave(p.layoutSig, "", session ? session.tenDangNhap : ""); }); var lr = ok && ocrLearn(); if (lr) { var nNames = recordNameLinks(donePlans, rr.meta); if (nNames) save(); var impCells = ocrImportedCells(donePlans, rr.meta), batchId = "IMP-" + Date.now().toString(36); if (recordCellLinks(impCells, batchId)) save(); lr.approveCells(impCells, batchId).then(function (r) { if (r && (r.verified || r.unsaved)) toast((r.verified ? "Thư viện mẫu OCR: " + r.verified + " mẫu của ô đã nhập được xác nhận" + (r.conflict ? " · " + r.conflict + " mẫu xung đột cần xem" : "") : "") + (r.unsaved ? " · ⚠ còn " + r.unsaved + " mẫu học CHƯA ghi được — bấm \"Thử lại\" ở màn OCR" : "")); }); } render(); });
   }
   function ocrExport(pages) {
     var sheets = pages.filter(function (p) { return p.lines && p.lines.length; }).map(function (pg, i) {
@@ -2828,9 +2862,9 @@
       var tr = h("tr"), sel = h("select", { "aria-label": "Nhân viên dòng " + (li + 1) });
       sel.appendChild(h("option", { value: "", text: "— chọn —" }));
       var seen = {};
-      L.sug.forEach(function (s0) { seen[s0.ma] = 1; sel.appendChild(h("option", { value: s0.ma, text: "≈ " + s0.ma + " · " + s0.ten + " (" + Math.round(s0.score * 100) + "%)" })); });
+      L.sug.forEach(function (s0) { seen[s0.ma] = 1; sel.appendChild(h("option", { value: s0.ma, text: "≈ " + s0.ma + " · " + s0.ten + (s0.memo ? " — " + s0.memo : " (" + Math.round(s0.score * 100) + "%)") })); });
       list.forEach(function (n) { if (!seen[n.ma]) sel.appendChild(h("option", { value: n.ma, text: n.ma + " · " + n.ten })); });
-      sel.value = L.ma; sel.addEventListener("change", function () { L.ma = sel.value; tr.classList.toggle("nomatch", !L.ma); });
+      sel.value = L.ma; if (L.nameDup) sel.title = "Trùng họ tên với nhân viên khác — hãy chọn đúng theo MÃ NV"; sel.addEventListener("change", function () { L.ma = sel.value; tr.classList.toggle("nomatch", !L.ma); });
       var ks = h("select", { "aria-label": "Loại dòng " + (li + 1) }); OCR_KIND.forEach(function (o) { ks.appendChild(h("option", { value: o[0], text: o[1] })); }); ks.value = L.kind; ks.addEventListener("change", function () { L.kind = ks.value; });
       var nmI = h("input", { class: "i", value: L.name, style: "width:150px" }); nmI.addEventListener("change", function () { L.name = nmI.value; });
       nmI.addEventListener("focus", function () { showCell(L.src.nameCell, "Tên"); });
