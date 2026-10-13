@@ -36,7 +36,33 @@
     return h + "</body></html>";
   }
 
-  var api = { table: table, esc: esc };
+
+  /** Nhiều bảng dạng mảng đối tượng (báo cáo lương, chuyển khoản…) → 1 trang HTML. vm: { title, ky, congTy, trangThai, loc[], ghiChu[], sheets:[{ name, rows }] } */
+  function sheets(vm, opt) {
+    opt = opt || {};
+    var h = "<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>" + esc(vm.title) + "</title><style>" + CSS + "table{margin-bottom:4mm}h2{font-size:10.5pt;margin:4mm 0 1.5mm}td.t{white-space:normal}</style></head><body>";
+    h += "<h1>" + esc(vm.title) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>";
+    if (vm.loc && vm.loc.length) h += "<div class=\"loc\"><b>Bộ lọc:</b> " + vm.loc.map(esc).join(" · ") + "</div>";
+    (vm.ghiChu || []).forEach(function (g) { h += "<div class=\"loc\">" + esc(g) + "</div>"; });
+    var any = false;
+    (vm.sheets || []).forEach(function (sh) {
+      if (!sh.rows || !sh.rows.length) return; any = true;
+      var cols = sh.cols && sh.cols.length ? sh.cols : Object.keys(sh.rows[0]).filter(function (k) { return k.charAt(0) !== "_"; }), small = cols.length > 14 ? "font-size:6.5pt;" : cols.length > 9 ? "font-size:7.5pt;" : "";
+      var num = {}; cols.forEach(function (c) { num[c] = sh.rows.some(function (r) { return typeof r[c] === "number"; }) && sh.rows.every(function (r) { return r[c] === "" || r[c] == null || typeof r[c] === "number"; }); });
+      if ((vm.sheets || []).length > 1 && sh.name) h += "<h2>" + esc(sh.name) + "</h2>";
+      h += "<table style=\"" + small + "\"><thead><tr>" + cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
+      sh.rows.forEach(function (r, i) {
+        var tot = i === sh.rows.length - 1 && /^(TỔNG|CẢ NĂM)/i.test(String(r[cols[0]] == null ? "" : r[cols[0]]));
+        h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + cols.map(function (c) { var v = r[c]; return "<td class=\"" + (num[c] ? "m" : "t") + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(v)) + "</td>"; }).join("") + "</tr>";
+      });
+      h += "</tbody></table>";
+    });
+    if (!any) h += "<div class=\"warn\">Không có dòng nào khớp bộ lọc.</div>";
+    if (opt.chuKy && opt.chuKy.length) h += "<div class=\"sign\">" + opt.chuKy.map(function (x) { return "<div><b>" + esc(x) + "</b><br><i>(Ký, ghi rõ họ tên)</i></div>"; }).join("") + "</div>";
+    return h + "</body></html>";
+  }
+
+  var api = { table: table, sheets: sheets, esc: esc };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.reportHtml = api; }
 })(typeof window !== "undefined" ? window : this);

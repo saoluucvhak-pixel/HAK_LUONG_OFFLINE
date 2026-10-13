@@ -119,6 +119,30 @@ async function launch(dataDir, opt) {
   const pdfBuf = pdfName ? fs.readFileSync(path.join(DL, pdfName)) : Buffer.alloc(0);
   const pdfTxt = pdfBuf.toString("latin1");
   ok("Xuất PDF: file thật (%PDF-), có ≥1 trang, kích thước hợp lý", pdfBuf.slice(0, 5).toString() === "%PDF-" && /\/Type\s*\/Page(?![s\w])/.test(pdfTxt) && pdfBuf.length > 2000, pdfName + " " + pdfBuf.length + "B");
+  // V5 (nối rộng): Báo cáo lương dùng chung bộ lọc + PDF; Tính lương xuất PDF bảng lương / chuyển khoản
+  {
+    const waitPdf = async (re, before) => { let n = null; for (let i = 0; i < 100 && !n; i++) { await w.waitForTimeout(300); n = fs.readdirSync(DL).filter((f) => re.test(f) && !before.includes(f))[0]; } return n; };
+    const isPdf = (n) => { const b = n ? fs.readFileSync(path.join(DL, n)) : Buffer.alloc(0); return b.slice(0, 5).toString() === "%PDF-" && /\/Type\s*\/Page(?![s\w])/.test(b.toString("latin1")) && b.length > 1500; };
+    await w.click("#nav button[data-k=baocaoluong]");
+    await w.locator("main .bar button", { hasText: "Phiếu chi lương" }).first().click();
+    const pcAll = (await w.locator("main table").first().innerText()).replace(/\s+/g, " ");
+    await w.locator("[data-rf-key=tuKhoa]").fill("zzzkhongco"); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
+    ok("Báo cáo lương (Phiếu chi): bộ lọc dùng chung — từ khóa không khớp → hết dòng; xóa lọc → hiện lại", /Không có dữ liệu/.test(await w.locator("main").innerText()) && /PC-L/.test(pcAll));
+    await w.locator("main .bar button", { hasText: "Tổng hợp theo phòng ban" }).first().click();
+    const hint = await w.locator("[data-rf-hint]").innerText();
+    ok("Báo cáo không có cột Mã NV (theo phòng ban): báo rõ tiêu chí 'Từ khóa' không áp được, không âm thầm lọc mất dòng", /Không áp được/.test(hint) && /Từ khóa/.test(hint) && (await w.locator("main table tbody tr").count()) >= 1, hint);
+    await w.locator("[data-rf-key=tuKhoa]").fill(""); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
+    let before = fs.readdirSync(DL);
+    await w.locator("main .card .bar button", { hasText: "Xuất PDF" }).first().click();
+    const p1 = await waitPdf(/^BaoCao_.*\.pdf$/, before);
+    ok("Báo cáo lương: Xuất PDF ra file PDF thật", isPdf(p1), String(p1));
+    await w.click("#nav button[data-k=luong]"); if (await w.locator("button.big").count()) await w.click("button.big");
+    await w.locator("main select[aria-label='Loại PDF']").selectOption("bl");
+    before = fs.readdirSync(DL);
+    await w.locator("main .bar button", { hasText: "Xuất PDF…" }).click();
+    const p2 = await waitPdf(/^BangLuong_.*\.pdf$/, before);
+    ok("Tính lương: PDF 'Bảng lương' (theo bộ lọc) ra file PDF thật", isPdf(p2), String(p2));
+  }
   await w.click("#nav button[data-k=luong]"); if (await w.locator("button.big").count()) await w.click("button.big");
   // Master Prompt V3 mục 16.3: "Xem chi tiết cách tính" — bấm 1 dòng bảng lương → phiếu lương, chuyển sang xem công thức
   await w.locator("main tbody tr").first().click(); await w.waitForSelector(".dlg");

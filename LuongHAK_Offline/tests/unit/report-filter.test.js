@@ -65,3 +65,26 @@ test("HTML in: escape dữ liệu, có CSP, không script, có dòng tổng và 
   assert.ok(!/<img|<script/i.test(html)); assert.ok(html.includes("&lt;img")); assert.ok(html.includes("Content-Security-Policy"));
   assert.ok(html.includes("TỔNG CỘNG") && html.includes("Bộ lọc:") && html.includes("Cty &lt;A&gt;") && html.includes("Người lập"));
 });
+
+test("applyGeneric: chỉ áp tiêu chí mà bảng có cột; báo tiêu chí không áp; tách dòng tổng", () => {
+  const RFm = require("../../core/reporting/report-filter.js");
+  const rows = [{ "Mã NV": "A1", "Họ và tên": "Nguyễn Văn Á", "Số tiền": 10 }, { "Mã NV": "B2", "Họ và tên": "Lê Thị B", "Số tiền": 5 }, { "Mã NV": "TỔNG", "Họ và tên": "", "Số tiền": 15 }];
+  const g = RFm.applyGeneric(rows, { tuKhoa: "nguyen", phongBan: ["X"], maLuong: ["CĐ"] });
+  assert.deepEqual(g.rows.map((r) => r["Mã NV"]), ["A1"]); assert.equal(g.hadTotal, true);
+  assert.deepEqual(g.applied, ["Từ khóa"]); assert.deepEqual(g.skipped.sort(), ["Mã lương", "Phòng ban"]);
+  // bảng không có cột nào áp được → trả nguyên bản, không lọc mất dòng nào
+  const pb = [{ "Phòng ban": "X", "Số tiền": 1 }, { "Phòng ban": "TỔNG", "Số tiền": 1 }];
+  const g2 = RFm.applyGeneric(pb, { tuKhoa: "zzz" });
+  assert.equal(g2.filtered, false); assert.equal(g2.rows.length, 2); assert.deepEqual(g2.skipped, ["Từ khóa"]);
+  // 'Hình thức' (phiếu chi) được coi là HTTT
+  const pc = [{ "Mã NV": "A", "Hình thức": "Chuyển khoản" }, { "Mã NV": "B", "Hình thức": "Tiền mặt" }];
+  assert.deepEqual(RFm.applyGeneric(pc, { httt: ["Tiền mặt"] }).rows.map((r) => r["Mã NV"]), ["B"]);
+  assert.equal(RFm.applyGeneric(rows, {}).filtered, false);
+});
+
+test("report-html sheets(): dựng HTML nhiều bảng, escape dữ liệu, không script, số căn phải, bỏ cột nội bộ '_…'", () => {
+  const RH = require("../../core/reporting/report-html.js");
+  const html = RH.sheets({ title: "Báo cáo <b>", ky: "Kỳ 9/2026", loc: ["Từ khóa: “a”"], sheets: [{ name: "S1", rows: [{ "Mã NV": "<script>x</script>", "Tiền": 1234567, _ct: {} }, { "Mã NV": "TỔNG", "Tiền": 1234567, _ct: {} }] }, { name: "S2", rows: [] }] }, { chuKy: ["Người lập"] });
+  assert.ok(!/<script/i.test(html) && /&lt;script&gt;/.test(html) && /1\.234\.567/.test(html) && /class="m"/.test(html) && !/_ct/.test(html) && /class="tot"/.test(html) && /Người lập/.test(html));
+  assert.ok(/Không có dòng nào khớp/.test(RH.sheets({ title: "T", sheets: [{ name: "x", rows: [] }] })));
+});

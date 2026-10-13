@@ -45,6 +45,30 @@
     return { rows: out, total: src.length, kept: out.length, removed: src.length - out.length };
   }
 
+
+  var TOTAL_RE = /^(TỔNG|CẢ NĂM)/i;
+  /** Lọc cho bảng báo cáo BẤT KỲ (mảng đối tượng): chỉ áp tiêu chí mà bảng có cột tương ứng; tiêu chí không áp được thì báo lại để người đọc biết.
+   *  Dòng tổng (addTotal) bị tách ra — người gọi tính lại tổng sau lọc. @returns { rows, hadTotal, applied[], skipped[], filtered } */
+  function applyGeneric(rows, spec) {
+    var s = normalize(spec), src = (rows || []).slice(), hadTotal = false;
+    if (src.length > 1) { var last = src[src.length - 1], k0 = Object.keys(last)[0]; if (k0 && typeof last[k0] === "string" && TOTAL_RE.test(last[k0])) { hadTotal = true; src.pop(); } }
+    var keys = {}; src.forEach(function (r) { Object.keys(r).forEach(function (k) { keys[k] = 1; }); });
+    var has = function () { for (var i = 0; i < arguments.length; i++) if (keys[arguments[i]]) return true; return false; };
+    var can = { phongBan: has("Phòng ban"), httt: has("HTTT", "Hình thức"), maNV: has("Mã NV"), tuKhoa: has("Mã NV", "Họ và tên"), chiCoThuNhap: has("Tổng thu nhập"), thuc: has("Thực lĩnh") };
+    var eff = normalize({}), applied = [], skipped = [];
+    var use = function (name, ok, set) { if (!set.on) return; if (ok) { set.apply(); applied.push(name); } else skipped.push(name); };
+    use("Phòng ban", can.phongBan, { on: s.phongBan.length, apply: function () { eff.phongBan = s.phongBan; } });
+    use("Mã lương", false, { on: s.maLuong.length });
+    use("Thanh toán", can.httt, { on: s.httt.length, apply: function () { eff.httt = s.httt; } });
+    use("Mã NV", can.maNV, { on: s.maNV.length, apply: function () { eff.maNV = s.maNV; } });
+    use("Từ khóa", can.tuKhoa, { on: !!s.tuKhoa, apply: function () { eff.tuKhoa = s.tuKhoa; } });
+    use("Chỉ người có thu nhập", can.chiCoThuNhap, { on: s.chiCoThuNhap, apply: function () { eff.chiCoThuNhap = true; } });
+    use("Khoảng thực lĩnh", can.thuc, { on: s.thucLinhTu != null || s.thucLinhDen != null, apply: function () { eff.thucLinhTu = s.thucLinhTu; eff.thucLinhDen = s.thucLinhDen; } });
+    if (isEmpty(eff)) return { rows: rows || [], hadTotal: false, applied: applied, skipped: skipped, filtered: false };
+    var out = src.filter(function (r) { var v = Object.assign({}, r); if (v["HTTT"] == null && r["Hình thức"] != null) v["HTTT"] = r["Hình thức"]; return matchRow(v, eff); });
+    return { rows: out, hadTotal: hadTotal, applied: applied, skipped: skipped, filtered: true };
+  }
+
   /** Các lựa chọn có thật trong dữ liệu để dựng ô chọn (không gợi ý giá trị không tồn tại). */
   function options(rows) {
     var pb = {}, ml = {}, ht = {};
@@ -71,7 +95,7 @@
     return out;
   }
 
-  var api = { normalize: normalize, isEmpty: isEmpty, apply: apply, options: options, describe: describe, fold: fold };
+  var api = { normalize: normalize, isEmpty: isEmpty, apply: apply, applyGeneric: applyGeneric, options: options, describe: describe, fold: fold };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.reportFilter = api; }
 })(typeof window !== "undefined" ? window : this);
