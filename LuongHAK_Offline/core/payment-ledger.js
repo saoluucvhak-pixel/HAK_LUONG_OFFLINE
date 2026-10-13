@@ -79,7 +79,7 @@
     if (cur === TT.HUY) return { ok: false, msg: "Chứng từ " + so + " đã hủy." };
     if (to === TT.DUYET) {
       if (cur !== TT.LAP) return { ok: false, msg: "Chỉ duyệt được chứng từ ở trạng thái 'Đã lập'." };
-      if (s(d[0]["Người lập"]) && s(d[0]["Người lập"]).toLowerCase() === s(ctx.nguoi).toLowerCase() && !ctx.admin) return { ok: false, msg: "Người duyệt phải khác người lập chứng từ." };
+      if (s(d[0]["Người lập"]) && s(d[0]["Người lập"]).toLowerCase() === s(ctx.nguoi).toLowerCase()) return { ok: false, msg: "Người duyệt phải khác người lập chứng từ." };
       return { ok: true, patch: { "Trạng thái": TT.DUYET, "Ngày duyệt": ctx.ngay, "Người duyệt": ctx.nguoi } };
     }
     if (to === TT.TRA) {
