@@ -2,7 +2,8 @@
 // Đúng thuật toán công cụ "Phân bổ khối lượng tính lương" của HAK:
 //   phiếu cân ghi Mã phòng ban (tổ) + NV vắng → khối lượng (tấn) / số xe chia ĐỀU cho người của tổ đang làm việc ngày đó
 //   (đã vào làm, chưa nghỉ việc) và KHÔNG có tên trong NV vắng (so theo TỪ CUỐI của họ tên, không dấu; app nhận thêm Mã NV).
-// Phiếu không chia được (mã tổ lạ / không còn ai có mặt) → "chưa phân bổ", có cảnh báo, không bỏ sót âm thầm.
+// Phiếu không chia được (mã tổ lạ / không còn ai có mặt / cả tổ CHƯA CÓ chấm công BT ngày này —
+// PENDING_ATTENDANCE, Master Prompt mục IX) → "chưa phân bổ", có cảnh báo, không bỏ sót âm thầm.
 // Phiếu đã ghi Mã NV → giữ nguyên cho đúng người đó (cách nhập cũ).
 (function (root) {
   "use strict";
@@ -63,8 +64,16 @@
       if (mem.chuaCC) { var ck = pb; if (!chuaCC[ck]) { chuaCC[ck] = []; chuaCCOrder.push(ck); } if (chuaCC[ck].indexOf(d) < 0) chuaCC[ck].push(d); }
       (mem.nghi || []).forEach(function (e) { if (e.khongCong && vangNghi[e.ma]) return; /* phiếu đã ghi vắng → không đổi gì, khỏi báo */ var nk = e.ma + "|" + e.loai; if (!(nk in nghiInfo)) { nghiInfo[nk] = { ma: e.ma, hoTen: e.hoTen, loai: e.loai, khongCong: !!e.khongCong, ngay: [] }; nghiOrder.push(nk); } if (nghiInfo[nk].ngay.indexOf(d) < 0) nghiInfo[nk].ngay.push(d); });
       if (!present.length) {
-        warnings.push("Phiếu " + r.phieu + " (ngày " + d + ", tổ " + pb + ") không còn công nhân nào có mặt để nhận — " + kl + " " + dv + " chưa phân bổ");
-        audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: 0, names: [], share: 0, note: "Không có nhân sự phù hợp — chưa phân bổ được" });
+        // Master Prompt mục IX: cả tổ chưa có chấm công BT ngày này (mem.chuaCC, xem hr.js membersOf())
+        // → PENDING_ATTENDANCE — phân biệt rõ với "không còn ai có mặt" (mọi người đã nghỉ/bị ghi vắng
+        // thật), để người dùng biết cần NHẬP CHẤM CÔNG rồi tính lại, không phải sửa NV vắng trên phiếu.
+        if (mem.chuaCC) {
+          warnings.push("Phiếu " + r.phieu + " (ngày " + d + ", tổ " + pb + ") CHƯA CÓ CHẤM CÔNG BT (PENDING_ATTENDANCE) — giữ phiếu chờ xử lý, không tự chia theo NV vắng — " + kl + " " + dv + " chưa phân bổ");
+          audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: 0, names: [], share: 0, note: "PENDING_ATTENDANCE — chưa có chấm công BT ngày này, nhập chấm công rồi tính lại", pending: true });
+        } else {
+          warnings.push("Phiếu " + r.phieu + " (ngày " + d + ", tổ " + pb + ") không còn công nhân nào có mặt để nhận — " + kl + " " + dv + " chưa phân bổ");
+          audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: 0, names: [], share: 0, note: "Không có nhân sự phù hợp — chưa phân bổ được" });
+        }
         dp.unallocated += kl; unalloc += kl; return;
       }
       var share = kl / present.length;
@@ -83,7 +92,7 @@
         ? "không khớp ai đang làm trong tổ — " + w.phieu.length + " phiếu (" + ds + "; phiếu " + ph + "). Phiếu vẫn chia cho người có mặt; kiểm tra người này đã nghỉ việc / chuyển tổ hay ghi sai tên"
         : "khớp " + w.n + " người (trùng tên cuối) — đều bị coi là vắng ở " + w.phieu.length + " phiếu (" + ds + "; phiếu " + ph + ")"));
     });
-    chuaCCOrder.forEach(function (pb) { var ng = chuaCC[pb].sort(); warnings.push("Tổ " + pb + ": chưa có chấm công " + ng.length + " ngày có phiếu (" + ng.slice(0, 6).map(dm).join(", ") + (ng.length > 6 ? "…" : "") + ") — các ngày này chia theo NV vắng trên phiếu; nhập chấm công rồi tính lại"); });
+    chuaCCOrder.forEach(function (pb) { var ng = chuaCC[pb].sort(); warnings.push("Tổ " + pb + ": chưa có chấm công " + ng.length + " ngày có phiếu (" + ng.slice(0, 6).map(dm).join(", ") + (ng.length > 6 ? "…" : "") + ") — các ngày này đang CHỜ PHÂN BỔ (PENDING_ATTENDANCE), không tự chia theo NV vắng; nhập chấm công rồi tính lại"); });
     var nghi = nghiOrder.map(function (k) { var x = nghiInfo[k]; x.ngay.sort(); return x; });
     return { nghi: nghi, shares: shares, audit: audit, warnings: warnings, byDept: byDept, byEmp: byEmp, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
   }

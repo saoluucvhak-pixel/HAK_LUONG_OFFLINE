@@ -44,6 +44,10 @@ function hrDb() {
 
 test("U-PA-04 tổ theo NGÀY CÂN từ hồ sơ: chưa vào làm / đã nghỉ việc / đã điều chuyển thì không nhận; phiếu ghi Mã NV giữ nguyên", () => {
   const db = hrDb();
+  // Mục IX: phải có chấm công BT đúng ngày mới được chia (không còn tự coi cả tổ có mặt khi chưa
+  // chấm công) — thêm chấm công BT cho mọi người ở các ngày phiếu dùng tới; người không đủ điều
+  // kiện hồ sơ (chưa vào làm / đã nghỉ / đã chuyển tổ) vẫn bị loại như cũ, không liên quan chấm công.
+  db.chamcong = ["T1", "T2", "T3", "T4"].map((ma) => ({ "Kỳ": "2026-10", "Mã NV": ma, "Hình thức công": "BT", "01": "1", "07": "1" }));
   db.sanluong = [
     { "Phiếu cân": "P1", "Ngày cân": "2026-10-01", "KL hàng (Tấn)": "30", "Mã phòng ban": "02.02", "NV vắng": "" },   // T1 T2 T4 (T3 chưa vào)
     { "Phiếu cân": "P2", "Ngày cân": "2026-10-07", "KL hàng (Tấn)": "10", "Mã phòng ban": "02.02", "NV vắng": "" },   // T1 T3 (T4 nghỉ, T2 đã chuyển tổ)
@@ -141,6 +145,10 @@ test("U-PA-11 người có đơn nghỉ ĐÃ DUYỆT (không lương, chưa bi�
   db.nghiphep = [{ "Mã NV": "D", "Số HĐLĐ": "D/H", "Loại nghỉ": "Nghỉ không hưởng lương", "Từ ngày": "2026-10-03", "Đến ngày": "", "Trạng thái duyệt": "Đã duyệt" },
     { "Mã NV": "T1", "Số HĐLĐ": "T1/H", "Loại nghỉ": "Nghỉ hằng năm", "Từ ngày": "2026-10-04", "Đến ngày": "2026-10-04", "Trạng thái duyệt": "Chờ duyệt" }];
   db.nghiom = [{ "Mã NV": "T1", "Số HĐLĐ": "T1/H", "Từ ngày": "2026-10-09", "Đến ngày": "2026-10-09", "Trạng thái duyệt": "Đã duyệt" }];
+  // Mục IX: phải có chấm công BT đúng ngày mới được chia — thêm cho mọi người ở các ngày phiếu dùng
+  // tới; đơn nghỉ đã duyệt vẫn loại người ra khỏi tổ TRƯỚC khi xét chấm công (nghiNgay() check trước),
+  // nên không ảnh hưởng các trường hợp loại trừ đang kiểm thử ở đây.
+  db.chamcong = ["D", "T1", "T2", "T3", "T4"].map((ma) => ({ "Kỳ": "2026-10", "Mã NV": ma, "Hình thức công": "BT", "02": "1", "03": "1", "04": "1", "09": "1", "20": "1" }));
   db.sanluong = [
     { "Phiếu cân": "P1", "Ngày cân": "2026-10-02", "KL hàng (Tấn)": "30", "Mã phòng ban": "02.02", "NV vắng": "" },     // T1 T2 T4 D (D chưa nghỉ)
     { "Phiếu cân": "P2", "Ngày cân": "2026-10-03", "KL hàng (Tấn)": "30", "Mã phòng ban": "02.02", "NV vắng": "" },     // T1 T2 T3 T4 — D nghỉ, phiếu không ghi vắng
@@ -161,22 +169,31 @@ test("U-PA-11 người có đơn nghỉ ĐÃ DUYỆT (không lương, chưa bi�
   assert.equal(HR.nghiNgay(db, "D", "2026-10-02"), null);
 });
 
-// Chủ sở hữu 12/10/2026: "1. công > 0 thì chia sản lượng (không quan tâm 0,5 hay 0,3) … chia theo danh sách nghỉ; 2. công = 0 thì cảnh báo, coi như nghỉ nguyên ngày, không được chia"
-test("U-PA-12 (R-73) chia theo chấm công: công > 0 (kể cả 0,3) → chia ĐỀU; công 0 / trống → không chia + báo; vẫn trừ NV vắng trên phiếu; ngày cả tổ chưa có chấm công → chia theo NV vắng + cảnh báo", () => {
+// Chủ sở hữu 12/10/2026 (R-73): "1. công > 0 thì chia sản lượng (không quan tâm 0,5 hay 0,3) …; 2. công
+// = 0 thì cảnh báo, coi như nghỉ nguyên ngày, không được chia". Phần 3 của R-73 ("ngày cả tổ chưa chấm
+// công → vẫn chia theo NV vắng") đã bị GHI ĐÈ 13/10/2026 bởi Master Prompt mục IX (chủ sở hữu xác nhận
+// lại qua yêu cầu nâng cấp Formula Engine): không có BT hợp lệ ngày nào → KHÔNG phân bổ ngày đó, giữ
+// phiếu ở trạng thái chờ (PENDING_ATTENDANCE) — xem docs/PAYROLL_BUSINESS_VALIDATION.md PV-16.
+test("U-PA-12 (R-73 + mục IX) chia theo chấm công: công > 0 (kể cả 0,3) → chia ĐỀU; công 0 / trống → không chia + báo; vẫn trừ NV vắng trên phiếu; ngày cả tổ CHƯA CÓ chấm công → KHÔNG phân bổ (PENDING_ATTENDANCE), không tự chia theo NV vắng", () => {
   const db = hrDb(); // tổ 02.02 ngày 01/10: T1 Long, T2 Định, T4 Minh (T3 chưa vào làm)
   const cc = (ma, ht, days) => { const r = { "Kỳ": "2026-10", "Mã NV": ma, "Hình thức công": ht }; Object.keys(days).forEach((d) => { r[String(d).padStart(2, "0")] = days[d]; }); return r; };
   db.chamcong = [cc("T1", "BT", { 1: "0,3", 2: "1" }), cc("T2", "BT", { 1: "1", 2: "0" }), cc("T4", "PN", { 1: "1" }), cc("T4", "BT", { 2: "1" })];
   db.sanluong = [
     { "Phiếu cân": "P1", "Ngày cân": "2026-10-01", "KL hàng (Tấn)": "30", "Mã phòng ban": "02.02", "NV vắng": "" },     // T1 (0,3) + T2; T4 chỉ có PN = nghỉ
     { "Phiếu cân": "P2", "Ngày cân": "2026-10-02", "KL hàng (Tấn)": "20", "Mã phòng ban": "02.02", "NV vắng": "Minh" }, // T1; T2 công 0; T4 có công nhưng phiếu ghi vắng
-    { "Phiếu cân": "P3", "Ngày cân": "2026-10-03", "KL hàng (Tấn)": "9", "Mã phòng ban": "02.02", "NV vắng": "" }       // cả tổ chưa có chấm công ngày 03 → chia theo NV vắng (T1 T2 T3 T4)
+    { "Phiếu cân": "P3", "Ngày cân": "2026-10-03", "KL hàng (Tấn)": "9", "Mã phòng ban": "02.02", "NV vắng": "" }       // cả tổ CHƯA CÓ chấm công ngày 03 → PENDING_ATTENDANCE, 9 tấn chưa phân bổ
   ];
   const k = HR.sanLuongKy(db, 2026, 10, "sanluong"), by = {};
   k.rows.forEach((r) => { by[r["Mã NV"]] = (by[r["Mã NV"]] || 0) + Number(r["KL hàng (Tấn)"]); });
-  assert.deepEqual(by, { T1: 15 + 20 + 2.25, T2: 15 + 2.25, T3: 2.25, T4: 2.25 }); // P3 ngày 03: T3 vào làm → 4 người
+  assert.deepEqual(by, { T1: 15 + 20, T2: 15 }); // P3 ngày 03: cả tổ chưa chấm công → KHÔNG phân bổ (T3/T4 không nhận gì)
+  assert.equal(k.alloc.unallocated, 9, "9 tấn của P3 giữ ở trạng thái chờ phân bổ, không mất khối lượng");
   const kc = k.alloc.nghi.filter((x) => x.khongCong).map((x) => [x.ma, x.ngay]);
   assert.deepEqual(kc, [["T4", ["2026-10-01"]], ["T2", ["2026-10-02"]]]);
-  assert.match(k.alloc.warnings.join("\n"), /Tổ 02\.02: chưa có chấm công 1 ngày có phiếu \(03\/10\)/);
+  assert.match(k.alloc.warnings.join("\n"), /Tổ 02\.02: chưa có chấm công 1 ngày có phiếu \(03\/10\).*CHỜ PHÂN BỔ \(PENDING_ATTENDANCE\)/);
+  assert.match(k.alloc.warnings.join("\n"), /Phiếu P3.*CHƯA CÓ CHẤM CÔNG BT \(PENDING_ATTENDANCE\)/);
+  const p3 = k.alloc.audit.find((a) => a.phieu === "P3");
+  assert.equal(p3.pending, true); assert.equal(p3.soNguoi, 0);
+  assert.match(p3.note, /PENDING_ATTENDANCE/);
   assert.ok(!/không khớp ai/.test(k.alloc.warnings.join("\n")), "NV vắng Minh vẫn khớp");
 });
 

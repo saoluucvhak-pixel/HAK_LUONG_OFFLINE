@@ -244,7 +244,15 @@
           var co = out.filter(function (e) { return coMat[e.ma] && coMat[e.ma][dn]; });
           out.filter(function (e) { return co.indexOf(e) < 0; }).forEach(function (e) { nghi.push({ ma: e.ma, hoTen: e.hoTen, loai: "Không có công (chấm công = 0 / trống)", khongCong: true }); });
           var nn = nghi; out = co; out.nghi = nn;
-        } else { out.nghi = nghi; if (out.length) out.chuaCC = true; } // cả tổ chưa có chấm công ngày này (chưa nhập) → chia theo NV vắng, cảnh báo
+        } else {
+          // Master Prompt mục IX (chủ sở hữu xác nhận lại 13/10/2026, GHI ĐÈ R-73): cả tổ CHƯA CÓ
+          // chấm công BT ngày này → KHÔNG xác nhận được ai thật sự có mặt, không còn tự coi cả tổ là
+          // có mặt rồi chia theo NV vắng ghi trên phiếu nữa (R-73 cũ). Trả về "không ai có mặt" —
+          // production-alloc.js giữ phiếu ở trạng thái chờ phân bổ (PENDING_ATTENDANCE), báo rõ
+          // nguyên nhân, không mất khối lượng. roster (người của tổ) vẫn giữ lại ở out.roster chỉ để
+          // debug/báo cáo, KHÔNG dùng để chia tiền.
+          var roster = out; out = []; out.nghi = nghi; out.roster = roster; if (roster.length) out.chuaCC = true;
+        }
       }
       cache[key] = out; return out;
     };

@@ -487,6 +487,9 @@ async function launch(dataDir, opt) {
     const ExcelJS = require(path.join(APP, "exceljs.min.js")), X = require(path.join(APP, "ui/pbkl-xlsx.js"));
     const twb = X.template(ExcelJS, "sanluong", { mau: "01/10/2026" }), tws = twb.worksheets[0];
     [[1, ["P1", "01/10/2026", "43A-1", "", "", 30, "02.02", "Long"]], [2, ["P2", "06/10/2026", "43A-2", "", "", 9, "02.02", ""]], [3, ["P3", "02/10/2026", "43A-3", "", "", 6, "02.02", "Hùng"]]]
+    // P2 ngày 06/10: chấm công chỉ nhập đến ngày 02 (xem d0.chamcong ở trên) → cả tổ CHƯA CÓ chấm công
+    // ngày 06 — minh họa đúng mục IX (PENDING_ATTENDANCE): không còn tự coi cả tổ có mặt để chia theo
+    // NV vắng (R-73 cũ) nữa, 9 tấn của P2 giữ ở trạng thái chờ phân bổ.
       .forEach(([i, v]) => { tws.getRow(4 + i).values = v; });
     tws.getRow(8).values = ["P4", "01/10/2026", "43A-4", "", "", 5, "09.99", ""];
     const tfile = path.join(DL, "..", "phieu_can_mau_cong_cu.xlsx"); fs.writeFileSync(tfile, new Uint8Array(await twb.xlsx.writeBuffer()));
@@ -512,11 +515,14 @@ async function launch(dataDir, opt) {
       XLSX.utils.sheet_to_json(wb2.Sheets["Tien luong va bu luong"], { header: 1 }).forEach((r) => { if (/^T\d$/.test(r[2])) bu[r[2]] = r[r.length - 2]; });
       XLSX.utils.sheet_to_json(wb2.Sheets["Bu luong theo ngay - DH"], { header: 1 }).forEach((r) => { if (/^Tổng bù cả tháng/.test(String(r[0] || ""))) { const ma = /\(([^)]+)\)/.exec(r[0])[1]; buNgay[ma] = r[r.length - 1]; } });
     }
-    // R-73: ngày 02/10 chỉ T3 có công (0,5) mà phiếu P3 ghi vắng Hùng (T3) → T1, T2, T4 công 0 = nghỉ → P3 6 tấn chưa phân bổ
-    ok("Chia phiếu theo tổ như công cụ: trừ NV vắng, người đã nghỉ việc / công = 0 không nhận — T1 3 · T2 13 · T3 13 · T4 10 tấn; P3 (không ai có công) và phiếu mã tổ lạ chưa phân bổ",
-      tan.T1 === 3 && tan.T2 === 13 && tan.T3 === 13 && tan.T4 === 10 && /09\.99/.test(pbTxt) && /chưa phân bổ/.test(pbTxt), JSON.stringify(tan));
-    ok("Bù lương theo ngày bậc thang (Đại Hiệp): T2, T3 ngày 01 (1 công BT, 10 tấn) bù 140.000; T1 không có công BT ngày có SL → 0",
-      bu.T2 === 140000 && bu.T3 === 140000 && bu.T1 === 0, JSON.stringify(bu));
+    // R-73: ngày 02/10 chỉ T3 có công (0,5) mà phiếu P3 ghi vắng Hùng (T3) → T1, T2, T4 công 0 = nghỉ → P3 6 tấn chưa phân bổ.
+    // Mục IX (ghi đè phần 3 của R-73, chủ sở hữu xác nhận lại 13/10/2026 — xem PV-16): ngày 06/10 cả tổ
+    // CHƯA CÓ chấm công → P2 9 tấn cũng chưa phân bổ (PENDING_ATTENDANCE), KHÔNG còn chia theo NV vắng
+    // nữa — T1 (chỉ có phần từ P2 trong thiết kế cũ) giờ còn 0; T2/T3 mất phần 3 tấn từ P2 (13→10).
+    ok("Chia phiếu theo tổ như công cụ: trừ NV vắng, người đã nghỉ việc / công = 0 không nhận; ngày chưa chấm công → chờ phân bổ — T1 không có sản lượng (không ra dòng) · T2 10 · T3 10 · T4 10 tấn; P2 (chưa chấm công), P3 (không ai có công) và phiếu mã tổ lạ chưa phân bổ",
+      !tan.T1 && tan.T2 === 10 && tan.T3 === 10 && tan.T4 === 10 && /09\.99/.test(pbTxt) && /chưa phân bổ/.test(pbTxt) && /PENDING_ATTENDANCE/.test(pbTxt), JSON.stringify(tan));
+    ok("Bù lương theo ngày bậc thang (Đại Hiệp): T2, T3 ngày 01 (1 công BT, 10 tấn) bù 140.000; T1 không có sản lượng/công BT ngày có SL → không có dòng bù (0)",
+      bu.T2 === 140000 && bu.T3 === 140000 && !bu.T1, JSON.stringify(bu));
     ok("Sheet 'Bu luong theo ngay - DH' (mục XVII): tổng bù cả tháng mỗi người khớp đúng cột 'Bù lương' ở sheet tổng hợp",
       buNgay.T2 === 140000 && buNgay.T3 === 140000, JSON.stringify(buNgay));
     ok("File Excel đủ sheet như công cụ", sheets === "Huong dan su dung|Tong hop phong ban|Phan bo theo phong ban|Chi tiet cong nhan|Doi soat phieu can|Tien luong va bu luong|Bu luong theo ngay - DH|Du lieu - Khoi luong", sheets);
