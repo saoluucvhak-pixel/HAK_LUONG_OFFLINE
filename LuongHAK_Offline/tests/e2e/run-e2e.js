@@ -717,6 +717,12 @@ async function launch(dataDir, opt) {
     await c3.fill(""); await c3.dispatchEvent("change");
     const mm2 = await w.locator(".ocrgrid tbody tr").nth(1).getAttribute("class");
     ok("Sửa ô trên lưới: lệch Tổng công trên giấy thì dòng tô đỏ, sửa lại thì hết", /mismatch/.test(mm) && !/mismatch/.test(mm2), mm + " → " + mm2);
+    // V7: sửa ô 0,5 → 1 → 0,5 (ô có nét viết thật): tự ghi mẫu, giữ lịch sử, chỉ nhãn cuối còn hiệu lực
+    const c27 = w.locator(".ocrgrid tbody tr").nth(0).locator("input[data-day='27']");
+    await c27.fill("1"); await c27.dispatchEvent("change"); await c27.fill("0,5"); await c27.dispatchEvent("change"); await w.waitForTimeout(500);
+    const lib1 = await w.evaluate(() => window.hakOcrLib.list({}).then((r) => ({ ok: r.ok, s: r.samples.map((x) => [x.label, x.status, x.source]), n: r.stats.edits })));
+    ok("Tự học từ sửa ô: 0,5→1→0,5 tạo 2 mẫu (1 bị thay thế, 0,5 chờ duyệt), ghi đủ 2+ sự kiện sửa, không cần bấm lưu mẫu",
+      lib1.ok && lib1.s.length === 2 && lib1.s.filter((x) => x[1] === "SUPERSEDED").length === 1 && lib1.s.some((x) => x[0] === "0.5" && x[1] === "PENDING_APPROVAL" && x[2] === "CORRECTED") && lib1.n >= 4, JSON.stringify(lib1));
     await w.fill('input[aria-label="Kỳ của trang"]', "2026-11"); await w.dispatchEvent('input[aria-label="Kỳ của trang"]', "change");
     await w.locator(".subtabs button").nth(1).click(); await w.waitForTimeout(200);
     const g2 = await grid();
@@ -726,7 +732,9 @@ async function launch(dataDir, opt) {
     dialogs = [];
     await w.click('#main button:has-text("Đưa vào Chấm công")'); await w.waitForSelector(".dlg footer button.pri");
     const pv = await w.locator(".dlg").innerText();
-    await w.click(".dlg footer button.pri"); await w.waitForTimeout(600);
+    await w.click(".dlg footer button.pri"); await w.waitForTimeout(900);
+    const lib2 = await w.evaluate(() => window.hakOcrLib.list({}).then((r) => r.samples.map((x) => [x.label, x.status])));
+    ok("Duyệt bảng (ghi vào Chấm công) → mẫu 0,5 thành VERIFIED, mẫu cũ vẫn là lịch sử (SUPERSEDED)", lib2.some((x) => x[0] === "0.5" && x[1] === "VERIFIED") && lib2.some((x) => x[1] === "SUPERSEDED"), JSON.stringify(lib2));
     const cc = JSON.parse(fs.readFileSync(f, "utf8")).chamcong, n11 = cc.filter((r) => r["Kỳ"] === "2026-11"), n12 = cc.filter((r) => r["Kỳ"] === "2026-12");
     const a11 = n11.find((r) => r["Mã NV"] === "NV001") || {}, k11 = n11.find((r) => r["Mã NV"] === "OC1") || {};
     ok("Ghi vào Chấm công qua màn hình xem trước: mỗi trang đúng kỳ đã chọn, người chưa chọn NV bị bỏ qua (có báo)",

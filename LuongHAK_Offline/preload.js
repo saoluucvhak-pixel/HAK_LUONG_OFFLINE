@@ -46,6 +46,15 @@ contextBridge.exposeInMainWorld("hakReport", {
 });
 
 // Kho chứng từ gốc: chỉ thêm / đọc / kiểm tra theo DocumentID — không có hàm xóa
+contextBridge.exposeInMainWorld("hakOcrLib", {
+  record: (p) => ipcRenderer.invoke("ocrlib-record", p), confirm: (p) => ipcRenderer.invoke("ocrlib-confirm", p),
+  approve: (q) => ipcRenderer.invoke("ocrlib-approve", q), undo: (key, user) => ipcRenderer.invoke("ocrlib-undo", key, user),
+  lookup: (items) => ipcRenderer.invoke("ocrlib-lookup", items), list: (f) => ipcRenderer.invoke("ocrlib-list", f),
+  edits: () => ipcRenderer.invoke("ocrlib-edits"), image: (sha) => ipcRenderer.invoke("ocrlib-image", sha),
+  setStatus: (id, st, user, reason) => ipcRenderer.invoke("ocrlib-set-status", id, st, user, reason),
+  relabel: (id, label, kind, user, reason) => ipcRenderer.invoke("ocrlib-relabel", id, label, kind, user, reason),
+  verify: () => ipcRenderer.invoke("ocrlib-verify")
+});
 contextBridge.exposeInMainWorld("hakDocs", {
   add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }
   list: () => ipcRenderer.invoke("doc-list"),

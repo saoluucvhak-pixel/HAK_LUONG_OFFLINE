@@ -12,7 +12,7 @@ const guard = createGuard(__dirname);
 
 // Dữ liệu: %APPDATA%\Tinh Luong HAK\data.json — sao lưu trong thư mục backups (xem main/storage.js).
 // Gỡ cài đặt KHÔNG xóa thư mục này (electron-builder: deleteAppDataOnUninstall mặc định false).
-let storage = null, exportsDir = null, ocr = null, vault = null;
+let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null;
 const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname })); // nạp Tesseract khi dùng lần đầu
 const NO_SHELL = !!process.env.HAK_NO_SHELL; // kiểm thử tự động: không mở Explorer thật, chỉ ghi lại thao tác
 let lastShell = null;
@@ -51,6 +51,20 @@ function registerIpc() {
       return { ok: true, name: path.basename(f), dir: path.dirname(f), size: buf.length, pages: pdfSvc.countPages(buf), opened };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
+  // Thư viện mẫu OCR (V7): ghi tự động khi người dùng sửa ô; quản lý (duyệt/từ chối/đổi nhãn) cần quyền ocr.library. Không có thao tác xóa mẫu.
+  const olWrap = (fn) => async (e, ...a) => { try { return Object.assign({ ok: true }, await fn(...a)); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } };
+  const olStrip = (s) => { const o = Object.assign({}, s); delete o.vec; delete o.coarse; return o; };
+  ipcMain.handle("ocrlib-record", guarded("input.edit", olWrap((p) => { const r = ocrLib.record(p || {}); return { sampleId: r.sampleId, note: r.note || "" }; })));
+  ipcMain.handle("ocrlib-confirm", guarded("input.edit", olWrap((p) => { const r = ocrLib.confirm(p || {}); return { sampleId: r.sampleId }; })));
+  ipcMain.handle("ocrlib-approve", guarded("input.edit", olWrap((q) => { const r = ocrLib.approve(q || {}); return { verified: r.verified, conflict: r.conflict, skippedUnknownKind: r.skippedUnknownKind, skippedLayout: r.skippedLayout }; })));
+  ipcMain.handle("ocrlib-undo", guarded("input.edit", olWrap((key, user) => { ocrLib.undoCell(String(key || ""), user); return {}; })));
+  ipcMain.handle("ocrlib-lookup", guarded("input.view", olWrap((items) => ({ results: ocrLib.lookup(Array.isArray(items) ? items : []).map((r) => ({ status: r.status, label: r.label, score: r.score, consensus: r.consensus, reason: r.reason, top: (r.top || []).slice(0, 5) })) }))));
+  ipcMain.handle("ocrlib-list", guarded("input.view", olWrap((f) => { ocrLib.load(); return { samples: ocrLib.lib.list(f || {}).map(olStrip), stats: ocrLib.lib.stats(), confusions: ocrLib.lib.confusions() }; })));
+  ipcMain.handle("ocrlib-edits", guarded("input.view", olWrap(() => { ocrLib.load(); return { edits: ocrLib.lib.edits() }; })));
+  ipcMain.handle("ocrlib-image", guarded("input.view", olWrap((sha) => { const b = ocrLib.readImage(String(sha || "")); return b ? { data: new Uint8Array(b) } : { ok: false, error: "không có ảnh" }; })));
+  ipcMain.handle("ocrlib-set-status", guarded("ocr.library", olWrap((id, st, user, reason) => { ocrLib.setStatus(String(id), String(st), user, reason); return {}; })));
+  ipcMain.handle("ocrlib-relabel", guarded("ocr.library", olWrap((id, label, kind, user, reason) => { ocrLib.relabel(String(id), label, kind, user, reason); return {}; })));
+  ipcMain.handle("ocrlib-verify", guarded("input.view", olWrap(() => ({ report: ocrLib.verify() }))));
   // Kho chứng từ gốc (GĐ4): chỉ THÊM / ĐỌC / KIỂM TRA — không có thao tác xóa. Giao diện chỉ dùng DocumentID, không truyền đường dẫn.
   const toBuf = (d) => d instanceof ArrayBuffer ? Buffer.from(d) : ArrayBuffer.isView(d) ? Buffer.from(d.buffer, d.byteOffset, d.byteLength) : null;
   ipcMain.handle("doc-add", guarded("input.edit", async (e, data, info) => {
@@ -67,11 +81,11 @@ function registerIpc() {
   ipcMain.handle("fb-create", guarded("backup.restore", async (e, info) => {
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
-      const r = fullBackup.create({ dataText: ld.text, vault, destDir: exportsDir.dir(), appVersion: app.getVersion(), user: info && info.user });
+      const r = fullBackup.create({ dataText: ld.text, vault, ocrLib, destDir: exportsDir.dir(), appVersion: app.getVersion(), user: info && info.user });
       if (!r.ok) return r;
       let mirrored = "";
       try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"); require("fs").mkdirSync(t, { recursive: true }); require("fs").copyFileSync(r.file, path.join(t, r.name)); require("fs").copyFileSync(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
-      return { ok: true, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, warnings: r.warnings, mirrored };
+      return { ok: true, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   ipcMain.handle("fb-list", guarded("backup.restore", async () => { try { return { ok: true, files: exportsDir.list(500).filter((f) => /^LuongHAK_FullBackup_.*\.zip$/i.test(f.name)) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
@@ -82,11 +96,11 @@ function registerIpc() {
       else if (process.env.HAK_FB_PICK) f = process.env.HAK_FB_PICK;
       else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup (.zip)", filters: [{ name: "Gói sao lưu", extensions: ["zip"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
       const rep = fullBackup.inspect(f, vault); lastInspect = rep.ok ? f : null;
-      return { ok: rep.ok, problems: rep.problems, label: path.basename(f), manifest: rep.manifest && { createdAt: rep.manifest.createdAt, createdBy: rep.manifest.createdBy, appVersion: rep.manifest.appVersion, warnings: rep.manifest.warnings }, docs: rep.docs, text: rep.ok ? rep.dataText : null };
+      return { ok: rep.ok, problems: rep.problems, label: path.basename(f), manifest: rep.manifest && { createdAt: rep.manifest.createdAt, createdBy: rep.manifest.createdBy, appVersion: rep.manifest.appVersion, warnings: rep.manifest.warnings }, docs: rep.docs, ocrSamples: rep.ocrSamples || 0, text: rep.ok ? rep.dataText : null };
     } catch (err) { return { ok: false, problems: [String(err && err.message || err)] }; }
   }));
   ipcMain.handle("fb-import-docs", guarded("backup.restore", async () => {
-    try { if (!lastInspect) return { ok: false, error: "Chưa kiểm tra gói nào" }; const r = fullBackup.importDocuments(lastInspect, vault); return Object.assign({ ok: true }, r); }
+    try { if (!lastInspect) return { ok: false, error: "Chưa kiểm tra gói nào" }; const r = fullBackup.importDocuments(lastInspect, vault); r.ocr = fullBackup.importOcrLibrary(lastInspect, ocrLib); return Object.assign({ ok: true }, r); }
     catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   ipcMain.on("open-data-folder", () => { shell.openPath(path.dirname(storage.dataFile)); });
@@ -177,6 +191,7 @@ app.whenReady().then(() => {
   }
   storage = createStorage(app.getPath("userData"));
   vault = createVault(path.join(app.getPath("userData"), "documents"));
+  ocrLib = require("./main/ocr-library").createStore(path.join(app.getPath("userData"), "ocr_library"));
   exportsDir = createExports({ readSettings: storage.readSettings, writeSettings: storage.writeSettings, defaultDir: path.join(app.getPath("documents"), "Tinh Luong HAK", "File xuat"), fixedDir: process.env.HAK_DOWNLOAD_DIR || "" });
   try { storage.backup("startup"); } catch (e) { /* lần đầu chưa có dữ liệu */ }
   registerIpc();

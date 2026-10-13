@@ -89,6 +89,17 @@ function createStore(root, opts) {
     if (fs.existsSync(imgDir)) fs.readdirSync(imgDir).forEach((d) => fs.readdirSync(path.join(imgDir, d)).forEach((f) => { if (/^[0-9a-f]{64}\.png$/.test(f)) out.push({ rel: "images/" + d + "/" + f, abs: path.join(imgDir, d, f) }); }));
     return out;
   }
-  return { lib, root, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt };
+  /** Đặt ảnh mẫu (đã kiểm SHA-256 khớp tên) */
+  function putImage(h, buf) { if (sha(buf) !== h) throw new Error("ảnh sai SHA-256"); writeImage(h, buf); }
+  /** Nạp bản ghi từ gói sao lưu (dạng dòng nhật ký: sample có `feat` base64 thay vec). Ghi bền rồi mới áp. */
+  function restoreRecords(recs) {
+    load();
+    const norm = recs.map((r) => { if (r.t !== "sample") return r; const o = Object.assign({}, r); if (o.feat) { o.vec = F.fromB64(o.feat); delete o.feat; } return o; });
+    const lines = recs.map((r) => JSON.stringify(r)); if (!lines.length) return;
+    fs.mkdirSync(root, { recursive: true });
+    const fd = fs.openSync(logFile, "a"); try { fs.writeSync(fd, lines.join("\n") + "\n"); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    norm.forEach((r) => lib.apply(r));
+  }
+  return { lib, root, putImage, restoreRecords, load, record, confirm, approve, setStatus, relabel, undoCell, lookup, readImage, verify, files, persist, corrupt: () => corrupt };
 }
 module.exports = { createStore };

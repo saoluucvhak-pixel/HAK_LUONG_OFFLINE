@@ -101,3 +101,53 @@ test("U-OCRL-11 verify phát hiện ảnh mẫu bị mất/sửa", () => {
   const f = st.files().find((x) => x.rel.endsWith(".png")); fs.writeFileSync(f.abs, "hỏng");
   const v = createStore(dir).verify(); assert.equal(v.ok, false); assert.equal(v.bad.length, 1);
 });
+
+test("U-OCRL-12 dịch vụ: sửa ô → gọi ghi mẫu kèm ảnh+bbox; không đổi → bỏ qua; ghi lỗi → xếp hàng và thử lại", async () => {
+  const SV = require("../../core/ocr-learning/service.js"), calls = []; let fail = true;
+  const api = { record: async (p) => { calls.push(p); return fail ? { ok: false, error: "đĩa đầy" } : { ok: true, sampleId: "S1" }; }, approve: async (q) => ({ ok: true, verified: 2, conflict: 0, skippedUnknownKind: 0, skippedLayout: 0, q }) };
+  const sv = SV.createService({ api, user: () => "kt1" });
+  const W = 100, H = 80, g = new Uint8Array(W * H).fill(240); for (let y = 20; y < 50; y++) g[y * W + 30] = 20;
+  const res = { g, clean: g, w: W, h: H, scale: 1 }, cell = { x0: 20, y0: 10, x1: 60, y1: 60, bb: { x0: 25, y0: 15, x1: 45, y1: 55 }, conf: 70 };
+  const pg = { docId: "DOC-1", trang: 3, mode: "so", ky: "2026-09", rot: 0 };
+  assert.equal((await sv.onEdit({ res, cell, pg, ma: "NV1", before: "1", after: " 1 " })).skipped, true);
+  const r = await sv.onEdit({ res, cell, pg, ma: "NV1", before: "1", after: "7", ocrValue: "1" });
+  assert.equal(r.ok, false); assert.equal(sv.pending(), 1);
+  assert.equal(calls[0].page, 3); assert.equal(calls[0].user, "kt1"); assert.equal(calls[0].after, "7"); assert.ok(calls[0].raw.length === calls[0].w * calls[0].h);
+  fail = false; const f = await sv.flush(); assert.equal(f.sent, 1); assert.equal(sv.pending(), 0);
+  const a = await sv.approvePages([{ docId: "DOC-1", trang: 3 }]); assert.equal(a.verified, 2);
+});
+
+test("U-OCRL-13 Full Backup gồm thư viện mẫu OCR; khôi phục sang máy mới không phải học lại; gói sửa 1 byte bị từ chối", () => {
+  const FB = require("../../main/fullbackup.js"), { createVault } = require("../../main/documents");
+  const src = createStore(tmp()), rng = S.prng(3); let n = 0;
+  "0125".split("").forEach((l) => { for (let i = 0; i < 4; i++) { const im = S.render(l, rng); src.record({ raw: im.g, clean: im.g, w: im.w, h: im.h, cellType: "digit", docId: "D", page: 1, bbox: bb(n, n, n + 1, n + 1), after: l, before: "", mode: "so" }); n++; } });
+  src.approve({ docId: "D", user: "a" });
+  const root = tmp(), vault = createVault(path.join(root, "documents")), dest = path.join(root, "out");
+  const r = FB.create({ dataText: JSON.stringify({ a: 1 }), vault, ocrLib: src, destDir: dest, appVersion: "t" });
+  assert.equal(r.ok, true); assert.equal(r.ocrSamples, 16);
+  const chk = FB.inspect(r.file, vault); assert.equal(chk.ok, true); assert.equal(chk.ocrSamples, 16);
+  const dst = createStore(tmp()); const imp = FB.importOcrLibrary(r.file, dst);
+  assert.equal(imp.addedSamples, 16); assert.equal(dst.lib.size(), 16);
+  assert.equal(dst.lib.list({ status: "VERIFIED" }).length, 16);
+  assert.equal(dst.verify().ok, true);
+  // tra cứu ngay trên máy mới cho cùng kết quả như máy cũ (không học lại)
+  const t = S.render("5", S.prng(99)), it = [{ clean: t.g, w: t.w, h: t.h }];
+  assert.equal(dst.lookup(it)[0].label, src.lookup(it)[0].label);
+  // nhập lần 2 vào thư viện đã có: không nhân đôi
+  assert.equal(FB.importOcrLibrary(r.file, dst).addedSamples, 0); assert.equal(dst.lib.size(), 16);
+  // sửa 1 byte trong gói → inspect từ chối
+  const buf = fs.readFileSync(r.file); buf[Math.floor(buf.length / 2)] ^= 0xff; const bad = path.join(root, "bad.zip"); fs.writeFileSync(bad, buf);
+  assert.equal(FB.inspect(bad).ok, false);
+  // reload từ đĩa máy mới giữ nguyên
+  const re = createStore(dst.root); re.load(); assert.equal(re.lib.size(), 16);
+});
+
+test("U-OCRL-14 luật nghiệp vụ OCR: ngày ngoài tháng, trùng NV, mã lạ, ô giờ không bị giới hạn công", () => {
+  const R = require("../../core/ocr-learning/rules.js");
+  const page = { ky: "2026-02", mode: "so", days: [1, 28, 30], lines: [{ ma: "NV1", kind: "Công", vals: { 1: "1", 28: "5" } }, { ma: "NV1", kind: "Công", vals: { 1: "x" } }, { ma: "ZZ", kind: "Công", vals: {} }] };
+  const r = R.check(page, { maSet: { NV1: 1 } }), codes = r.issues.map((i) => i.code);
+  assert.ok(codes.includes("NGAY_NGOAI_KY") && codes.includes("TRUNG_NV") && codes.includes("MA_NV_LA") && codes.includes("O_KHONG_PHAI_SO") && codes.includes("CONG_NGOAI_KHOANG"));
+  assert.equal(r.layoutSuspect, true);
+  const g = R.check({ ky: "2026-02", mode: "ca", days: [1], lines: [{ ma: "NV1", kind: "Công", vals: { 1: "8" } }] }, { maSet: { NV1: 1 } });
+  assert.equal(g.issues.length, 0); assert.equal(R.daysIn("2024-02"), 29);
+});
