@@ -7,7 +7,7 @@ const TC = require("../../core/tax-config.js");
 const INT = require("../../core/integrity.js");
 const E = require("../../engine.js");
 const HR = require("../../hr.js");
-const { baseDb, staff } = require("../fixtures/build.js");
+const { baseDb } = require("../fixtures/build.js");
 
 const npt = (o) => Object.assign({ "Mã NV": "NV001", "Họ tên nhân thân": "Con A", "Quan hệ": "Con", "Đăng ký phụ thuộc": "Có", "Hiệu lực từ": "2026-01-01" }, o);
 

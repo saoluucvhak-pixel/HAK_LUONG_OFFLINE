@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "luonghak_db_v1";
-  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml;
+  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
 
   // ---------- Định nghĩa bảng ----------
@@ -20,8 +20,8 @@
     dm_tangca: { ten: "Tăng ca", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã tăng ca", "Nội dung tăng ca", "Loại công thức", "Hệ số tăng ca", "Tiền tăng ca (nếu tính cố định)", "Cách tính"], hint: "'Loại công thức': để trống = dùng đúng công thức của tên Mã tăng ca (TC1-TC6, như trước đây). Thêm mã MỚI muốn dùng lại 1 trong các công thức TC1/TC2/TC3/TC4/TC5/TC6 đã có — ghi đúng tên công thức đó vào đây, không cần sửa phần mềm." },
     dm_hotro: { ten: "Hỗ trợ", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã hỗ trợ", "Tên hỗ trợ", "Loại công thức", "Số tiền", "Cách tính"], hint: "'Loại công thức' (để trống = đúng công thức cũ theo vị trí gán — 'Mã hỗ trợ' = theo ngày, 'Mã hỗ trợ 2' = bù thiếu công chuẩn): HT_THEO_NGAY = Số tiền × số ngày (cơm...) · HT_THIEU_CHUAN = (Công chuẩn − Tổng công) × Số tiền khi thiếu công, 0 khi đủ/thừa. Cho phép 1 mã dùng công thức khác vị trí gán mặc định." },
     dm_baohiem: { ten: "Bảo hiểm", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã bảo hiểm", "Nội dung", "DN.BHXH", "DN.BHYT", "DN.BHTN", "DN.KPCD", "NLD.BHXH", "NLD.BHYT", "NLD.BHTN", "NLD.KPCD"], hint: "Nhập tỷ lệ dạng 0.08 hoặc 8%. DN = công ty đóng, NLD = người lao động đóng." },
-    dm_tncn: { ten: "Thuế TNCN", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã thuế TNCN", "Nội dung", "Mức thuế", "Ghi chú"], hint: "Phương thức thuế gán trong phụ lục HĐ. 'Nội dung' chứa 'Khấu trừ vãng lai' → khấu trừ theo Mức thuế (mặc định 10%); 'Lũy tiến' → tính theo Biểu thuế lũy tiến; 'Miễn thuế' → không khấu trừ." },
-    dm_bacthue: { ten: "Biểu thuế lũy tiến", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã thuế TNCN", "Bậc", "Thu nhập từ", "Thu nhập đến", "Tỷ lệ"], hint: "Bậc cao nhất để 'Thu nhập đến' = 0 hoặc trống (không giới hạn). Mỗi bộ biểu thuế có 'Hiệu lực từ/đến' riêng. 'Mã thuế TNCN': để trống = áp dụng chung cho mọi mã lũy tiến; chỉ cần ghi khi có NHIỀU HƠN 1 biểu thuế lũy tiến khác nhau (PV-7c)." },
+    dm_tncn: { ten: "Thuế TNCN", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã thuế TNCN", "Nội dung", "Phương pháp", "Mức thuế", "Trạng thái", "Loại HĐLĐ", "Đối tượng áp dụng", "Căn cứ", "Ghi chú"], hint: "DM_TNCN (bảng cha): mỗi dòng = 1 phiên bản của 1 mã thuế. 'Phương pháp': LUY_TIEN (lũy tiến từng phần) · LUY_TIEN_TRU_NHANH (lũy tiến rút gọn, dùng cột 'Trừ nhanh' của biểu thuế) · VANG_LAI (khấu trừ theo 'Mức thuế', mặc định 10%) · MIEN (không khấu trừ). Để trống Phương pháp = đọc theo 'Nội dung' như cũ. 'Trạng thái': Nháp (chưa dùng) · Hiệu lực · Ngừng. Biểu thuế (bảng con) nằm ngay bên dưới." },
+    dm_bacthue: { ten: "Biểu thuế lũy tiến", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã thuế TNCN", "Bậc", "Thu nhập từ", "Thu nhập đến", "Tỷ lệ", "Trừ nhanh", "Số tiền cố định", "Điều kiện áp dụng", "Loại đối tượng", "Trạng thái", "Ghi chú"], hint: "DM_TNCN_BIEUTHUE (bảng con của Thuế TNCN). Bậc cao nhất để 'Thu nhập đến' = 0 hoặc trống (không giới hạn). Mỗi bộ biểu thuế có 'Hiệu lực từ/đến' riêng. 'Mã thuế TNCN' trỏ về bảng cha; để trống = áp dụng chung cho mọi mã lũy tiến. 'Trừ nhanh' chỉ dùng khi mã cha có Phương pháp LUY_TIEN_TRU_NHANH. 'Điều kiện áp dụng'/'Loại đối tượng' hiện chỉ để ghi chú, engine chưa đọc." },
     dm_giamtru: { ten: "Giảm trừ gia cảnh", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã giảm trừ", "Số người", "Số tiền"], hint: "Mã bắt đầu GTBT = bản thân, GTNPT = mỗi người phụ thuộc. Số người phụ thuộc lấy từ hồ sơ Nhân thân (Đăng ký phụ thuộc = Có)." },
     dm_phongban: { ten: "Phòng ban", cols: ["Mã khối", "Tên khối", "Mã phòng ban", "Tên phòng ban", "Tài khoản chi phí", "Hiệu lực từ", "Hiệu lực đến"], hint: "'Tài khoản chi phí' dùng cho Bảng hạch toán lương (VD 622 sản xuất, 627 quản lý PX, 641 bán hàng, 642 quản lý DN). Để trống: khối Sản xuất → 622, còn lại → 642." },
     dm_chucvu: { ten: "Chức vụ", cols: ["Mã chức vụ", "Tên chức vụ", "Hiệu lực từ", "Hiệu lực đến"] },
@@ -60,7 +60,7 @@
     return r;
   }
   var DATECOLS = /^(Ngày|Hiệu lực)/;
-  var NUMCOLS = /(Lương|Số tiền|Số suất|KL hàng|Thưởng|Thu nhập|Trừ khác|Tạm ứng|Đơn giá|Tỷ lệ|DN\.|NLD\.|Bậc|Người phụ thuộc|Số người|Tham chiếu|Hệ số|Ngưỡng|ĐK_|Tiền)/;
+  var NUMCOLS = /(Trừ nhanh|Lương|Số tiền|Số suất|KL hàng|Thưởng|Thu nhập|Trừ khác|Tạm ứng|Đơn giá|Tỷ lệ|DN\.|NLD\.|Bậc|Người phụ thuộc|Số người|Tham chiếu|Hệ số|Ngưỡng|ĐK_|Tiền)/;
   var COLW = { "Mã NV": 96, "Họ và tên": 170, "Diễn giải": 200, "Cách tính": 260, "Tên phụ cấp": 160, "Hình thức lương": 150, "Nội dung": 180, "Nội dung tăng ca": 160, "Nội dung khấu trừ": 160, "Tên hỗ trợ": 150, "Tên phòng ban": 200, "Tên chức vụ": 200, "Ghi chú": 200, "Hình thức công": 90, "Mã nhân viên": 110, "Tên Ngân hàng": 150 };
 
   // ---------- Lưu trữ ----------
@@ -284,9 +284,9 @@
       if (!PAYROLL_FILE.test(slug(String(what || "")) ) && !PAYROLL_FILE.test(String(what || ""))) return false;
       if (!db.nhanvien || !db.nhanvien.length) return false;
       var src = kqKy(st.nam, st.thang); if (src.chot) return false;
-      var errs = (src.kq.canhbao || []).filter(function (w) { return String(w).indexOf("FORMULA_ERROR") === 0; });
-      if (!errs.length) return false;
-      alert("⛔ Không xuất được: bảng lương kỳ " + st.thang + "/" + st.nam + " đang có " + errs.length + " lỗi công thức (FORMULA_ERROR) nên số liệu CHƯA đáng tin cậy.\n\n" + errs.slice(0, 4).join("\n") + (errs.length > 4 ? "\n…" : "") + "\n\nHãy sửa/duyệt lại công thức rồi xuất lại (kết quả tạm lỗi không được xuất như bản chính thức và không chốt được).");
+      var bl = GATE.blockers(src.kq); if (!bl.length) return false;
+      alert("⛔ Không xuất được: bảng lương kỳ " + st.thang + "/" + st.nam + " đang có lỗi chặn nên số liệu CHƯA đáng tin cậy:\n\n" +
+        bl.map(function (b) { return "• " + b.code + " — " + b.ten + " (" + b.count + "): " + b.items.slice(0, 2).join(" | "); }).join("\n") + "\n\nSửa cấu hình/dữ liệu rồi tính lại. Kỳ đã chốt xuất theo bản chốt.");
       return true;
     } catch (e) { return false; }
   }
@@ -1258,7 +1258,99 @@
     var w = h("div"), bar = h("div", { class: "bar" });
     Object.keys(DM).forEach(function (k) { bar.appendChild(btn(DM[k].ten + (countOf(k) ? " (" + countOf(k) + ")" : ""), st.dm === k ? "pri" : "", function () { st.dm = k; saveUi(); render(); })); });
     w.appendChild(bar);
-    w.appendChild(st.dm === "dm_congthuc" ? congThucPanel() : grid(st.dm, DM[st.dm]));
+    w.appendChild(st.dm === "dm_congthuc" ? congThucPanel() : st.dm === "dm_tncn" ? thuePanel() : grid(st.dm, DM[st.dm]));
+    return w;
+  }
+
+  // ---------- Thuế TNCN cha–con (V9.2): DM_TNCN → DM_TNCN_BIEUTHUE ----------
+  function thueIsCha(r) { return r["Mã thuế TNCN"] && (r["Bậc"] === "" || r["Bậc"] == null); }
+  function thueBo(ma, tu) { return db.dm_bacthue.filter(function (r) { return r["Mã thuế TNCN"] === ma && String(r["Hiệu lực từ"] || "") === String(tu || ""); }); }
+  function thuePanel() {
+    var w = h("div"), codes = [];
+    db.dm_tncn.filter(thueIsCha).forEach(function (r) { if (codes.indexOf(r["Mã thuế TNCN"]) < 0) codes.push(r["Mã thuế TNCN"]); });
+    if (!st.thueMa || codes.indexOf(st.thueMa) < 0) st.thueMa = codes[0] || "";
+    var note = h("div", { class: "hint", text: "Cấu trúc cha–con: chọn mã thuế ở bảng cha, biểu thuế (các bậc) của mã đó hiện ở bảng con bên dưới. HĐLĐ/phụ lục tham chiếu Mã thuế TNCN; bảng lương tự lấy biểu thuế hiệu lực đúng kỳ và khấu trừ vào thực lĩnh theo kết quả công thức. Thiếu mã/biểu thuế → TAX_CONFIG_ERROR, chặn chốt và xuất bảng lương." });
+    w.appendChild(note);
+    w.appendChild(grid("dm_tncn", DM.dm_tncn));
+    var card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
+    var sel = h("select", { "aria-label": "Mã thuế TNCN" });
+    codes.forEach(function (c) { sel.appendChild(h("option", { value: c, text: c })); }); sel.value = st.thueMa;
+    sel.addEventListener("change", function () { st.thueMa = sel.value; render(); });
+    bar.appendChild(h("b", { text: "Biểu thuế của mã: " })); bar.appendChild(sel); bar.appendChild(h("span", { class: "sp" }));
+    bar.appendChild(btn("✔ Kiểm tra cấu hình thuế", "", function () {
+      var rs = TCFG.check(db), body = h("div");
+      body.appendChild(h("div", { class: rs.length ? "warn" : "ok", text: rs.length ? rs.length + " vấn đề trong cấu hình thuế TNCN (cha–con)." : "Cấu hình thuế hợp lệ: không chồng/hở bậc, mã cha–con khớp nhau." }));
+      if (rs.length) body.appendChild(simpleTable(rs.map(function (x) { return { "Mức": x.level, "Nội dung": x.msg }; })));
+      modal("Kiểm tra cấu hình thuế TNCN", body, function (close) { return [btn("Đóng", "", close)]; });
+    }));
+    bar.appendChild(btn("🧮 Thử tính thuế", "", function () {
+      var inp = h("input", { class: "i", value: "20000000", style: "width:200px" }), out = h("div", { style: "margin-top:10px" });
+      var body = h("div", {}, [h("div", { class: "hint", text: "Nhập thu nhập TÍNH THUẾ (sau các khoản giảm trừ) để xem thuế theo mã " + st.thueMa + " ở kỳ " + st.thang + "/" + st.nam + ". Chỉ tính thử — không ghi dữ liệu." }),
+        h("div", { class: "fld" }, [h("label", { text: "Thu nhập tính thuế (đ)" }), inp]), out]);
+      var calc = function () {
+        out.innerHTML = ""; var tn = VAL.parseMoney(inp.value);
+        if (isNaN(tn) || tn < 0) { out.appendChild(h("div", { class: "warn", text: "Số tiền không hợp lệ" })); return; }
+        var t = E.thuThuTNCN(db, st.thueMa, st.nam, st.thang, tn);
+        if (!t.ok) { out.appendChild(h("div", { class: "warn", text: "TAX_CONFIG_ERROR — " + t.loi })); return; }
+        out.appendChild(h("div", { class: "ok", text: "Thuế TNCN = " + fmt(t.thue) + " đ · Phương pháp " + t.phuongPhap }));
+        if (t.bieu) out.appendChild(simpleTable(t.bieu.map(function (b) { return { "Bậc": b["Bậc"], "Từ": E.money(b["Thu nhập từ"]), "Đến": E.money(b["Thu nhập đến"]) || "không giới hạn", "Thuế suất": E.pct(b["Tỷ lệ"]) * 100 + "%", "Trừ nhanh": E.money(b["Trừ nhanh"]) }; })));
+      };
+      inp.addEventListener("input", calc); calc();
+      modal("Thử tính thuế TNCN", body, function (close) { return [btn("Đóng", "", close)]; });
+    }));
+    card.appendChild(bar);
+    // Danh sách phiên bản của mã đang chọn + thao tác
+    var vers = db.dm_tncn.filter(function (r) { return thueIsCha(r) && r["Mã thuế TNCN"] === st.thueMa; })
+      .sort(function (a, b) { return String(a["Hiệu lực từ"] || "") < String(b["Hiệu lực từ"] || "") ? 1 : -1; });
+    var can2 = can("dm.edit");
+    var vt = h("table"), vh = h("tr");
+    ["Hiệu lực từ", "Hiệu lực đến", "Phương pháp", "Trạng thái", "Số bậc", ""].forEach(function (x) { vh.appendChild(h("th", { text: x })); });
+    vt.appendChild(h("thead", {}, [vh]));
+    var vb = h("tbody");
+    var setTT = function (r, tt) {
+      if (!need("dm.edit")) return;
+      if (tt === "Hiệu lực") {
+        var pbl = TCFG.check(db).filter(function (x) { return x.level === "High" && x.msg.indexOf(st.thueMa) >= 0; });
+        if (pbl.length) { alert("Không duyệt được — cấu hình mã " + st.thueMa + " còn lỗi:\n" + pbl.slice(0, 6).map(function (x) { return "• " + x.msg; }).join("\n")); return; }
+      }
+      var rows = [r].concat(thueBo(r["Mã thuế TNCN"], r["Hiệu lực từ"]));
+      for (var i = 0; i < rows.length; i++) {
+        var tbl = i === 0 ? "dm_tncn" : "dm_bacthue", pl = REPO.plan("update", tbl, rows[i], { "Trạng thái": tt }, { what: "đổi trạng thái biểu thuế" });
+        if (!commit(pl, { confirm: true, action: "Thuế TNCN — " + tt + " " + r["Mã thuế TNCN"] + " từ " + (r["Hiệu lực từ"] || "") })) return;
+      }
+      save(); render(); toast("Đã chuyển mã " + r["Mã thuế TNCN"] + " (từ " + (r["Hiệu lực từ"] || "") + ") sang '" + tt + "'");
+    };
+    var copyVer = function (r) {
+      if (!need("dm.edit")) return;
+      askText("Sao chép phiên bản biểu thuế", "Tạo bản NHÁP của mã " + r["Mã thuế TNCN"] + " (kèm toàn bộ bậc) với ngày hiệu lực mới. Bản nháp chưa được dùng để tính lương cho đến khi duyệt.", { label: "Hiệu lực từ (YYYY-MM-DD)", required: true, pattern: /^\d{4}-\d{2}-\d{2}$/, patternMsg: "Nhập ngày dạng 2027-01-01", okText: "Sao chép" }, function (d) {
+        var cha = Object.assign({}, r, { "Hiệu lực từ": d, "Hiệu lực đến": "", "Trạng thái": "Nháp" }); delete cha._id;
+        if (!commit(REPO.plan("insert", "dm_tncn", null, cha, { what: "sao chép phiên bản thuế" }), { action: "Thuế TNCN — sao chép phiên bản " + r["Mã thuế TNCN"] + " → " + d })) return;
+        thueBo(r["Mã thuế TNCN"], r["Hiệu lực từ"]).forEach(function (b) { var c = Object.assign({}, b, { "Hiệu lực từ": d, "Hiệu lực đến": "", "Trạng thái": "Nháp" }); delete c._id; commit(REPO.plan("insert", "dm_bacthue", null, c, { what: "sao chép bậc thuế" }), { audit: false }); });
+        save(); render(); toast("Đã tạo bản nháp từ " + d);
+      });
+    };
+    vers.forEach(function (r) {
+      var tr = h("tr"); tr.appendChild(h("td", { class: "t", text: r["Hiệu lực từ"] || "" })); tr.appendChild(h("td", { class: "t", text: r["Hiệu lực đến"] || "" }));
+      tr.appendChild(h("td", { class: "t", text: r["Phương pháp"] || "(theo Nội dung: " + (r["Nội dung"] || "") + ")" })); tr.appendChild(h("td", { class: "t", text: r["Trạng thái"] || "Hiệu lực" }));
+      tr.appendChild(h("td", { class: "r", text: String(thueBo(r["Mã thuế TNCN"], r["Hiệu lực từ"]).length) }));
+      var act = h("td", { class: "t" });
+      if (can2) {
+        if (/^nh[áa]p/i.test(r["Trạng thái"] || "")) act.appendChild(btn("Duyệt", "pri", function () { setTT(r, "Hiệu lực"); }));
+        else if (!/^ng[ừu]ng/i.test(r["Trạng thái"] || "")) act.appendChild(btn("Ngừng", "", function () { setTT(r, "Ngừng"); }));
+        act.appendChild(btn("Sao chép", "", function () { copyVer(r); }));
+      }
+      tr.appendChild(act); vb.appendChild(tr);
+    });
+    vt.appendChild(vb);
+    if (vers.length) card.appendChild(h("div", { class: "tw" }, [vt])); else card.appendChild(h("div", { class: "empty", text: "Chưa có mã thuế nào ở bảng cha. Thêm dòng ở bảng trên." }));
+    w.appendChild(card);
+    // Bảng con: biểu thuế của mã đang chọn
+    var childDef = Object.assign({}, DM.dm_bacthue, { ten: "Biểu thuế mã " + st.thueMa, def: { "Mã thuế TNCN": st.thueMa },
+      rowFilter: function (r) { return !st.thueMa || r["Mã thuế TNCN"] === st.thueMa || !r["Mã thuế TNCN"]; } });
+    if (st.thueMa) w.appendChild(grid("dm_bacthue", childDef));
+    // Lịch sử thay đổi (nhật ký) liên quan mã đang chọn
+    var hist = (db.auditlog || []).filter(function (a) { return /Thuế TNCN|biểu thuế|dm_tncn|dm_bacthue/i.test((a.thaoTac || "") + " " + (a.chiTiet || "")) && ((a.chiTiet || "") + (a.thaoTac || "")).indexOf(st.thueMa) >= 0; }).slice(-15).reverse();
+    if (hist.length) { var hc = h("div", { class: "card" }); hc.appendChild(h("h3", { text: "Lịch sử thay đổi mã " + st.thueMa })); hc.appendChild(simpleTable(hist.map(function (a) { return { "Thời điểm": fmtTime(a.luc || ""), "Người": a.nguoi || "", "Thao tác": a.thaoTac || "", "Chi tiết": a.chiTiet || "" }; }))); w.appendChild(hc); }
     return w;
   }
 
@@ -1616,6 +1708,11 @@
     // P0 (BLOCKER — mục IV.2 "thiếu mã lương/tham số thiết yếu"): mã BHXH không có trong Danh mục
     // bảo hiểm → cả khối BH (NLĐ + công ty) bị BỎ QUA HOÀN TOÀN cho người đó (engine.js), không chỉ
     // tính sai — công ty có thể thiếu nghĩa vụ đóng BHXH thật. Chặn cứng, không cho bấm qua.
+    var gateBl = GATE.blockers(fresh);
+    if (gateBl.length) {
+      alert("⛔ KHÔNG THỂ CHỐT " + kyLabel(ky) + " — có lỗi chặn:\n" + gateBl.map(function (b) { return "• " + b.code + " — " + b.ten + " (" + b.count + "): " + b.items.slice(0, 2).join(" | "); }).join("\n") + "\n\nSửa cấu hình/dữ liệu rồi tính lại. Không có cách bỏ qua.");
+      return;
+    }
     var missingBH = fresh.canhbao.filter(function (w2) { return /chưa có trong Danh mục bảo hiểm/.test(w2); });
     if (missingBH.length) {
       alert("⛔ KHÔNG THỂ CHỐT — " + missingBH.length + " người có mã BHXH không có trong Danh mục bảo hiểm (toàn bộ BHXH/BHYT/BHTN của người đó đang bị BỎ QUA, không chỉ tính sai):\n" +
@@ -3578,7 +3675,7 @@
       c.appendChild(h("div", { class: "bar" }, [btn("📄 Mở file", "pri", function () { openFile(info.name); close(); }), btn("📂 Mở thư mục", "", function () { showFile(info.name); close(); }), btn("Xem file đã tải", "ghost", function () { close(); filesDrawer(); })]));
     } else {
       c.appendChild(h("div", { class: "t" }, ["⚠ Không lưu được file", btn("✕", "ghost", close)]));
-      c.appendChild(h("div", { class: "hint", text: (info.name || "") + " — " + (info.state === "cancelled" ? "đã hủy" : "lỗi khi ghi file (thư mục lưu có thể không ghi được; đổi thư mục trong “File đã tải”)") }));
+      c.appendChild(h("div", { class: "hint", text: (info.name || "") + " — " + (info.state === "blocked" ? "BỊ CHẶN bởi tiến trình chính: kỳ còn lỗi chặn xuất bảng lương (" + (info.blocked || "") + "). Sửa rồi tính lại." : info.state === "cancelled" ? "đã hủy" : "lỗi khi ghi file (thư mục lưu có thể không ghi được; đổi thư mục trong “File đã tải”)") }));
     }
     ($("#app") || document.body).appendChild(c); // trong #app: icon SVG tự đổi như các nút khác
     clearTimeout(downloadCard.t); downloadCard.t = setTimeout(close, 12000);
