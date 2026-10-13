@@ -1551,6 +1551,7 @@
     // Danh sách phiên bản của mã đang chọn + thao tác
     var vers = db.dm_tncn.filter(function (r) { return thueIsCha(r) && r["Mã thuế TNCN"] === st.thueMa; })
       .sort(function (a, b) { return String(a["Hiệu lực từ"] || "") < String(b["Hiệu lực từ"] || "") ? 1 : -1; });
+    var thueVerRow = function (o) { return vers.filter(function (r) { return String(r["Hiệu lực từ"] || "") === o.tu; })[0]; };
     var can2 = can("dm.edit");
     var vt = h("table"), vh = h("tr");
     ["Hiệu lực từ", "Hiệu lực đến", "Phương pháp", "Trạng thái", "Số bậc", ""].forEach(function (x) { vh.appendChild(h("th", { text: x })); });
@@ -1588,15 +1589,24 @@
         else if (!/^ng[ừu]ng/i.test(r["Trạng thái"] || "")) act.appendChild(btn("Ngừng", "", function () { setTT(r, "Ngừng"); }));
         act.appendChild(btn("Sao chép", "", function () { copyVer(r); }));
       }
+      act.appendChild(btn("Chi tiết", st.thueOpen && st.thueOpen.ma === r["Mã thuế TNCN"] && st.thueOpen.tu === (r["Hiệu lực từ"] || "") ? "pri" : "", function () {
+        if (!leaveOk()) return;
+        var same = st.thueOpen && st.thueOpen.ma === r["Mã thuế TNCN"] && st.thueOpen.tu === (r["Hiệu lực từ"] || "");
+        st.thueOpen = same ? null : { ma: r["Mã thuế TNCN"], tu: r["Hiệu lực từ"] || "" }; render();
+      }, "Mở/đóng biểu thuế (các bậc) của đúng phiên bản này"));
       tr.appendChild(act); vb.appendChild(tr);
     });
     vt.appendChild(vb);
     if (vers.length) card.appendChild(h("div", { class: "tw" }, [vt])); else card.appendChild(h("div", { class: "empty", text: "Chưa có mã thuế nào ở bảng cha. Thêm dòng ở bảng trên." }));
     w.appendChild(card);
     // Bảng con: biểu thuế của mã đang chọn
-    var childDef = Object.assign({}, DM.dm_bacthue, { ten: "Biểu thuế mã " + st.thueMa, def: { "Mã thuế TNCN": st.thueMa },
-      rowFilter: function (r) { return !st.thueMa || r["Mã thuế TNCN"] === st.thueMa || !r["Mã thuế TNCN"]; } });
-    if (st.thueMa) w.appendChild(grid("dm_bacthue", childDef));
+    var op = st.thueOpen && st.thueOpen.ma === st.thueMa ? st.thueOpen : null;
+    if (op) {
+      var childDef = Object.assign({}, DM.dm_bacthue, { ten: "Biểu thuế mã " + op.ma + " · hiệu lực từ " + (op.tu || "—"), def: { "Mã thuế TNCN": op.ma, "Hiệu lực từ": op.tu, "Trạng thái": (thueVerRow(op) || {})["Trạng thái"] || "Hiệu lực" },
+        rowFilter: function (r) { return r["Mã thuế TNCN"] === op.ma && String(r["Hiệu lực từ"] || "") === op.tu; } });
+      w.appendChild(h("div", { class: "hint", "data-tax-child": op.ma, text: "Các bậc của mã " + op.ma + " (phiên bản từ " + (op.tu || "—") + "): mã thuế và ngày hiệu lực tự gán theo bảng cha, không cần nhập lại. Kiểm tra chồng/hở bậc bằng nút 'Kiểm tra cấu hình thuế'." }));
+      w.appendChild(grid("dm_bacthue", childDef));
+    } else if (st.thueMa) w.appendChild(h("div", { class: "hint", text: "Bấm 'Chi tiết' ở một phiên bản phía trên để xem và sửa các bậc thuế của đúng phiên bản đó." }));
     // Lịch sử thay đổi (nhật ký) liên quan mã đang chọn
     var hist = (db.auditlog || []).filter(function (a) { return /Thuế TNCN|biểu thuế|dm_tncn|dm_bacthue/i.test((a.thaoTac || "") + " " + (a.chiTiet || "")) && ((a.chiTiet || "") + (a.thaoTac || "")).indexOf(st.thueMa) >= 0; }).slice(-15).reverse();
     if (hist.length) { var hc = h("div", { class: "card" }); hc.appendChild(h("h3", { text: "Lịch sử thay đổi mã " + st.thueMa })); hc.appendChild(simpleTable(hist.map(function (a) { return { "Thời điểm": fmtTime(a.luc || ""), "Người": a.nguoi || "", "Thao tác": a.thaoTac || "", "Chi tiết": a.chiTiet || "" }; }))); w.appendChild(hc); }
@@ -2713,7 +2723,9 @@
     t.appendChild(ctSection("5. Thuế & bảo hiểm"));
     if (c.maThueTNCN) {
       t.appendChild(ctRow("Mã thuế TNCN", "", c.maThueTNCN + " — " + (PP_THUE[c.phuongPhapThue] || c.phuongPhapThue)));
-      t.appendChild(ctRow("Thu nhập tính thuế", "Tổng thu nhập − BH NLĐ − KPCĐ NLĐ − Tiền cơm − giảm trừ bản thân/người phụ thuộc (nếu lũy tiến)", fmt(c.thuNhapTinhThue) + " đ", c.thuNhapTinhThue));
+      t.appendChild(ctRow("Thu nhập chịu thuế", "Tổng thu nhập − BH NLĐ − KPCĐ NLĐ − Tiền cơm (vãng lai: = tổng thu nhập)", "", c.thuNhapChiuThue));
+      t.appendChild(ctRow("Thu nhập tính thuế", "Thu nhập chịu thuế − giảm trừ bản thân − giảm trừ người phụ thuộc (không âm)", "", c.thuNhapTinhThue));
+      t.appendChild(ctRow("Thuế khấu trừ", "áp biểu thuế / tỷ lệ của mã " + c.maThueTNCN, "", b["Thuế TNCN"], true));
     }
     t.appendChild(ctRow("Thuế TNCN", "", "", b["Thuế TNCN"], true));
     t.appendChild(ctRow("BH trừ NLĐ", "theo Danh mục bảo hiểm, tỷ lệ NLĐ đóng", "", b["BH trừ NLĐ"], true));
@@ -2726,11 +2738,48 @@
     box.appendChild(h("div", { class: "hint", style: "margin-top:8px", text: "Số liệu lấy đúng từ bảng lương đã tính của kỳ này — không tính lại. Đối chiếu công thức gốc: menu Hướng dẫn & Quy chế lương." }));
     return box;
   }
+  /** V9.4 — XEM CHI TIẾT TÍNH THUẾ: luồng Nhân viên → Mã TNCN → biểu thuế → bậc → giảm trừ → thuế (số lấy từ bảng lương đã tính). */
+  function taxDetailEl(b) {
+    var c = b._ct || {}, box = h("div", { "data-tax-detail": "1" }), t = h("table");
+    var row = function (k, v, note) { t.appendChild(h("tr", {}, [h("td", { class: "t", text: k }), h("td", { class: "r", text: v }), h("td", { class: "t hint", text: note || "" })])); };
+    var sec = function (x) { t.appendChild(h("tr", {}, [h("td", { colspan: 3, text: x, style: "font-weight:700;padding-top:8px;border-bottom:1px solid #d3dcc7" })])); };
+    var nv = (db.nhanvien || []).filter(function (n) { return n["Mã NV"] === b["Mã NV"]; })[0] || {};
+    sec("1. Hồ sơ & cấu hình");
+    row("Nhân viên", b["Mã NV"] + " — " + b["Họ và tên"], "kỳ " + st.thang + "/" + st.nam);
+    row("Mã TNCN", c.maThueTNCN || "(chưa có)", c.maThueTNCN ? (PP_THUE[c.phuongPhapThue] || c.phuongPhapThue || "") : "Chưa gán mã thuế — KHÔNG tự chọn mã khác");
+    row("Mã giảm trừ bản thân / phụ thuộc", (c.maGTBT || "—") + " / " + (c.maGTPT || "—"), "tra theo hiệu lực trong kỳ");
+    row("Số người phụ thuộc (kỳ này)", String(c.soNPT || 0), nv["Người phụ thuộc"] != null ? "hồ sơ ghi " + nv["Người phụ thuộc"] : "");
+    sec("2. Ba chỉ tiêu thuế (tách riêng)");
+    row("Thu nhập chịu thuế", fmt(c.thuNhapChiuThue) + " đ", "= Tổng thu nhập " + fmt(b["Tổng thu nhập"]) + " − BH NLĐ " + fmt(b["BH trừ NLĐ"]) + " − KPCĐ NLĐ " + fmt(b["KPCĐ trừ NLĐ"]) + (c.phuongPhapThue === "VL" ? " (vãng lai: không trừ)" : " − Tiền cơm " + fmt(b["Tiền cơm"])));
+    row("Giảm trừ bản thân", fmt(c.giamTruBanThan) + " đ", "");
+    row("Giảm trừ người phụ thuộc", fmt(c.giamTruPhuThuoc) + " đ", c.soNPT + " người");
+    row("Thu nhập tính thuế", fmt(c.thuNhapTinhThue) + " đ", "= max(0, chịu thuế − giảm trừ)");
+    row("Thuế khấu trừ", fmt(b["Thuế TNCN"]) + " đ", c.phuongPhapThue === "VL" ? "tỷ lệ " + Math.round((c.tyLeVangLai || 0) * 1000) / 10 + "% × tổng thu nhập" : "");
+    if (c.phuongPhapThue && c.phuongPhapThue !== "VL" && c.phuongPhapThue !== "MIEN" && c.maThueTNCN) {
+      sec("3. Biểu thuế & bậc áp dụng");
+      var tt = E.thuThuTNCN(db, c.maThueTNCN, st.nam, st.thang, c.thuNhapTinhThue);
+      if (!tt.ok) row("TAX_CONFIG_ERROR", "—", tt.loi);
+      else {
+        row("Phương pháp", tt.phuongPhap, "biểu hiệu lực trong kỳ");
+        (tt.bieu || []).forEach(function (bk) {
+          var tu = E.money(bk["Thu nhập từ"]), den = E.money(bk["Thu nhập đến"]), tl = E.pct(bk["Tỷ lệ"]);
+          var trong = c.thuNhapTinhThue > tu && (!den || c.thuNhapTinhThue <= den);
+          row("Bậc " + bk["Bậc"] + (trong ? "  ◄ áp dụng" : ""), Math.round(tl * 1000) / 10 + "%", fmt(tu) + " → " + (den ? fmt(den) : "không giới hạn") + (E.money(bk["Trừ nhanh"]) ? " · trừ nhanh " + fmt(E.money(bk["Trừ nhanh"])) : ""));
+        });
+        row("Thuế tính lại từ biểu", fmt(tt.thue) + " đ", tt.thue === b["Thuế TNCN"] ? "khớp bảng lương" : "LỆCH bảng lương " + fmt(b["Thuế TNCN"]) + " — biểu đã đổi sau khi tính, cần tính lại");
+      }
+    }
+    (c.loiThueNV || []).forEach(function (m) { row("Lỗi cấu hình", "—", m); });
+    box.appendChild(t);
+    box.appendChild(h("div", { class: "hint", style: "margin-top:8px", text: "KPCĐ NLĐ được trừ khi xác định thu nhập chịu thuế; KPCĐ công ty đóng không ảnh hưởng thuế NLĐ. Kỳ đã chốt hiển thị số đã chốt, không đổi theo cấu hình hiện hành." }));
+    return box;
+  }
   function slipDialog(b) {
     var xemCT = false;
     var render2 = function () {
       return modal((xemCT ? "Chi tiết cách tính — " : "Chi tiết lương — ") + b["Họ và tên"], xemCT ? cachTinhEl(b) : slipEl(b), function (close) {
         return [btn("Đóng", "", close), btn(xemCT ? "🧾 Xem phiếu lương" : "📐 Xem cách tính", "", function () { xemCT = !xemCT; render2(); }),
+          btn("XEM CHI TIẾT TÍNH THUẾ", "", function () { modal("CHI TIẾT TÍNH THUẾ TNCN — " + b["Họ và tên"], taxDetailEl(b), function (cl) { return [btn("Đóng", "", cl)]; }); }),
           btn("🖨 In phiếu này", "pri", function () { var one = st.kq; st.kq = { bangluong: [b], ky: one.ky, bhxh: [], tncn: [], canhbao: [] }; st.tab = "slips"; st.kqFull = one; close(); render(); })];
       });
     };
