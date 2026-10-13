@@ -142,3 +142,16 @@ test("U-OCR8-13 ô sửa không có ô (cell) / không có ảnh: vẫn ghi sự
   assert.equal(store.lib.list().length, 0);
   const e = store.lib.edits()[0]; assert.deepEqual(e.flags, ["MISSING_SOURCE_IMAGE"]); assert.match(e.cellKey, /\|ref\|NV1\|05$/);
 });
+
+// ---- V8 P0-7: liên kết ô chấm công ↔ chứng từ gốc ----
+test("U-OCR8-14 liên kết ô: ghi 1 lần/ô; nhập lại cùng nguồn không nhân đôi; nhập lại từ chứng từ khác giữ lịch sử", () => {
+  const AL = require("../../core/att-links.js"), list = [];
+  const rid = AL.recordId("chamcong", { "Kỳ": "2026-09", "Mã NV": "NV001", "Hình thức công": "BT" }); assert.equal(rid, "CC|2026-09|NV001|BT");
+  const c = (doc, v) => ({ recordId: rid, day: "05", docId: doc, page: 2, key: doc + "|2|1|1|9|9|0", value: v, runId: "RUN-1", bbox: { x0: 1, y0: 1, x1: 9, y1: 9 }, imgW: 100, imgH: 80 });
+  assert.equal(AL.record(list, [c("DOC-A", "1")], { batchId: "B1", by: "u" }), 1);
+  AL.record(list, [c("DOC-A", "1")], { batchId: "B2" }); assert.equal(list.length, 1);
+  AL.record(list, [c("DOC-B", "0,5")], { batchId: "B3" });
+  assert.equal(list.length, 2); assert.equal(AL.mapOf(list)[rid + "|05"].docId, "DOC-B"); assert.equal(list[0].current, false);
+  assert.equal(AL.history(list, rid, "05").length, 2);
+  assert.equal(AL.record(list, [{ recordId: rid, day: "06", docId: "", key: "x", value: "1" }]), 0, "không có chứng từ gốc → không tạo liên kết giả");
+});

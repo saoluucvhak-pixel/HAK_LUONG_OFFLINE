@@ -53,13 +53,14 @@ function createVault(root, opts) {
     scan();
     const h = sha256(buf), old = bySha[h];
     if (old) return { ok: true, id: old.id, sha256: h, duplicate: true, name: old.name, size: old.size };
+    const sameName = Object.values(byId).filter((m) => m.name === name && m.sha256 !== h).map((m) => m.id); // cùng tên khác nội dung: vẫn lưu bản mới, báo để người dùng biết
     const id = newId(), meta = { id, sha256: h, name, ext, size: buf.length, addedAt: now().toISOString(), addedBy: String(info.user || "").slice(0, 60), note: String(info.note || "").slice(0, 300), pages: Number(info.pages) || 0 };
     meta.storedName = storedNameOf(meta, info); meta.docType = tok(info.docType, "BANGCONG"); meta.dept = tok(info.dept, "ALL"); meta.company = tok(info.company, "HAK"); meta.ky = /^\d{4}-\d{2}$/.test(String(info.ky || "")) ? info.ky : "";
     fs.mkdirSync(dirFor(id), { recursive: true });
     fs.writeFileSync(fileFor(meta), buf, { flag: "wx" }); // wx: không ghi đè
     fs.writeFileSync(sideFor(meta), JSON.stringify(meta, null, 1), { flag: "wx" });
     bySha[h] = meta; byId[id] = meta;
-    return { ok: true, id, sha256: h, duplicate: false, name, size: meta.size };
+    return { ok: true, id, sha256: h, duplicate: false, name, size: meta.size, sameNameDifferent: sameName };
   }
   function find(id) { scan(); return byId[id] || null; }
   function list() { scan(); return Object.values(byId).sort((a, b) => (a.addedAt < b.addedAt ? 1 : -1)); }
