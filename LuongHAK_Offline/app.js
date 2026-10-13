@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "luonghak_db_v1";
-  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate;
+  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate, HDD = C.hdld;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
 
   // ---------- Định nghĩa bảng ----------
@@ -95,7 +95,7 @@
   }
   // Chỉ TẠO bảng còn thiếu; bảng có nhưng sai kiểu đã bị chặn ở bước kiểm tra cấu trúc (không bao giờ thay bằng bảng rỗng)
   function ensureTables() {
-    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "ocr_ten", "chungtu_lienket"]).forEach(function (k) {
+    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "ocr_ten", "chungtu_lienket", "hdld_tailieu"]).forEach(function (k) {
       if (db[k] === undefined) db[k] = [];
       else if (!Array.isArray(db[k])) throw new Error("Bảng " + k + " sai cấu trúc — không tự thay thế");
     });
@@ -812,6 +812,110 @@
     return { "Số HĐLĐ": base["Mã NV"] + "/HĐ" + ("0" + n).slice(-2), "Ngày vào làm": HRM.today(), "Hình thức HĐLĐ": n === 1 ? "Thử việc" : "Xác định thời hạn" };
   };
 
+  // ---------- Tài liệu đính kèm HĐLĐ (V9.2) ----------
+  /** Thêm nhiều file PDF/ảnh vào kho chứng từ gốc rồi ghi liên kết. replaceRow = thay thế một tài liệu (phiên bản mới). */
+  function hdldAdd(files, ma, hd, loai, replaceRow, done) {
+    var list = Array.prototype.slice.call(files), res = { ok: 0, dup: 0, err: [] }, soHD = hd["Số HĐLĐ"];
+    var next = function (i) {
+      if (i >= list.length) { done(res); return; }
+      var f = list[i], e = HDD.checkFile(f.name, f.size);
+      if (e) { res.err.push(e); next(i + 1); return; }
+      f.arrayBuffer().then(function (buf) {
+        return window.hakDocs.add(new Uint8Array(buf), { name: f.name, docType: "HDLD", company: congTy()["Mã công ty"] || "HAK", dept: "NHANSU", note: "HĐLĐ " + soHD + " · " + ma, user: currentUser() });
+      }).then(function (r) {
+        if (!r || !r.ok) { res.err.push(f.name + ": " + ((r && r.error) || "lỗi không rõ")); next(i + 1); return; }
+        var dupRow = HDD.duplicate(db.hdld_tailieu, ma, soHD, r.sha256);
+        if (dupRow) { res.dup++; next(i + 1); return; } // cùng nội dung đã gắn với hợp đồng này
+        var rec = HDD.newLink({ maNV: ma, soHD: soHD, doc: { id: r.id, name: f.name, size: r.size, sha256: r.sha256 }, ten: f.name, loai: loai, user: currentUser() });
+        try { if (replaceRow) HDD.replace(replaceRow, rec, currentUser()); } catch (ex) { res.err.push(f.name + ": " + ex.message); next(i + 1); return; }
+        db.hdld_tailieu.push(rec);
+        audit(replaceRow ? "Thay thế tài liệu HĐLĐ" : "Đính kèm tài liệu HĐLĐ", ma + " · " + soHD + " · " + f.name + " · " + r.id + " · SHA-256 " + r.sha256.slice(0, 12) + "…" + (replaceRow ? " · thay " + replaceRow["DocumentID"] : ""));
+        res.ok++; next(i + 1);
+      }, function (ex) { res.err.push(f.name + ": " + (ex && ex.message || ex)); next(i + 1); });
+    };
+    next(0);
+  }
+  /** Xem trước theo yêu cầu (không nạp file khi chỉ hiển thị danh sách). PDF: dựng từng trang bằng pdf.js; ảnh: giải mã trực tiếp. */
+  function hdldPreview(row) {
+    if (!can("hr.view")) { alert("Bạn không có quyền xem tài liệu nhân sự."); return; }
+    var body = h("div"), meta = h("div", { class: "hint", text: "Đang mở " + row["Tên tài liệu"] + "…" }), cv = h("canvas", { style: "max-width:100%;border:1px solid var(--bd,#ccc)" }), nav = h("div", { class: "bar" });
+    body.appendChild(meta); body.appendChild(nav); body.appendChild(cv);
+    modal("Xem trước — " + row["Tên tài liệu"], body, function (close) { return [btn("Đóng", "pri", close)]; });
+    Promise.all([window.hakDocs.read(row["DocumentID"]), window.hakDocs.verify([row["DocumentID"]])]).then(function (rs) {
+      var r = rs[0], v = rs[1] && rs[1].items && rs[1].items[0];
+      if (!r || !r.ok) { meta.textContent = "⚠ Không mở được: " + ((r && r.error) || "mất file"); return; }
+      var bytes = new Uint8Array(r.data), isPdf = /pdf/i.test((r.meta || {}).ext || "") || (bytes[0] === 0x25 && bytes[1] === 0x50);
+      meta.textContent = row["Tên file gốc"] + " · " + HDD.sizeText(row["Dung lượng (byte)"]) + " · SHA-256 " + String(row["SHA256"]).slice(0, 16) + "… · toàn vẹn: " + (v ? (v.status === "ok" ? "✓ khớp" : "⚠ " + v.status) : "?");
+      if (!isPdf) { window.createImageBitmap(new Blob([bytes])).then(function (bm) { cv.width = bm.width; cv.height = bm.height; cv.getContext("2d").drawImage(bm, 0, 0); }, function () { meta.textContent = "⚠ Không giải mã được ảnh"; }); return; }
+      loadScript("vendor/pdfjs/pdf.min.js").then(function () {
+        var lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = "vendor/pdfjs/pdf.worker.min.js";
+        return lib.getDocument({ data: bytes }).promise;
+      }).then(function (pdf) {
+        var cur = 1, info = h("span", { class: "hint", style: "margin:0" });
+        var show = function (n) { cur = n; info.textContent = "Trang " + n + "/" + pdf.numPages; pdf.getPage(n).then(function (pg) { var vp = pg.getViewport({ scale: 1.5 }); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height); return pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise; }); };
+        nav.appendChild(btn("◀", "", function () { if (cur > 1) show(cur - 1); })); nav.appendChild(info); nav.appendChild(btn("▶", "", function () { if (cur < pdf.numPages) show(cur + 1); }));
+        show(1);
+      }).catch(function (e) { meta.textContent = "⚠ Không dựng được PDF: " + (e && e.message || e); });
+    });
+  }
+  function hdldHistory(row) {
+    var rows = HDD.history(db.hdld_tailieu, row).map(function (r) { return { "Phiên bản": r["Phiên bản"], "Tên file": r["Tên file gốc"], "DocumentID": r["DocumentID"], "SHA-256": String(r["SHA256"]).slice(0, 16) + "…", "Thêm lúc": fmtTime(r["Thêm lúc"]), "Người thêm": r["Người thêm"], "Trạng thái": r["Trạng thái"], "Ghi chú": r["Lý do gỡ"] || (r["Thay thế bởi"] ? "Thay bởi " + r["Thay thế bởi"] : "") }; });
+    modal("Lịch sử tài liệu — " + row["Tên tài liệu"], simpleTable(rows), function (close) { return [btn("Đóng", "", close)]; });
+  }
+  function hdldPanel(ma, hd) {
+    var cfg = HR.hdld_tailieu, soHD = hd["Số HĐLĐ"], card = h("div", { class: "card" }), canV = can("hr.view"), canE = can("hr.edit");
+    var bar = h("div", { class: "bar" }, [h("h3", { text: cfg.icon + " " + cfg.ten, style: "margin:0" }), h("span", { class: "sp" })]);
+    card.appendChild(bar); card.appendChild(h("div", { class: "hint", text: cfg.desc + " Tối đa " + (HDD.MAX_BYTES / 1048576) + " MB/file; hệ thống kiểm tra NỘI DUNG thật của file và từ chối PDF chứa mã chủ động." }));
+    if (!window.hakDocs) { card.appendChild(h("div", { class: "warn", text: "Đính kèm tài liệu chỉ có trong bản cài (.exe): file được lưu vào kho chứng từ gốc trên máy." })); return card; }
+    if (!canV) { card.appendChild(h("div", { class: "locked", text: "👁 Vai trò của bạn không có quyền xem hồ sơ nhân sự nên không xem được tài liệu đính kèm." })); return card; }
+    var loaiSel = h("select", { "aria-label": "Loại tài liệu" }); HDD.LOAI.forEach(function (x) { loaiSel.appendChild(h("option", { value: x, text: x })); });
+    var fi = h("input", { type: "file", multiple: "multiple", accept: ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg", style: "display:none" });
+    var finish = function (res) {
+      if (res.ok) save(); render();
+      toast("Đã đính kèm " + res.ok + " tài liệu" + (res.dup ? " · bỏ qua " + res.dup + " file trùng nội dung" : "") + (res.err.length ? " · " + res.err.length + " file lỗi" : ""));
+      if (res.err.length) alert("Không đính kèm được:\n• " + res.err.join("\n• "));
+    };
+    fi.addEventListener("change", function () { if (!fi.files.length) return; if (!need("hr.edit")) return; hdldAdd(fi.files, ma, hd, loaiSel.value, null, finish); fi.value = ""; });
+    if (canE) { bar.appendChild(loaiSel); bar.appendChild(btn("＋ Thêm tài liệu (chọn nhiều PDF/ảnh)", "pri", function () { fi.click(); })); bar.appendChild(fi); }
+    var verBtn = btn("🛡 Kiểm tra toàn vẹn", "", function () {
+      var ids = HDD.active(db.hdld_tailieu, ma, soHD).map(function (r) { return r["DocumentID"]; });
+      window.hakDocs.verify(ids).then(function (r) { var bad = ((r && r.items) || []).filter(function (x) { return x.status !== "ok"; }); alert(bad.length ? "⚠ " + bad.length + " tài liệu có vấn đề:\n" + bad.map(function (x) { return "• " + x.name + " — " + x.status; }).join("\n") : "✓ " + ids.length + " tài liệu: file còn đủ, SHA-256 khớp."); });
+    });
+    bar.appendChild(verBtn);
+    var showAll = h("input", { type: "checkbox" }); showAll.checked = !!st.hdldAll; showAll.addEventListener("change", function () { st.hdldAll = showAll.checked; render(); });
+    bar.appendChild(h("label", { class: "chip" }, [showAll, document.createTextNode(" Hiện cả bản cũ / đã gỡ")]));
+    var rows = HDD.ofContract(db.hdld_tailieu, ma, soHD).filter(function (r) { return st.hdldAll || r["Trạng thái"] === HDD.TT.OK; }).sort(function (a, b) { return String(b["Thêm lúc"]) < String(a["Thêm lúc"]) ? -1 : 1; });
+    if (!rows.length) { card.appendChild(h("div", { class: "empty", style: "padding:16px", text: "Chưa có tài liệu đính kèm." })); return card; }
+    var t = h("table"), tr = h("tr");
+    ["Tên tài liệu", "Loại", "Phiên bản", "Dung lượng", "Thêm lúc", "Người thêm", "Trạng thái", ""].forEach(function (c) { tr.appendChild(h("th", { text: c })); });
+    t.appendChild(h("thead", {}, [tr]));
+    var tb = h("tbody");
+    rows.forEach(function (r) {
+      var x = h("tr", { class: r["Trạng thái"] === HDD.TT.OK ? "" : "muted" });
+      [r["Tên tài liệu"], r["Loại tài liệu"], "v" + (r["Phiên bản"] || 1), HDD.sizeText(r["Dung lượng (byte)"]), fmtTime(r["Thêm lúc"]), r["Người thêm"], r["Trạng thái"]].forEach(function (v) { x.appendChild(h("td", { class: "t", text: v == null ? "" : String(v) })); });
+      var a = h("td", { style: "text-align:right;white-space:nowrap" });
+      a.appendChild(btn("👁", "ghost", function () { hdldPreview(r); }, "Xem trước (chỉ nạp file khi bấm)"));
+      a.appendChild(btn("↗", "ghost", function () { if (can("hr.view")) window.hakDocs.open(r["DocumentID"]); }, "Mở bằng chương trình mặc định"));
+      a.appendChild(btn("🕘", "ghost", function () { hdldHistory(r); }, "Lịch sử các phiên bản"));
+      if (canE && r["Trạng thái"] === HDD.TT.OK) {
+        var rf = h("input", { type: "file", accept: ".pdf,.png,.jpg,.jpeg", style: "display:none" });
+        rf.addEventListener("change", function () { if (!rf.files.length || !need("hr.edit")) return; hdldAdd([rf.files[0]], ma, hd, r["Loại tài liệu"], r, function (res) { if (res.ok) save(); render(); toast(res.ok ? "Đã thay thế bằng phiên bản mới" : res.dup ? "File giống hệt tài liệu đang có — không thay" : "Không thay được"); if (res.err.length) alert(res.err.join("\n")); }); });
+        a.appendChild(rf);
+        a.appendChild(btn("🔁", "ghost", function () { rf.click(); }, "Thay thế bằng file mới (giữ bản cũ trong lịch sử)"));
+        a.appendChild(btn("✕", "red ghost", function () {
+          if (!need("hr.edit")) return;
+          askText("Gỡ liên kết tài liệu", "Tài liệu \"" + r["Tên tài liệu"] + "\" sẽ không còn hiện trong hợp đồng. File gốc VẪN nằm trong kho chứng từ và xem lại được ở Lịch sử.", { label: "Lý do gỡ", required: true, okText: "Gỡ liên kết" }, function (why) {
+            try { HDD.unlink(r, currentUser(), why); } catch (ex) { alert(ex.message); return; }
+            audit("Gỡ liên kết tài liệu HĐLĐ", ma + " · " + soHD + " · " + r["Tên file gốc"] + " · " + r["DocumentID"] + " — " + why); save(); render();
+          });
+        }, "Gỡ liên kết (không xóa file)"));
+      }
+      x.appendChild(a); tb.appendChild(x);
+    });
+    t.appendChild(tb); card.appendChild(h("div", { class: "tw" }, [t]));
+    return card;
+  }
+
   function subTable(key, base, opts) {
     opts = opts || {};
     var cfg = HR[key], rows = (db[key] || []).filter(function (r) { return Object.keys(base).every(function (k) { return r[k] === base[k]; }); });
@@ -1070,7 +1174,7 @@
       t2.appendChild(h("button", { class: st.hdTab === k ? "on" : "", on: { click: function () { st.hdTab = k; render(); } } }, [document.createTextNode(HR[k].icon + " " + HR[k].ten), n ? h("span", { class: "n", text: n }) : null]));
     });
     w.appendChild(t2);
-    w.appendChild(subTable(st.hdTab, { "Mã NV": ma, "Số HĐLĐ": cur["Số HĐLĐ"] }));
+    w.appendChild(st.hdTab === "hdld_tailieu" ? hdldPanel(ma, cur) : subTable(st.hdTab, { "Mã NV": ma, "Số HĐLĐ": cur["Số HĐLĐ"] }));
     return w;
   }
 
@@ -1283,7 +1387,7 @@
       if (rs.length) body.appendChild(simpleTable(rs.map(function (x) { return { "Mức": x.level, "Nội dung": x.msg }; })));
       modal("Kiểm tra cấu hình thuế TNCN", body, function (close) { return [btn("Đóng", "", close)]; });
     }));
-    bar.appendChild(btn("🧮 Thử tính thuế", "", function () {
+    bar.appendChild(btn("📐 Thử tính thuế", "", function () {
       var inp = h("input", { class: "i", value: "20000000", style: "width:200px" }), out = h("div", { style: "margin-top:10px" });
       var body = h("div", {}, [h("div", { class: "hint", text: "Nhập thu nhập TÍNH THUẾ (sau các khoản giảm trừ) để xem thuế theo mã " + st.thueMa + " ở kỳ " + st.thang + "/" + st.nam + ". Chỉ tính thử — không ghi dữ liệu." }),
         h("div", { class: "fld" }, [h("label", { text: "Thu nhập tính thuế (đ)" }), inp]), out]);

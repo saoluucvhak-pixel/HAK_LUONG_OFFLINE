@@ -122,14 +122,21 @@ function registerIpc() {
   ipcMain.handle("ocrlib-verify", guarded("input.view", olWrap(() => ({ report: ocrLib.verify() }))));
   // Kho chứng từ gốc (GĐ4): chỉ THÊM / ĐỌC / KIỂM TRA — không có thao tác xóa. Giao diện chỉ dùng DocumentID, không truyền đường dẫn.
   const toBuf = (d) => d instanceof ArrayBuffer ? Buffer.from(d) : ArrayBuffer.isView(d) ? Buffer.from(d.buffer, d.byteOffset, d.byteLength) : null;
-  ipcMain.handle("doc-add", guardedW("input.edit", async (e, data, info) => {
-    try { const b = toBuf(data); if (!b) return { ok: false, error: "Dữ liệu chứng từ không hợp lệ" }; if (b.length > 300 * 1024 * 1024) return { ok: false, error: "Chứng từ quá lớn (tối đa 300 MB)" }; return vault.add(b, info && typeof info === "object" ? { name: info.name, user: guard.userOf(e),  note: info.note, pages: info.pages } : {}); }
+  // V9.2: tài liệu HĐLĐ (docType HDLD) là hồ sơ nhân sự → thêm cần hr.edit, xem/mở/liệt kê cần hr.view; chứng từ chấm công giữ input.edit / input.view
+  const isHdld = (m) => !!(m && m.docType === "HDLD");
+  ipcMain.handle("doc-add", guardedW(null, async (e, data, info) => {
+    try {
+      const hd = info && typeof info === "object" && String(info.docType || "").toUpperCase() === "HDLD", d = guard.deny(e, hd ? "hr.edit" : "input.edit");
+      if (d) return { ok: false, error: d };
+      const b = toBuf(data); if (!b) return { ok: false, error: "Dữ liệu chứng từ không hợp lệ" }; if (b.length > 300 * 1024 * 1024) return { ok: false, error: "Chứng từ quá lớn (tối đa 300 MB)" };
+      return vault.add(b, Object.assign({}, info && typeof info === "object" ? info : {}, { user: guard.userOf(e) }));
+    }
     catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
-  ipcMain.handle("doc-list", guarded("input.view", async () => { try { return { ok: true, docs: vault.list() }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
-  ipcMain.handle("doc-read", guarded("input.view", async (e, id) => { try { const r = vault.read(String(id || "")); return r.ok ? { ok: true, meta: r.meta, data: r.data } : r; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
-  ipcMain.handle("doc-verify", guarded("input.view", async (e, ids) => { try { return { ok: true, items: vault.verify(Array.isArray(ids) ? ids.map(String) : undefined) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
-  ipcMain.on("doc-open", (e, id) => { if (guard.deny(e, "input.view")) { e.returnValue = false; return; } const f = vault.pathOf(String(id || "")); if (f) shellDo("open", f); e.returnValue = !!f; });
+  ipcMain.handle("doc-list", guarded(null, async (e) => { try { const hv = !guard.deny(e, "hr.view"), iv = !guard.deny(e, "input.view"); if (!hv && !iv) return { ok: false, error: "Bạn không có quyền xem chứng từ" }; return { ok: true, docs: vault.list().filter((m) => (isHdld(m) ? hv : iv)) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
+  ipcMain.handle("doc-read", guarded(null, async (e, id) => { try { const m = vault.find(String(id || "")), d = guard.deny(e, isHdld(m) ? "hr.view" : "input.view"); if (d) return { ok: false, error: d }; const r = vault.read(String(id || "")); return r.ok ? { ok: true, meta: r.meta, data: r.data } : r; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
+  ipcMain.handle("doc-verify", guarded(null, async (e, ids) => { try { const hv = !guard.deny(e, "hr.view"), iv = !guard.deny(e, "input.view"); if (!hv && !iv) return { ok: false, error: "Bạn không có quyền xem chứng từ" }; const items = vault.verify(Array.isArray(ids) ? ids.map(String) : undefined); return { ok: true, items: items.filter((x) => (isHdld(vault.find(x.id)) ? hv : iv)) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
+  ipcMain.on("doc-open", (e, id) => { const m = vault.find(String(id || "")); if (guard.deny(e, isHdld(m) ? "hr.view" : "input.view")) { e.returnValue = false; return; } const f = vault.pathOf(String(id || "")); if (f) shellDo("open", f); e.returnValue = !!f; });
   // Full Backup / Restore (GĐ5): gói ZIP = dữ liệu + chứng từ gốc + manifest SHA-256. Giao diện không truyền đường dẫn:
   // tạo vào thư mục xuất (và chép sang thư mục sao lưu thứ hai nếu có); đọc gói qua hộp thoại chọn file hoặc theo TÊN trong thư mục xuất.
   // Thư mục Full Backup chính: cấu hình `backupDir` (Cài đặt → Lưu trữ) hoặc thư mục xuất file

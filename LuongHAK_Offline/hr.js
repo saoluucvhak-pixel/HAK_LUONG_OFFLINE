@@ -101,8 +101,10 @@
       { k: "Loại tài liệu", t: "sel", o: ["CCCD", "Giấy khám sức khỏe", "Bằng cấp", "Hợp đồng", "Khác"], req: 1 }, { k: "Tên tài liệu", req: 1 },
       { k: "Đường dẫn file", hint: "VD: D:\\HoSo\\NV001\\cccd.pdf (file lưu trên máy, app chỉ ghi đường dẫn)" }, { k: "Ngày tài liệu", t: "date" }, { k: "Ghi chú", t: "area" }] }
   };
+  HR.hdld_tailieu = { ten: "Tài liệu đính kèm (PDF/ảnh)", icon: "📎", lv: "hd", custom: "files", f: [{ k: "Tên tài liệu", req: 1 }], cols: ["Tên tài liệu", "Loại tài liệu", "Phiên bản", "Trạng thái"],
+      desc: "Đính kèm nhiều file PDF/JPG/PNG vào hợp đồng. File lưu NGUYÊN BẢN trong kho chứng từ gốc (DocumentID + SHA-256), không ghi đè, không xóa; thay thế = phiên bản mới, bản cũ xem lại ở Lịch sử." };
   var NV_TABS = ["canhan", "hopdong", "nhanthan", "thanhtoan", "congtac", "hocvan", "daotao", "suckhoe", "tainanld", "lienhe", "nghenghiep"];
-  var HD_TABS = ["chitiethd", "quyenloiphep", "nghiphep", "nghiom", "khamsk", "khenthuong", "noiquy", "tailieu"];
+  var HD_TABS = ["chitiethd", "quyenloiphep", "nghiphep", "nghiom", "khamsk", "khenthuong", "noiquy", "tailieu", "hdld_tailieu"];
   Object.keys(HR).forEach(function (k) {
     var c = HR[k];
     c.key = k; c.hr = true;
