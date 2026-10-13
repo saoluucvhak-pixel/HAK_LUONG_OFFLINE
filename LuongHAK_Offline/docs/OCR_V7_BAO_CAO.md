@@ -20,7 +20,7 @@ Nhánh: `feature/ocr-smart-learning-document-archive` (tách từ `feature/luong
 Phân quyền: ghi mẫu / duyệt bảng = `input.edit`; xem / tra cứu = `input.view`; duyệt-từ chối-đổi nhãn mẫu và bật CONFIRMED = quyền mới `ocr.library` (Admin, Kế toán lương); đổi thư mục lưu trữ = `backup.restore`. Mọi kênh IPC `ocrlib-*`, `paths-*` đi qua `guarded` ở tiến trình chính. **Không có thao tác xóa mẫu** và không có API sửa chứng từ gốc. Thư viện chỉ ảnh hưởng đọc OCR mới; kỳ lương đã chốt không bị đụng (nhập vẫn qua kiểm kỳ chốt của importer).
 
 ## 2. Kiểm thử (chạy thật)
-- `npm test`: 404/404 đạt; e2e: 150/150 đạt (Linux). Trong đó có 24 test mới ở `tests/unit/ocr-learning.test.js` (đặc trưng, 1→7→1, duyệt/UNKNOWN/CONFLICT, ghi lỗi không đổi trạng thái, dòng nhật ký cắt dở, tra cứu không AUTO sai, Full Backup + khôi phục + sửa 1 byte bị từ chối, bố cục, lớp chữ PDF, luật nghiệp vụ, kịch bản 0,5→0,6 / trống→1 / xóa / X / gần-trùng), `tests/unit/storage-paths.test.js` (6), tên chuẩn chứng từ.
+- `npm test`: 404/404 đạt; ESLint 0 lỗi; e2e: 153/153 đạt (Linux). Trong đó có 24 test mới ở `tests/unit/ocr-learning.test.js` (đặc trưng, 1→7→1, duyệt/UNKNOWN/CONFLICT, ghi lỗi không đổi trạng thái, dòng nhật ký cắt dở, tra cứu không AUTO sai, Full Backup + khôi phục + sửa 1 byte bị từ chối, bố cục, lớp chữ PDF, luật nghiệp vụ, kịch bản 0,5→0,6 / trống→1 / xóa / X / gần-trùng), `tests/unit/storage-paths.test.js` (6), tên chuẩn chứng từ.
 - e2e (Playwright + Electron, Linux): thêm 4 kịch bản — tự học khi sửa ô 0,5→1→0,5; duyệt bảng → VERIFIED; PDF có lớp chữ dựng bảng không OCR; đổi thư mục thư viện mẫu sang ổ khác.
 
 ## 3. Benchmark thật (`node tests/perf/ocr-library-bench.js`, kết quả ở `tests/perf/last-ocr-library-bench.json`)
@@ -34,7 +34,7 @@ Tra cứu 1 ô theo quy mô thư viện (máy kiểm thử, 1 luồng): 100 mẫ
 4. Tab "Chữ viết tay" (tên người, chữ) mới là khung — thư viện hiện học **chữ số / ký hiệu** ở mức ô, chưa học chữ.
 5. PDF scan 100 trang: đọc theo lô 30 trang + nút "Đọc tiếp" (e2e đã kiểm 35 trang, không bỏ trang, lỗi từng trang được báo riêng); chưa chạy 100 trang scan thật. Chưa có pool nhiều tiến trình riêng — dùng worker Tesseract sẵn có.
 6. Lịch sử nhầm lẫn được **tính từ mẫu** (không có file riêng); "snapshot kết quả OCR đã duyệt" nằm trong dữ liệu Chấm công + nhật ký hệ thống, chưa có snapshot riêng trong Full Backup.
-7. ESLint chưa chạy.
+7. Đã chạy ESLint (0 lỗi). Build Windows vẫn chưa làm được trong môi trường Linux.
 
 ## 5. Build Windows & kiểm tay (người có máy Windows)
 ```

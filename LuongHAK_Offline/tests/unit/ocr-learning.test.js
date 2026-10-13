@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("fs"), os = require("os"), path = require("path");
-const S = require("../fixtures/synth-digits.js"), F = require("../../core/ocr-learning/features.js"), L = require("../../core/ocr-learning/library.js");
+const S = require("../fixtures/synth-digits.js"), F = require("../../core/ocr-learning/features.js");
 const { createStore } = require("../../main/ocr-library.js");
 const bb = (a, b, c, d) => ({ x0: a, y0: b, x1: c, y1: d });
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "ocrlib-"));

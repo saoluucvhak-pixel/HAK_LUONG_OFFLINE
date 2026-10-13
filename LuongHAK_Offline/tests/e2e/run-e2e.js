@@ -142,6 +142,14 @@ async function launch(dataDir, opt) {
     await w.locator("main .bar button", { hasText: "Xuất PDF…" }).click();
     const p2 = await waitPdf(/^BangLuong_.*\.pdf$/, before);
     ok("Tính lương: PDF 'Bảng lương' (theo bộ lọc) ra file PDF thật", isPdf(p2), String(p2));
+    // Chấm công dùng bộ lọc chung (không còn ô tìm riêng)
+    await w.click("#nav button[data-k=chamcong]");
+    const nAll = await w.locator("main table tbody tr").count();
+    await w.locator("[data-rf-key=tuKhoa]").fill("zzzkhongco"); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
+    const nNone = await w.locator("main table tbody tr").count(), hasOld = await w.locator("main input.search").count();
+    await w.locator("[data-rf-key=tuKhoa]").fill(""); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
+    const nBack = await w.locator("main table tbody tr").count();
+    ok("Chấm công: dùng thanh lọc chung (từ khóa, phòng ban), không còn ô tìm riêng; lọc không khớp → hết dòng, xóa lọc → hiện lại", nAll > 0 && nNone === 0 && nBack === nAll && hasOld === 0, [nAll, nNone, nBack, hasOld].join("/"));
   }
   await w.click("#nav button[data-k=luong]"); if (await w.locator("button.big").count()) await w.click("button.big");
   // Master Prompt V3 mục 16.3: "Xem chi tiết cách tính" — bấm 1 dòng bảng lương → phiếu lương, chuyển sang xem công thức
@@ -269,6 +277,19 @@ async function launch(dataDir, opt) {
   const nSl0 = +(await w.locator("[data-slips]").getAttribute("data-slips"));
   await w.fill('main input[type=search]', "e2e nhan"); await w.dispatchEvent('main input[type=search]', "change"); await w.waitForTimeout(150);
   const nSl1 = +(await w.locator("[data-slips]").getAttribute("data-slips"));
+  {
+    const waitPdf = async (re, bf) => { let n = null; for (let i = 0; i < 100 && !n; i++) { await w.waitForTimeout(300); n = fs.readdirSync(DL).filter((f) => re.test(f) && !bf.includes(f))[0]; } return n; };
+    const isPdf = (n) => { const b = n ? fs.readFileSync(path.join(DL, n)) : Buffer.alloc(0); return b.slice(0, 5).toString() === "%PDF-" && /\/Type\s*\/Page(?![s\w])/.test(b.toString("latin1")) && b.length > 1500; };
+    await w.fill('main input[type=search]', ""); await w.dispatchEvent('main input[type=search]', "change"); await w.waitForTimeout(150);
+    let bf = fs.readdirSync(DL); await w.locator('main .bar button:has-text("PDF")').first().click();
+    const ps = await waitPdf(/^PhieuLuong_.*\.pdf$/, bf);
+    ok("Phiếu lương: nút PDF ra file PDF thật", isPdf(ps), String(ps));
+    await w.click("#nav button[data-k=kyluong]"); bf = fs.readdirSync(DL);
+    await w.locator('main tbody button:has-text("PDF")').first().click();
+    const pk = await waitPdf(/^BangLuongDaChot_.*\.pdf$/, bf);
+    ok("Kỳ lương đã chốt: nút PDF ra file PDF thật (bảng lương như lúc chốt)", isPdf(pk), String(pk));
+    await w.click("#nav button[data-k=slips]"); await w.waitForSelector("[data-slips]");
+  }
   await w.click('main button:has-text("Xuất Excel")');
   let pf = null; for (let i = 0; i < 30 && !pf; i++) { await w.waitForTimeout(200); pf = fs.readdirSync(DL).filter((f) => /^PhieuLuong_2026-09\.xlsx$/.test(f))[0]; }
   let pfOk = false;

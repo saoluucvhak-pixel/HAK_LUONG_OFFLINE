@@ -1,3 +1,4 @@
+/* global Buffer */
 // ===== OCR LEARNING / FEATURES — đặc trưng ảnh ô (không huấn luyện AI; chỉ tính toán xác định từ điểm ảnh) =====
 // Ô xám (nền sáng, nét tối) → nhị phân Otsu → hộp mực → chuẩn hóa 24×24 giữ tỉ lệ → vector:
 //   [mật độ mực 12×12 (144)] + [HOG 4×4 khối × 8 hướng (128)] + [tỉ lệ khung, mật độ mực, cỡ tương đối so với ô (3)]

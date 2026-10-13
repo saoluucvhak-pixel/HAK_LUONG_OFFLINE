@@ -27,7 +27,7 @@
     var now = opts.now || function () { return new Date().toISOString(); };
     var seq = 0, rand = opts.rand || function () { return Math.random().toString(36).slice(2, 8).toUpperCase(); };
     var samples = {}, edits = [], active = {}, bySha = {}, refs = {}, order = [];
-    var index = null, version = 0; // index dựng lười, hủy khi trạng thái đổi
+    var index = null; // index dựng lười, hủy khi trạng thái đổi
 
     function newId(p) { seq++; return p + "-" + now().replace(/[-:TZ.]/g, "").slice(0, 14) + "-" + String(seq).padStart(4, "0") + rand(); }
 
@@ -44,7 +44,7 @@
       else if (rec.t === "status") { var a = samples[rec.id]; if (a) { a.history.push({ at: rec.at, by: rec.by, what: "status", from: a.status, to: rec.status, reason: rec.reason || "" }); a.status = rec.status; if (rec.status !== ST.PENDING && rec.status !== ST.VERIFIED && a.cellKey && active[a.cellKey] === a.id) delete active[a.cellKey]; if (rec.status === ST.VERIFIED) { a.verifiedAt = rec.at; a.verifiedBy = rec.by; } } }
       else if (rec.t === "relabel") { var b = samples[rec.id]; if (b) { b.history.push({ at: rec.at, by: rec.by, what: "label", from: b.label, to: rec.label, reason: rec.reason || "" }); b.label = rec.label; if (rec.labelKind) b.labelKind = rec.labelKind; } }
       else if (rec.t === "refs") { Object.keys(rec.counts || {}).forEach(function (k) { refs[k] = (refs[k] || 0) + rec.counts[k]; }); }
-      index = null; version++;
+      index = null;
     }
     var deferred = false;
     function emit(recs) { if (!deferred) recs.forEach(apply); return recs; }
@@ -145,7 +145,7 @@
       top.sort(function (a, b) { return b.sim - a.sim; });
       var tk = top.slice(0, cfg.topK), byLabel = {};
       tk.forEach(function (t) { var w = Math.pow(t.sim, 8); var e = byLabel[t.label] || (byLabel[t.label] = { w: 0, best: 0, n: 0 }); e.w += w; e.n++; if (t.sim > e.best) e.best = t.sim; });
-      var labels = Object.keys(byLabel).sort(function (a, b) { return byLabel[b].w - byLabel[a].w; }), best = labels[0], second = labels[1];
+      var labels = Object.keys(byLabel).sort(function (a, b) { return byLabel[b].w - byLabel[a].w; }), best = labels[0];
       var tot = labels.reduce(function (s, k) { return s + byLabel[k].w; }, 0) || 1, cons = byLabel[best].w / tot, bs = byLabel[best].best;
       // nhãn khác cũng có mẫu rất gần (kể cả ngoài top-K) → không chắc
       var rival = null; top.forEach(function (t) { if (t.label !== best && (!rival || t.sim > rival.sim)) rival = t; });

@@ -21,7 +21,7 @@ test("U-STOR-02 chuyển chứng từ: chép + kiểm SHA-256, nguồn còn nguy
   assert.ok(v2.find(a.id) && v2.find(b.id));
 });
 test("U-STOR-03 đích có file khác nội dung → từ chối, không đổi cấu hình, không ghi đè", () => {
-  const ud = tmp(), dst = tmp(); const v = createVault(path.join(ud, "documents")); const a = v.add(Buffer.from("goc"), { name: "a.png" });
+  const ud = tmp(), dst = tmp(); const v = createVault(path.join(ud, "documents")); v.add(Buffer.from("goc"), { name: "a.png" });
   const rel = fs.readdirSync(path.join(ud, "documents"))[0], sub = fs.readdirSync(path.join(ud, "documents", rel))[0];
   fs.mkdirSync(path.join(dst, rel), { recursive: true }); fs.writeFileSync(path.join(dst, rel, sub), "KHAC");
   let saved = null; const r = SP.move({ kind: "docs", dir: dst, userData: ud, settings: {}, writeSettings: (s) => { saved = s; } });
