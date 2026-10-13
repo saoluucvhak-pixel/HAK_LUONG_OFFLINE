@@ -15,6 +15,8 @@ let dialogMode = "accept"; // "dismiss" = bấm Hủy ở hộp xác nhận
 function ok(name, cond, extra) { results.push({ name, pass: !!cond, extra: extra || "" }); console.log((cond ? "PASS " : "FAIL ") + name + (extra ? " — " + extra : "")); }
 
 const ADMIN = { u: "admin", n: "Quản trị E2E", p: "Admin2026e2e" };
+const shotDir = process.env.E2E_SHOTS || "";
+const shotOf = async (pg, name) => { if (shotDir) { fs.mkdirSync(shotDir, { recursive: true }); await pg.screenshot({ path: path.join(shotDir, name + ".png") }).catch(() => {}); } };
 let dialogs = [], dismissConfirm = false; // dismissConfirm: bấm "Hủy" ở hộp xác nhận tiếp theo
 // Đăng nhập (hoặc tạo Admin đầu tiên nếu dữ liệu chưa có tài khoản). Màn hình khôi phục (file hỏng) không cần đăng nhập.
 async function auth(w, who) {
@@ -127,6 +129,7 @@ async function launch(dataDir, opt) {
     ok("Bộ lọc V9.4: Escape / bấm lại nút / bấm ra ngoài đều đóng popover", p3 === 0 && p4 === 0 && p5 === 0, [p3, p4, p5].join(","));
     // popover nằm trong cửa sổ và không tràn
     await w.locator('[data-fkey="' + keys[0] + '"]').click();
+    await shotOf(w, "01-bo-loc-popover");
     const box = await w.locator("[data-fpop]").boundingBox(), vp = w.viewportSize() || { width: 1280, height: 800 };
     ok("Bộ lọc V9.4: popover nằm trọn trong cửa sổ", box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1, JSON.stringify(box));
     const rows = await w.locator("[data-fpop] .fpop-row").count();
@@ -325,6 +328,7 @@ async function launch(dataDir, opt) {
     if (nChiTiet) {
       await w.locator('#main table button:has-text("Chi tiết")').first().click(); await w.waitForTimeout(300);
       const open1 = await w.locator("[data-tax-child]").count(), childTxt = await w.locator("#main").innerText();
+      await shotOf(w, "04-thue-tncn-chi-tiet-cha-con");
       ok("V9.4: Thuế TNCN — bấm 'Chi tiết' mở panel bậc thuế con của đúng mã/phiên bản (mã & hiệu lực tự gán)", before === 0 && open1 === 1 && /Các bậc của mã/.test(childTxt), "before=" + before + " open=" + open1);
       await w.locator('#main table button:has-text("Chi tiết")').first().click(); await w.waitForTimeout(200);
       ok("V9.4: Thuế TNCN — bấm 'Chi tiết' lần nữa đóng panel", (await w.locator("[data-tax-child]").count()) === 0);
@@ -339,10 +343,12 @@ async function launch(dataDir, opt) {
     ok("V9.4: tiêu đề báo cáo IN HOA trên màn hình", h2 === h2.toLocaleUpperCase("vi-VN") && rt === rt.toLocaleUpperCase("vi-VN") && /TỔNG HỢP LƯƠNG/.test(rt), h2 + " | " + rt);
     const thTxt = await w.locator("[data-pay-report] tbody").innerText();
     ok("V9.4: tổng hợp lương khớp thực lĩnh bảng đã chốt (11.370.000)", /11\.370\.000/.test(thTxt), thTxt.replace(/\s+/g, " ").slice(0, 200));
+    await shotOf(w, "02-bao-cao-tong-hop-luong");
     await w.click("#nav button[data-k=rp_thanhtoan]");
     const tt0 = await w.locator("[data-pay-report]").innerText();
     ok("V9.4: bảng thanh toán có Thực lĩnh / Đã thanh toán / Còn phải thanh toán, trạng thái ban đầu 'Chưa thanh toán'", /Còn phải thanh toán/.test(tt0) && /Chưa thanh toán/.test(tt0), tt0.replace(/\s+/g, " ").slice(0, 240));
     await w.click("#nav button[data-k=rp_thanhtoan]");
+    await shotOf(w, "03-bang-thanh-toan-luong");
     const nErr = await w.locator("[data-pay-errors]").count();
     dialogs = []; fs.readdirSync(DL).filter((f) => /^ThanhToanLuong_/.test(f)).forEach((f) => fs.unlinkSync(path.join(DL, f)));
     await w.click('button:has-text("Xuất Excel")'); await w.waitForTimeout(700);
@@ -366,6 +372,7 @@ async function launch(dataDir, opt) {
       if (!hasRows || hasErr) { ok("V9.4: " + nav + " — " + (hasErr ? "có lỗi nên không lập chứng từ" : "không có người thuộc hình thức này (bỏ qua lập chứng từ)"), true); continue; }
       await w.click('button:has-text("' + btnTxt + '")'); await w.waitForTimeout(500);
       const lg = await w.locator("[data-pay-ledger]").innerText();
+      await shotOf(w, "05-so-chung-tu-thanh-toan");
       ok("V9.4: lập chứng từ → xuất hiện trong sổ với trạng thái 'Đã lập' (" + nav + ")", lg.includes(pre) && /Đã lập/.test(lg), lg.replace(/\s+/g, " ").slice(0, 200));
       dialogs = []; await w.locator('[data-pay-ledger] button:has-text("Duyệt")').click(); await w.waitForTimeout(300);
       ok("V9.4: người lập không tự duyệt chứng từ (tách nhiệm vụ)", dialogs.some((d) => /khác người lập/.test(d)), dialogs.join(" | "));
@@ -549,6 +556,7 @@ async function launch(dataDir, opt) {
   ok("V9.4: click/gõ vào ô danh mục khi chưa bấm Sửa không đổi dữ liệu (ô khóa)", await cell.isDisabled());
   await w.locator("#main tbody tr").first().locator('button:has-text("Sửa")').click();
   await cell.fill("Sửa hồi tố E2E"); await cell.press("Tab"); await w.waitForTimeout(200);
+  await shotOf(w, "06-danh-muc-dang-sua");
   ok("V9.4: đang sửa → hiện 'Có thay đổi chưa lưu', dữ liệu gốc chưa đổi", /chưa lưu/.test(await w.locator("#main tr.catedit").innerText()) && (await w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).dm_luong[0]["Tên mã lương"] || JSON.parse(t.text).dm_luong[0][Object.keys(JSON.parse(t.text).dm_luong[0])[4]])) !== "Sửa hồi tố E2E");
   await w.locator("#main tr.catedit").locator('button:has-text("Lưu")').click(); await w.waitForTimeout(300);
   await w.locator("#main tr.catedit").locator('button:has-text("Hủy")').click().catch(() => {}); await w.waitForTimeout(200);
