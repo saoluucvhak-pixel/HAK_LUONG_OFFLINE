@@ -157,7 +157,7 @@ function registerIpc() {
   ipcMain.handle("fb-create", guardedW("backup.restore", async (e, info) => {
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
-      const r = fullBackup.create({ dataText: ld.text, vault, ocrLib, destDir: fbDir(), appVersion: app.getVersion(), user: info && info.user, allowPartial: !!(info && info.allowPartial === true),
+      const r = fullBackup.create({ dataText: ld.text, vault, ocrLib, destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
         restoreConfig: { note: "đường dẫn thư mục là của máy gốc; khi khôi phục sang máy khác dùng thư mục mặc định hoặc chọn lại", customPaths: Object.keys(storage.readSettings()).filter((k) => /Dir$/.test(k)) } });
       if (!r.file) return r; // FAILED / CANCELLED: không có gói
       let mirrored = "";

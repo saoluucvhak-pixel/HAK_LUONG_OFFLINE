@@ -507,6 +507,15 @@
     if (shared) {
       var fr = []; db.chamcong.forEach(function (r) { if (rowInKy(r, def)) fr.push({ "Mã NV": r["Mã NV"], "Họ và tên": "", "Phòng ban": deptOf[r["Mã NV"]] || "" }); });
       card.appendChild(reportFilterBar(fr, { compact: true }));
+      if (key === "chamcong") { // V9: lọc riêng cho lưới chấm công — hình thức công, cảnh báo, nguồn OCR
+        st.ccf = st.ccf || { ht: "", warn: "", src: "" };
+        var fbar = h("div", { class: "bar", "data-cc-filter": "1" }), mkSel = function (k, label, opts) { var sl = h("select", { "aria-label": label }); opts.forEach(function (o) { sl.appendChild(h("option", { value: o[0], text: o[1] })); }); sl.value = st.ccf[k] || ""; sl.addEventListener("change", function () { st.ccf[k] = sl.value; st.pg[key] = 0; draw(); }); return sl; };
+        var hts = {}; db.chamcong.forEach(function (r) { if (rowInKy(r, def)) hts[String(r["Hình thức công"] || "BT").toUpperCase()] = 1; });
+        fbar.appendChild(mkSel("ht", "Hình thức công", [["", "Hình thức công: tất cả"]].concat(Object.keys(hts).sort().map(function (x) { return [x, "Hình thức: " + x]; }))));
+        fbar.appendChild(mkSel("warn", "Cảnh báo", [["", "Cảnh báo: tất cả"], ["bad", "Chỉ dòng có ô lỗi / bất thường"]]));
+        fbar.appendChild(mkSel("src", "Nguồn OCR", [["", "Nguồn OCR: tất cả"], ["has", "Có nguồn OCR (chứng từ gốc)"], ["none", "Không có nguồn OCR"], ["edited", "Đã sửa tay sau khi nhập OCR"]]));
+        card.appendChild(fbar);
+      }
     }
     if (noRight) card.appendChild(h("div", { class: "locked", html: "👁 Chế độ <b>chỉ xem</b> — vai trò của bạn không có quyền sửa bảng này." }));
     else if (locked) card.appendChild(h("div", { class: "locked", html: "🔒 <b>" + kyLabel(kyStr()) + " đã chốt lương</b> — dữ liệu kỳ này chỉ xem, không sửa được. Muốn sửa: vào <b>Kỳ lương đã chốt</b> → Mở chốt." }));
@@ -533,6 +542,15 @@
         if (theoKy && !rowInKy(r, def)) return;
         if (def.rowFilter && !def.rowFilter(r)) return;
         if (shared && !RF.isEmpty(st.rf)) { var nm = nameOf(r["Mã NV"]); if (!RF.applyGeneric([{ "Mã NV": r["Mã NV"], "Họ và tên": nm, "Phòng ban": deptOf[r["Mã NV"]] || "" }], st.rf).rows.length) return; }
+        if (key === "chamcong" && st.ccf) {
+          if (st.ccf.ht && String(r["Hình thức công"] || "BT").toUpperCase() !== st.ccf.ht) return;
+          if (st.ccf.warn === "bad" && !DAYS.some(function (d) { return r[d] != null && r[d] !== "" && VAL.dayCell(d, r[d], VAL.normKy(r["Kỳ"])).error; })) return;
+          if (st.ccf.src) {
+            var rid = attRecordId("chamcong", r), lk = DAYS.map(function (d) { return LKMAP[rid + "|" + d]; }).filter(Boolean);
+            if (st.ccf.src === "has" && !lk.length) return; if (st.ccf.src === "none" && lk.length) return;
+            if (st.ccf.src === "edited" && !lk.some(function (l) { return String(r[l.day] == null ? "" : r[l.day]).replace(".", ",") !== String(l.value == null ? "" : l.value).replace(".", ","); })) return;
+          }
+        }
         if (qq && def.cols.every(function (c) { return String(r[c] || "").toLowerCase().indexOf(qq) < 0; }) && String(nameOf(r["Mã NV"])).toLowerCase().indexOf(qq) < 0) return;
         idx.push(i);
       });
