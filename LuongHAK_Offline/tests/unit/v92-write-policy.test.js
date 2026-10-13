@@ -146,3 +146,20 @@ test("U-WP-10 xóa dòng danh mục có mã đã dùng trong kỳ đã chốt b�
   assert.equal(save(d3, admin).ok, true, "xóa mã chưa dùng được phép");
   assert.equal(save(Object.assign(clone(d3), { dm_luong: [] }), who("nl", "ketoanluong")).ok, false, "xóa mã đã dùng (kể cả khi có quyền sửa danh mục) bị chặn");
 });
+
+test("U-WP-11 (V9.4) sổ thanh toán lương: cần quyền payment.record; dòng 'Đã thanh toán' bất biến ở tiến trình chính", () => {
+  const paid = { "Số chứng từ": "UNC-202609-001", "Kỳ": "2026-09", "Mã NV": "A", "Số tiền": 100, "Trạng thái": "Đã thanh toán" };
+  const wait = { "Số chứng từ": "UNC-202609-002", "Kỳ": "2026-09", "Mã NV": "B", "Số tiền": 50, "Trạng thái": "Đã lập" };
+  const { db, save } = setup({ ttluong: [paid, wait] });
+  assert.deepEqual(permsFor("ttluong"), ["payment.record"]);
+  const kt = who("nl", "ketoanluong"), ns = who("ns", "nhansu");
+  const d1 = clone(db); d1.ttluong[1]["Trạng thái"] = "Đã duyệt";
+  assert.equal(save(d1, ns).ok, false, "nhân sự không có quyền");
+  assert.equal(save(d1, kt).ok, true, "đổi trạng thái chưa thanh toán được");
+  const d2 = clone(d1); d2.ttluong[0]["Số tiền"] = 999;
+  const r = save(d2, who("admin", "admin")); assert.equal(r.ok, false); assert.match(r.error, /đã thanh toán/);
+  const d3 = clone(d1); d3.ttluong = [d3.ttluong[1]];
+  assert.equal(save(d3, who("admin", "admin")).ok, false, "xóa dòng đã thanh toán bị chặn");
+  const d4 = clone(d1); d4.ttluong.push({ "Số chứng từ": "PC-202609-001", "Kỳ": "2026-09", "Mã NV": "C", "Số tiền": 10, "Trạng thái": "Đã lập" });
+  assert.equal(save(d4, kt).ok, true, "thêm chứng từ mới được");
+});

@@ -15,6 +15,7 @@ function permsFor(t) {
   if (MONTHLY[t] || t === "ocr_ten") return ["input.edit"];
   if (t === "congty" || t === "baomat" || t === "nguoidung") return ["system.admin"];
   if (t === "chungtu" || t === "chungtu_lienket") return ["input.edit", "hr.edit"];
+  if (t === "ttluong") return ["payment.record"];
   if (t === "kyluong") return ["payroll.close", "payroll.reopen"];
   if (t === "kyluong_lichsu") return ["payroll.reopen"];
   if (t === "nhansu") return ["hr.edit", "payroll.calc", "payroll.close"];
@@ -126,6 +127,13 @@ function createPolicy(opts) {
       }
       if (/^dm_/.test(t)) { // xóa dòng danh mục có mã đang nằm trong bản chốt kỳ lương → từ chối (chỉ được Ngừng hiệu lực)
         const why = dmRemoval(t, next); if (why) return deny(why);
+      }
+      if (t === "ttluong") { // dòng chứng từ đã thanh toán là bất biến (chỉ được thêm chứng từ mới / chuyển trạng thái chưa thanh toán)
+        let pv = null; try { pv = JSON.parse(readText() || "null"); } catch (e) { pv = null; }
+        const pr = pv && Array.isArray(pv.ttluong) ? pv.ttluong : [], nxl = Array.isArray(next.ttluong) ? next.ttluong : [];
+        const have = {}; nxl.forEach((r) => { const k = h(r); have[k] = (have[k] || 0) + 1; });
+        const lost = pr.filter((r) => r && r["Trạng thái"] === "Đã thanh toán").filter((r) => { const k = h(r); if (have[k]) { have[k]--; return false; } return true; });
+        if (lost.length) return deny("chứng từ đã thanh toán là bất biến (" + lost.length + " dòng bị sửa/xóa)");
       }
       const need = permsFor(t);
       if (!need.some(has)) return deny("vai trò hiện tại không có quyền sửa bảng '" + t + "' (cần " + need.join(" hoặc ") + ")");

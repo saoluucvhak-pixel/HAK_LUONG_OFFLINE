@@ -12,7 +12,7 @@
     "dm.edit": "Sửa danh mục (mã lương, phụ cấp, BH, thuế…)",
     "formula.approve": "Duyệt, kích hoạt, ngừng công thức tiền lương",
     "payroll.view": "Xem bảng lương, kỳ đã chốt, báo cáo lương (thông tin lương nhạy cảm)",
-    "payroll.calc": "Tính lương", "payroll.close": "Chốt kỳ lương", "payroll.reopen": "Mở chốt kỳ lương",
+    "payment.record": "Lập, duyệt, ghi nhận chứng từ thanh toán lương", "payroll.calc": "Tính lương", "payroll.close": "Chốt kỳ lương", "payroll.reopen": "Mở chốt kỳ lương",
     "report.view": "Xem báo cáo nhân sự", "import": "Nhập Excel", "export": "Xuất Excel / in",
     "retro.edit": "Sửa dữ liệu có hiệu lực hồi tố vào kỳ đã chốt",
     "ocr.library": "Quản lý thư viện mẫu OCR (duyệt, từ chối, đổi nhãn, khôi phục mẫu)",
@@ -23,8 +23,8 @@
   var ROLES = {
     admin: { ten: "Quản trị (Admin)", perms: ALLP },
     nhansu: { ten: "Nhân sự", perms: ["hr.view", "hr.edit", "report.view", "import", "export", "input.view"] },
-    ketoanluong: { ten: "Kế toán lương", perms: ["hr.view", "input.view", "input.edit", "dm.edit", "payroll.view", "payroll.calc", "payroll.close", "report.view", "import", "export", "ocr.library"] },
-    ketoanthanhtoan: { ten: "Kế toán thanh toán", perms: ["payroll.view", "export", "hr.view"] },
+    ketoanluong: { ten: "Kế toán lương", perms: ["hr.view", "input.view", "input.edit", "dm.edit", "payroll.view", "payroll.calc", "payroll.close", "payment.record", "report.view", "import", "export", "ocr.library"] },
+    ketoanthanhtoan: { ten: "Kế toán thanh toán", perms: ["payroll.view", "export", "hr.view", "payment.record"] },
     truongbophan: { ten: "Trưởng bộ phận", perms: ["hr.view", "input.view", "input.edit", "report.view"] },
     pheduyet: { ten: "Người phê duyệt", perms: ["hr.view", "input.view", "payroll.view", "report.view", "export", "formula.approve"] },
     xembaocao: { ten: "Người xem báo cáo", perms: ["report.view", "payroll.view"] }
