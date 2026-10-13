@@ -30,6 +30,23 @@ function createPolicy(opts) {
   const gate = opts.gate || null;           // { blockers(db, ky, o) }
   let st = null, pending = null;
 
+  /** Số dòng danh mục giảm đi → các dòng bị mất mà mã (cột bắt đầu bằng "Mã") còn xuất hiện trong bản chốt kỳ lương thì không được xóa. */
+  function dmRemoval(t, next) {
+    let prevObj = null; try { prevObj = JSON.parse(readText() || "null"); } catch (e) { prevObj = null; }
+    if (!prevObj) return "";
+    const pr = Array.isArray(prevObj[t]) ? prevObj[t] : [], nx = Array.isArray(next[t]) ? next[t] : [];
+    if (nx.length >= pr.length) return "";
+    const left = {}; nx.forEach((r) => { const k = h(r); left[k] = (left[k] || 0) + 1; });
+    const removed = pr.filter((r) => { const k = h(r); if (left[k]) { left[k]--; return false; } return true; });
+    const js = JSON.stringify(prevObj.kyluong || []);
+    for (const r of removed) {
+      for (const c of Object.keys(r)) {
+        const v = r[c];
+        if (/^Mã/.test(c) && typeof v === "string" && v.trim().length >= 2 && js.indexOf(JSON.stringify(v.trim())) >= 0) return "danh mục " + t + ": mã '" + v.trim() + "' đã dùng trong kỳ lương đã chốt — không được xóa, chỉ được Ngừng hiệu lực";
+      }
+    }
+    return "";
+  }
   function snapshot(obj) {
     const tables = {}; Object.keys(obj).forEach((k) => { tables[k] = h(obj[k]); });
     const ky = {}; (Array.isArray(obj.kyluong) ? obj.kyluong : []).forEach((k) => { ky[kyKey(k)] = h(k); });
@@ -106,6 +123,9 @@ function createPolicy(opts) {
         const ok = !gone.length && diff.length === 1 && diff[0].name === me && prev.users.some((p) => p.name === me && p.fields === diff[0].fields && p.vaiTro === diff[0].vaiTro && p.khoa === diff[0].khoa);
         if (!ok) return deny("chỉ Quản trị mới được sửa tài khoản người dùng");
         continue;
+      }
+      if (/^dm_/.test(t)) { // xóa dòng danh mục có mã đang nằm trong bản chốt kỳ lương → từ chối (chỉ được Ngừng hiệu lực)
+        const why = dmRemoval(t, next); if (why) return deny(why);
       }
       const need = permsFor(t);
       if (!need.some(has)) return deny("vai trò hiện tại không có quyền sửa bảng '" + t + "' (cần " + need.join(" hoặc ") + ")");

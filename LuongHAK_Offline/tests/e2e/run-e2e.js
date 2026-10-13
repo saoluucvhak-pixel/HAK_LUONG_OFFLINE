@@ -194,12 +194,14 @@ async function launch(dataDir, opt) {
   await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Công thức tiền lương")');
   const ctTabs = await w.locator(".bar.sub button").allInnerTexts();
   ok("Công thức tiền lương: đủ 7 tab (mục VII)", ["Tăng ca", "Phụ cấp", "Hỗ trợ", "Thư viện biến", "Mẫu công thức", "Kiểm tra công thức", "Lịch sử phiên bản"].every((t) => ctTabs.includes(t)), ctTabs.join(", "));
-  await w.click('main button:has-text("Thêm dòng")');
-  const ctRow = w.locator("main tbody tr").last().locator("input");
+  await w.click('main button:has-text("Thêm mới")');
+  const ctRow = w.locator("main tbody tr.catedit").locator("input");
   await ctRow.nth(0).fill("2020-01-01"); await ctRow.nth(0).dispatchEvent("change");
   await ctRow.nth(2).fill("TC_E2E"); await ctRow.nth(2).dispatchEvent("change");
   await ctRow.nth(6).fill("CONG_TC * HE_SO_TC * 2"); await ctRow.nth(6).dispatchEvent("change");
-  ok("Tab Tăng ca: thêm công thức mới (Loại tự gán OVERTIME, không cần sửa code)", (await ctRow.nth(4).inputValue()) === "OVERTIME" && (await ctRow.nth(2).inputValue()) === "TC_E2E");
+  const ctOverIn = await ctRow.nth(4).inputValue(), ctMaIn = await ctRow.nth(2).inputValue();
+  await w.locator("main tr.catedit").locator('button:has-text("Lưu")').click(); await w.waitForTimeout(300);
+  ok("Tab Tăng ca: thêm công thức mới (Loại tự gán OVERTIME, không cần sửa code) — ghi khi bấm Lưu", ctOverIn === "OVERTIME" && ctMaIn === "TC_E2E" && (await w.locator("main tbody tr", { hasText: "TC_E2E" }).count()) === 1 && (await w.locator("main tr.catedit").count()) === 0);
   await w.locator(".bar.sub button", { hasText: "Phụ cấp" }).click();
   const pcEmpty = await w.locator("main .empty").count();
   ok("Lọc theo Loại: mã TC_E2E (OVERTIME) KHÔNG hiện ở tab Phụ cấp (ALLOWANCE)", pcEmpty > 0 && !(await w.locator("main").innerText()).includes("TC_E2E"));
@@ -344,7 +346,7 @@ async function launch(dataDir, opt) {
   const pasteToast = await w.locator("#toast").textContent();
   await w.waitForTimeout(700);
   const auP = (await auditOf()).slice(au0).filter((a) => /HỒI TỐ/.test(a.chiTiet));
-  ok("Lỗi 1: dán nhiều dòng vào danh mục chồng kỳ đã chốt → ghi nhật ký HỒI TỐ từng dòng + cảnh báo", auP.length === 2 && /2 dòng hồi tố kỳ đã chốt/.test(pasteToast), pasteToast + " · nhật ký hồi tố: " + auP.length);
+  ok("V9.4: danh mục ở chế độ chỉ xem — ô bị khóa, dán nhiều dòng KHÔNG ghi ngầm (không nhật ký, không thêm dòng)", (await dmCell.isDisabled()) && auP.length === 0 && !/Đã dán/.test(pasteToast || "") && (await auditOf()).length === au0, pasteToast + " · nhật ký hồi tố: " + auP.length);
   // Lỗi 2: sửa thông tin cơ bản của NV có trong bảng lương ĐÃ CHỐT → phải hỏi xác nhận TRƯỚC khi lưu; Hủy = không lưu, không ghi nhật ký
   const nvCCCD = () => w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).nhanvien[0]["Số CCCD"] || "");
   const cc0 = await nvCCCD(), au1 = (await auditOf()).length;
@@ -462,13 +464,20 @@ async function launch(dataDir, opt) {
   await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Mã lương")');
   const cell = w.locator("#main tbody tr").first().locator("input").nth(4);
   const before = await cell.inputValue();
-  await cell.fill("Sửa hồi tố E2E"); await cell.press("Tab"); await w.waitForTimeout(300);
-  ok("Q-14: Kế toán lương sửa danh mục có hiệu lực trong kỳ đã chốt → bị chặn, chỉ Admin", dialogs.some((d) => /Chỉ Admin/.test(d)) && (await cell.inputValue()) === before, dialogs.join(" | "));
+  ok("V9.4: click/gõ vào ô danh mục khi chưa bấm Sửa không đổi dữ liệu (ô khóa)", await cell.isDisabled());
+  await w.locator("#main tbody tr").first().locator('button:has-text("Sửa")').click();
+  await cell.fill("Sửa hồi tố E2E"); await cell.press("Tab"); await w.waitForTimeout(200);
+  ok("V9.4: đang sửa → hiện 'Có thay đổi chưa lưu', dữ liệu gốc chưa đổi", /chưa lưu/.test(await w.locator("#main tr.catedit").innerText()) && (await w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).dm_luong[0]["Tên mã lương"] || JSON.parse(t.text).dm_luong[0][Object.keys(JSON.parse(t.text).dm_luong[0])[4]])) !== "Sửa hồi tố E2E");
+  await w.locator("#main tr.catedit").locator('button:has-text("Lưu")').click(); await w.waitForTimeout(300);
+  await w.locator("#main tr.catedit").locator('button:has-text("Hủy")').click().catch(() => {}); await w.waitForTimeout(200);
+  ok("Q-14: Kế toán lương sửa danh mục có hiệu lực trong kỳ đã chốt → bị chặn, chỉ Admin", dialogs.some((d) => /Chỉ Admin/.test(d)) && (await w.locator("#main tbody tr").first().locator("input").nth(4).inputValue()) === before, dialogs.join(" | "));
   await w.click('#top button:has-text("Đăng xuất")'); await w.waitForSelector("#main input[data-f=u]");
   await auth(w, ADMIN); dialogs = [];
   await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Mã lương")');
   const cell2 = w.locator("#main tbody tr").first().locator("input").nth(4);
-  await cell2.fill("Sửa hồi tố E2E"); await cell2.press("Tab"); await w.waitForTimeout(700);
+  await w.locator("#main tbody tr").first().locator('button:has-text("Sửa")').click();
+  await cell2.fill("Sửa hồi tố E2E"); await cell2.press("Tab");
+  await w.locator("#main tr.catedit").locator('button:has-text("Lưu")').click(); await w.waitForTimeout(700);
   ok("Admin sửa được dữ liệu hồi tố (có cảnh báo)", (await cell2.inputValue()) === "Sửa hồi tố E2E" && !dialogs.some((d) => /Chỉ Admin/.test(d)));
   // Q-15: phụ lục đã dùng tính lương kỳ đã chốt → không ai sửa được (kể cả Admin); thêm phụ lục mới thì được
   dialogs = [];
@@ -695,7 +704,7 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch(SD));
     // Xóa bản "to"/Hiệu lực đã nạp sẵn (HAK) → mô phỏng công ty CHƯA khai báo quy chế bù sản lượng
     await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Quy chế bù sản lượng")');
-    dialogs = []; await w.locator("main tbody tr").first().locator('button[title="Xóa dòng"]').click(); await w.waitForTimeout(200);
+    dialogs = []; await w.locator("main tbody tr").first().locator('button:has-text("Xóa / Ngừng")').click(); await w.waitForTimeout(200);
     ok("Xóa bản Quy chế bù sản lượng đã nạp sẵn (giả lập công ty chưa khai báo)", (await w.locator("main tbody tr").count()) === 0);
     await w.click("#nav button[data-k=luong]");
     await w.selectOption("#top select", "11"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(200);
@@ -706,11 +715,12 @@ async function launch(dataDir, opt) {
     ok("Chốt kỳ có sản lượng cần bù mà CHƯA có Quy chế bù sản lượng hợp lệ → chặn cứng (mục VIII), không chốt được", dialogs.some((d) => /KHÔNG THỂ CHỐT/.test(d) && /Quy chế bù sản lượng/.test(d)) && !(await w.locator(".locked").count()), dialogs.join(" | "));
     // Khai báo quy chế CHÍNH THỨC = "to" (bình quân tổ), khác lựa chọn đang xem ("false" — mặc định màn hình Tính lương)
     await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Quy chế bù sản lượng")');
-    await w.click('main button:has-text("Thêm dòng")');
-    const qbRow = w.locator("main tbody tr").last().locator("input");
+    await w.click('main button:has-text("Thêm mới")');
+    const qbRow = w.locator("main tbody tr.catedit").locator("input");
     await qbRow.nth(0).fill("2020-01-01"); await qbRow.nth(0).dispatchEvent("change");
     await qbRow.nth(2).fill("to"); await qbRow.nth(2).dispatchEvent("change");
     await qbRow.nth(3).fill("Hiệu lực"); await qbRow.nth(3).dispatchEvent("change");
+    await w.locator("main tr.catedit").locator('button:has-text("Lưu")').click(); await w.waitForTimeout(300);
     await w.click("#nav button[data-k=luong]");
     await w.selectOption("#top select", "11"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(200);
     const warnMoPhong = await w.locator("main").first().innerText();
@@ -774,10 +784,13 @@ async function launch(dataDir, opt) {
     { // V9.4: người dùng THẤY mẫu đã ghi (màu ô + thanh trạng thái + nút mở thư viện); dán nhiều ô cũng đi qua đường ghi mẫu
       const learnAttr = await c27.getAttribute("data-learn"), barTxt = await w.locator("[data-ocr-learn-status]").innerText().catch(() => ""), hasBtn = await w.locator('[data-ocr-learn-status] button:has-text("Mở thư viện mẫu")').count();
       ok("OCR V9.4: ô vừa sửa hiện trạng thái 'đã ghi mẫu (chờ xác minh)', thanh trạng thái có số mẫu và nút mở thư viện", learnAttr === "saved" && /đã ghi/.test(barTxt) && /chờ xác minh/.test(barTxt) && hasBtn === 1, learnAttr + " | " + barTxt.replace(/\s+/g, " "));
+      const orig4 = await w.evaluate(() => [[1, 1], [1, 2], [2, 1], [2, 2]].map(([r, d]) => document.querySelector(".ocrgrid tbody tr:nth-child(" + r + ") input[data-day='" + d + "']").value));
       const before2 = await w.evaluate(() => window.hakOcrLib.list({}).then((r) => r.stats.edits));
       await w.evaluate(() => { const i = document.querySelector(".ocrgrid tbody tr:nth-child(1) input[data-day='1']"); const dt = new DataTransfer(); dt.setData("text", "1\t0,5\n0,5\t1"); i.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); });
       await w.waitForTimeout(600);
       const after2 = await w.evaluate(() => window.hakOcrLib.list({}).then((r) => r.stats.edits)), pv2 = await w.evaluate(() => [1, 2].map((d) => document.querySelector(".ocrgrid tbody tr:nth-child(1) input[data-day='" + d + "']").value).concat([1, 2].map((d) => document.querySelector(".ocrgrid tbody tr:nth-child(2) input[data-day='" + d + "']").value)));
+      await w.evaluate((o) => { [[1, 1], [1, 2], [2, 1], [2, 2]].forEach(([r, d], i) => { const x = document.querySelector(".ocrgrid tbody tr:nth-child(" + r + ") input[data-day='" + d + "']"); x.value = o[i]; x.dispatchEvent(new window.Event("change")); }); }, orig4); // trả lại ô như cũ để các bước sau không bị ảnh hưởng
+      await w.waitForTimeout(300);
       ok("OCR V9.4: dán 2×2 ô từ Excel cập nhật đúng 4 ô và mỗi ô đổi giá trị đều ghi sự kiện sửa", pv2.join("|") === "1|0,5|0,5|1" && after2 > before2, JSON.stringify({ before2, after2, pv2 }));
     }
     await w.fill('input[aria-label="Kỳ của trang"]', "2026-11"); await w.dispatchEvent('input[aria-label="Kỳ của trang"]', "change");
