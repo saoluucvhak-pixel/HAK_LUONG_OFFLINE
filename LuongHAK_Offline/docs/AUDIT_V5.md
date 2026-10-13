@@ -7,7 +7,7 @@ Cột "Trạng thái" được cập nhật theo từng commit; chỉ ghi "Xong"
 
 | Bộ test | Kết quả | Ghi chú |
 | --- | --- | --- |
-| `npm test` (unit + integration + regression) | 314/314 PASS | cần `npm ci` trước (6 test OCR cần `tesseract.js`) |
+| `npm test` (unit + integration + regression) | 314/314 PASS (sau GĐ2: 347/347) | cần `npm ci` trước (6 test OCR cần `tesseract.js`) |
 | `npm run test:e2e` (Electron + Playwright + xvfb, **Linux**) | 121/121 PASS | Không thay thế kiểm thử trên Windows |
 | `tests/perf/bench.js` | chạy được | chỉ đo tính lương/đọc ghi, chưa có benchmark công thức, OCR, báo cáo |
 | ESLint | chưa chạy | chưa cài trong môi trường kiểm thử |
@@ -27,7 +27,7 @@ Cột "Trạng thái" được cập nhật theo từng commit; chỉ ghi "Xong"
 | P1-04 | OCR PDF nhiều trang | `app.js:2224` | OCR PDF | `Math.min(pdf.numPages, 30)` — **âm thầm bỏ trang sau 30** | P1 | Xử lý theo lô, hoặc báo rõ và cho tiếp tục | — | Chưa làm |
 | P1-05 | Tầng B kiểm tra tiền làm thêm theo luật | `core/payroll/formula-variables.js` (chỉ có biến `LUONG_GIO_OT`) | Công thức tăng ca nội bộ | Không có `legal-overtime-check` / bảng mức tối thiểu theo hiệu lực | P1 | Module riêng + bảng cấu hình có hiệu lực (cần xác minh luật hiện hành tại kỳ) | — | Chưa làm |
 | P2-01 | Tăng ca mã ngoài TC1–TC6 không có cấu hình | `engine.js` `heSoTangCa` | `switch` lịch sử | Mã lạ không có công thức → rơi `default: CONG_TC × HE_SO_TC` im lặng (giữ nguyên để tương thích; **chưa** coi là lỗi) | P2 | Cần quyết định nghiệp vụ trước khi chặn | — | Mở — cần chủ sở hữu quyết định |
-| P2-02 | Còn `switch/case` TC1/TC2/TC3/TC6 | `engine.js` | Dùng làm công thức lịch sử khi không có cấu hình | Chưa chuyển TC1–TC6 vào `dm_congthuc` | P2 | Seed TC1–TC6 vào danh mục + test tương đương rồi mới bỏ `switch` | — | Chưa làm |
+| P2-02 | `switch/case` TC1/TC2/TC3/TC6 | `engine.js`, `core/payroll/formula-defaults.js` | Công thức mặc định dạng dữ liệu | Đã chuyển TC1–TC6 sang `formula-defaults.js`, xóa `switch`; mã chưa khai báo vẫn rơi `CONG_TC × HE_SO_TC` (P2-01) | P2 | — | `formula-defaults-equivalence.test.js` (3000 bộ ngẫu nhiên/mã, bằng từng bit), `formula-gate.test.js` (TC7/PC99/HT99, đổi giữa kỳ, kỳ đã chốt) | **Xong** |
 
 ## Giới hạn kiểm chứng (cần ghi rõ)
 

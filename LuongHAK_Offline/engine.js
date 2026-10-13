@@ -184,13 +184,12 @@
         return ev.ok ? ev.v : 0;
       }
     }
-    switch (key) {
-      case "TC1": { var d = cCTL - cLe - cTC - cPhep - cTang - cChuan; return (d > 0 ? d * heSo : 0) + cTang * heSo; }
-      case "TC2": { var chuan2 = congChuan2 > 0 ? congChuan2 : cChuan; var d2 = cCTL - cLe - cTC - cPhep - cTang - cDC - chuan2; return (d2 > 0 ? d2 * heSo : 0) + cTang * heSo; }
-      case "TC6": { var d6 = cCTL - cTC - cLe - cChuan; return d6 > 0 ? d6 : 0; }
-      case "TC3": return (cTang + cCN) * heSo;
-      default: return cTang * heSo;
-    }
+    // Không có cấu hình công ty → công thức mặc định của hệ thống (dữ liệu trong formula-defaults.js, đã test tương đương switch cũ).
+    var mac = FML.defaults.overtime(key) || FML.defaults.OVERTIME_FALLBACK;
+    return FML.evaluate(mac.bieuThuc, {
+      CONG_TINH_LUONG: cCTL, CONG_TRUNG_CHUYEN: cTC, CONG_LE: cLe, CONG_CHUAN: cChuan, CONG_CHU_NHAT: cCN,
+      CONG_TC: cTang, HE_SO_TC: heSo, CONG_PHEP: cPhep, CONG_DI_CHUYEN: cDC, CONG_CHUAN_2: congChuan2
+    });
   }
 
   /** Số ngày giảm trừ của mã lương: cột "Số ngày giảm trừ" (Excel HAK Group: "Ngày giảm trừ"), không có thì lấy số sau dấu "-" trong Cách tính */
