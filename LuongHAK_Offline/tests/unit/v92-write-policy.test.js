@@ -113,6 +113,10 @@ test("U-WP-08 nhận diện tệp bảng lương và kỳ trong tên tệp; quy�
   assert.equal(PG.isPayrollFile("Bang_luong_2026-09.xlsx"), true);
   assert.equal(PG.isPayrollFile("Bảng lương T9.xlsx"), true);
   assert.equal(PG.isPayrollFile("ChamCong_2026-09.xlsx"), false);
+  assert.equal(PG.isPayrollFile("Phan_bo_khoi_luong_2026-10.xlsx"), false); // phân bổ khối lượng ≠ bảng lương
+  assert.equal(PG.isPayrollFile("BaoCao_San_luong_2026-10.xlsx"), false);
+  assert.equal(PG.isPayrollFile("BangTinhLuongNoiBo_2026-10.xlsx"), true);
+  assert.equal(PG.isPayrollFile("KyLuong_2026-10.xlsx"), true);
   assert.equal(PG.kyFromName("Bang_luong_2026-09.xlsx"), "2026-09");
   assert.equal(PG.kyFromName("PhieuLuong_09-2026.pdf"), "2026-09");
   assert.equal(PG.kyFromName("bangluong.xlsx"), null);
