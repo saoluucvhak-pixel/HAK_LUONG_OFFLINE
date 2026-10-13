@@ -101,9 +101,11 @@
       if (n(l["Số tiền"]) <= 0) out.push("Chứng từ " + l["Số chứng từ"] + ": số tiền của " + l["Mã NV"] + " không dương");
       var kk = l["Kỳ"] + "|" + l["Mã NV"]; sm[kk] = (sm[kk] || 0) + n(l["Số tiền"]);
     });
+    var idx = {};
     Object.keys(sm).forEach(function (kk) {
       var p = kk.split("|"), rows = rowsByKy && rowsByKy[p[0]]; if (!rows) return;
-      var r = rows.filter(function (x) { return x["Mã NV"] === p[1]; })[0];
+      if (!idx[p[0]]) { idx[p[0]] = {}; rows.forEach(function (x) { if (!(x["Mã NV"] in idx[p[0]])) idx[p[0]][x["Mã NV"]] = x; }); }
+      var r = idx[p[0]][p[1]];
       if (r && sm[kk] > n(r["Thực lĩnh"])) out.push("Kỳ " + p[0] + ": " + p[1] + " đã lập/chi " + sm[kk] + " > thực lĩnh " + n(r["Thực lĩnh"]));
     });
     return out;

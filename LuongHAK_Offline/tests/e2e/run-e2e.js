@@ -537,7 +537,7 @@ async function launch(dataDir, opt) {
   {
     await w.click("#nav button[data-k=rp_tm]");
     const mainSv = await w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text));
-    ok("V9.4: Kế toán lương đọc được báo cáo; sổ thanh toán nằm ở bảng riêng (ttluong), chưa có chứng từ nào khi chỉ xem/xuất", Array.isArray(mainSv.ttluong) && mainSv.ttluong.length === 0, String((mainSv.ttluong || []).length));
+    ok("V9.4: Kế toán lương đọc được báo cáo; sổ thanh toán nằm ở bảng riêng (ttluong); chứng từ duy nhất là bản đã hủy thử, không có dòng nào “đã thanh toán” do xuất file", Array.isArray(mainSv.ttluong) && mainSv.ttluong.every((l) => l["Trạng thái"] === "Đã hủy"), JSON.stringify((mainSv.ttluong || []).map((l) => l["Trạng thái"])));
   }
   dialogs = [];
   await w.click("#nav button[data-k=kyluong]"); await w.locator('button:has-text("Mở chốt")').first().click(); await w.waitForTimeout(300);
