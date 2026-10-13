@@ -529,6 +529,9 @@
         "_ct": {
           maLuong: maTL1, hinhThucLuong: dmL ? (dmL["Mã hình thức lương"] || "") : "",
           congChuan: cChuan, congBT: c.congBT, congTinhTG: Math.round(congTinhTG * 1000) / 1000, donGiaTG: Math.round(donGiaTG),
+          // mục VII (Kiểm tra công thức) — chụp thêm các công thô để dry-run test panel có đủ biến CONG_LE/CONG_PHEP/CONG_TRUNG_CHUYEN/CONG_CHU_NHAT/CONG_DI_CHUYEN/CONG_TC
+          congLe: c.congLe || 0, congPhep: c.congPhep || 0, congTrungChuyen: c.congTrungChuyen || 0,
+          congChuNhat: c.congChuNhat || 0, congDiChuyen: c.congDiChuyen || 0, congTangCa: c.congTangCa || 0,
           maTangCa: ns["Mã tăng ca"] || "", loaiCongThucTangCa: dmT ? (dmT["Loại công thức"] || ns["Mã tăng ca"] || "") : "",
           heSoTangCa: dmT ? pct(dmT["Hệ số tăng ca"]) : 0, congChuan2: congChuan2 || 0,
           congTangCaQuyDoi: Math.round(congTCQuyDoi * 1000) / 1000,

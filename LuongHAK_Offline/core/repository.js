@@ -26,7 +26,7 @@
   }
   function identOf(r) {
     if (!r) return "";
-    return [r["Mã NV"], r["Số HĐLĐ"], r["Hiệu lực từ"] || r["Từ ngày"] || r["Ngày vào làm"], r["Mã lương"] || r["Mã phụ cấp"] || r["Mã phòng ban"] || r["Mã chức vụ"]].filter(Boolean).join(" · ");
+    return [r["Mã NV"], r["Số HĐLĐ"], r["Hiệu lực từ"] || r["Từ ngày"] || r["Ngày vào làm"], r["Mã lương"] || r["Mã phụ cấp"] || r["Mã phòng ban"] || r["Mã chức vụ"] || r["Mã công thức"]].filter(Boolean).join(" · ");
   }
 
   /**

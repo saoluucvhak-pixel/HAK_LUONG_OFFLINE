@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "luonghak_db_v1";
-  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose;
+  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
 
   // ---------- Định nghĩa bảng ----------
@@ -25,7 +25,14 @@
     dm_giamtru: { ten: "Giảm trừ gia cảnh", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã giảm trừ", "Số người", "Số tiền"], hint: "Mã bắt đầu GTBT = bản thân, GTNPT = mỗi người phụ thuộc. Số người phụ thuộc lấy từ hồ sơ Nhân thân (Đăng ký phụ thuộc = Có)." },
     dm_phongban: { ten: "Phòng ban", cols: ["Mã khối", "Tên khối", "Mã phòng ban", "Tên phòng ban", "Tài khoản chi phí", "Hiệu lực từ", "Hiệu lực đến"], hint: "'Tài khoản chi phí' dùng cho Bảng hạch toán lương (VD 622 sản xuất, 627 quản lý PX, 641 bán hàng, 642 quản lý DN). Để trống: khối Sản xuất → 622, còn lại → 642." },
     dm_chucvu: { ten: "Chức vụ", cols: ["Mã chức vụ", "Tên chức vụ", "Hiệu lực từ", "Hiệu lực đến"] },
-    dm_cc: { ten: "Hình thức công", cols: ["Mã CC", "Nội dung", "Hình thức công", "Diễn giải", "Hiệu lực từ", "Hiệu lực đến"], hint: "Danh sách mã hình thức công dùng trong bảng chấm công (BT, PN, CL, TC, CC…)." }
+    dm_cc: { ten: "Hình thức công", cols: ["Mã CC", "Nội dung", "Hình thức công", "Diễn giải", "Hiệu lực từ", "Hiệu lực đến"], hint: "Danh sách mã hình thức công dùng trong bảng chấm công (BT, PN, CL, TC, CC…)." },
+    // Master Prompt mục III/VII: Dynamic Payroll Formula Engine — thêm/sửa công thức tăng ca, phụ cấp, hỗ trợ KHÔNG cần sửa code.
+    dm_congthuc: {
+      ten: "Công thức tiền lương",
+      cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã công thức", "Tên công thức", "Loại", "Công ty", "Biểu thức", "Tham số", "Đơn vị tính", "Mức tiền", "Hệ số", "Đối tượng áp dụng", "Trạng thái", "Mô tả"],
+      def: { "Trạng thái": "Nháp" },
+      hint: "'Loại': OVERTIME (tăng ca) · ALLOWANCE (phụ cấp) · SUPPORT (hỗ trợ) — khớp đúng 'Mã công thức' đã gán cho nhân viên (Mã tăng ca / Mã phụ cấp / Mã hỗ trợ), engine tự tra công thức này TRƯỚC, không cần sửa phần mềm. 'Trạng thái': chỉ 'Hiệu lực' mới được dùng để tính lương chính thức — 'Nháp'/'Đã duyệt' dùng để soạn & chạy thử (tab Kiểm tra công thức) trước khi kích hoạt; 'Ngừng' = thôi áp dụng. 'Công ty': để trống = áp dụng mọi công ty; ghi cụ thể để ưu tiên hơn bản chung. 'Biểu thức' dùng tên biến ở tab Thư viện biến (CONG_TC, MUC_PHU_CAP, HE_SO_TC…), hàm MIN/MAX/ROUND/IF… Xem tab Mẫu công thức để copy công thức có sẵn."
+    }
   };
   var HRT = {}; Object.keys(HRM.HR).forEach(function (k) { HRT[k] = { ten: HRM.HR[k].ten, cols: HRM.HR[k].store, hr: true }; });
   var ALL = Object.assign({}, S, DM, HRT);
@@ -422,21 +429,23 @@
   function countOf(k) { return db[k] ? db[k].length : 0; }
 
   // ---------- Ô nhập dùng chung ----------
-  function datalistFor(col) {
+  function datalistFor(col, tableKey) {
     var src = { "Mã PB": ["dm_phongban", "Mã phòng ban"], "Mã CV": ["dm_chucvu", "Mã chức vụ"], "Mã tiền lương 1": ["dm_luong", "Mã lương"], "Mã tiền lương 2": ["dm_luong", "Mã lương"], "Mã tăng ca": ["dm_tangca", "Mã tăng ca"], "Mã phụ cấp": ["dm_phucap", "Mã phụ cấp"], "Mã hỗ trợ": ["dm_hotro", "Mã hỗ trợ"], "Mã hỗ trợ 2": ["dm_hotro", "Mã hỗ trợ"], "Mã BHXH": ["dm_baohiem", "Mã bảo hiểm"], "Mã GT_TNCN_BT": ["dm_giamtru", "Mã giảm trừ"], "Mã GT_TNCN_PT": ["dm_giamtru", "Mã giảm trừ"], "Mã thuế TNCN": ["dm_tncn", "Mã thuế TNCN"], "Mã TNCN": null };
     if (col === "Mã TNCN") return ["TNCN0", "TNCN1", "TNCN2"];
     if (col === "Hình thức công") { var hs = db.dm_cc.map(function (r) { return r["Hình thức công"]; }).filter(Boolean); return hs.length ? hs.filter(function (v, i) { return hs.indexOf(v) === i; }) : ["BT", "CL", "PN", "CC", "TC", "DC", "TRCH"]; }
     if (col === "Mã hình thức lương") return ["LTG", "LSP"];
+    if (tableKey === "dm_congthuc" && col === "Loại") return ["OVERTIME", "ALLOWANCE", "SUPPORT"];
+    if (tableKey === "dm_congthuc" && col === "Trạng thái") return ["Nháp", "Đã duyệt", "Hiệu lực", "Ngừng"];
     var s = src[col]; if (!s) return null;
     var seen = {}, out = []; db[s[0]].forEach(function (r) { var v = r[s[1]]; if (v && !seen[v]) { seen[v] = 1; out.push(v); } });
     return out;
   }
   var dlId = 0;
-  function makeInput(col, value, onchange, opts) {
+  function makeInput(col, value, onchange, opts, tableKey) {
     var isDate = DATECOLS.test(col), inp = h("input", { value: value == null ? "" : value });
     if (isDate) inp.type = "date";
     if (NUMCOLS.test(col) && !isDate) inp.className = "num";
-    var list = col === "Mã NV" ? "dsnv" : null, opts2 = list ? null : datalistFor(col);
+    var list = col === "Mã NV" ? "dsnv" : null, opts2 = list ? null : datalistFor(col, tableKey);
     if (list) inp.setAttribute("list", "dsnv");
     else if (opts2 && opts2.length) { var id = "dl" + (++dlId), dl = h("datalist", { id: id }); opts2.forEach(function (o) { dl.appendChild(h("option", { value: o })); }); inp.setAttribute("list", id); inp._dl = dl; }
     inp.addEventListener("change", function () { onchange(inp.value.trim()); });
@@ -460,7 +469,7 @@
     if (key === "sanluong" || key === "bandam") bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
     else bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadTemplate(key); }, "File Excel mẫu có sẵn tên cột + dòng ví dụ"));
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw); }, "Nhập từ file .xlsx / .xls / .csv"));
-    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = db[key].filter(function (r) { return !theoKy || rowInKy(r, def); }); saveXlsx(slug(def.ten) + (theoKy ? "_" + kyStr() : "") + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }]); }));
+    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = db[key].filter(function (r) { return (!theoKy || rowInKy(r, def)) && (!def.rowFilter || def.rowFilter(r)); }); saveXlsx(slug(def.ten) + (theoKy ? "_" + kyStr() : "") + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }]); }));
     card.appendChild(bar);
     if (noRight) card.appendChild(h("div", { class: "locked", html: "👁 Chế độ <b>chỉ xem</b> — vai trò của bạn không có quyền sửa bảng này." }));
     else if (locked) card.appendChild(h("div", { class: "locked", html: "🔒 <b>" + kyLabel(kyStr()) + " đã chốt lương</b> — dữ liệu kỳ này chỉ xem, không sửa được. Muốn sửa: vào <b>Kỳ lương đã chốt</b> → Mở chốt." }));
@@ -485,6 +494,7 @@
       var nameOf = function (ma) { return Object.prototype.hasOwnProperty.call(names, ma) ? names[ma] : ""; };
       db[key].forEach(function (r, i) {
         if (theoKy && !rowInKy(r, def)) return;
+        if (def.rowFilter && !def.rowFilter(r)) return;
         if (qq && def.cols.every(function (c) { return String(r[c] || "").toLowerCase().indexOf(qq) < 0; }) && String(nameOf(r["Mã NV"])).toLowerCase().indexOf(qq) < 0) return;
         idx.push(i);
       });
@@ -529,7 +539,7 @@
             if (!commit(pE, { audit: theoKy ? false : "retro", action: "Sửa danh mục" })) { inp.value = r[c] == null ? "" : r[c]; return; }
             if (inp.value !== n.value && !isDay) inp.value = n.value;
             save(); if (c === "Mã NV" && nameTd) nameTd.textContent = tenNV(n.value) || (n.value ? "⚠ chưa có trong Nhân sự" : ""); if (isDay) updTot();
-          });
+          }, null, key);
           inp.addEventListener("paste", function (ev) {
             var txt = (ev.clipboardData || window.clipboardData).getData("text");
             if (txt.indexOf("\t") < 0 && txt.indexOf("\n") < 0) return;
@@ -1186,7 +1196,223 @@
   function tabDanhMuc() {
     var w = h("div"), bar = h("div", { class: "bar" });
     Object.keys(DM).forEach(function (k) { bar.appendChild(btn(DM[k].ten + (countOf(k) ? " (" + countOf(k) + ")" : ""), st.dm === k ? "pri" : "", function () { st.dm = k; saveUi(); render(); })); });
-    w.appendChild(bar); w.appendChild(grid(st.dm, DM[st.dm])); return w;
+    w.appendChild(bar);
+    w.appendChild(st.dm === "dm_congthuc" ? congThucPanel() : grid(st.dm, DM[st.dm]));
+    return w;
+  }
+
+  // ---------- Công thức tiền lương — Formula management UI (Master Prompt mục VII) ----------
+  var CT_LOAI = [["OVERTIME", "Tăng ca"], ["ALLOWANCE", "Phụ cấp"], ["SUPPORT", "Hỗ trợ"]];
+  function ctLoaiTen(v) { var o = CT_LOAI.filter(function (x) { return x[0] === v; })[0]; return o ? o[1] : (v || ""); }
+  var CT_SUBTABS = [["tangca", "Tăng ca"], ["phucap", "Phụ cấp"], ["hotro", "Hỗ trợ"], ["vars", "Thư viện biến"], ["mau", "Mẫu công thức"], ["test", "Kiểm tra công thức"], ["lichsu", "Lịch sử phiên bản"]];
+  var CT_SUBTAB_LOAI = { tangca: "OVERTIME", phucap: "ALLOWANCE", hotro: "SUPPORT" };
+  function congThucPanel() {
+    var w = h("div"), bar2 = h("div", { class: "bar sub" });
+    st.ct = st.ct || "tangca";
+    CT_SUBTABS.forEach(function (t) { bar2.appendChild(btn(t[1], st.ct === t[0] ? "pri" : "", function () { st.ct = t[0]; render(); })); });
+    w.appendChild(bar2);
+    var loai = CT_SUBTAB_LOAI[st.ct];
+    if (loai) {
+      var def = Object.assign({}, DM.dm_congthuc, { def: Object.assign({}, DM.dm_congthuc.def, { "Loại": loai }), rowFilter: function (r) { return (r["Loại"] || "") === loai; } });
+      w.appendChild(h("div", { class: "hint", text: "Chỉ hiện công thức Loại = " + loai + " (" + ctLoaiTen(loai) + "). Dòng mới tự gán Loại này." }));
+      w.appendChild(grid("dm_congthuc", def));
+    } else if (st.ct === "vars") w.appendChild(ctVarsPanel());
+    else if (st.ct === "mau") w.appendChild(ctTemplatesPanel());
+    else if (st.ct === "test") w.appendChild(ctTestPanel());
+    else if (st.ct === "lichsu") w.appendChild(ctHistoryPanel());
+    return w;
+  }
+  /** Tab "Thư viện biến" (mục VII, tab 4) — danh sách biến được khai báo, chỉ xem. */
+  function ctVarsPanel() {
+    var box = h("div", { class: "card" });
+    box.appendChild(h("div", { class: "hint", text: "Tên biến dùng trong ô 'Biểu thức' ở các tab Tăng ca / Phụ cấp / Hỗ trợ. Biến không có trong danh sách này sẽ báo lỗi khi lưu công thức (không âm thầm coi là 0)." }));
+    var t = h("table");
+    t.appendChild(h("tr", {}, [h("th", { text: "Biến" }), h("th", { text: "Tên" }), h("th", { text: "Đơn vị" }), h("th", { text: "Nguồn" }), h("th", { text: "Diễn giải" })]));
+    FML.variables.VARS.forEach(function (v) {
+      t.appendChild(h("tr", {}, [h("td", { class: "t", html: "<code>" + esc(v.name) + "</code>" }), h("td", { class: "t", text: v.label }), h("td", { class: "t", text: v.unit }), h("td", { class: "t", style: "color:#6c7a74", text: v.source }), h("td", { class: "t", text: v.desc })]));
+    });
+    box.appendChild(h("div", { class: "tw" }, [t])); return box;
+  }
+  /** Tab "Mẫu công thức" (mục VII, tab 5) — công thức có sẵn để copy, transcribe đúng từ switch/case gốc. */
+  var CT_TEMPLATES = [
+    { loai: "OVERTIME", ten: "Vượt công chuẩn, nhân hệ số (như TC1)", bieuThuc: "IF(CONG_TINH_LUONG - CONG_LE - CONG_TRUNG_CHUYEN - CONG_PHEP - CONG_TC - CONG_CHUAN > 0, (CONG_TINH_LUONG - CONG_LE - CONG_TRUNG_CHUYEN - CONG_PHEP - CONG_TC - CONG_CHUAN) * HE_SO_TC, 0) + CONG_TC * HE_SO_TC", moTa: "Phần công vượt công chuẩn (đã trừ lễ/phép/trung chuyển/tăng ca) × hệ số, cộng thêm công tăng ca đã chấm × hệ số." },
+    { loai: "OVERTIME", ten: "Vượt công chuẩn, có Công chuẩn 2 (như TC2)", bieuThuc: "IF(CONG_TINH_LUONG - CONG_LE - CONG_TRUNG_CHUYEN - CONG_PHEP - CONG_TC - CONG_DI_CHUYEN - IF(CONG_CHUAN_2 > 0, CONG_CHUAN_2, CONG_CHUAN) > 0, (CONG_TINH_LUONG - CONG_LE - CONG_TRUNG_CHUYEN - CONG_PHEP - CONG_TC - CONG_DI_CHUYEN - IF(CONG_CHUAN_2 > 0, CONG_CHUAN_2, CONG_CHUAN)) * HE_SO_TC, 0) + CONG_TC * HE_SO_TC", moTa: "Như trên nhưng trừ thêm công di chuyển; dùng Công chuẩn 2 (nhãn DQ) thay Công chuẩn khi có." },
+    { loai: "OVERTIME", ten: "Tăng ca + Chủ nhật nhân hệ số (như TC3)", bieuThuc: "(CONG_TC + CONG_CHU_NHAT) * HE_SO_TC", moTa: "Công tăng ca cộng công Chủ nhật, nhân hệ số tăng ca." },
+    { loai: "OVERTIME", ten: "Phần vượt công chuẩn, KHÔNG nhân hệ số (như TC6)", bieuThuc: "MAX(CONG_TINH_LUONG - CONG_TC - CONG_LE - CONG_CHUAN, 0)", moTa: "Chỉ lấy phần công vượt công chuẩn, không nhân hệ số tăng ca." },
+    { loai: "OVERTIME", ten: "Công tăng ca × hệ số (mặc định)", bieuThuc: "CONG_TC * HE_SO_TC", moTa: "Công thức đơn giản nhất — dùng khi không có quy tắc đặc biệt." },
+    { loai: "ALLOWANCE", ten: "Tỷ lệ theo công, có ngưỡng (ví dụ mẫu)", bieuThuc: "IF(CONG_HUONG_PHU_CAP >= NGUONG_PHU_CAP, MUC_PHU_CAP, MUC_PHU_CAP * CONG_HUONG_PHU_CAP / CONG_CHUAN)", moTa: "Đủ ngưỡng công → hưởng đủ mức phụ cấp; chưa đủ → chia theo tỷ lệ công / công chuẩn." },
+    { loai: "ALLOWANCE", ten: "Tỷ lệ, trừ lễ+phép khi dưới ngưỡng", bieuThuc: "IF(CONG_TINH_LUONG - CONG_LE - CONG_PHEP >= CONG_CHUAN - NGUONG_PHU_CAP, MUC_PHU_CAP, ROUND(MUC_PHU_CAP / CONG_CHUAN * (CONG_TINH_LUONG - CONG_LE - CONG_PHEP)))", moTa: "Giống kiểu TYLE_TRU_LE_PHEP cũ — đối chiếu M thật HAK_DN." },
+    { loai: "ALLOWANCE", ten: "Tỷ lệ, trừ phép+tăng ca khi dưới ngưỡng", bieuThuc: "IF(CONG_TINH_LUONG - CONG_PHEP - CONG_TC >= CONG_CHUAN - NGUONG_PHU_CAP, MUC_PHU_CAP, ROUND(MUC_PHU_CAP / CONG_CHUAN * (CONG_TINH_LUONG - CONG_PHEP - CONG_TC)))", moTa: "Giống kiểu TYLE_TRU_PHEP_TANGCA cũ — quy chế 2026/C6." },
+    { loai: "ALLOWANCE", ten: "Cố định, không tính theo công", bieuThuc: "MUC_PHU_CAP", moTa: "Luôn trả đủ mức phụ cấp, không trừ gì theo công." },
+    { loai: "SUPPORT", ten: "Theo ngày / lượt được hưởng", bieuThuc: "SO_NGAY_DUOC_HUONG * MUC_HO_TRO", moTa: "Số ngày (hoặc lượt) được hưởng × đơn giá hỗ trợ." },
+    { loai: "SUPPORT", ten: "Bù thiếu công chuẩn (như HT_THIEU_CHUAN)", bieuThuc: "IF(CONG_CHUAN > 0 AND CONG_THUC_TE <= CONG_CHUAN, (CONG_CHUAN - CONG_THUC_TE) * MUC_HO_TRO, 0)", moTa: "Chỉ trả khi công thực tế chưa đạt công chuẩn — bù đúng phần còn thiếu." },
+    { loai: "SUPPORT", ten: "Theo xe / đơn vị hợp lệ", bieuThuc: "SO_XE_HOP_LE * DON_GIA_HO_TRO", moTa: "Số xe (hoặc đơn vị) hợp lệ × đơn giá hỗ trợ theo xe." },
+    { loai: "SUPPORT", ten: "Gấp đôi khi đủ điều kiện", bieuThuc: "IF(DU_DIEU_KIEN_HO_TRO = 1, SO_NGAY_DUOC_HUONG * MUC_HO_TRO * 2, SO_NGAY_DUOC_HUONG * MUC_HO_TRO)", moTa: "Đủ điều kiện (biến 0/1) → hưởng gấp đôi mức thường." }
+  ];
+  function ctTemplatesPanel() {
+    var box = h("div", { class: "card" });
+    box.appendChild(h("div", { class: "hint", text: "Công thức có sẵn để tham khảo / copy vào ô 'Biểu thức' ở tab tương ứng (Tăng ca / Phụ cấp / Hỗ trợ), hoặc dùng ngay ở tab 'Kiểm tra công thức' để chạy thử." }));
+    CT_LOAI.forEach(function (lo) {
+      box.appendChild(h("div", { class: "fh", text: ctLoaiTen(lo[0]) }));
+      CT_TEMPLATES.filter(function (x) { return x.loai === lo[0]; }).forEach(function (x) {
+        var card = h("div", { class: "slip", style: "margin-bottom:8px" });
+        card.appendChild(h("div", { html: "<b>" + esc(x.ten) + "</b>" }));
+        card.appendChild(h("div", { style: "font-family:monospace;background:var(--brandSoft, #eef3e8);padding:6px;border-radius:6px;margin:4px 0;word-break:break-all", text: x.bieuThuc }));
+        card.appendChild(h("div", { class: "hint", style: "margin:0", text: x.moTa }));
+        box.appendChild(card);
+      });
+    });
+    return box;
+  }
+  /** Giá trị mặc định của 1 biến, lấy từ danh mục (mã tăng ca/phụ cấp/hỗ trợ cùng mã công thức) nếu có,
+   * không thì lấy từ dữ liệu đã tính của 1 nhân viên/kỳ cụ thể (_ct — không tính lại), còn lại = nhập tay. */
+  function ctVarFromCode(name, loai, ma, nam, thang) {
+    if (!ma) return null;
+    if (loai === "OVERTIME") {
+      var rTC = E.hieuLuc(db.dm_tangca, "Mã tăng ca", nam, thang)[ma];
+      if (rTC) { if (name === "HE_SO_TC") return E.pct(rTC["Hệ số tăng ca"]); if (name === "TIEN_TC_CO_DINH") return E.money(rTC["Tiền tăng ca (nếu tính cố định)"]); }
+    } else if (loai === "ALLOWANCE") {
+      var rPC = E.hieuLuc(db.dm_phucap, "Mã phụ cấp", nam, thang)[ma];
+      if (rPC) { if (name === "MUC_PHU_CAP") return E.money(rPC["Số tiền"]); if (name === "NGUONG_PHU_CAP") return E.num(rPC["Tham chiếu"]); }
+    } else if (loai === "SUPPORT") {
+      var rHT = E.hieuLuc(db.dm_hotro, "Mã hỗ trợ", nam, thang)[ma];
+      if (rHT) { if (name === "MUC_HO_TRO" || name === "DON_GIA_HO_TRO") return E.money(rHT["Số tiền"]); }
+    }
+    return null;
+  }
+  function ctVarFromRow(name, b, nam, thang) {
+    var c = (b && b["_ct"]) || {};
+    switch (name) {
+      case "CONG_CHUAN": return c.congChuan;
+      case "CONG_CHUAN_2": return c.congChuan2;
+      case "CONG_TINH_LUONG": case "CONG_HUONG_PHU_CAP": case "CONG_THUC_TE": return b && b["Tổng công"];
+      case "CONG_BT": return c.congBT;
+      case "CONG_TC": return c.congTangCa;
+      case "CONG_CHU_NHAT": return c.congChuNhat;
+      case "CONG_LE": return c.congLe;
+      case "CONG_PHEP": return c.congPhep;
+      case "CONG_DI_CHUYEN": return c.congDiChuyen;
+      case "CONG_TRUNG_CHUYEN": return c.congTrungChuyen;
+      case "LUONG_THOA_THUAN": return b && b["Lương thỏa thuận"];
+      case "DON_GIA_CONG": return c.donGiaTG;
+      case "SL_TAN": return b && b["Sản lượng (tấn)"];
+      case "SO_XE": return b && b["Số xe bơm dăm"];
+      case "LUONG_SAN_LUONG": return b && b["Lương sản lượng"];
+      case "LUONG_BU": return b && b["Lương bù SL"];
+      case "SO_NGAY_COM": case "SO_NGAY_DUOC_HUONG": return b && b["Ngày cơm"];
+      case "SO_NGAY_THANG": return new Date(nam, thang, 0).getDate();
+      default: return null;
+    }
+  }
+  function ctDefaultVar(name, b, loai, ma, nam, thang) {
+    var vc = ctVarFromCode(name, loai, ma, nam, thang);
+    if (vc != null) return { value: Math.round(vc * 1000) / 1000, source: "Danh mục " + ctLoaiTen(loai) + " (mã " + ma + ")" };
+    var vr = ctVarFromRow(name, b, nam, thang);
+    if (vr != null) return { value: Math.round(vr * 1000) / 1000, source: b ? ("Nhân viên " + b["Mã NV"] + " · kỳ " + thang + "/" + nam) : "" };
+    return { value: 0, source: "chưa có nguồn tự động — nhập tay" };
+  }
+  /** Tên biến có trong formula-variables.js xuất hiện trong 1 biểu thức (để biết cần hỏi giá trị biến nào). */
+  function ctRefVars(expr) {
+    var found = [], seen = {};
+    (String(expr || "").match(/[A-Za-zÀ-ỹ_][A-Za-zÀ-ỹ0-9_]*/g) || []).forEach(function (w) {
+      if (FML.variables.isKnown(w) && !seen[w]) { seen[w] = 1; found.push(w); }
+    });
+    return found;
+  }
+  /** Tab "Kiểm tra công thức" (mục VII, tab 6 / mục VII.2-3) — chạy thử KHÔNG ghi vào bảng lương thật. */
+  function ctTestPanel() {
+    st.ctTest = st.ctTest || { nam: st.nam, thang: st.thang, loai: "OVERTIME", ma: "", maNV: "", maCT: "", expr: "", vars: {} };
+    var T = st.ctTest, box = h("div", { class: "card" });
+    box.appendChild(h("div", { class: "hint", text: "Thử công thức với dữ liệu của 1 nhân viên đã tính (hoặc giả lập, nếu không chọn nhân viên) — KHÔNG ghi/đổi bảng lương thật. Chọn 'Mã công thức' có sẵn để nạp biểu thức, hoặc tự sửa trực tiếp." }));
+    refreshNVList();
+    var row1 = h("div", { class: "bar" });
+    var selLoai = h("select"); CT_LOAI.forEach(function (x) { selLoai.appendChild(h("option", { value: x[0], text: x[1] })); }); selLoai.value = T.loai;
+    selLoai.addEventListener("change", function () { T.loai = selLoai.value; T.maCT = ""; T.vars = {}; render(); });
+    row1.appendChild(h("label", { text: "Loại " })); row1.appendChild(selLoai);
+    var rows = db.dm_congthuc.filter(function (r) { return (r["Loại"] || "") === T.loai; });
+    var selMa = h("select"); selMa.appendChild(h("option", { value: "", text: "— tự nhập biểu thức —" }));
+    rows.forEach(function (r) { selMa.appendChild(h("option", { value: r._id, text: (r["Mã công thức"] || "") + " — " + (r["Tên công thức"] || "") + " (" + (r["Trạng thái"] || "") + ")" })); });
+    selMa.value = T.maCT;
+    selMa.addEventListener("change", function () {
+      T.maCT = selMa.value; var r = rows.filter(function (x) { return x._id === T.maCT; })[0];
+      if (r) { T.ma = r["Mã công thức"] || ""; T.expr = r["Biểu thức"] || ""; T.vars = {}; }
+      render();
+    });
+    row1.appendChild(h("label", { text: " Mã công thức " })); row1.appendChild(selMa);
+    box.appendChild(row1);
+    var row2 = h("div", { class: "bar" });
+    var inNV = h("input", { value: T.maNV, placeholder: "Mã NV (để trống = giả lập)", list: "dsnv" });
+    inNV.addEventListener("change", function () { T.maNV = inNV.value.trim(); render(); });
+    row2.appendChild(h("label", { text: "Nhân viên " })); row2.appendChild(inNV);
+    var inKy = h("input", { type: "month", value: T.nam + "-" + ("0" + T.thang).slice(-2) });
+    inKy.addEventListener("change", function () { if (inKy.value) { var m = inKy.value.split("-"); T.nam = +m[0]; T.thang = +m[1]; render(); } });
+    row2.appendChild(h("label", { text: " Kỳ " })); row2.appendChild(inKy);
+    row2.appendChild(btn("↺ Lấy lại giá trị theo nhân viên/kỳ", "", function () { T.vars = {}; render(); }));
+    box.appendChild(row2);
+    box.appendChild(h("label", { text: "Biểu thức (có thể sửa trực tiếp để thử, không ảnh hưởng danh mục)" }));
+    var ta = h("textarea", { rows: 2, style: "width:100%;font-family:monospace" }); ta.value = T.expr;
+    ta.addEventListener("change", function () { T.expr = ta.value; render(); });
+    box.appendChild(ta);
+    var vr = FML.validate(T.expr || "");
+    if (!T.expr) { box.appendChild(h("div", { class: "hint", text: "Nhập hoặc chọn một công thức để thử." })); return box; }
+    if (!vr.ok) { box.appendChild(h("div", { class: "warn", text: "⚠ Công thức không hợp lệ: " + vr.errors.map(function (e) { return e.message; }).join("; ") })); return box; }
+    var b = null, kqB = null;
+    if (T.maNV) { kqB = kqKy(T.nam, T.thang); b = (kqB.kq.bangluong || []).filter(function (x) { return x["Mã NV"] === T.maNV; })[0] || null; if (!b) box.appendChild(h("div", { class: "warn", text: "⚠ Không thấy " + T.maNV + " trong bảng lương kỳ " + T.thang + "/" + T.nam + " — dùng giá trị giả lập (0), có thể tự sửa." })); }
+    var names = ctRefVars(T.expr);
+    if (!names.length) box.appendChild(h("div", { class: "warn", text: "Công thức không dùng biến nào trong Thư viện biến — kết quả sẽ là hằng số." }));
+    var ctx = {}, vt = h("table");
+    vt.appendChild(h("tr", {}, [h("th", { text: "Biến" }), h("th", { text: "Giá trị" }), h("th", { text: "Nguồn" })]));
+    names.forEach(function (name) {
+      var cur = T.vars[name];
+      if (cur === undefined) { var d = ctDefaultVar(name, b, T.loai, T.ma, T.nam, T.thang); cur = d.value; T.vars[name] = cur; T.vars["_src_" + name] = d.source; }
+      ctx[name] = +cur || 0;
+      var inp = h("input", { class: "num", value: cur });
+      inp.addEventListener("change", function () { T.vars[name] = E.num(inp.value); T.vars["_src_" + name] = "nhập tay"; render(); });
+      vt.appendChild(h("tr", {}, [h("td", { class: "t", html: "<code>" + esc(name) + "</code> — " + esc((FML.variables.get(name) || {}).label || "") }), h("td", {}, [inp]), h("td", { class: "t", style: "color:#6c7a74", text: T.vars["_src_" + name] || "" })]));
+    });
+    box.appendChild(h("div", { class: "tw" }, [vt]));
+    var ketQuaMoi = null, loi = null;
+    try { ketQuaMoi = Math.round(FML.evaluate(T.expr, ctx)); } catch (e) { loi = e.message; }
+    var fieldCu = T.loai === "OVERTIME" ? "Tiền tăng ca" : T.loai === "ALLOWANCE" ? "Phụ cấp" : "Lương hỗ trợ";
+    var ketQuaCu = b ? b[fieldCu] : null;
+    var kq = h("div", { class: "kpis" });
+    kq.appendChild(h("div", { class: "kpi" }, [h("small", { text: "Kết quả công thức này" }), h("b", { text: loi ? "⚠ lỗi" : fmt(ketQuaMoi) })]));
+    if (b) kq.appendChild(h("div", { class: "kpi" }, [h("small", { text: "Đang áp dụng cho " + T.maNV + " (" + fieldCu + ")" }), h("b", { text: fmt(ketQuaCu) })]));
+    if (b && !loi) kq.appendChild(h("div", { class: "kpi" }, [h("small", { text: "Chênh lệch" }), h("b", { style: ketQuaMoi - ketQuaCu ? "color:#c0362c" : "", text: (ketQuaMoi - ketQuaCu > 0 ? "+" : "") + fmt(ketQuaMoi - ketQuaCu) })]));
+    box.appendChild(kq);
+    if (loi) box.appendChild(h("div", { class: "warn", text: "⚠ Lỗi khi tính: " + loi }));
+    box.appendChild(h("div", { class: "hint", style: "margin-top:8px", text: "Chỉ chạy thử trong màn hình này — chưa lưu, chưa đổi bảng lương/kỳ đã chốt. Muốn áp dụng thật: lưu biểu thức này vào tab " + ctLoaiTen(T.loai) + " (Trạng thái = Hiệu lực)." }));
+    return box;
+  }
+  /** Tab "Lịch sử phiên bản" (mục VII, tab 7 / mục VII.4) — mọi dòng cùng Mã công thức (mọi Trạng thái) +
+   * nhật ký chỉnh sửa liên quan (ai, khi nào, nội dung trước/sau — lấy từ nhật ký chung của app). */
+  function ctHistoryPanel() {
+    var box = h("div", { class: "card" });
+    var codes = []; db.dm_congthuc.forEach(function (r) { var c = r["Mã công thức"]; if (c && codes.indexOf(c) < 0) codes.push(c); });
+    if (!codes.length) { box.appendChild(h("div", { class: "empty", text: "Chưa có công thức nào trong danh mục." })); return box; }
+    st.ctHist = st.ctHist && codes.indexOf(st.ctHist) >= 0 ? st.ctHist : codes[0];
+    var sel = h("select"); codes.forEach(function (c) { sel.appendChild(h("option", { value: c, text: c })); }); sel.value = st.ctHist;
+    sel.addEventListener("change", function () { st.ctHist = sel.value; render(); });
+    box.appendChild(h("label", { text: "Mã công thức " })); box.appendChild(sel);
+    var vers = FML.versionsOf(db.dm_congthuc, st.ctHist);
+    box.appendChild(h("div", { class: "fh", text: "Các phiên bản (mới nhất trước)" }));
+    var t = h("table");
+    t.appendChild(h("tr", {}, [h("th", { text: "Hiệu lực từ" }), h("th", { text: "Hiệu lực đến" }), h("th", { text: "Trạng thái" }), h("th", { text: "Công ty" }), h("th", { text: "Biểu thức" }), h("th", { text: "Mô tả" })]));
+    vers.forEach(function (r) {
+      t.appendChild(h("tr", {}, [h("td", { class: "t", text: r["Hiệu lực từ"] || "" }), h("td", { class: "t", text: r["Hiệu lực đến"] || "" }),
+        h("td", { class: "t", html: "<span class='tag " + (r["Trạng thái"] === "Hiệu lực" ? "on" : "off") + "'>" + esc(r["Trạng thái"] || "") + "</span>" }),
+        h("td", { class: "t", text: r["Công ty"] || "(mọi công ty)" }), h("td", { class: "t", style: "font-family:monospace", text: r["Biểu thức"] || "" }), h("td", { class: "t", text: r["Mô tả"] || "" })]));
+    });
+    box.appendChild(h("div", { class: "tw" }, [t]));
+    var logs = (db.auditlog || []).filter(function (a) { return a.chiTiet && a.chiTiet.indexOf("Công thức tiền lương") >= 0 && a.chiTiet.indexOf(st.ctHist) >= 0; }).slice(-30).reverse();
+    box.appendChild(h("div", { class: "fh", text: "Nhật ký chỉnh sửa (ai, khi nào, nội dung trước/sau)" }));
+    if (!logs.length) box.appendChild(h("div", { class: "hint", text: "Chưa có nhật ký khớp mã này (nhật ký chỉ ghi được khi thao tác đổi/trống trường 'Mã công thức' trong dòng sửa)." }));
+    else {
+      var t2 = h("table"); t2.appendChild(h("tr", {}, [h("th", { text: "Lúc" }), h("th", { text: "Người" }), h("th", { text: "Thao tác" }), h("th", { text: "Nội dung" })]));
+      logs.forEach(function (a) { t2.appendChild(h("tr", {}, [h("td", { class: "t", text: fmtTime(a.luc) }), h("td", { class: "t", text: a.nguoi || "" }), h("td", { class: "t", text: a.thaoTac || "" }), h("td", { class: "t", text: a.chiTiet || "" })])); });
+      box.appendChild(h("div", { class: "tw" }, [t2]));
+    }
+    return box;
   }
 
   // ---------- Tính lương ----------
