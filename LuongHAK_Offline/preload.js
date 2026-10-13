@@ -43,3 +43,12 @@ contextBridge.exposeInMainWorld("hakFiles", {
 contextBridge.exposeInMainWorld("hakReport", {
   pdf: (payload) => ipcRenderer.invoke("report-pdf", payload) // { html, name, landscape, footer } → { ok, name, dir, size, pages } | { ok:false, error }
 });
+
+// Kho chứng từ gốc: chỉ thêm / đọc / kiểm tra theo DocumentID — không có hàm xóa
+contextBridge.exposeInMainWorld("hakDocs", {
+  add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }
+  list: () => ipcRenderer.invoke("doc-list"),
+  read: (id) => ipcRenderer.invoke("doc-read", id),                  // → { ok, meta, data }
+  verify: (ids) => ipcRenderer.invoke("doc-verify", ids),            // → { ok, items: [{ id, name, status: ok|missing|mismatch }] }
+  open: (id) => ipcRenderer.sendSync("doc-open", id)
+});

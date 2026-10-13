@@ -95,7 +95,7 @@
   }
   // Chỉ TẠO bảng còn thiếu; bảng có nhưng sai kiểu đã bị chặn ở bước kiểm tra cấu trúc (không bao giờ thay bằng bảng rỗng)
   function ensureTables() {
-    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat"]).forEach(function (k) {
+    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu"]).forEach(function (k) {
       if (db[k] === undefined) db[k] = [];
       else if (!Array.isArray(db[k])) throw new Error("Bảng " + k + " sai cấu trúc — không tự thay thế");
     });
@@ -2291,32 +2291,49 @@
   // ---------- Đọc ảnh bảng chấm công / chấm cơm (OCR offline, 2.0-α20) ----------
   // Ảnh / PDF → tìm ô (core/table-grid) → Tesseract ở tiến trình chính (window.hakOcr) → bảng xem trước SỬA ĐƯỢC
   // → Xuất Excel, hoặc đưa vào Chấm công / Suất cơm qua màn hình xem trước nhập Excel (khóa kỳ chốt, quyền, sao lưu như nhập Excel).
-  var OCRS = { pages: [], sel: 0, busy: false, reading: false, stop: false, mode: "so" }; // reading: đang chạy hàng đợi đọc; stop: người dùng bấm Dừng đọc
+  var OCRS = { pages: [], more: [], sel: 0, busy: false, reading: false, stop: false, mode: "so" }; // reading: đang chạy hàng đợi đọc; stop: người dùng bấm Dừng đọc
   // Cách đọc ô ngày (α22, chủ sở hữu duyệt): số công viết tay · dấu x = 1 công (xx = 2, xxx = 3), ô ghi giờ = giờ / 8 · lịch ca: 1 ca = 1 công, "1+2" = 2 công
   var OCR_MODES = [["so", "Số công (1, 0,5…)"], ["mark", "Dấu x (x = 1 công) · giờ / 8"], ["ca", "Số ca (1 ca = 1 công, 1+2 = 2)"]];
   var OCR_KIND = [["Công", "Chấm công — BT"], ["Tăng ca", "Chấm công — TC"], ["Cơm", "Suất cơm"], ["", "(bỏ qua dòng)"]];
   function loadScript(src) { return new Promise(function (ok, bad) { if (document.querySelector('script[src="' + src + '"]')) return ok(); var sc = document.createElement("script"); sc.src = src; sc.onload = ok; sc.onerror = function () { bad(new Error("Không nạp được " + src)); }; document.head.appendChild(sc); }); }
   function canvasOf(w, h) { var c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
-  function fileToPages(file) {
+  var OCR_CHUNK = 30; // số trang PDF dựng ảnh mỗi lượt (giữ bộ nhớ ổn định); phần còn lại đọc tiếp bằng nút "Đọc tiếp" — KHÔNG bỏ trang nào
+  function renderPdfPages(src) {
+    var pdf = src.pdf, end = Math.min(pdf.numPages, src.next + OCR_CHUNK - 1), out = [], chainP = Promise.resolve();
+    for (var i = src.next; i <= end; i++) (function (i) {
+      chainP = chainP.then(function () { return OCRS.stop ? null : pdf.getPage(i); }).then(function (pg) {
+        if (!pg) return; // đã bấm Dừng đọc
+        var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(4, 2400 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc }), cv = canvasOf(Math.round(vp.width), Math.round(vp.height));
+        var cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+        return pg.render({ canvasContext: cx, viewport: vp }).promise.then(function () { out.push({ name: src.file.name + " — trang " + i, canvas: cv, docId: src.docId || "", trang: i }); src.next = i + 1; });
+      });
+    })(i);
+    return chainP.then(function () {
+      if (src.next <= pdf.numPages && !OCRS.stop) OCRS.more.push(src); // còn trang chưa dựng → chờ "Đọc tiếp"
+      return out;
+    });
+  }
+  function fileToPages(file, docId) {
     var name = file.name;
     if (/\.pdf$/i.test(name) || file.type === "application/pdf") {
       return loadScript("vendor/pdfjs/pdf.min.js").then(function () {
         var lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = "vendor/pdfjs/pdf.worker.min.js";
         return file.arrayBuffer().then(function (buf) { return lib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false, disableFontFace: true }).promise; });
-      }).then(function (pdf) {
-        var n = Math.min(pdf.numPages, 30), out = [], chainP = Promise.resolve();
-        for (var i = 1; i <= n; i++) (function (i) {
-          chainP = chainP.then(function () { return OCRS.stop ? null : pdf.getPage(i); }).then(function (pg) {
-            if (!pg) return; // đã bấm Dừng đọc
-            var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(4, 2400 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc }), cv = canvasOf(Math.round(vp.width), Math.round(vp.height));
-            var cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
-            return pg.render({ canvasContext: cx, viewport: vp }).promise.then(function () { out.push({ name: name + " — trang " + i, canvas: cv }); });
-          });
-        })(i);
-        return chainP.then(function () { if (pdf.numPages > n && !OCRS.stop) toast("PDF có " + pdf.numPages + " trang — chỉ đọc " + n + " trang đầu"); return out; });
-      });
+      }).then(function (pdf) { return renderPdfPages({ file: file, pdf: pdf, next: 1, docId: docId }); });
     }
-    return window.createImageBitmap(file).then(function (bm) { var cv = canvasOf(bm.width, bm.height); cv.getContext("2d").drawImage(bm, 0, 0); return [{ name: name, canvas: cv }]; });
+    return window.createImageBitmap(file).then(function (bm) { var cv = canvasOf(bm.width, bm.height); cv.getContext("2d").drawImage(bm, 0, 0); return [{ name: name, canvas: cv, docId: docId || "", trang: 1 }]; });
+  }
+  /** Lưu NGUYÊN BẢN file vào kho chứng từ (SHA-256, không xóa) và ghi siêu dữ liệu vào db.chungtu. Lỗi lưu → báo, KHÔNG chặn đọc OCR. */
+  function archiveOriginal(file) {
+    if (!window.hakDocs) return Promise.resolve("");
+    return file.arrayBuffer().then(function (buf) { return window.hakDocs.add(new Uint8Array(buf), { name: file.name, user: currentUser(), note: "OCR chấm công kỳ " + kyStr() }); }).then(function (r) {
+      if (!r || !r.ok) { toast("Chưa lưu được bản gốc " + file.name + ": " + ((r && r.error) || "lỗi không rõ")); return ""; }
+      if (!db.chungtu.some(function (c) { return c.id === r.id; })) {
+        db.chungtu.push({ id: r.id, sha256: r.sha256, name: file.name, size: r.size, addedAt: new Date().toISOString(), addedBy: currentUser(), nguon: "OCR", ky: kyStr() });
+        audit("Lưu chứng từ gốc", r.id + " · " + file.name + " · SHA-256 " + r.sha256.slice(0, 12) + "…"); save();
+      } else if (r.duplicate) toast("File " + file.name + " đã có trong kho chứng từ (" + r.id + ") — dùng lại bản đã lưu");
+      return r.id;
+    }, function (e) { toast("Chưa lưu được bản gốc: " + e.message); return ""; });
   }
   function grayOf(cv) { var d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height); return { g: C.grid.toGray(d.data, cv.width, cv.height), w: cv.width, h: cv.height }; }
   function grayCanvas(g, w, h) { var cv = canvasOf(w, h), cx = cv.getContext("2d"), im = cx.createImageData(w, h); for (var i = 0, j = 0; i < g.length; i++, j += 4) { im.data[j] = im.data[j + 1] = im.data[j + 2] = g[i]; im.data[j + 3] = 255; } cx.putImageData(im, 0, 0); return cv; }
@@ -2386,7 +2403,7 @@
       if (rr.chamcong.length) { var p1 = IMP.plan(db, "chamcong", ALL.chamcong.cols, rr.chamcong, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p1.sheet = "Ảnh chấm công"; pl.push(p1); }
       if (rr.tiencom.length) { var p2 = IMP.plan(db, "tiencom", ALL.tiencom.cols, rr.tiencom, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p2.sheet = "Ảnh chấm cơm"; pl.push(p2); }
       return pl;
-    }, "OCR " + pages.map(function (p) { return p.name; }).join(", "), function () { render(); });
+    }, "OCR " + pages.map(function (p) { return p.name + (p.docId ? " [" + p.docId + "]" : ""); }).join(", "), function () { render(); });
   }
   function ocrExport(pages) {
     var sheets = pages.filter(function (p) { return p.lines && p.lines.length; }).map(function (pg, i) {
@@ -2425,10 +2442,10 @@
         var files = Array.prototype.slice.call(f.files || []); if (!files.length) return;
         var big = files.filter(function (x) { return x.size > 40 * 1048576; }); if (big.length) { alert("File quá lớn (> 40 MB): " + big.map(function (x) { return x.name; }).join(", ")); return; }
         OCRS.busy = true; OCRS.stop = false; OCRS.reading = true; render();
-        files.reduce(function (p, file) { return p.then(function () { if (OCRS.stop) return; return fileToPages(file).then(function (pgs) { pgs.forEach(function (x) { x.mode = OCRS.mode; OCRS.pages.push(x); }); }); }); }, Promise.resolve())
+        files.reduce(function (p, file) { return p.then(function () { if (OCRS.stop) return; return archiveOriginal(file).then(function (docId) { return fileToPages(file, docId); }).then(function (pgs) { pgs.forEach(function (x) { x.mode = OCRS.mode; OCRS.pages.push(x); }); }); }); }, Promise.resolve())
           .then(function () {
             OCRS.busy = false;
-            if (OCRS.stop) { OCRS.reading = false; OCRS.stop = false; render(); toast("Đã dừng — chưa mở hết các file đã chọn"); return; }
+            if (OCRS.stop) { OCRS.pages.forEach(function (x) { if (!x.res && !x.err) x.stopped = true; }); OCRS.reading = false; OCRS.stop = false; render(); toast("Đã dừng — chưa mở hết các file đã chọn; trang chưa đọc bấm Đọc lại khi cần"); return; }
             return readQueue(); // đọc lần lượt các trang mới
           }, function (e) { OCRS.busy = false; OCRS.reading = false; alert("Không mở được file: " + e.message); render(); });
       });
@@ -2438,10 +2455,17 @@
     bar.appendChild(pickBtn);
     bar.appendChild(h("label", { text: "Cách đọc ô " })); bar.appendChild(modeSel(OCRS.mode, "Cách đọc ô cho file mới", function (v) { OCRS.mode = v; }));
     if (OCRS.reading) bar.appendChild(btn(OCRS.stop ? "Đang dừng…" : "■ Dừng đọc", "red", function () { OCRS.stop = true; render(); }, "Dừng sau lô ô đang đọc; các trang đã đọc xong giữ nguyên, trang chưa đọc bấm Đọc lại sau"));
+    if (OCRS.more.length && !OCRS.reading) {
+      var left = OCRS.more.reduce(function (n, m) { return n + (m.pdf.numPages - m.next + 1); }, 0);
+      bar.appendChild(btn("▶ Đọc tiếp " + Math.min(left, OCR_CHUNK) + " trang (còn " + left + ")", "pri", function () {
+        var src = OCRS.more.shift(); OCRS.busy = true; OCRS.stop = false; OCRS.reading = true; render();
+        renderPdfPages(src).then(function (pgs) { pgs.forEach(function (x) { x.mode = OCRS.mode; OCRS.pages.push(x); }); OCRS.busy = false; if (OCRS.stop) { OCRS.reading = false; OCRS.stop = false; OCRS.more.unshift(src); render(); return; } return readQueue(); }, function (e) { OCRS.busy = false; OCRS.reading = false; alert("Không dựng được trang: " + e.message); render(); });
+      }, "PDF nhiều trang được mở từng lượt " + OCR_CHUNK + " trang để không đầy bộ nhớ — không trang nào bị bỏ"));
+    }
     if (OCRS.pages.length) {
       bar.appendChild(btn("⬇ Xuất Excel", "", function () { ocrExport(OCRS.pages); }, "Mỗi trang 1 sheet: tên, nhân viên, ngày 1…31, tổng"));
       bar.appendChild(btn("✔ Đưa vào Chấm công / Suất cơm…", "pri", function () { ocrApply(OCRS.pages); }, "Qua màn hình xem trước như nhập Excel"));
-      if (!OCRS.reading) bar.appendChild(btn("Xóa danh sách", "ghost", function () { if (confirm("Xóa các trang đã đọc khỏi màn hình này? (Dữ liệu đã ghi vào Chấm công không bị ảnh hưởng)")) { OCRS.pages = []; OCRS.sel = 0; render(); } }));
+      if (!OCRS.reading) bar.appendChild(btn("Xóa danh sách", "ghost", function () { if (confirm("Xóa các trang đã đọc khỏi màn hình này? (Dữ liệu đã ghi vào Chấm công không bị ảnh hưởng)")) { OCRS.pages = []; OCRS.more = []; OCRS.sel = 0; render(); } }));
     }
     bar.appendChild(h("span", { class: "sp" }));
     bar.appendChild(btn("Kiểm tra OCR", "ghost", function () { window.hakOcr.selfTest().then(function (r) { alert(r.ok ? "OCR hoạt động — đọc thử được \"" + r.text + "\" trong " + r.ms + " ms" : "OCR lỗi: " + r.error); }); }));

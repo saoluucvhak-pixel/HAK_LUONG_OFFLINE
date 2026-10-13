@@ -744,6 +744,26 @@ async function launch(dataDir, opt) {
       const g6 = await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => [tr.querySelector("input.i").value, tr.querySelectorAll("select")[1].value, tr.querySelector("input[data-day='9']").value, tr.children[tr.children.length - 2].textContent]));
       ok("Cách đọc ô Dấu x: bảng tay 2 khối, mỗi người 1 cột → tên lấy từ tiêu đề cột, loại Công; xx = 2, ô '7h-15h' = 1; tổng 47 / 35 / 29", pm === "mark" && g6.map((r) => r.join(":")).join("|") === "Lê Văn An:Công:1:47|Trần Bình:Công:1:35|Ngô Cường:Công:2:29", pm + " " + JSON.stringify(g6));
     }
+    // GĐ4: bản gốc được lưu vào kho chứng từ (SHA-256, sidecar), siêu dữ liệu vào db.chungtu; PDF > 30 trang đọc tiếp, không bỏ trang
+    {
+      const vdir = path.join(DATA, "documents"), docs = fs.existsSync(vdir) ? fs.readdirSync(vdir).flatMap((d) => fs.readdirSync(path.join(vdir, d)).map((x) => path.join(d, x))) : [];
+      const vr = await w.evaluate(async () => { const l = await window.hakDocs.list(), v = await window.hakDocs.verify(); return { n: l.docs.length, st: v.items.map((i) => i.status) }; });
+      ok("Kho chứng từ: file gốc (PNG, PDF…) được lưu nguyên bản kèm sidecar, trùng nội dung chỉ lưu 1 lần, kiểm tra SHA-256 đều 'ok'", vr.n >= 2 && vr.st.every((x) => x === "ok") && docs.filter((x) => /\.json$/.test(x)).length === vr.n && docs.length === 2 * vr.n, JSON.stringify({ vr, docs }));
+      const nBefore = vr.n, nPages = 35, objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [" + Array.from({ length: nPages }, (_, i) => (3 + i) + " 0 R").join(" ") + "] /Count " + nPages + " >>"];
+      for (let i = 0; i < nPages; i++) objs.push("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>");
+      let pdf = "%PDF-1.4\n"; const offs = []; objs.forEach((o, i) => { offs.push(pdf.length); pdf += (i + 1) + " 0 obj\n" + o + "\nendobj\n"; });
+      const xr = pdf.length; pdf += "xref\n0 " + (objs.length + 1) + "\n0000000000 65535 f \n" + offs.map((o) => String(o).padStart(10, "0") + " 00000 n \n").join("") + "trailer\n<< /Size " + (objs.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xr + "\n%%EOF\n";
+      const big = path.join(DATA, "pdf-35-trang.pdf"); fs.writeFileSync(big, pdf);
+      await w.click('#main button:has-text("Xóa danh sách")');
+      const [fc2] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
+      await fc2.setFiles([big]);
+      let more = 0; for (let i = 0; i < 240 && !more; i++) { await w.waitForTimeout(500); more = await w.locator('#main button:has-text("Đọc tiếp")').count(); }
+      const t1 = await w.locator(".subtabs button").count();
+      ok("PDF 35 trang: lượt đầu 30 trang, hiện nút 'Đọc tiếp' (không âm thầm cắt)", more === 1 && t1 === 30, "tabs=" + t1 + " more=" + more);
+      await w.locator('#main button:has-text("Đọc tiếp")').click();
+      let t2 = 0; for (let i = 0; i < 240 && t2 !== 35; i++) { await w.waitForTimeout(500); t2 = await w.locator(".subtabs button").count(); }
+      ok("Đọc tiếp: đủ 35 trang, hết nút 'Đọc tiếp'; PDF 35 trang cũng vào kho chứng từ (thêm đúng 1 file)", t2 === 35 && (await w.evaluate(async () => (await window.hakDocs.list()).docs.length)) === nBefore + 1, "tabs=" + t2);
+    }
     ok("Không lỗi JavaScript ở Đọc ảnh chấm công", errs.length === 0, errs.join(" | "));
     await app.close();
   }
