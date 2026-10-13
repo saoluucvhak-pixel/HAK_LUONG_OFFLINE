@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "luonghak_db_v1";
-  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula;
+  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
 
   // ---------- Định nghĩa bảng ----------
@@ -29,7 +29,7 @@
     // Master Prompt mục III/VII: Dynamic Payroll Formula Engine — thêm/sửa công thức tăng ca, phụ cấp, hỗ trợ KHÔNG cần sửa code.
     dm_congthuc: {
       ten: "Công thức tiền lương",
-      cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã công thức", "Tên công thức", "Loại", "Công ty", "Biểu thức", "Tham số", "Đơn vị tính", "Mức tiền", "Hệ số", "Đối tượng áp dụng", "Trạng thái", "Mô tả"],
+      cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã công thức", "Tên công thức", "Loại", "Công ty", "Biểu thức", "Tham số", "Đơn vị tính", "Mức tiền", "Hệ số", "Đối tượng áp dụng", "Trạng thái", "Phiên bản", "Người lập", "Ngày lập", "Người duyệt", "Thời điểm duyệt", "Người kích hoạt", "Thời điểm kích hoạt", "Người ngừng", "Thời điểm ngừng", "Lý do thay đổi", "Mô tả"],
       def: { "Trạng thái": "Nháp" },
       hint: "'Loại': OVERTIME (tăng ca) · ALLOWANCE (phụ cấp) · SUPPORT (hỗ trợ) — khớp đúng 'Mã công thức' đã gán cho nhân viên (Mã tăng ca / Mã phụ cấp / Mã hỗ trợ), engine tự tra công thức này TRƯỚC, không cần sửa phần mềm. 'Trạng thái': chỉ 'Hiệu lực' mới được dùng để tính lương chính thức — 'Nháp'/'Đã duyệt' dùng để soạn & chạy thử (tab Kiểm tra công thức) trước khi kích hoạt; 'Ngừng' = thôi áp dụng. 'Công ty': để trống = áp dụng mọi công ty; ghi cụ thể để ưu tiên hơn bản chung. 'Biểu thức' dùng tên biến ở tab Thư viện biến (CONG_TC, MUC_PHU_CAP, HE_SO_TC…), hàm MIN/MAX/ROUND/IF… Xem tab Mẫu công thức để copy công thức có sẵn."
     },
@@ -48,7 +48,7 @@
   // Q-20: bảng có Số chứng từ → trên lưới chặn 2 dòng cùng Số chứng từ + Mã NV (dòng chưa có số chứng từ không bị ảnh hưởng)
   var CT_KEY = { psluong: true, ungluong: true };
   // Mọi thêm / sửa / xóa bản ghi nghiệp vụ đi qua repository (core/repository.js): quyền → ô ngày → trùng khóa → Q-15 → kỳ chốt / hồi tố, kiểm tra xong mới sửa dữ liệu
-  var REPO = RP.createRepo({ db: function () { return db; }, can: function (p) { return can(p); }, audit: function (a, d) { audit(a, d); }, uid: function () { return HRM.uid(); },
+  var REPO = RP.createRepo({ db: function () { return db; }, can: function (p) { return can(p); }, audit: function (a, d) { audit(a, d); }, uid: function () { return HRM.uid(); }, user: function () { return session ? session.tenDangNhap : currentUser(); },
     tableName: function (t) { return ALL[t] ? ALL[t].ten : t; }, hdChildren: HRM.HD_TABS });
   /** Ghi theo kế hoạch của repository: bị chặn → báo lý do; hồi tố + o.confirm → hỏi xác nhận (Hủy = không đổi gì). Trả kết quả hoặc null. */
   function commit(p, o) {
@@ -1406,14 +1406,37 @@
     box.appendChild(h("label", { text: "Mã công thức " })); box.appendChild(sel);
     var vers = FML.versionsOf(db.dm_congthuc, st.ctHist);
     box.appendChild(h("div", { class: "fh", text: "Các phiên bản (mới nhất trước)" }));
+    var fenv = function () { return { can: can, user: session ? session.tenDangNhap : "", db: db }; };
+    var LBL = { "Chờ duyệt": "Gửi duyệt", "Nháp": "Trả về nháp", "Đã duyệt": "Duyệt", "Hiệu lực": "Kích hoạt", "Ngừng": "Ngừng" };
+    var chuyen = function (r, to) {
+      var reason = String(st.ctReason || "").trim(); // Electron không hỗ trợ prompt() → lý do nhập ở ô phía trên bảng
+      if ((to === "Hiệu lực" || to === "Ngừng") && !reason) { alert("Nhập 'Lý do thay đổi' vào ô phía trên bảng trước khi " + LBL[to].toLowerCase() + " công thức."); return; }
+      var vals = { "Trạng thái": to }; if (reason) vals["Lý do thay đổi"] = reason;
+      if (!commit(REPO.plan("update", "dm_congthuc", r, vals, { what: LBL[to].toLowerCase() + " công thức" }), { confirm: true, action: "Công thức tiền lương — " + LBL[to] + " " + (r["Mã công thức"] || "") })) return;
+      st.ctReason = ""; save(); toast(LBL[to] + " công thức " + (r["Mã công thức"] || "") + ": xong."); render();
+    };
+    var saoChep = function (r) {
+      if (!commit(REPO.plan("insert", "dm_congthuc", null, FAP.copyAsDraft(r, fenv()), { what: "sao chép công thức" }), { action: "Công thức tiền lương — Sao chép thành phiên bản mới " + (r["Mã công thức"] || "") })) return;
+      save(); toast("Đã tạo phiên bản mới (Nháp) — sửa biểu thức rồi bấm 'Gửi duyệt'."); render();
+    };
+    var inReason = h("input", { value: st.ctReason || "", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", style: "width:60%", "data-ct-reason": "1" });
+    inReason.addEventListener("input", function () { st.ctReason = inReason.value; });
+    box.appendChild(h("div", { class: "bar" }, [h("label", { text: "Lý do thay đổi " }), inReason]));
     var t = h("table");
-    t.appendChild(h("tr", {}, [h("th", { text: "Hiệu lực từ" }), h("th", { text: "Hiệu lực đến" }), h("th", { text: "Trạng thái" }), h("th", { text: "Công ty" }), h("th", { text: "Biểu thức" }), h("th", { text: "Mô tả" })]));
+    t.appendChild(h("tr", {}, ["Phiên bản", "Hiệu lực từ", "Hiệu lực đến", "Trạng thái", "Công ty", "Biểu thức", "Người lập", "Người duyệt", "Kích hoạt", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
     vers.forEach(function (r) {
-      t.appendChild(h("tr", {}, [h("td", { class: "t", text: r["Hiệu lực từ"] || "" }), h("td", { class: "t", text: r["Hiệu lực đến"] || "" }),
-        h("td", { class: "t", html: "<span class='tag " + (r["Trạng thái"] === "Hiệu lực" ? "on" : "off") + "'>" + esc(r["Trạng thái"] || "") + "</span>" }),
-        h("td", { class: "t", text: r["Công ty"] || "(mọi công ty)" }), h("td", { class: "t", style: "font-family:monospace", text: r["Biểu thức"] || "" }), h("td", { class: "t", text: r["Mô tả"] || "" })]));
+      var acts = h("td", { class: "t" });
+      FAP.actionsFor(r, fenv()).forEach(function (to) { acts.appendChild(btn(LBL[to], to === "Hiệu lực" ? "pri" : "", function () { chuyen(r, to); })); });
+      if (can("dm.edit")) acts.appendChild(btn("⎘ Sao chép bản mới", "", function () { saoChep(r); }));
+      t.appendChild(h("tr", { "data-ct-ver": (r["Mã công thức"] || "") + "#" + (r["Phiên bản"] || 1) }, [h("td", { class: "t", text: "v" + (r["Phiên bản"] || 1) }), h("td", { class: "t", text: r["Hiệu lực từ"] || "" }), h("td", { class: "t", text: r["Hiệu lực đến"] || "" }),
+        h("td", { class: "t", html: "<span class='tag " + (r["Trạng thái"] === "Hiệu lực" ? "on" : "off") + "'>" + esc(r["Trạng thái"] || "Nháp") + "</span>" }),
+        h("td", { class: "t", text: r["Công ty"] || "(mọi công ty)" }), h("td", { class: "t", style: "font-family:monospace", text: r["Biểu thức"] || "" }),
+        h("td", { class: "t", text: (r["Người lập"] || "") + (r["Ngày lập"] ? " · " + fmtTime(r["Ngày lập"]) : "") }),
+        h("td", { class: "t", text: (r["Người duyệt"] || "") + (r["Thời điểm duyệt"] ? " · " + fmtTime(r["Thời điểm duyệt"]) : "") }),
+        h("td", { class: "t", text: (r["Người kích hoạt"] || "") + (r["Thời điểm kích hoạt"] ? " · " + fmtTime(r["Thời điểm kích hoạt"]) : "") + (r["Lý do thay đổi"] ? " — " + r["Lý do thay đổi"] : "") }), acts]));
     });
     box.appendChild(h("div", { class: "tw" }, [t]));
+    box.appendChild(h("div", { class: "hint", text: "Quy trình: Nháp → Gửi duyệt → Duyệt (người khác người lập) → Kích hoạt. Chỉ bản 'Hiệu lực' được dùng để tính lương. Bản đã gửi duyệt trở đi không sửa nội dung — dùng 'Sao chép bản mới'. Kích hoạt bản có ngày hiệu lực trong kỳ đã chốt là hồi tố (chỉ Admin) và không làm đổi bảng lương đã chốt." }));
     var logs = (db.auditlog || []).filter(function (a) { return a.chiTiet && a.chiTiet.indexOf("Công thức tiền lương") >= 0 && a.chiTiet.indexOf(st.ctHist) >= 0; }).slice(-30).reverse();
     box.appendChild(h("div", { class: "fh", text: "Nhật ký chỉnh sửa (ai, khi nào, nội dung trước/sau)" }));
     if (!logs.length) box.appendChild(h("div", { class: "hint", text: "Chưa có nhật ký khớp mã này (nhật ký chỉ ghi được khi thao tác đổi/trống trường 'Mã công thức' trong dòng sửa)." }));

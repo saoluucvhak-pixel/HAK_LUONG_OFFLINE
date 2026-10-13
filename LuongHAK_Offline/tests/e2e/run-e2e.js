@@ -125,7 +125,6 @@ async function launch(dataDir, opt) {
   await ctRow.nth(0).fill("2020-01-01"); await ctRow.nth(0).dispatchEvent("change");
   await ctRow.nth(2).fill("TC_E2E"); await ctRow.nth(2).dispatchEvent("change");
   await ctRow.nth(6).fill("CONG_TC * HE_SO_TC * 2"); await ctRow.nth(6).dispatchEvent("change");
-  await ctRow.nth(12).fill("Hiệu lực"); await ctRow.nth(12).dispatchEvent("change");
   ok("Tab Tăng ca: thêm công thức mới (Loại tự gán OVERTIME, không cần sửa code)", (await ctRow.nth(4).inputValue()) === "OVERTIME" && (await ctRow.nth(2).inputValue()) === "TC_E2E");
   await w.locator(".bar.sub button", { hasText: "Phụ cấp" }).click();
   const pcEmpty = await w.locator("main .empty").count();
@@ -153,6 +152,23 @@ async function launch(dataDir, opt) {
   const histTxt = await w.locator("main").innerText();
   ok("Lịch sử phiên bản: hiện đúng mã (chọn mặc định đã là mã duy nhất) + phiên bản Trạng thái Hiệu lực + biểu thức", histTxt.includes("TC_E2E") && histTxt.includes("Hiệu lực") && histTxt.includes("CONG_TC * HE_SO_TC * 2"), histTxt.replace(/\s+/g, " ").slice(0, 300));
   ok("Lịch sử phiên bản: kỳ hiện tại chưa chốt nên sửa danh mục chưa ghi nhật ký hồi tố (đúng quy ước chung — xem nhật ký đầy đủ ở màn hình Nhật ký hệ thống khi có hồi tố)", histTxt.includes("Chưa có nhật ký khớp mã này"), histTxt.replace(/\s+/g, " ").slice(0, 300));
+  // V5 GĐ2: duyệt & phiên bản — Ngừng bản hiệu lực, sao chép thành v2 (Nháp), gửi duyệt; Admin thấy đủ nút
+  ok("Lịch sử phiên bản: hiện cột Người lập/Người duyệt và nút Ngừng + Sao chép cho bản Hiệu lực", histTxt.includes("Người lập") && histTxt.includes("Ngừng") && histTxt.includes("Sao chép bản mới"), histTxt.replace(/\s+/g, " ").slice(0, 200));
+  const verBtn = (v, t) => w.locator('tr[data-ct-ver="TC_E2E#' + v + '"] button', { hasText: t });
+  ok("Bản mới tạo ở lưới luôn là Nháp (không tự đặt Hiệu lực)", (await w.locator('tr[data-ct-ver="TC_E2E#1"]').innerText()).includes("Nháp"));
+  await verBtn(1, "Gửi duyệt").click(); await verBtn(1, "Duyệt").first().click();
+  await verBtn(1, "Kích hoạt").click(); // chưa nhập lý do → bị chặn, vẫn 'Đã duyệt'
+  ok("Kích hoạt thiếu lý do bị chặn", (await w.locator('tr[data-ct-ver="TC_E2E#1"]').innerText()).includes("Đã duyệt"));
+  await w.locator('input[data-ct-reason]').fill("e2e kích hoạt"); await verBtn(1, "Kích hoạt").click();
+  ok("Nháp → Chờ duyệt → Đã duyệt → Hiệu lực: ghi người kích hoạt + lý do", /Hiệu lực/.test(await w.locator('tr[data-ct-ver="TC_E2E#1"]').innerText()) && (await w.locator('tr[data-ct-ver="TC_E2E#1"]').innerText()).includes("e2e kích hoạt"));
+  await w.locator('input[data-ct-reason]').fill("e2e ngừng"); await verBtn(1, "Ngừng").click();
+  const v1Txt = await w.locator('tr[data-ct-ver="TC_E2E#1"]').innerText();
+  ok("Ngừng công thức: bản v1 chuyển 'Ngừng'", v1Txt.includes("Ngừng") && !v1Txt.includes("Kích hoạt"), v1Txt.replace(/\s+/g, " "));
+  await w.locator('tr[data-ct-ver="TC_E2E#1"] button', { hasText: "Sao chép bản mới" }).click();
+  const v2Txt = await w.locator('tr[data-ct-ver="TC_E2E#2"]').innerText();
+  ok("Sao chép thành phiên bản mới: v2 ở trạng thái Nháp, cùng biểu thức", v2Txt.includes("Nháp") && v2Txt.includes("CONG_TC * HE_SO_TC * 2"), v2Txt.replace(/\s+/g, " "));
+  await w.locator('tr[data-ct-ver="TC_E2E#2"] button', { hasText: "Gửi duyệt" }).click();
+  ok("Gửi duyệt: v2 chuyển 'Chờ duyệt'", (await w.locator('tr[data-ct-ver="TC_E2E#2"]').innerText()).includes("Chờ duyệt"));
   // Master Prompt V3 mục XVII: Đối chiếu lương Power Query — nhập 1 Excel tham chiếu, so theo từng người/chỉ tiêu
   await w.click("#nav button[data-k=doichieu]");
   const dcWb = new (require(path.join(APP, "exceljs.min.js"))).Workbook(); const dcWs = dcWb.addWorksheet("BangLuongCu");
