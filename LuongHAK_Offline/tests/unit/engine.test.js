@@ -160,6 +160,31 @@ test("Master Prompt mục 8.1: mã tăng ca MỚI khai 'Loại công thức' = T
   assert.equal(r["Tiền tăng ca"], Math.round(donGiaTG * 1.5));
 });
 
+test("Dynamic Payroll Formula Engine (mục III/IV): mã tăng ca MỚI có công thức tự khai trong db.dm_congthuc (KHÔNG dùng 'Loại công thức' redirect) → engine tự tính theo công thức đó, không cần sửa code", () => {
+  const db = baseDb();
+  db.dm_tangca.push({ "Mã tăng ca": "TC9", "Nội dung tăng ca": "Tăng ca đặc biệt, công thức tự khai", "Hệ số tăng ca": 0.75, "Hiệu lực từ": "2020-01-01" });
+  db.dm_congthuc = [{ "Mã công thức": "TC9", "Loại": "OVERTIME", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2020-01-01", "Biểu thức": "(CONG_TC + CONG_CHU_NHAT) * HE_SO_TC" }]; // = TC3
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã tăng ca": "TC9" })];
+  const bt = ccRow("NV", 2026, 9, "BT", 1, 20);
+  bt["06"] = 1; // Chủ nhật
+  db.chamcong = [bt, ccRow("NV", 2026, 9, "TC", 1, 2)];
+  const r = row(E.tinhBangLuong(db, 2026, 9, false));
+  const donGiaTG = 9000000 / 26;
+  assert.equal(r["Tiền tăng ca"], Math.round(donGiaTG * (2 + 1) * 0.75));
+});
+
+test("Dynamic Payroll Formula Engine: công thức cấu hình lỗi khi tính (biến/chia 0...) → cảnh báo rõ ràng + tạm dùng công thức mặc định (không chặn tính lương cả công ty)", () => {
+  const db = baseDb();
+  db.dm_tangca.push({ "Mã tăng ca": "TC9", "Nội dung tăng ca": "Công thức lỗi", "Hệ số tăng ca": 1, "Hiệu lực từ": "2020-01-01" });
+  db.dm_congthuc = [{ "Mã công thức": "TC9", "Loại": "OVERTIME", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2020-01-01", "Biểu thức": "CONG_TC / (CONG_CHU_NHAT - CONG_CHU_NHAT)" }]; // chia 0 vì không ai làm Chủ nhật
+  db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã tăng ca": "TC9" })];
+  db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 20), ccRow("NV", 2026, 9, "TC", 1, 2)];
+  const kq = E.tinhBangLuong(db, 2026, 9, false);
+  const donGiaTG = 9000000 / 26;
+  assert.equal(row(kq)["Tiền tăng ca"], Math.round(donGiaTG * 2)); // fallback = công thức mặc định (CONG_TC × HE_SO_TC = 2×1)
+  assert.ok(kq.canhbao.some((w) => /mã tăng ca 'TC9'.*công thức cấu hình.*lỗi khi tính/.test(w)), kq.canhbao.join(" | "));
+});
+
 test("phụ cấp TN.02 theo tỷ lệ công: dưới ngưỡng (công chuẩn − 5) thì tính theo công", () => {
   const kq = run([staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Mã phụ cấp": "TN.02" })], { chamcong: [ccRow("NV", 2026, 9, "BT", 1, 18)] });
   assert.equal(row(kq)["Phụ cấp"], Math.round(200000 / 26 * 18)); // 138.462

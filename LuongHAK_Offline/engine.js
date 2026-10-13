@@ -1,6 +1,7 @@
 // ===== ENGINE TÍNH LƯƠNG HAK (offline) — port từ Tinhluong.gs / Tinhcong.gs / Danhmuc.gs =====
 (function (root) {
   "use strict";
+  var FML = (typeof module !== "undefined" && module.exports) ? require("./core/payroll/formula-engine.js") : root.HAKCore.formula;
 
   function pct(v) {
     if (v === "" || v == null) return 0;
@@ -92,8 +93,30 @@
   // loai: "Loại công thức" khai trong DM_TANGCA (mục 8.1 — mã mới dùng lại công thức có sẵn mà không cần
   // sửa engine, VD mã "TC7" khai "Loại công thức" = "TC1" để dùng công thức TC1). Để trống → dùng chính
   // tên mã (hành vi cũ, giữ đúng số liệu cho dữ liệu đã khai TC1-TC6 từ trước khi có cột này).
-  function heSoTangCa(ma, cCTL, cTC, cLe, cChuan, cCN, cTang, heSo, cPhep, cDC, congChuan2, loai) {
-    switch (loai || ma) {
+  //
+  // Dynamic Payroll Formula Engine (Master Prompt mục III/IV): TRƯỚC khi dùng switch/case cứng dưới đây,
+  // thử tra DM_PAYROLL_FORMULA (db.dm_congthuc, qua core/payroll/formula-registry.js) xem công ty có tự
+  // cấu hình/ghi đè công thức cho đúng mã này trong kỳ đang tính không — có thì dùng NGAY, không đụng gì
+  // đến switch/case. KHÔNG có override (trường hợp tuyệt đại đa số — mọi dữ liệu TC1-TC6 đã dùng từ trước)
+  // → rơi xuống switch/case CŨ, giữ NGUYÊN 100% số liệu đã đối chiếu M thật + bộ regression (v130.test.js).
+  // Nhờ vậy mã tăng ca MỚI (VD "TC7") chỉ cần thêm 1 dòng DM_PAYROLL_FORMULA là engine tự tính theo đúng
+  // công thức khai báo — không cần sửa file này (tiêu chuẩn nghiệm thu mục XX.1).
+  function heSoTangCa(ma, cCTL, cTC, cLe, cChuan, cCN, cTang, heSo, cPhep, cDC, congChuan2, loai, fmlCtx) {
+    var key = loai || ma;
+    if (fmlCtx && fmlCtx.records && fmlCtx.records.length) {
+      var rec = FML.resolve(fmlCtx.records, { code: key, type: "OVERTIME", companyId: fmlCtx.companyId, nam: fmlCtx.nam, thang: fmlCtx.thang });
+      if (rec && rec["Biểu thức"]) {
+        try {
+          return FML.evaluate(rec["Biểu thức"], {
+            CONG_TINH_LUONG: cCTL, CONG_TRUNG_CHUYEN: cTC, CONG_LE: cLe, CONG_CHUAN: cChuan, CONG_CHU_NHAT: cCN,
+            CONG_TC: cTang, HE_SO_TC: heSo, CONG_PHEP: cPhep, CONG_DI_CHUYEN: cDC, CONG_CHUAN_2: congChuan2
+          });
+        } catch (e) {
+          if (fmlCtx.warn) fmlCtx.warn("mã tăng ca '" + key + "': công thức cấu hình (" + rec["Biểu thức"] + ") lỗi khi tính (" + e.message + ") — tạm dùng công thức mặc định, kiểm tra lại công thức trong Danh mục công thức tiền lương");
+        }
+      }
+    }
+    switch (key) {
       case "TC1": { var d = cCTL - cLe - cTC - cPhep - cTang - cChuan; return (d > 0 ? d * heSo : 0) + cTang * heSo; }
       case "TC2": { var chuan2 = congChuan2 > 0 ? congChuan2 : cChuan; var d2 = cCTL - cLe - cTC - cPhep - cTang - cDC - chuan2; return (d2 > 0 ? d2 * heSo : 0) + cTang * heSo; }
       case "TC6": { var d6 = cCTL - cTC - cLe - cChuan; return d6 > 0 ? d6 : 0; }
@@ -202,7 +225,11 @@
   function tinhBangLuong(db, nam, thang, buTheoNgay, opts) {
     nam = +nam; thang = +thang;
     var qc2026 = !!(opts && String(opts.quyChe) === "2026");
-    ["nhansu","chamcong","sanluong","bandam","psluong","ungluong","tiencom","dm_luong","dm_phucap","dm_tangca","dm_hotro","dm_baohiem","dm_tncn","dm_bacthue","dm_giamtru","dm_phongban","dm_chucvu"].forEach(function (k) { if (!db[k]) db[k] = []; });
+    ["nhansu","chamcong","sanluong","bandam","psluong","ungluong","tiencom","dm_luong","dm_phucap","dm_tangca","dm_hotro","dm_baohiem","dm_tncn","dm_bacthue","dm_giamtru","dm_phongban","dm_chucvu","dm_congthuc"].forEach(function (k) { if (!db[k]) db[k] = []; });
+    // Dynamic Payroll Formula Engine (mục III/XII.3): nạp 1 LẦN cho cả kỳ (không phải từng nhân viên)
+    // danh sách công thức do công ty cấu hình — rỗng ở hầu hết dữ liệu hiện có (chưa ai tạo công thức
+    // mới), heSoTangCa() sẽ rơi xuống switch/case cũ, không có gì thay đổi so với trước.
+    var fmlCtx = { records: db.dm_congthuc, nam: nam, thang: thang, warn: function (msg) { out.canhbao.push(msg); } };
     var dmLuong = hieuLuc(db.dm_luong, "Mã lương", nam, thang);
     var dmPC = hieuLuc(db.dm_phucap, "Mã phụ cấp", nam, thang);
     var dmTC = hieuLuc(db.dm_tangca, "Mã tăng ca", nam, thang);
@@ -354,12 +381,12 @@
       var congChuan2 = Object.keys(c.nhanTheoNgay).some(function (k) { return /DQ/i.test(c.nhanTheoNgay[k]); }) ? 40 : 0;
       if (cChuan > 0) {
         if ((maTL1 === "CN1" || maTL1 === "CN2") && qc2026) { // 2026 (C5): công nhật tính tăng ca theo công thức của mã tăng ca, công chuẩn = số ngày − Số ngày giảm trừ
-          if (dmT) { var ccCN = new Date(nam, thang, 0).getDate() - ngayGiamTru(dmLuong[maTL1]); congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, ccCN, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"]); tienTC = Math.round(luongTT * congTCQuyDoi); }
+          if (dmT) { var ccCN = new Date(nam, thang, 0).getDate() - ngayGiamTru(dmLuong[maTL1]); congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, ccCN, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"], fmlCtx); tienTC = Math.round(luongTT * congTCQuyDoi); }
         } else if (maTL1 === "CN1" || maTL1 === "CN2") { // chủ sở hữu xác nhận (sau khi đối chiếu M thật QR_LUONGTG."Lương tăng ca"): CN1/CN2 PHẢI nhân hệ số mã tăng ca như mọi loại lương khác, không phải trường hợp riêng — không phân biệt quy chế 2026
-          if (dmT) { congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"]); tienTC = Math.round(luongTT * congTCQuyDoi); }
+          if (dmT) { congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"], fmlCtx); tienTC = Math.round(luongTT * congTCQuyDoi); }
         }
-        else if (dmT && (ns["Mã tăng ca"] === "TC5" || dmT["Loại công thức"] === "TC5")) { congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"]); tienTC = Math.round(money(dmT["Tiền tăng ca (nếu tính cố định)"]) / cChuan * congTCQuyDoi); } // đúng công thức M thật QR_LUONGTG — hệ số TC5 áp dụng như mọi mã khác (chủ sở hữu xác nhận, xem PV-9)
-        else if (dmT) { congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"]); tienTC = Math.round(donGiaTG * congTCQuyDoi); }
+        else if (dmT && (ns["Mã tăng ca"] === "TC5" || dmT["Loại công thức"] === "TC5")) { congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"], fmlCtx); tienTC = Math.round(money(dmT["Tiền tăng ca (nếu tính cố định)"]) / cChuan * congTCQuyDoi); } // đúng công thức M thật QR_LUONGTG — hệ số TC5 áp dụng như mọi mã khác (chủ sở hữu xác nhận, xem PV-9)
+        else if (dmT) { congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, cChuan, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"], fmlCtx); tienTC = Math.round(donGiaTG * congTCQuyDoi); }
       }
 
       // Phụ cấp — PV-10/PV-11: "Loại công thức" (danh mục, như DM_TANGCA) cho phép 1 mã CHỌN ĐÚNG công
