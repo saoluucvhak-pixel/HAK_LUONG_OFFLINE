@@ -187,7 +187,7 @@
   window.addEventListener("beforeunload", function () { if (dirty) saveNow(); });
   if (!readOnly && (fromLocal || migMsg.length)) saveNow();
   var now = new Date();
-  var st = { tab: "home", dm: "dm_luong", nam: now.getFullYear(), thang: now.getMonth() + 1, bu: false, kq: null, compact: true, q: "", qs: {}, pg: {}, pageSize: 100 };
+  var st = { tab: "home", dm: "dm_luong", nam: now.getFullYear(), thang: now.getMonth() + 1, bu: "to", kq: null, compact: true, q: "", qs: {}, pg: {}, pageSize: 100 };
   try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "_ui") || "{}"), { kq: null, q: "", pg: {} }); } catch (e) {}
   if (!st.qs || typeof st.qs !== "object") st.qs = {};
   if ([50, 100, 200, 500].indexOf(+st.pageSize) < 0) st.pageSize = 100;
@@ -1506,9 +1506,82 @@
   // ---------- Danh mục ----------
   function tabDanhMuc() {
     var w = h("div"), bar = h("div", { class: "bar" });
-    Object.keys(DM).forEach(function (k) { bar.appendChild(btn(DM[k].ten + (countOf(k) ? " (" + countOf(k) + ")" : ""), st.dm === k ? "pri" : "", function () { if (st.dm !== k && !leaveOk()) return; st.dm = k; saveUi(); render(); })); });
+    if (DM_CAI_DAT[st.dm]) st.dm = Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; })[0];
+    Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; }).forEach(function (k) { bar.appendChild(btn(DM[k].ten + (countOf(k) ? " (" + countOf(k) + ")" : ""), st.dm === k ? "pri" : "", function () { if (st.dm !== k && !leaveOk()) return; st.dm = k; saveUi(); render(); })); });
     w.appendChild(bar);
-    w.appendChild(st.dm === "dm_congthuc" ? congThucPanel() : st.dm === "dm_tncn" ? thuePanel() : grid(st.dm, DM[st.dm]));
+    w.appendChild(st.dm === "dm_tncn" ? thuePanel() : grid(st.dm, DM[st.dm]));
+    return w;
+  }
+
+  // ---------- Cài đặt (V10): công thức lương + phương pháp bù sản lượng — KHÔNG nằm trong Danh mục ----------
+  var DM_CAI_DAT = { dm_congthuc: 1, dm_quychebu: 1 };
+  /** Mô tả 2 phương pháp bù sản lượng chính thức (V10). Mã lưu giữ nguyên "to" / "daihiep" để không đổi engine. */
+  var BU_METHODS = [
+    { ma: "to", ten: "BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ",
+      mota: "Tính bình quân tiền sản lượng của cả tổ mỗi người mỗi ngày; nếu thấp hơn mức sàn thì người đủ ngưỡng công được bù phần chênh × công BT.",
+      buoc: ["Tiền sản lượng cả tổ = Σ(tấn × đơn giá khoán) của người hưởng lương sản phẩm trong tổ.", "Bình quân tổ = Tiền sản lượng cả tổ ÷ số ngày của tháng ÷ số người của tổ.", "Điều kiện bù: công BT của người ≥ 'Ngưỡng công bù theo tổ' và Bình quân tổ < 'Đơn giá bù lương' (mức sàn).", "Tiền bù = (Mức sàn − Bình quân tổ) × công BT của người."],
+      vd: function () { var tien = 31000000, ngay = 31, nguoi = 10, bq = tien / ngay / nguoi, san = 150000, cong = 26; return { dong: ["Tiền sản lượng cả tổ: " + fmt(tien) + " đ · tháng " + ngay + " ngày · tổ " + nguoi + " người", "Bình quân tổ = " + fmt(tien) + " ÷ " + ngay + " ÷ " + nguoi + " = " + fmt(Math.round(bq)) + " đ/người/ngày", "Mức sàn " + fmt(san) + " đ > bình quân → được bù", "Tiền bù = (" + fmt(san) + " − " + fmt(Math.round(bq)) + ") × " + cong + " công = " + fmt(Math.round((san - bq) * cong)) + " đ"] }; } },
+    { ma: "daihiep", ten: "BÙ SẢN LƯỢNG THEO NGÀY",
+      mota: "Mỗi ngày có sản lượng: tiền ngày = lớn hơn giữa (tấn ngày × đơn giá) và (bậc thang công BT ngày × mức sàn); bù = tổng phần chênh các ngày.",
+      buoc: ["Với từng ngày có sản lượng: Tiền sản lượng ngày = tấn ngày × đơn giá khoán.", "Tiền sàn ngày = bậc thang(công BT ngày, chủ nhật?) × Đơn giá bù lương.", "Nếu Tiền sàn ngày > Tiền sản lượng ngày thì ngày đó được bù phần chênh.", "Tiền bù = Σ phần chênh các ngày. Không xét ngưỡng công. Ngày có sản lượng mà chưa chấm công BT → cảnh báo, tính bù 0."],
+      vd: function () { var tan = 1.2, dg = 90000, bt = 1, san = 150000; return { dong: ["Ngày 05: " + tan + " tấn × " + fmt(dg) + " đ = " + fmt(Math.round(tan * dg)) + " đ · công BT ngày = " + bt, "Tiền sàn ngày = bậc thang(" + bt + ") × " + fmt(san) + " = " + fmt(san) + " đ", "Bù ngày 05 = " + fmt(san) + " − " + fmt(Math.round(tan * dg)) + " = " + fmt(san - Math.round(tan * dg)) + " đ", "Cộng dồn các ngày khác trong tháng → Tiền bù cả tháng."] }; } }
+  ];
+  function buMethodOf(ma) { return BU_METHODS.filter(function (m) { return m.ma === String(ma); })[0] || null; }
+  function xemCachTinhBu(m) {
+    var body = h("div", { class: "bu-explain" });
+    body.appendChild(h("p", { text: m.mota }));
+    var ol = h("ol"); m.buoc.forEach(function (x) { ol.appendChild(h("li", { text: x })); }); body.appendChild(ol);
+    body.appendChild(h("div", { class: "hint", text: "Ví dụ bằng số:" }));
+    var ul = h("ul"); m.vd().dong.forEach(function (x) { ul.appendChild(h("li", { text: x })); }); body.appendChild(ul);
+    body.appendChild(h("div", { class: "hint", text: "Số liệu trong ví dụ chỉ minh hoạ. Số thật lấy từ Chấm công, Sản lượng và Danh mục hình thức lương của từng nhân viên." }));
+    modal("Xem cách tính — " + m.ten, body, function (close) { return [btn("Đóng", "", close)]; });
+  }
+  /** Bản đang HIỆU LỰC của kỳ đang chọn (lưu nội bộ trong dm_quychebu — không còn là danh mục để người dùng sửa tay). */
+  function buChinhThucPanel() {
+    var w = h("div", { class: "card" }), cur = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
+    w.appendChild(h("h3", { text: "Phương pháp bù sản lượng" }));
+    w.appendChild(h("div", { class: "hint", text: "Chỉ có 2 phương pháp. Phương pháp chính thức được áp dụng khi chốt kỳ; bảng lương đã chốt giữ nguyên số liệu của kỳ đó." }));
+    var curMa = cur ? String(cur["Cách bù"]) : "";
+    if (cur && !buMethodOf(curMa)) w.appendChild(h("div", { class: "warn", text: "⚠ Cấu hình cũ '" + curMa + "' không còn thuộc 2 phương pháp chuẩn. Hãy chọn lại một trong hai phương pháp bên dưới (kỳ đã chốt không bị ảnh hưởng)." }));
+    else if (!cur) w.appendChild(h("div", { class: "warn", text: "⚠ Kỳ " + st.thang + "/" + st.nam + " chưa có phương pháp bù chính thức. Kỳ có sản lượng cần bù sẽ không chốt được cho đến khi chọn." }));
+    BU_METHODS.forEach(function (m) {
+      var on = curMa === m.ma;
+      var row = h("div", { class: "bu-method" + (on ? " on" : ""), style: "border:1px solid var(--line,#ccc);border-radius:8px;padding:10px;margin:8px 0" }, [
+        h("div", { html: "<b>" + esc(m.ten) + "</b>" + (on ? " — <span class=\"ok\">đang áp dụng chính thức</span>" : "") }),
+        h("div", { class: "hint", text: m.mota })
+      ]);
+      var bar = h("div", { class: "bar", style: "margin:6px 0 0" });
+      bar.appendChild(btn("Xem cách tính", "", function () { xemCachTinhBu(m); }));
+      if (!on) bar.appendChild(btn("Áp dụng từ kỳ " + st.thang + "/" + st.nam, "pri", function () { datBuChinhThuc(m); }));
+      row.appendChild(bar); w.appendChild(row);
+    });
+    return w;
+  }
+  function datBuChinhThuc(m) {
+    if (!need("dm.edit", "đổi phương pháp bù sản lượng")) return;
+    if (kyChot(kyStr())) { alert("Kỳ " + kyLabel(kyStr()) + " đã chốt — không đổi phương pháp. Mở chốt nếu cần tính lại."); return; }
+    askText("Áp dụng " + m.ten, "Từ kỳ " + st.thang + "/" + st.nam + " trở đi. Các kỳ đã chốt trước đó giữ nguyên.", { label: "Lý do / người duyệt", required: true, multiline: true, okText: "Áp dụng" }, function (reason) {
+      var tu = st.nam + "-" + ("0" + st.thang).slice(-2) + "-01", truoc = new Date(st.nam, st.thang - 1, 0), den = truoc.getFullYear() + "-" + ("0" + (truoc.getMonth() + 1)).slice(-2) + "-" + ("0" + truoc.getDate()).slice(-2);
+      var vals = { "Hiệu lực từ": tu, "Hiệu lực đến": "", "Cách bù": m.ma, "Trạng thái": "Hiệu lực", "Người phê duyệt": currentUser(), "Mô tả": reason };
+      var cungKy = db.dm_quychebu.filter(function (r) { return r["Trạng thái"] === "Hiệu lực" && String(r["Hiệu lực từ"] || "") === tu; })[0];
+      var ok = true;
+      db.dm_quychebu.forEach(function (r) { if (ok && r["Trạng thái"] === "Hiệu lực" && String(r["Hiệu lực từ"] || "") < tu && !r["Hiệu lực đến"]) ok = !!commit(REPO.plan("update", "dm_quychebu", r, { "Hiệu lực đến": den }, { what: "kết thúc phương pháp bù cũ" }), { action: "Cài đặt — kết thúc phương pháp bù cũ" }); });
+      if (ok) ok = !!(cungKy ? commit(REPO.plan("update", "dm_quychebu", cungKy, vals, { what: "phương pháp bù sản lượng" }), { action: "Cài đặt — đổi phương pháp bù sản lượng" }) : commit(REPO.plan("insert", "dm_quychebu", null, vals, { what: "phương pháp bù sản lượng" }), { action: "Cài đặt — phương pháp bù sản lượng" }));
+      if (!ok) return;
+      st.bu = m.ma; saveUi(); audit("Đổi phương pháp bù sản lượng", m.ten + " từ " + tu + " — " + reason); st.kq = null; render(); toast("Đã áp dụng: " + m.ten);
+    });
+  }
+  function tabCaiDat() {
+    var w = h("div"), bar = h("div", { class: "bar" });
+    var SUBS = [["ct", "Công thức lương / tăng ca / phụ cấp / hỗ trợ"], ["bu", "Phương pháp bù sản lượng"], ["qc", "Quy chế tính lương"]];
+    if (!st.cd) st.cd = "ct";
+    SUBS.forEach(function (x) { bar.appendChild(btn(x[1], st.cd === x[0] ? "pri" : "", function () { if (st.cd !== x[0] && !leaveOk()) return; st.cd = x[0]; render(); })); });
+    w.appendChild(bar);
+    if (st.cd === "bu") w.appendChild(buChinhThucPanel());
+    else if (st.cd === "qc") {
+      var c = h("div", { class: "card" }); c.appendChild(h("h3", { text: "Quy chế tính lương" }));
+      c.appendChild(h("div", { class: "hint", text: "Quy chế đang áp dụng: " + qcLabel(quyChe()) + ". Đổi tại màn hình Tính lương theo kỳ; kỳ đã chốt giữ nguyên." })); w.appendChild(c);
+    } else w.appendChild(congThucPanel());
     return w;
   }
 
@@ -1857,12 +1930,13 @@
   var TEXTCOLS = { "Mã NV": 1, "Họ và tên": 1, "Phòng ban": 1 };
 
   // Cách bù lương sản lượng (α19 thêm 2 cách của công cụ phân bổ khối lượng; 2 cách cũ giữ nguyên)
-  var BU_OPTS = [["false", "Bù SL theo THÁNG (từng người)"], ["true", "Bù SL theo NGÀY (liên tục — cách cũ)"], ["daihiep", "Bù SL theo NGÀY — bậc thang (công cụ HAK / Đại Hiệp)"], ["to", "Bù SL theo BÌNH QUÂN TỔ (công cụ HAK)"]];
+  var BU_OPTS = [["to", "BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ"], ["daihiep", "BÙ SẢN LƯỢNG THEO NGÀY"]];
+  var BU_LEGACY = { "false": "Cách bù cũ theo THÁNG (không còn hỗ trợ — cần rà soát)", "true": "Cách bù cũ theo NGÀY liên tục (không còn hỗ trợ — cần rà soát)" };
   // Quy chế tính lương (R-68): "2026" = quy chế HAK Group (HAK, CNHAK, HAKQN — chủ sở hữu duyệt 11/10/2026) · "1.7" = cách tính trước đó (đối chiếu)
   var QC_OPTS = [["2026", "Quy chế lương HAK Group 2026"], ["1.7", "Cách tính cũ (engine 1.7 — để đối chiếu)"]];
   function quyChe() { var v = congTy()["Quy chế tính lương"]; return v === "1.7" ? "1.7" : "2026"; }
   function qcLabel(v) { var o = QC_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : "Cách tính cũ (trước quy chế 2026)"; }
-  function buLabel(v) { var o = BU_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : String(v); }
+  function buLabel(v) { var o = BU_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : (BU_LEGACY[String(v)] || String(v)); }
   function tinhLuong(nam, thang, qcDung) {
     nam = nam || st.nam; thang = thang || st.thang;
     var sp = HRM.staffForPayroll(db, nam, thang);
@@ -1984,13 +2058,13 @@
     // CHÍNH THỨC khi chốt KHÔNG được quyết định bởi lựa chọn tự do (st.bu) trên màn hình Tính lương —
     // phải lấy từ bản "Hiệu lực" trong Danh mục → Quy chế bù sản lượng. Chỉ chặn khi kỳ này THỰC SỰ
     // có sản lượng cần bù (laSanLuong) — công ty không dùng lương sản phẩm không bị ảnh hưởng.
-    var VALID_BU = { "false": 1, "true": 1, daihiep: 1, to: 1 };
+    var VALID_BU = { daihiep: 1, to: 1 };
     var coSanLuong = fresh.bangluong.some(function (b) { return b["_ct"] && b["_ct"].laSanLuong; });
     if (coSanLuong) {
       var qcBuChot = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
       var maChinhThuc = qcBuChot && String(qcBuChot["Cách bù"] || "").trim();
       if (!qcBuChot || !VALID_BU[maChinhThuc]) {
-        alert("⛔ KHÔNG THỂ CHỐT — kỳ " + kyLabel(ky) + " có sản lượng cần bù lương nhưng CHƯA có Quy chế bù sản lượng CHÍNH THỨC hợp lệ (Trạng thái = Hiệu lực) cho kỳ này.\nVào Danh mục → Quy chế bù sản lượng để khai báo và duyệt (Trạng thái = Hiệu lực), rồi chốt lại.\nMàn hình Tính lương vẫn dùng được để xem tạm/so sánh nhiều phương pháp.");
+        alert("⛔ KHÔNG THỂ CHỐT — kỳ " + kyLabel(ky) + " có sản lượng cần bù lương nhưng CHƯA có Phương pháp bù sản lượng CHÍNH THỨC hợp lệ (Trạng thái = Hiệu lực) cho kỳ này.\nVào Cài đặt → Phương pháp bù sản lượng để chọn phương pháp chính thức, rồi chốt lại.\nMàn hình Tính lương vẫn dùng được để xem tạm/so sánh nhiều phương pháp.");
         return;
       }
       var buChinhThuc = maChinhThuc === "true" ? true : maChinhThuc === "false" ? false : maChinhThuc;
@@ -2457,13 +2531,15 @@
       return renderKq(box, card, bar);
     }
     var sel = h("select", { "aria-label": "Cách bù lương sản lượng" }); BU_OPTS.forEach(function (o) { sel.appendChild(h("option", { value: o[0], text: o[1] })); });
-    sel.value = String(st.bu); sel.addEventListener("change", function () { st.bu = sel.value === "true" ? true : sel.value === "false" ? false : sel.value; st.kqStale = true; saveUi(); });
+    if (!buMethodOf(st.bu)) sel.appendChild(h("option", { value: String(st.bu), text: buLabel(st.bu) }));
+    sel.value = String(st.bu); sel.addEventListener("change", function () { st.bu = sel.value === "true" ? true : sel.value === "false" ? false : sel.value; st.kqStale = true; saveUi(); render(); });
     bar.appendChild(btn("▶ Tính lương tháng " + st.thang + "/" + st.nam, "pri big", function () {
       if (!need("payroll.calc")) return;
       if (!db.nhanvien.length) { alert("Chưa có nhân viên. Hãy nhập ở mục Nhân sự trước."); return; }
       st.kq = tinhLuong(); render(); toast("Đã tính xong " + st.kq.bangluong.length + " nhân viên");
     }));
     bar.appendChild(sel);
+    bar.appendChild(btn("Xem cách tính", "", function () { var m = buMethodOf(st.bu); if (m) xemCachTinhBu(m); else alert(buLabel(st.bu)); }));
     var qs = h("select", { "aria-label": "Quy chế tính lương", title: "Áp dụng cho mọi kỳ chưa chốt của dữ liệu này (kỳ đã chốt giữ nguyên số)" }); QC_OPTS.forEach(function (o) { qs.appendChild(h("option", { value: o[0], text: o[1] })); });
     qs.value = quyChe();
     qs.addEventListener("change", function () {
@@ -2480,8 +2556,8 @@
       var qcBu = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
       if (qcBu) {
         var dungPP = String(qcBu["Cách bù"]) === String(st.bu);
-        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", text: (dungPP ? "✓ " : "⚠ ") + "Quy chế bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; khi Chốt kỳ, app sẽ tự tính lại theo đúng quy chế chính thức.") }));
-      } else card.appendChild(h("div", { class: "warn", text: "⚠ Chưa có Quy chế bù sản lượng CHÍNH THỨC (Danh mục → Quy chế bù sản lượng, Trạng thái = Hiệu lực) cho kỳ " + st.thang + "/" + st.nam + " — lựa chọn ở trên chỉ để xem thử/so sánh. Nếu kỳ này có sản lượng cần bù, sẽ KHÔNG chốt được cho đến khi khai báo quy chế." }));
+        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", text: (dungPP ? "✓ " : "⚠ ") + "Phương pháp bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; khi Chốt kỳ, app sẽ tự tính lại theo đúng quy chế chính thức.") }));
+      } else card.appendChild(h("div", { class: "warn", text: "⚠ Chưa có Phương pháp bù sản lượng CHÍNH THỨC (Cài đặt → Phương pháp bù sản lượng) cho kỳ " + st.thang + "/" + st.nam + " — lựa chọn ở trên chỉ để xem thử/so sánh. Nếu kỳ này có sản lượng cần bù, sẽ KHÔNG chốt được cho đến khi khai báo quy chế." }));
     }
     if (!st.kq) {
       card.appendChild(h("div", { class: "hint", text: "Kiểm tra dữ liệu kỳ " + st.thang + "/" + st.nam + " rồi bấm nút xanh. Có thể tính lại bất cứ lúc nào." }));
@@ -4034,26 +4110,28 @@
 
   // ---------- Khung & điều hướng ----------
   var NAV = [
-    ["grp", "Bắt đầu"], ["home", "🏠", "Tổng quan"],
-    ["grp", "Kỳ lương"], ["luong", "▶", "Tính lương"], ["kyluong", "🔒", "Kỳ lương đã chốt"], ["doichieu", "↔", "Đối chiếu Excel"],
-    ["grp", "BÁO CÁO LƯƠNG"], ["bangtinh", "📋", "Bảng tính lương"], ["rp_tonghop", "📑", "Bảng tổng hợp lương"], ["rp_thanhtoan", "💼", "Bảng thanh toán lương"], ["rp_ck", "🏦", "Bảng kê chuyển khoản"], ["rp_tm", "💵", "Thanh toán tiền mặt"], ["slips", "🧾", "Phiếu lương"], ["baocaoluong", "📈", "Báo cáo lương khác"],
-    ["grp", "Nhập liệu hằng tháng"],
-    ["chamcong", "🗓", "Chấm công"], ["sanluong", "⚖", "Sản lượng"], ["bandam", "🚛", "Bơm dăm"], ["psluong", "🎁", "Thưởng / Trừ"], ["ungluong", "💵", "Tạm ứng"], ["tiencom", "🍚", "Suất cơm"], ["ocr", "📷", "Đọc ảnh chấm công"], ["ocrlib", "🗂", "Thư viện mẫu OCR"],
-    ["grp", "Dữ liệu gốc"],
-    ["nhansu", "👥", "Nhân sự"], ["baocao", "📊", "Báo cáo nhân sự"], ["dm", "📚", "Danh mục"],
-    ["grp", "Hệ thống"],
-    ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
+    ["grp", "Tổng quan"], ["home", "🏠", "Tổng quan"],
+    ["grp", "Nhân sự"], ["nhansu", "👥", "Danh sách nhân viên & hồ sơ"],
+    ["grp", "Chấm công"], ["chamcong", "🗓", "Bảng chấm công"], ["ocr", "📷", "Đọc ảnh chấm công"], ["ocrlib", "🗂", "Thư viện mẫu OCR"],
+    ["grp", "Sản lượng"], ["sanluong", "⚖", "Sản lượng"], ["bandam", "🚛", "Bơm dăm"],
+    ["grp", "Nghiệp vụ tiền lương"], ["psluong", "🎁", "Thưởng / Trừ"], ["ungluong", "💵", "Tạm ứng"], ["tiencom", "🍚", "Suất cơm"],
+    ["grp", "Tính lương"], ["luong", "▶", "Tính lương theo kỳ"], ["kyluong", "🔒", "Kỳ lương đã chốt"], ["doichieu", "↔", "Đối chiếu Excel"],
+    ["grp", "Thanh toán lương"], ["rp_thanhtoan", "💼", "Bảng thanh toán lương"], ["rp_ck", "🏦", "Bảng kê chuyển khoản"], ["rp_tm", "💵", "Thanh toán tiền mặt"], ["slips", "🧾", "Phiếu lương"],
+    ["grp", "Báo cáo"], ["bangtinh", "📋", "Bảng tính lương"], ["rp_tonghop", "📑", "Bảng tổng hợp lương"], ["baocaoluong", "📈", "Báo cáo lương khác"], ["baocao", "📊", "Báo cáo nhân sự"],
+    ["grp", "Danh mục"], ["dm", "📚", "Danh mục"],
+    ["grp", "Cài đặt"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
   ];
   // Tab nào cần quyền xem nào (kiểm tra cả khi mở bằng trạng thái đã lưu, không chỉ ẩn menu)
-  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view" };
+  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", caidat: "payroll.view" };
   function tabAllowed(t) {
     if (t === "home") return true;
     if (t === "backup") return can("system.admin") || can("backup.restore");
     if (t === "dm") return can("dm.edit") || can("payroll.view") || can("hr.view");
+    if (t === "caidat") return can("dm.edit") || can("payroll.view");
     if (S[t]) return can("input.view");
     return TAB_PERM[t] ? can(TAB_PERM[t]) : true;
   }
-  var TITLES = { ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_thanhtoan: "Bảng thanh toán lương", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
+  var TITLES = { caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_thanhtoan: "Bảng thanh toán lương", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
   function updateNav() { document.querySelectorAll("#nav button[data-k]").forEach(function (b) { var k = b.getAttribute("data-k"), n = $(".n", b); if (n && ALL[k]) n.textContent = countOf(k); }); }
   function periodBox() {
     var m = h("select"), y = h("input", { class: "i", type: "number", style: "width:80px", value: st.nam });
@@ -4207,7 +4285,7 @@
     var title = TITLES[st.tab] || (S[st.tab] && S[st.tab].ten) || "";
     top.appendChild(h("h2", { text: ["bangtinh", "rp_tonghop", "rp_thanhtoan", "rp_ck", "rp_tm", "slips", "baocaoluong"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
     top.appendChild(h("button", { class: "topbtn srch", type: "button", "aria-label": "Tìm kiếm", title: "Tìm nhanh màn hình, nhân viên, báo cáo (Ctrl+K)", on: { click: quickSearch } }, ["🔍 Tìm kiếm", h("kbd", { text: "Ctrl K" })]));
-    if (["nhansu", "nv", "dm", "backup", "kyluong"].indexOf(st.tab) < 0) top.appendChild(periodBox());
+    if (["nhansu", "nv", "dm", "caidat", "backup", "kyluong"].indexOf(st.tab) < 0) top.appendChild(periodBox());
     if (FILES) top.appendChild(h("button", { class: "topbtn", type: "button", "data-files": "1", title: "Xem / mở các file Excel, báo cáo đã tải", on: { click: filesDrawer } }, ["📂 File đã tải"]));
     var roleName = (PERM.ROLES[session.vaiTro] || {}).ten || "vai trò không hợp lệ — liên hệ Admin";
     top.appendChild(h("span", { class: "who", text: roleName, title: session.hoTen + " · " + roleName, "data-user": session.tenDangNhap }));
@@ -4224,6 +4302,7 @@
     else if (st.tab === "ocrlib") m.appendChild(tabOcrLib());
     else if (st.tab === "backup") m.appendChild(tabSaoLuu());
     else if (st.tab === "dm") m.appendChild(tabDanhMuc());
+    else if (st.tab === "caidat") m.appendChild(tabCaiDat());
     else if (st.tab === "nhansu") m.appendChild(tabNhanSu());
     else if (st.tab === "nv") m.appendChild(tabNhanVien());
     else if (st.tab === "baocao") m.appendChild(tabBaoCao());
