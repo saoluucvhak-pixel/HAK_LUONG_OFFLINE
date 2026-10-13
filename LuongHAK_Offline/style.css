@@ -353,3 +353,10 @@ table.sld-thieu button.b.chipbtn{white-space:normal;text-align:left;justify-cont
 details.mpick { display: inline-block; position: relative; }
 details.mpick > summary { cursor: pointer; list-style: none; user-select: none; }
 details.mpick > summary::-webkit-details-marker { display: none; }
+
+/* V9.4 — trạng thái lưu mẫu OCR trên ô */
+input.oc.lrn-saved { box-shadow: inset 0 -3px 0 #2e7d32; }
+input.oc.lrn-miss { box-shadow: inset 0 -3px 0 #9e9e9e; }
+input.oc.lrn-q { box-shadow: inset 0 -3px 0 #f9a825; }
+input.oc.lrn-err { box-shadow: inset 0 -3px 0 #c62828; }
+.chip.lrn-saved { background: #e8f5e9; } .chip.lrn-miss { background: #eeeeee; } .chip.lrn-q { background: #fff8e1; } .chip.lrn-err { background: #ffebee; }

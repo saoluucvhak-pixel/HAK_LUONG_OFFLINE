@@ -2799,6 +2799,24 @@
   // Tự học từ chỉnh sửa (V7): mỗi ô OCR người dùng sửa tự ghi 1 mẫu "chờ duyệt"; duyệt khi ghi bảng vào Chấm công
   var OCRL = null;
   function ocrLearn() { if (!OCRL && window.hakOcrLib && C.ocrLearn) OCRL = C.ocrLearn.createService({ api: window.hakOcrLib, user: function () { return session ? session.tenDangNhap : currentUser(); }, cfg: function () { return { saveConfirmed: !!congTy()["OCR lưu mẫu xác nhận"] }; }, ocrVersion: "tsocr-v7" }); if (OCRL && !OCRL._restored) { OCRL._restored = true; OCRL.restoreQueue().then(function (r) { if (r && r.restored) { toast("⚠ Có " + r.restored + " mẫu học từ lần trước chưa ghi vào thư viện — đã nạp lại, bấm \"Thử lại\" ở màn OCR"); } }); } return OCRL; }
+  // ---- Trạng thái lưu mẫu OCR hiển thị cho người dùng (V9.4) ----
+  var OCR_ST = { saved: ["lrn-saved", "Đã ghi mẫu — chờ xác minh (PENDING_VERIFICATION)"], missing: ["lrn-miss", "Thiếu ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu"], queued: ["lrn-q", "Chưa ghi được — đang giữ để thử lại"], error: ["lrn-err", "Lỗi lưu mẫu — hãy bấm Thử lại"] };
+  /** Khóa ổn định của ô: dòng chưa ghép NV vẫn có khóa riêng theo vị trí dòng (không trùng nhau). */
+  function ocrRef(L, li, d) { return (L.ma || "#" + li) + "|" + d; }
+  function ocrMark(inp, ref) {
+    var lr = ocrLearn(), e = lr && lr.stateOf ? lr.stateOf(ref) : null; if (!e || !inp) return;
+    Object.keys(OCR_ST).forEach(function (k) { inp.classList.remove(OCR_ST[k][0]); });
+    var st2 = OCR_ST[e.state]; if (st2) { inp.classList.add(st2[0]); inp.title = st2[1] + (e.error ? " — " + e.error : ""); inp.setAttribute("data-learn", e.state); }
+    var bar = document.querySelector("[data-ocr-learn-status]"); if (bar) ocrStatusFill(bar);
+  }
+  function ocrStatusFill(box) {
+    var lr = ocrLearn(); box.innerHTML = ""; if (!lr || !lr.stats) return;
+    var s2 = lr.stats(), tot = s2.saved + s2.missing + s2.queued + s2.error;
+    if (!tot) { box.appendChild(h("span", { class: "hint", style: "margin:0", text: "Sửa một ô OCR → hệ thống tự ghi mẫu (không cần bấm Lưu mẫu). Mẫu mới ở trạng thái chờ xác minh và chưa được dùng để tự quyết định công." })); return; }
+    box.appendChild(h("b", { text: "Mẫu học từ ô đã sửa: " }));
+    [["saved", "đã ghi (chờ xác minh)"], ["missing", "thiếu ảnh nguồn"], ["queued", "đang thử lại"], ["error", "lỗi lưu"]].forEach(function (x) { if (s2[x[0]]) box.appendChild(h("span", { class: "chip " + OCR_ST[x[0]][0], text: s2[x[0]] + " " + x[1] })); });
+    box.appendChild(btn("Mở thư viện mẫu", "ghost", function () { OLS.tab = "cho"; OLS.page = 0; OLS.loaded = false; st.tab = "ocrlib"; render(); }, "Xem các mẫu vừa ghi trong Thư viện mẫu OCR"));
+  }
   /** Tra cứu thư viện mẫu cho các ô số: AUTO_ACCEPT → dùng nhãn thư viện (ghi rõ nguồn); SUGGESTED → đánh dấu "không chắc" + gợi ý; còn lại giữ nguyên kết quả OCR. */
   function libEnrich(lr, res, pg) {
     if (pg.mode && pg.mode !== "so") return Promise.resolve();
@@ -3114,7 +3132,7 @@
       tb.appendChild(btn("↶ Hoàn tác ô đã sửa", "ghost", function () {
         var u = (pg.undo || []).pop(); if (!u) { toast("Chưa có ô nào để hoàn tác"); return; }
         var lr = ocrLearn(); u.L.vals[u.d] = u.prev; u.inp.value = u.prev;
-        if (lr && window.hakOcrLib) window.hakOcrLib.undo(C.ocrLearn.cellKey(pg.docId, pg.trang || 1, u.cell, pg.rot || 0, u.L.ma + "|" + u.d), session ? session.tenDangNhap : "").then(function () { toast("Đã hoàn tác ô và mẫu học của lần sửa đó"); });
+        if (lr && window.hakOcrLib) window.hakOcrLib.undo(C.ocrLearn.cellKey(pg.docId, pg.trang || 1, u.cell, pg.rot || 0, ocrRef(u.L, u.li, u.d)), session ? session.tenDangNhap : "").then(function () { toast("Đã hoàn tác ô và mẫu học của lần sửa đó"); });
         render();
       }, "Trả ô về giá trị trước khi sửa; mẫu học của lần sửa gần nhất chuyển sang 'Bị từ chối' (vẫn giữ lịch sử)"));
       var lrq = ocrLearn(); if (lrq && lrq.pending()) tb.appendChild(btn("⚠ " + lrq.pending() + " mẫu học chưa ghi được — Thử lại", "ghost", function () { lrq.flush().then(function (r) { toast(r.left ? "Vẫn còn " + r.left + " mẫu chưa ghi được: " + lrq.lastError() : "Đã ghi " + r.sent + " mẫu"); render(); }); }));
@@ -3122,6 +3140,7 @@
       tb.appendChild(btn("Đọc lại", "ghost", function () { readQueue({ pg: pg, rot: pg.stopped && !pg.res ? undefined : pg.rot || 0 }); }));
     }
     pc.appendChild(tb);
+    var lbox = h("div", { class: "bar", "data-ocr-learn-status": "1" }); ocrStatusFill(lbox); pc.appendChild(lbox);
     if (pg.err) { pc.appendChild(h("div", { class: "warn", text: "Lỗi khi đọc: " + pg.err })); return w; }
     if (!pg.res) { pc.appendChild(h("div", { class: "hint", text: pg.stopped ? "Trang này chưa đọc (đã bấm Dừng đọc). Bấm Đọc lại khi cần." : "Đang chờ đọc…" })); return w; }
     var T = pg.res.table;
@@ -3172,9 +3191,15 @@
         var cell = L.src.cells ? L.src.cells[d] : null, inp = h("input", { class: "i oc", value: L.vals[d], "data-day": String(d) });
         if (String(L.vals[d]).trim() && ((cell && (cell.conf < 60 || cell.src === "nét" || cell.unsure)) || ocrNum(L.vals[d]) > 3)) inp.classList.add("low"); // > 3 công / suất 1 ngày: hay là "0.5" mất dấu chấm
         if (L.vals[d] === "?") inp.classList.add("bad");
+        inp.addEventListener("paste", function (ev) { // dán nhiều ô (từ Excel): tab = sang ô kế, xuống dòng = sang dòng kế; mỗi ô đổi giá trị đều đi qua đường sửa ô thường (ghi mẫu)
+          var txt = (ev.clipboardData || window.clipboardData || {}).getData ? (ev.clipboardData || window.clipboardData).getData("text") : ""; if (!/[\t\n]/.test(txt.replace(/\n$/, ""))) return;
+          ev.preventDefault(); var rowsT = txt.replace(/\r/g, "").replace(/\n$/, "").split("\n").map(function (r) { return r.split("\t"); });
+          var trs = [].slice.call(tbody.querySelectorAll("tr")), r0 = trs.indexOf(inp.closest("tr")), days = pg.days, d0 = days.indexOf(d);
+          rowsT.forEach(function (cells, ri) { var tr2 = trs[r0 + ri]; if (!tr2) return; cells.forEach(function (v, ci) { var dd = days[d0 + ci]; if (dd == null) return; var t2 = tr2.querySelector("input[data-day='" + dd + "']"); if (t2 && t2.value !== v.trim()) { t2.value = v.trim(); t2.dispatchEvent(new window.Event("change")); } }); });
+        });
         inp.addEventListener("focus", function () { inp._viewed = true; inp._changed = false; showCell(cell, (L.name || "Dòng " + (li + 1)) + " · ngày " + d); });
         inp.addEventListener("blur", function () { var lr = ocrLearn(); if (lr && cell && inp._viewed && !inp._changed && String(L.vals[d]).trim() && String(L.vals[d]) === String(L.orig ? L.orig[d] : "")) lr.onViewedUnchanged({ res: pg.res, cell: cell, pg: pg, ma: L.ma, value: L.vals[d] }); inp._viewed = false; });
-        inp.addEventListener("change", function () { var prevV = L.vals[d]; inp._changed = true; if (prevV !== inp.value.trim()) { (pg.undo = pg.undo || []).push({ L: L, d: d, prev: prevV, cell: cell, inp: inp }); } L.vals[d] = inp.value.trim(); var lr = ocrLearn(); if (lr) lr.onEdit({ res: pg.res, cell: cell, ref: L.ma + "|" + d, pg: pg, ma: L.ma, before: prevV, after: L.vals[d], ocrValue: L.orig ? L.orig[d] : prevV }).then(function (r) { if (r && r.ok === false) toast("⚠ Chưa lưu được mẫu học từ ô vừa sửa — " + (r.durable ? "đã giữ lại trên đĩa, sẽ thử lại" : "CHỈ giữ tạm trong bộ nhớ, hãy bấm Thử lại trước khi đóng") + " (" + (r.error || "") + ")"); else if (r && r.missingSource) toast("Ô này không có ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu học"); }); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
+        inp.addEventListener("change", function () { var prevV = L.vals[d]; inp._changed = true; if (prevV !== inp.value.trim()) { (pg.undo = pg.undo || []).push({ L: L, d: d, prev: prevV, cell: cell, inp: inp }); } L.vals[d] = inp.value.trim(); var lr = ocrLearn(); if (lr) lr.onEdit({ res: pg.res, cell: cell, ref: ocrRef(L, li, d), pg: pg, ma: L.ma, before: prevV, after: L.vals[d], ocrValue: L.orig ? L.orig[d] : prevV }).then(function (r) { ocrMark(inp, ocrRef(L, li, d)); if (r && r.ok === false) toast("⚠ Chưa lưu được mẫu học từ ô vừa sửa — " + (r.durable ? "đã giữ lại trên đĩa, sẽ thử lại" : "CHỈ giữ tạm trong bộ nhớ, hãy bấm Thử lại trước khi đóng") + " (" + (r.error || "") + ")"); else if (r && r.missingSource) toast("Ô này không có ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu học"); }); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
         tr.appendChild(h("td", { class: "oc" }, [inp]));
       });
       tr.appendChild(sumTd); tr.appendChild(totTd); upd();

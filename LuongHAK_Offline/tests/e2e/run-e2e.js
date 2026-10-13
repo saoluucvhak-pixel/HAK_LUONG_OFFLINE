@@ -744,6 +744,15 @@ async function launch(dataDir, opt) {
     const lib1 = await w.evaluate(() => window.hakOcrLib.list({}).then((r) => ({ ok: r.ok, s: r.samples.map((x) => [x.label, x.status, x.source]), n: r.stats.edits })));
     ok("Tự học từ sửa ô: 0,5→1→0,5 tạo 2 mẫu (1 bị thay thế, 0,5 chờ duyệt), ghi đủ 2+ sự kiện sửa, không cần bấm lưu mẫu",
       lib1.ok && lib1.s.length === 2 && lib1.s.filter((x) => x[1] === "SUPERSEDED").length === 1 && lib1.s.some((x) => x[0] === "0.5" && x[1] === "PENDING_APPROVAL" && x[2] === "CORRECTED") && lib1.n >= 4, JSON.stringify(lib1));
+    { // V9.4: người dùng THẤY mẫu đã ghi (màu ô + thanh trạng thái + nút mở thư viện); dán nhiều ô cũng đi qua đường ghi mẫu
+      const learnAttr = await c27.getAttribute("data-learn"), barTxt = await w.locator("[data-ocr-learn-status]").innerText().catch(() => ""), hasBtn = await w.locator('[data-ocr-learn-status] button:has-text("Mở thư viện mẫu")').count();
+      ok("OCR V9.4: ô vừa sửa hiện trạng thái 'đã ghi mẫu (chờ xác minh)', thanh trạng thái có số mẫu và nút mở thư viện", learnAttr === "saved" && /đã ghi/.test(barTxt) && /chờ xác minh/.test(barTxt) && hasBtn === 1, learnAttr + " | " + barTxt.replace(/\s+/g, " "));
+      const before2 = await w.evaluate(() => window.hakOcrLib.list({}).then((r) => r.stats.edits));
+      await w.evaluate(() => { const i = document.querySelector(".ocrgrid tbody tr:nth-child(1) input[data-day='1']"); const dt = new DataTransfer(); dt.setData("text", "1\t0,5\n0,5\t1"); i.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); });
+      await w.waitForTimeout(600);
+      const after2 = await w.evaluate(() => window.hakOcrLib.list({}).then((r) => r.stats.edits)), pv2 = await w.evaluate(() => [1, 2].map((d) => document.querySelector(".ocrgrid tbody tr:nth-child(1) input[data-day='" + d + "']").value).concat([1, 2].map((d) => document.querySelector(".ocrgrid tbody tr:nth-child(2) input[data-day='" + d + "']").value)));
+      ok("OCR V9.4: dán 2×2 ô từ Excel cập nhật đúng 4 ô và mỗi ô đổi giá trị đều ghi sự kiện sửa", pv2.join("|") === "1|0,5|0,5|1" && after2 > before2, JSON.stringify({ before2, after2, pv2 }));
+    }
     await w.fill('input[aria-label="Kỳ của trang"]', "2026-11"); await w.dispatchEvent('input[aria-label="Kỳ của trang"]', "change");
     await w.locator(".subtabs button").nth(1).click(); await w.waitForTimeout(200);
     const g2 = await grid();
