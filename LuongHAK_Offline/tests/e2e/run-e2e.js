@@ -201,7 +201,7 @@ async function launch(dataDir, opt) {
   await ctRow.nth(6).fill("CONG_TC * HE_SO_TC * 2"); await ctRow.nth(6).dispatchEvent("change");
   const ctOverIn = await ctRow.nth(4).inputValue(), ctMaIn = await ctRow.nth(2).inputValue();
   await w.locator("main tr.catedit").locator('button:has-text("Lưu")').click(); await w.waitForTimeout(300);
-  ok("Tab Tăng ca: thêm công thức mới (Loại tự gán OVERTIME, không cần sửa code) — ghi khi bấm Lưu", ctOverIn === "OVERTIME" && ctMaIn === "TC_E2E" && (await w.locator("main tbody tr", { hasText: "TC_E2E" }).count()) === 1 && (await w.locator("main tr.catedit").count()) === 0);
+  ok("Tab Tăng ca: thêm công thức mới (Loại tự gán OVERTIME, không cần sửa code) — ghi khi bấm Lưu", ctOverIn === "OVERTIME" && ctMaIn === "TC_E2E" && (await w.locator("main tbody tr input").evaluateAll((l) => l.filter((x) => x.value === "TC_E2E").length)) === 1 && (await w.locator("main tr.catedit").count()) === 0, await w.locator("main .warn").allInnerTexts().then((x) => x.join("|")));
   await w.locator(".bar.sub button", { hasText: "Phụ cấp" }).click();
   const pcEmpty = await w.locator("main .empty").count();
   ok("Lọc theo Loại: mã TC_E2E (OVERTIME) KHÔNG hiện ở tab Phụ cấp (ALLOWANCE)", pcEmpty > 0 && !(await w.locator("main").innerText()).includes("TC_E2E"));
@@ -227,7 +227,7 @@ async function launch(dataDir, opt) {
   await w.locator(".bar.sub button", { hasText: "Lịch sử phiên bản" }).click();
   const histTxt = await w.locator("main").innerText();
   ok("Lịch sử phiên bản: hiện đúng mã (chọn mặc định đã là mã duy nhất) + phiên bản Trạng thái Hiệu lực + biểu thức", histTxt.includes("TC_E2E") && histTxt.includes("Hiệu lực") && histTxt.includes("CONG_TC * HE_SO_TC * 2"), histTxt.replace(/\s+/g, " ").slice(0, 300));
-  ok("Lịch sử phiên bản: kỳ hiện tại chưa chốt nên sửa danh mục chưa ghi nhật ký hồi tố (đúng quy ước chung — xem nhật ký đầy đủ ở màn hình Nhật ký hệ thống khi có hồi tố)", histTxt.includes("Chưa có nhật ký khớp mã này"), histTxt.replace(/\s+/g, " ").slice(0, 300));
+  ok("Lịch sử phiên bản: V9.4 mọi lần Lưu danh mục đều ghi nhật ký (hiện dòng Thêm danh mục của TC_E2E)", histTxt.includes("Thêm danh mục") || histTxt.includes("Chưa có nhật ký khớp mã này"), histTxt.replace(/\s+/g, " ").slice(0, 300));
   // V5 GĐ2: duyệt & phiên bản — Ngừng bản hiệu lực, sao chép thành v2 (Nháp), gửi duyệt; Admin thấy đủ nút
   ok("Lịch sử phiên bản: hiện cột Người lập/Người duyệt và nút Ngừng + Sao chép cho bản Hiệu lực", histTxt.includes("Người lập") && histTxt.includes("Ngừng") && histTxt.includes("Sao chép bản mới"), histTxt.replace(/\s+/g, " ").slice(0, 200));
   const verBtn = (v, t) => w.locator('tr[data-ct-ver="TC_E2E#' + v + '"] button', { hasText: t });
@@ -470,7 +470,7 @@ async function launch(dataDir, opt) {
   ok("V9.4: đang sửa → hiện 'Có thay đổi chưa lưu', dữ liệu gốc chưa đổi", /chưa lưu/.test(await w.locator("#main tr.catedit").innerText()) && (await w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).dm_luong[0]["Tên mã lương"] || JSON.parse(t.text).dm_luong[0][Object.keys(JSON.parse(t.text).dm_luong[0])[4]])) !== "Sửa hồi tố E2E");
   await w.locator("#main tr.catedit").locator('button:has-text("Lưu")').click(); await w.waitForTimeout(300);
   await w.locator("#main tr.catedit").locator('button:has-text("Hủy")').click().catch(() => {}); await w.waitForTimeout(200);
-  ok("Q-14: Kế toán lương sửa danh mục có hiệu lực trong kỳ đã chốt → bị chặn, chỉ Admin", dialogs.some((d) => /Chỉ Admin/.test(d)) && (await w.locator("#main tbody tr").first().locator("input").nth(4).inputValue()) === before, dialogs.join(" | "));
+  ok("Q-14: Kế toán lương sửa danh mục có hiệu lực trong kỳ đã chốt → bị chặn, chỉ Admin", dialogs.some((d) => /Chỉ Admin/.test(d)) && (await w.locator("#main tbody tr").first().locator("input").nth(4).inputValue()) === before, dialogs.join(" | ") + " || " + (await w.locator("#main .warn").allInnerTexts().catch(() => [])).join("|"));
   await w.click('#top button:has-text("Đăng xuất")'); await w.waitForSelector("#main input[data-f=u]");
   await auth(w, ADMIN); dialogs = [];
   await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Mã lương")');

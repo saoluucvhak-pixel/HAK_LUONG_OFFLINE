@@ -621,7 +621,8 @@
       if (errs.length) { e.state = "EDITING"; e.err = errs.join(" · "); draw(); return; }
       e.state = "SAVING";
       var plan = e.mode === "new" ? REPO.plan("insert", key, null, Object.assign({}, e.draft, cleaned), { what: "thêm danh mục" }) : REPO.plan("update", key, db[key][e.ri], cleaned, { what: "sửa danh mục" });
-      if (!plan.ok) { e.state = "EDITING"; e.err = plan.msg; draw(); return; }
+      if (!plan.ok) { e.state = "EDITING"; e.err = plan.msg; draw(); alert(plan.msg); return; }
+      if (plan.retro && !can("retro.edit")) { e.state = "EDITING"; alert("⛔ Không thể lưu: dữ liệu có hiệu lực trong kỳ lương đã chốt.\nChỉ Admin được sửa dữ liệu hồi tố (quy tắc Q-14)."); draw(); return; }
       if (plan.retro && !confirm("⚠ " + retroText(plan.impact) + "\n\nTiếp tục lưu?")) { e.state = "EDITING"; draw(); return; }
       if (!commit(plan, { audit: "always", action: e.mode === "new" ? "Thêm danh mục" : "Sửa danh mục" })) { e.state = "EDITING"; e.err = "Không lưu được — dữ liệu nháp được giữ để sửa tiếp"; draw(); return; }
       save(); delete st.cedit[key]; draw(); updateNav(); toast("✓ Đã lưu " + (def.ten || key));
