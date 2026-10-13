@@ -32,6 +32,7 @@ const guard = createGuard(__dirname, {
 
 // Dữ liệu: %APPDATA%\Tinh Luong HAK\data.json — sao lưu trong thư mục backups (xem main/storage.js).
 // Gỡ cài đặt KHÔNG xóa thư mục này (electron-builder: deleteAppDataOnUninstall mặc định false).
+let fbJob = null; // Full Backup đang chạy (worker)
 let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, restorer = null;
 const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname })); // nạp Tesseract khi dùng lần đầu
 const NO_SHELL = !!process.env.HAK_NO_SHELL; // kiểm thử tự động: không mở Explorer thật, chỉ ghi lại thao tác
@@ -55,7 +56,7 @@ function registerIpc() {
   const _handle = ipcMain.handle.bind(ipcMain);
   ipcMain.handle = (ch, fn) => _handle(ch, (e, ...a) => (guard.trusted(e) ? fn(e, ...a) : { ok: false, error: "Nguồn lệnh không hợp lệ" }));
   // Lệnh nhạy cảm: kiểm nguồn + đăng nhập + quyền trước khi chạy
-  const wl = (fn) => async (e, ...a) => (restorer && restorer.busy() ? { ok: false, error: "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" } : fn(e, ...a)); // khóa ghi trong lúc COMMIT khôi phục
+  const wl = (fn) => async (e, ...a) => (fbJob ? { ok: false, error: "Đang sao lưu Full Backup — chờ sao lưu xong (hoặc bấm Hủy) rồi thử lại" } : restorer && restorer.busy() ? { ok: false, error: "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" } : fn(e, ...a)); // khóa ghi trong lúc COMMIT khôi phục
   const guardedW = (perm, fn) => guarded(perm, wl(fn)); // lệnh GHI: bị chặn trong lúc COMMIT khôi phục
   const guarded = (perm, fn) => async (e, ...a) => { const d = guard.deny(e, perm); return d ? { ok: false, error: d, problems: [d] } : fn(e, ...a); };
   // V9: phiên do TIẾN TRÌNH CHÍNH tạo sau khi tự kiểm mật khẩu với tài khoản trên đĩa; renderer không gửi được danh sách quyền
@@ -154,17 +155,23 @@ function registerIpc() {
         onApplied: (n) => { if (kind === "docs") vault = createVault(n.docs); else if (kind === "ocrLib") ocrLib = require("./main/ocr-library").createStore(n.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") }); } });
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
+  // V9: Full Backup chạy trong worker_thread (không treo giao diện), có tiến độ + nút Hủy; trong lúc chạy các lệnh GHI chứng từ/thư viện OCR bị khóa → gói nhất quán
   ipcMain.handle("fb-create", guardedW("backup.restore", async (e, info) => {
+    if (fbJob) return { ok: false, error: "Đang có một lần Full Backup khác chạy — chờ nó kết thúc hoặc bấm Hủy" };
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
-      const r = fullBackup.create({ dataText: ld.text, vault, ocrLib, destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
-        restoreConfig: { note: "đường dẫn thư mục là của máy gốc; khi khôi phục sang máy khác dùng thư mục mặc định hoặc chọn lại", customPaths: Object.keys(storage.readSettings()).filter((k) => /Dir$/.test(k)) } });
+      const sp = spCur(), sender = e.sender;
+      fbJob = require("./main/fullbackup-worker").run({ dataText: ld.text, docsDir: sp.docs, ocrDir: sp.ocrLib, spoolDir: path.join(app.getPath("userData"), "ocr-spool"), destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
+        restoreConfig: { note: "đường dẫn thư mục là của máy gốc; khi khôi phục sang máy khác dùng thư mục mặc định hoặc chọn lại", customPaths: Object.keys(storage.readSettings()).filter((k) => /Dir$/.test(k)) } },
+      (m) => { try { if (!sender.isDestroyed()) sender.send("fb-progress", m); } catch (x) { /* cửa sổ đã đóng */ } });
+      const r = await fbJob.promise; fbJob = null;
       if (!r.file) return r; // FAILED / CANCELLED: không có gói
       let mirrored = "";
-      try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"); require("fs").mkdirSync(t, { recursive: true }); require("fs").copyFileSync(r.file, path.join(t, r.name)); require("fs").copyFileSync(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
+      try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"), fsp = require("fs").promises; await fsp.mkdir(t, { recursive: true }); await fsp.copyFile(r.file, path.join(t, r.name)); await fsp.copyFile(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
       return { ok: r.ok, status: r.status, partial: !!r.partial, missing: r.missing, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored };
-    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+    } catch (err) { fbJob = null; return { ok: false, error: String(err && err.message || err) }; }
   }));
+  ipcMain.handle("fb-cancel", guarded("backup.restore", async () => { if (!fbJob) return { ok: false, error: "Không có Full Backup đang chạy" }; fbJob.cancel(); return { ok: true }; }));
   ipcMain.handle("fb-list", guarded("backup.restore", async () => { try { return { ok: true, files: fbList().filter((f) => /^LuongHAK_FullBackup_.*\.zip$/i.test(f.name)) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
   ipcMain.handle("fb-inspect", guarded("backup.restore", async (e, name) => {
     try {

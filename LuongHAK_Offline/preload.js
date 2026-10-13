@@ -73,6 +73,8 @@ contextBridge.exposeInMainWorld("hakDocs", {
 // Full Backup / Restore: gói ZIP (dữ liệu + chứng từ + manifest SHA-256). Khôi phục: inspect (chỉ đọc) → app xác nhận → importDocs
 contextBridge.exposeInMainWorld("hakFull", {
   create: (info) => ipcRenderer.invoke("fb-create", info),     // { user } → { ok, name, dir, size, sha256, docs, warnings, mirrored } | { ok:false, error }
+  cancel: () => ipcRenderer.invoke("fb-cancel"),                // V9: hủy Full Backup đang chạy (file tạm được dọn, trả CANCELLED)
+  onProgress: (cb) => { const h = (_e, m) => { try { cb(m); } catch (x) { /* giao diện lỗi không làm hỏng sao lưu */ } }; ipcRenderer.on("fb-progress", h); return () => ipcRenderer.removeListener("fb-progress", h); },
   list: () => ipcRenderer.invoke("fb-list"),
   inspect: (name) => ipcRenderer.invoke("fb-inspect", name),   // name tùy chọn (trong thư mục xuất); bỏ trống = hộp thoại chọn file → { ok, problems, manifest, docs, text }
   // Khôi phục theo giao dịch: stage(opt{name?,acceptPartial?}) → commit(rid) → [giao diện thay dữ liệu] → postcheck(rid) → finish(rid) | rollback(rid)
