@@ -1276,6 +1276,7 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
     await w.click('[data-fullbackup] button:has-text("Tạo Full Backup")');
+    await w.waitForSelector("#modal [data-pw]"); await w.click('#modal button:has-text("Tạo Full Backup")'); // V10.1: bỏ trống mật khẩu = gói không mã hóa
     await w.waitForSelector('[data-fb-msg]:has-text("ĐẦY ĐỦ")', { timeout: 30000 });
     const zips = fs.readdirSync(DL).filter((f) => /^LuongHAK_FullBackup_.*\.zip$/.test(f)), good = path.join(DL, zips[0] || "none.zip");
     const rep = zips.length ? FB.inspect(good) : { ok: false, problems: ["không có gói"], docs: [] };
@@ -1298,6 +1299,48 @@ async function launch(dataDir, opt) {
     const after = await w.evaluate(async () => { const l = await window.hakDocs.list(), v = await window.hakDocs.verify(); return { n: l.docs.length, st: v.items.map((i) => i.status) }; });
     ok("Khôi phục Full Backup trên kho trống: chứng từ trở lại đủ, đúng DocumentID, SHA-256 đều 'ok'", after.n === nDocsBefore && after.st.every((x) => x === "ok") && rep.docs.every((d) => fs.existsSync(path.join(vdir, d.id.slice(4, 10), d.id + ".json"))), JSON.stringify(after));
     ok("Không lỗi JavaScript ở Full Backup", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
+
+  // V10.1: Full Backup MÃ HÓA bằng mật khẩu (AES-256-GCM) → mật khẩu yếu bị từ chối → sai mật khẩu bị từ chối trước khi ghi gì → đúng mật khẩu khôi phục đủ chứng từ
+  {
+    const PW = "Mat-khau-E2E-2026", vdir = path.join(DATA, "documents");
+    ({ app, w, errs } = await launch());
+    const nDocs0 = await w.evaluate(async () => (await window.hakDocs.list()).docs.length);
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click('[data-fullbackup] button:has-text("Tạo Full Backup")');
+    await w.waitForSelector("#modal [data-pw]");
+    await w.fill("#modal [data-pw]", "abc"); await w.fill("#modal [data-pw2]", "abc"); await w.click('#modal button:has-text("Tạo Full Backup")');
+    ok("Mật khẩu yếu ('abc') bị từ chối ngay, hộp nhập vẫn mở, chưa tạo gói", (await w.locator("#modal [data-pw]").count()) === 1 && fs.readdirSync(DL).filter((f) => /\.hakenc$/.test(f)).length === 0);
+    await w.fill("#modal [data-pw]", PW); await w.fill("#modal [data-pw2]", PW + "x"); await w.click('#modal button:has-text("Tạo Full Backup")');
+    ok("Nhập lại mật khẩu không khớp bị từ chối", (await w.locator("#modal [data-pw]").count()) === 1 && fs.readdirSync(DL).filter((f) => /\.hakenc$/.test(f)).length === 0);
+    await w.fill("#modal [data-pw]", PW); await w.fill("#modal [data-pw2]", PW); await w.click('#modal button:has-text("Tạo Full Backup")');
+    await w.waitForSelector('[data-fb-msg]:has-text("ĐÃ MÃ HÓA")', { timeout: 60000 });
+    const encs = fs.readdirSync(DL).filter((f) => /^LuongHAK_FullBackup_.*\.zip\.hakenc$/.test(f)), enc = path.join(DL, encs[0] || "none"), plains = fs.readdirSync(DL).filter((f) => /^LuongHAK_FullBackup_\d.*\.zip$/.test(f));
+    const head = encs.length ? fs.readFileSync(enc).subarray(0, 8).toString() : "";
+    ok("Gói mã hóa: có file .zip.hakenc + .sha256, đầu tệp HAKENC01, bản .zip rõ của lần này đã bị xóa (chỉ còn gói không mã hóa tạo trước đó)", encs.length === 1 && head === "HAKENC01" && fs.existsSync(enc + ".sha256") && plains.length === 1, JSON.stringify({ encs, plains, head }));
+    const encBuf = encs.length ? fs.readFileSync(enc) : Buffer.alloc(0);
+    ok("Gói mã hóa không chứa bản rõ (không có 'manifest.json'/'data.json'/chữ 'PK' đầu zip)", encBuf.indexOf("manifest.json") < 0 && encBuf.indexOf("data.json") < 0 && encBuf.subarray(0, 2).toString() !== "PK");
+    ok("Không lỗi JavaScript khi tạo gói mã hóa", errs.length === 0, errs.join(" | "));
+    await app.close();
+    fs.rmSync(vdir, { recursive: true, force: true }); // giả lập máy mới: mất kho chứng từ
+    ({ app, w, errs } = await launch(null, { env: { HAK_FB_PICK: enc } }));
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click('[data-fullbackup] button:has-text("Khôi phục từ gói")');
+    await w.waitForSelector("#modal [data-pw]");
+    await w.fill("#modal [data-pw]", PW + "SAI"); await w.click('#modal button:has-text("Mở gói")');
+    await w.waitForSelector('#modal:has-text("Sai mật khẩu")', { timeout: 30000 });
+    const mid = await w.evaluate(async () => (await window.hakDocs.list()).docs.length);
+    ok("Sai mật khẩu: bị từ chối, hỏi lại, CHƯA ghi chứng từ nào", mid === 0, "docs=" + mid);
+    const tmpLeft = () => { const d = path.join(DATA, "restore-tmp"); try { return fs.readdirSync(d).length; } catch (e) { return 0; } };
+    ok("Sai mật khẩu: không để lại bản giải mã trong thư mục tạm", tmpLeft() === 0, "còn " + tmpLeft());
+    await w.fill("#modal [data-pw]", PW); await w.click('#modal button:has-text("Mở gói")');
+    for (let i = 0; i < 80; i++) { await w.waitForTimeout(500); if ((await w.evaluate(async () => (await window.hakDocs.list()).docs.length)) >= nDocs0) break; }
+    await w.waitForTimeout(500);
+    const after = await w.evaluate(async () => { const l = await window.hakDocs.list(), v = await window.hakDocs.verify(); return { n: l.docs.length, st: v.items.map((i) => i.status) }; });
+    ok("Đúng mật khẩu: khôi phục từ gói mã hóa đưa chứng từ trở lại đủ, SHA-256 đều 'ok'", after.n === nDocs0 && nDocs0 >= 3 && after.st.every((x) => x === "ok"), JSON.stringify(after) + " / " + nDocs0);
+    ok("Khôi phục xong: thư mục tạm không còn bản giải mã", tmpLeft() === 0, "còn " + tmpLeft());
+    ok("Không lỗi JavaScript khi khôi phục gói mã hóa", errs.length === 0, errs.join(" | "));
     await app.close();
   }
 

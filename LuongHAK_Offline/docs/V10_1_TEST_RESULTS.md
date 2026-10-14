@@ -8,8 +8,8 @@ Chạy trên HEAD của nhánh `feature/luong-hak-v10-1-hardening-payroll-releas
 | --- | --- | --- |
 | Cú pháp | `node --check` mọi `.js` trong app/core/main/ui | 0 lỗi |
 | ESLint | `npx eslint@9.39.5 . --max-warnings 0` | 0 cảnh báo |
-| Unit + Integration + Regression | `npm test` | 570 đạt / 0 hỏng |
-| E2E Electron | `xvfb-run -a node tests/e2e/run-e2e.js` | 239/239 đạt |
+| Unit + Integration + Regression | `npm test` | 579 đạt / 0 hỏng (gồm U-MAIN-01..03 đối chiếu bản vá `main`, U-BCR-01..06 mã hóa sao lưu) |
+| E2E Electron | `xvfb-run -a node tests/e2e/run-e2e.js` | 249/249 đạt (thêm kịch bản Full Backup mã hóa: mật khẩu yếu, nhập lại lệch, sai mật khẩu, đúng mật khẩu) |
 | Duyệt màn hình 3 độ phân giải | `tests/e2e/v10-screens.js` (1366×768, 1600×900, 1920×1080 × 36 màn) | 108 lượt, 0 tràn ngang, 0 lỗi JS (`V10_SCREEN_CHECK.json`) |
 | Phụ thuộc chạy trong app | `npm audit --omit=dev --audit-level=low` | 0 lỗ hổng |
 | Hiệu năng | `tests/perf/*` | `V10_1_PERFORMANCE.md` |

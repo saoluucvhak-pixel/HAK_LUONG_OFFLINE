@@ -77,7 +77,7 @@ contextBridge.exposeInMainWorld("hakFull", {
   cancel: () => ipcRenderer.invoke("fb-cancel"),                // V9: hủy Full Backup đang chạy (file tạm được dọn, trả CANCELLED)
   onProgress: (cb) => { const h = (_e, m) => { try { cb(m); } catch (x) { /* giao diện lỗi không làm hỏng sao lưu */ } }; ipcRenderer.on("fb-progress", h); return () => ipcRenderer.removeListener("fb-progress", h); },
   list: () => ipcRenderer.invoke("fb-list"),
-  inspect: (name) => ipcRenderer.invoke("fb-inspect", name),   // name tùy chọn (trong thư mục xuất); bỏ trống = hộp thoại chọn file → { ok, problems, manifest, docs, text }
+  inspect: (name, password) => ipcRenderer.invoke("fb-inspect", name, password),   // name tùy chọn (trong thư mục xuất); bỏ trống = hộp thoại chọn file → { ok, problems, manifest, docs, text }
   // Khôi phục theo giao dịch: stage(opt{name?,acceptPartial?}) → commit(rid) → [giao diện thay dữ liệu] → postcheck(rid) → finish(rid) | rollback(rid)
   stage: (opt) => ipcRenderer.invoke("rs-stage", opt), commit: (rid) => ipcRenderer.invoke("rs-commit", rid), postcheck: (rid) => ipcRenderer.invoke("rs-postcheck", rid),
   rollback: (rid) => ipcRenderer.invoke("rs-rollback", rid), finish: (rid) => ipcRenderer.invoke("rs-finish", rid), discard: (rid) => ipcRenderer.invoke("rs-discard", rid)

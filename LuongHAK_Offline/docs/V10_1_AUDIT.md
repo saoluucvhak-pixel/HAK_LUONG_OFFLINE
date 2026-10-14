@@ -26,7 +26,8 @@ Mức: P0 = sai tiền/mất dữ liệu/lọt quyền; P1 = sai nghiệp vụ n
 - **DESIGN_GAP (đọc dữ liệu):** toàn bộ DB được nạp vào renderer lúc khởi động. Main chặn **ghi** trái phép nhưng **chưa lọc đọc** theo vai trò. Giải quyết đúng cần đổi kiến trúc nạp dữ liệu theo quyền (hạng mục riêng).
 - Gate xuất file nhận diện theo **tên file**; tệp đổi tên không chứa từ khóa lương/kỳ có thể lọt (đã ghi trong `V10_1_SECURITY_REVIEW.md`).
 - Chưa có vai trò "chỉ xem phiếu lương của chính mình".
-- Mã hóa dữ liệu trên đĩa chưa làm (đánh giá trong `V10_1_PERFORMANCE.md` §6).
+- Mã hóa dữ liệu **đang chạy** trên đĩa chưa làm (đánh giá trong `V10_1_PERFORMANCE.md` §6). Đã làm **mã hóa gói sao lưu bằng mật khẩu** (AES-256-GCM + scrypt, `main/backup-crypt.js`, `U-BCR-01..06`, E2E 249/249); DPAPI/mã hóa `data.json` vẫn là hạng mục riêng.
+- Đối chiếu `main` (bản vá KPCĐ 12/10): xem `V10_1_MAIN_PARITY.md` — đã có sẵn trong Electron, thêm test khóa số liệu `U-MAIN-01..03`.
 - Hình thức lương → cấu hình/mã lương: `dm_luong` là danh mục phẳng, không có quan hệ cha–con thật ⇒ không tạo Modal giả.
 - Kiểm tra OCR theo prompt IV: đã chạy bổ sung sau Phase 6 — `V10_1_OCR_CHECK.md` (4/4 ca, 100% ô trên ảnh giả lập; chưa đo chữ tay thật).
 - Ghi chú từ log E2E có sẵn từ trước: main ghi "chưa đăng nhập (bảng dm_congthuc)" 2 lần do migration trước đăng nhập — vô hại, chưa sửa.

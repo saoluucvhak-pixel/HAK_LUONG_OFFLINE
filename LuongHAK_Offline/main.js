@@ -155,7 +155,7 @@ function registerIpc() {
   // tạo vào thư mục xuất (và chép sang thư mục sao lưu thứ hai nếu có); đọc gói qua hộp thoại chọn file hoặc theo TÊN trong thư mục xuất.
   // Thư mục Full Backup chính: cấu hình `backupDir` (Cài đặt → Lưu trữ) hoặc thư mục xuất file
   const fbDir = () => { const d = storage.readSettings().backupDir; return d || exportsDir.dir(); };
-  const fbList = () => { const d = storage.readSettings().backupDir; if (!d) return exportsDir.list(500); try { return require("fs").readdirSync(d).filter((n) => /^LuongHAK_FullBackup_.*\.zip$/i.test(n)).map((n) => { const st = require("fs").statSync(path.join(d, n)); return { name: n, size: st.size, mtime: st.mtime.toISOString() }; }); } catch (e) { return []; } };
+  const fbList = () => { const d = storage.readSettings().backupDir; if (!d) return exportsDir.list(500); try { return require("fs").readdirSync(d).filter((n) => /^LuongHAK_FullBackup_.*\.zip(\.hakenc)?$/i.test(n)).map((n) => { const st = require("fs").statSync(path.join(d, n)); return { name: n, size: st.size, mtime: st.mtime.toISOString() }; }); } catch (e) { return []; } };
   const fbResolve = (name) => { const d = storage.readSettings().backupDir; if (!d) return exportsDir.resolve(name) || ""; const f = path.join(d, path.basename(name)); return require("fs").existsSync(f) ? f : ""; };
   // Cài đặt lưu trữ: 4 thư mục (chứng từ gốc, thư viện mẫu OCR, sao lưu chính, sao lưu dự phòng). Chuyển = chép + kiểm SHA-256, KHÔNG xóa nguồn.
   const SP = require("./main/storage-paths");
@@ -194,6 +194,8 @@ function registerIpc() {
   // V9: Full Backup chạy trong worker_thread (không treo giao diện), có tiến độ + nút Hủy; trong lúc chạy các lệnh GHI chứng từ/thư viện OCR bị khóa → gói nhất quán
   ipcMain.handle("fb-create", guardedW("backup.restore", async (e, info) => {
     if (fbJob) return { ok: false, error: "Đang có một lần Full Backup khác chạy — chờ nó kết thúc hoặc bấm Hủy" };
+    const bcrypt = require("./main/backup-crypt"), pwd = info && info.password ? String(info.password) : "";
+    if (pwd) { const bad = bcrypt.checkPassword(pwd); if (bad) return { ok: false, error: bad }; }
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
       const sp = spCur(), sender = e.sender;
@@ -202,31 +204,61 @@ function registerIpc() {
       (m) => { try { if (!sender.isDestroyed()) sender.send("fb-progress", m); } catch (x) { /* cửa sổ đã đóng */ } });
       const r = await fbJob.promise; fbJob = null;
       if (!r.file) return r; // FAILED / CANCELLED: không có gói
+      if (pwd) { // V10.1: bọc mã hóa AES-256-GCM; chỉ xóa bản rõ SAU KHI bản mã hóa giải mã thử khớp SHA-256 bản rõ
+        const fsx = require("fs"), fsp0 = fsx.promises, plain = r.file, encF = plain + ".hakenc", chk = encF + ".verify";
+        try {
+          const en = await bcrypt.encryptFile(plain, encF, pwd, { onProgress: (p) => { try { if (!sender.isDestroyed()) sender.send("fb-progress", "Mã hóa gói sao lưu… " + Math.round(p * 100) + "%"); } catch (x) { /* cửa sổ đã đóng */ } } });
+          if (!en.ok) throw new Error(en.error);
+          const de = await bcrypt.decryptFile(encF, chk, pwd); if (!de.ok) throw new Error("Giải mã thử thất bại: " + de.error);
+          const h = (f) => require("crypto").createHash("sha256").update(fsx.readFileSync(f)).digest("hex");
+          const same = h(chk) === r.sha256; try { await fsp0.unlink(chk); } catch (x) { /* đã xóa */ }
+          if (!same) throw new Error("Bản giải mã thử không khớp SHA-256 bản gốc");
+          await fsp0.writeFile(encF + ".sha256", en.sha256 + "  " + path.basename(encF) + "\n");
+          await fsp0.unlink(plain); try { await fsp0.unlink(plain + ".sha256"); } catch (x) { /* không có */ }
+          r.file = encF; r.name = path.basename(encF); r.size = en.size; r.sha256 = en.sha256; r.encrypted = true;
+        } catch (err) {
+          try { await fsp0.unlink(encF); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(chk); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(encF + ".sha256"); } catch (x) { /* chưa tạo */ }
+          (r.warnings = r.warnings || []).push("KHÔNG mã hóa được (" + (err.message || err) + ") — gói giữ nguyên dạng KHÔNG mã hóa: " + path.basename(plain));
+        }
+      }
       let mirrored = "";
       try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"), fsp = require("fs").promises; await fsp.mkdir(t, { recursive: true }); await fsp.copyFile(r.file, path.join(t, r.name)); await fsp.copyFile(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
-      return { ok: r.ok, status: r.status, partial: !!r.partial, missing: r.missing, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored };
+      return { ok: r.ok, status: r.status, partial: !!r.partial, missing: r.missing, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored, encrypted: !!r.encrypted };
     } catch (err) { fbJob = null; return { ok: false, error: String(err && err.message || err) }; }
   }));
   ipcMain.handle("fb-cancel", guarded("backup.restore", async () => { if (!fbJob) return { ok: false, error: "Không có Full Backup đang chạy" }; fbJob.cancel(); return { ok: true }; }));
-  ipcMain.handle("fb-list", guarded("backup.restore", async () => { try { return { ok: true, files: fbList().filter((f) => /^LuongHAK_FullBackup_.*\.zip$/i.test(f.name)) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
-  ipcMain.handle("fb-inspect", guarded("backup.restore", async (e, name) => {
+  ipcMain.handle("fb-list", guarded("backup.restore", async () => { try { return { ok: true, files: fbList().filter((f) => /^LuongHAK_FullBackup_.*\.zip(\.hakenc)?$/i.test(f.name)).map((f) => Object.assign({}, f, { encrypted: /\.hakenc$/i.test(f.name) })) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
+  // Gói mã hóa (.hakenc): giải mã vào thư mục tạm riêng, chạy fn(đường dẫn zip), LUÔN xóa bản giải mã khi xong (kể cả lỗi)
+  const withPlain = async (f, password, fn) => {
+    const bcrypt = require("./main/backup-crypt");
+    if (!bcrypt.isEnc(f)) return fn(f);
+    if (!password) return { ok: false, needPassword: true, error: "Gói được mã hóa — nhập mật khẩu", problems: ["Gói được mã hóa — nhập mật khẩu"], phases: [] };
+    const fsx = require("fs"), base = path.join(app.getPath("userData"), "restore-tmp"); fsx.mkdirSync(base, { recursive: true });
+    const d = fsx.mkdtempSync(path.join(base, "d-"));
+    try {
+      const out = path.join(d, "plain.zip"), de = await bcrypt.decryptFile(f, out, String(password));
+      if (!de.ok) { const m = de.code === "AUTH" ? "Sai mật khẩu hoặc gói đã bị sửa" : de.error; return { ok: false, wrongPassword: de.code === "AUTH", error: m, problems: [m], phases: [] }; }
+      return await fn(out);
+    } finally { try { fsx.rmSync(d, { recursive: true, force: true }); } catch (x) { /* dọn lần sau */ } }
+  };
+  ipcMain.handle("fb-inspect", guarded("backup.restore", async (e, name, password) => {
     try {
       let f = "";
-      if (name) { f = fbResolve(String(name)); if (!/\.zip$/i.test(f)) return { ok: false, problems: ["Không tìm thấy gói trong thư mục xuất"] }; }
+      if (name) { f = fbResolve(String(name)); if (!/\.zip(\.hakenc)?$/i.test(f)) return { ok: false, problems: ["Không tìm thấy gói trong thư mục xuất"] }; }
       else if (process.env.HAK_FB_PICK) f = process.env.HAK_FB_PICK;
-      else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup (.zip)", filters: [{ name: "Gói sao lưu", extensions: ["zip"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
-      const rep = fullBackup.inspect(f, vault);
-      return { ok: rep.ok, problems: rep.problems, label: path.basename(f), manifest: rep.manifest && { createdAt: rep.manifest.createdAt, createdBy: rep.manifest.createdBy, appVersion: rep.manifest.appVersion, warnings: rep.manifest.warnings }, docs: rep.docs, ocrSamples: rep.ocrSamples || 0, text: rep.ok ? rep.dataText : null };
+      else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup (.zip / .hakenc)", filters: [{ name: "Gói sao lưu", extensions: ["zip", "hakenc"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
+      return await withPlain(f, password, async (pf) => { const rep = fullBackup.inspect(pf, vault);
+      return { ok: rep.ok, problems: rep.problems, label: path.basename(f), manifest: rep.manifest && { createdAt: rep.manifest.createdAt, createdBy: rep.manifest.createdBy, appVersion: rep.manifest.appVersion, warnings: rep.manifest.warnings }, docs: rep.docs, ocrSamples: rep.ocrSamples || 0, text: rep.ok ? rep.dataText : null, encrypted: pf !== f }; });
     } catch (err) { return { ok: false, problems: [String(err && err.message || err)] }; }
   }));
   // Khôi phục Full Backup theo giao dịch (V8): stage (PRECHECK→STAGING→VERIFY) → commit tài sản → [giao diện thay dữ liệu] → postcheck → finish | rollback
   ipcMain.handle("rs-stage", guarded("backup.restore", async (e, opt) => {
     try {
       opt = opt || {}; let f = "";
-      if (opt.name) { f = fbResolve(String(opt.name)); if (!/\.zip$/i.test(f)) return { ok: false, error: "Không tìm thấy gói trong thư mục xuất" }; }
+      if (opt.name) { f = fbResolve(String(opt.name)); if (!/\.zip(\.hakenc)?$/i.test(f)) return { ok: false, error: "Không tìm thấy gói trong thư mục xuất" }; }
       else if (process.env.HAK_FB_PICK) f = process.env.HAK_FB_PICK;
-      else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup (.zip)", filters: [{ name: "Gói sao lưu", extensions: ["zip"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
-      const r = restorer.stage(f, { acceptPartial: opt.acceptPartial === true }); r.label = path.basename(f); return r;
+      else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup (.zip / .hakenc)", filters: [{ name: "Gói sao lưu", extensions: ["zip", "hakenc"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
+      return await withPlain(f, opt.password, async (pf) => { const r = restorer.stage(pf, { acceptPartial: opt.acceptPartial === true }); r.label = path.basename(f); return r; });
     } catch (err) { return { ok: false, error: String(err && err.message || err), phases: [] }; }
   }));
   ipcMain.handle("rs-commit", guarded("backup.restore", async (e, rid) => { try { return restorer.commitAssets(String(rid || "")); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } }));

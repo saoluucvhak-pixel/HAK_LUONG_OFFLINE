@@ -490,6 +490,32 @@
     setTimeout(function () { inp.focus(); }, 30);
     return closeFn;
   }
+  // Hộp nhập MẬT KHẨU (che ký tự, KHÔNG cắt khoảng trắng, không ghi vào dữ liệu/nhật ký). opts: confirm (nhập 2 lần), optional (cho phép bỏ trống), okText
+  function askPassword(title, message, opts, cb) {
+    opts = opts || {};
+    var body = h("div"), p1 = h("input", { class: "i", type: "password", style: "width:100%", autocomplete: "off", "data-pw": "1" }), p2 = opts.confirm ? h("input", { class: "i", type: "password", style: "width:100%", autocomplete: "off", "data-pw2": "1" }) : null;
+    String(message || "").split("\n").forEach(function (ln) { body.appendChild(h("div", { class: ln.trim() ? "" : "hint", text: ln || " ", style: "margin:2px 0" })); });
+    body.appendChild(h("div", { class: "fld", style: "margin-top:10px" }, [h("label", { text: "Mật khẩu" + (opts.optional ? " (bỏ trống = không mã hóa)" : "") }), p1]));
+    if (p2) body.appendChild(h("div", { class: "fld" }, [h("label", { text: "Nhập lại mật khẩu" }), p2]));
+    var closeFn = modal(title, body, function (close) {
+      return [btn("Hủy", "", close), btn(opts.okText || "Đồng ý", "pri", function () {
+        var v = p1.value;
+        if (!v && opts.optional) { close(); cb(""); return; }
+        if (!v) { p1.focus(); toast("Vui lòng nhập mật khẩu"); return; }
+        if (p2 && p2.value !== v) { p2.focus(); toast("Hai lần nhập mật khẩu không giống nhau"); return; }
+        if (opts.check) { var bad = opts.check(v); if (bad) { p1.focus(); toast(bad); return; } }
+        close(); cb(v);
+      })];
+    });
+    setTimeout(function () { p1.focus(); }, 30);
+    return closeFn;
+  }
+  function pwWeak(v) { // cùng quy tắc với main/backup-crypt.js (main kiểm lại lần nữa)
+    if (v.length < 10) return "Mật khẩu tối thiểu 10 ký tự";
+    if (/^(.)\1+$/.test(v)) return "Mật khẩu không được lặp một ký tự";
+    var k = 0; [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].forEach(function (r) { if (r.test(v)) k++; });
+    return k < 2 ? "Mật khẩu cần kết hợp ít nhất 2 loại: chữ thường, chữ hoa, số, ký tự đặc biệt" : "";
+  }
   function countOf(k) { return db[k] ? db[k].length : 0; }
 
   // ---------- Ô nhập dùng chung ----------
@@ -4378,31 +4404,37 @@
         if (!need("backup.restore", "tạo Full Backup")) return;
         if (st.fbBusy) { toast("Đang tạo Full Backup — chờ xong hoặc bấm Hủy"); return; } // V9: chống chạy 2 lần
         if (!saveNow()) { alert("Chưa lưu được dữ liệu hiện tại xuống đĩa — không tạo Full Backup."); return; }
+        askPassword("Bảo vệ gói sao lưu bằng mật khẩu", "Nhập mật khẩu để MÃ HÓA gói Full Backup (AES-256), hoặc bỏ trống để tạo gói không mã hóa.\nAPP KHÔNG LƯU mật khẩu — mất mật khẩu thì không mở lại được gói. Hãy ghi mật khẩu ở nơi an toàn, tách khỏi gói.", { optional: true, confirm: true, check: function (v) { return pwWeak(v); }, okText: "Tạo Full Backup" }, function (pw) {
         st.fbBusy = true; st.fbMsg = { text: "Đang đóng gói…" }; render();
         var offProg = window.hakFull.onProgress ? window.hakFull.onProgress(function (m) { var tx = "Đang đóng gói… " + ((m && m.text) || m || ""); st.fbMsg = { text: tx }; var el = document.querySelector("[data-fb-msg]"); if (el) el.textContent = tx; }) : null;
-        window.hakFull.create({ user: currentUser() }).then(function (r) {
+        window.hakFull.create({ user: currentUser(), password: pw }).then(function (r) {
           if (r && r.status === "FAILED" && r.missing && r.missing.length) {
             // thiếu/hỏng thành phần: KHÔNG tạo Full Backup; chỉ tạo gói PARTIAL khi người dùng xác nhận rõ ràng
             var list = r.missing.slice(0, 15).map(function (x) { return "• " + x.kind + " " + x.id + (x.name ? " (" + x.name + ")" : "") + " — " + x.problem; }).join("\n");
             if (confirm("KHÔNG thể tạo Full Backup đầy đủ — thiếu/hỏng " + r.missing.length + " thành phần:\n" + list + (r.missing.length > 15 ? "\n…" : "") + "\n\nBạn có thể tạo gói SAO LƯU MỘT PHẦN (PARTIAL): chỉ gồm phần còn nguyên vẹn, KHÔNG tính là Full Backup, không thay được bản sao lưu đầy đủ.\n\nTạo gói một phần?")) {
-              return window.hakFull.create({ user: currentUser(), allowPartial: true });
+              return window.hakFull.create({ user: currentUser(), allowPartial: true, password: pw });
             }
           }
           return r;
         }).then(function (r) {
           if (!r || (!r.ok && r.status !== "PARTIAL")) { st.fbMsg = { bad: true, text: "⚠ " + (r && r.status === "CANCELLED" ? "Đã hủy sao lưu." : "KHÔNG tạo được Full Backup: " + ((r && r.error) || "lỗi không rõ")) }; }
           else if (r.status === "PARTIAL") { audit("Tạo gói sao lưu MỘT PHẦN", r.name + " · thiếu " + r.missing.length + " thành phần"); save(); st.fbMsg = { bad: true, text: "⚠ Đã tạo gói MỘT PHẦN " + r.name + " — KHÔNG phải Full Backup. Thiếu: " + r.missing.map(function (x) { return x.kind + " " + x.id; }).join(", ") }; }
-          else { audit("Tạo Full Backup", r.name + " · " + r.docs + " chứng từ · SHA-256 " + r.sha256.slice(0, 12) + "…"); save(); st.fbMsg = { text: "✓ Full Backup ĐẦY ĐỦ " + r.name + " (" + Math.round(r.size / 1024) + " KB, " + r.docs + " chứng từ, " + (r.ocrSamples || 0) + " mẫu OCR) trong thư mục xuất file" + (r.mirrored ? " và chép sang " + r.mirrored : "") + (r.warnings.length ? " — ⚠ " + r.warnings.join("; ") : "") + ". SHA-256: " + r.sha256 }; }
+          else { audit("Tạo Full Backup", r.name + " · " + r.docs + " chứng từ · SHA-256 " + r.sha256.slice(0, 12) + "…"); save(); st.fbMsg = { text: "✓ Full Backup ĐẦY ĐỦ " + (r.encrypted ? "🔒 (ĐÃ MÃ HÓA) " : "") + r.name + " (" + Math.round(r.size / 1024) + " KB, " + r.docs + " chứng từ, " + (r.ocrSamples || 0) + " mẫu OCR) trong thư mục xuất file" + (r.mirrored ? " và chép sang " + r.mirrored : "") + (r.warnings.length ? " — ⚠ " + r.warnings.join("; ") : "") + ". SHA-256: " + r.sha256 }; }
           render();
         }, function (e) { st.fbMsg = { bad: true, text: "⚠ " + e.message }; render(); }).then(function () { st.fbBusy = false; if (offProg) offProg(); render(); });
+        });
       }, "Tạo file .zip trong thư mục xuất file (và chép sang thư mục sao lưu thứ hai nếu đã chọn)"),
       st.fbBusy ? btn("✕ Hủy sao lưu", "", function () { window.hakFull.cancel().then(function (r) { toast(r && r.ok ? "Đang hủy…" : (r && r.error) || "Không hủy được"); }); }, "Dừng đóng gói; file tạm được xóa, dữ liệu không đổi") : null,
       btn("📥 Khôi phục từ gói Full Backup…", "", function () {
         if (!need("backup.restore")) return;
         var fail = function (msg) { st.fbMsg = { bad: true, text: msg }; render(); alert(msg); };
-        var run = function (acceptPartial) {
-          window.hakFull.stage({ acceptPartial: !!acceptPartial }).then(function (r) {
+        var run = function (acceptPartial, pw, retry) {
+          window.hakFull.stage({ acceptPartial: !!acceptPartial, password: pw }).then(function (r) {
             if (r && r.cancelled) return;
+            if (r && (r.needPassword || r.wrongPassword)) { // gói mã hóa (.hakenc): hỏi mật khẩu; sai thì hỏi lại, không ghi gì
+              askPassword("Gói sao lưu được mã hóa", (r.wrongPassword ? "⚠ Sai mật khẩu hoặc gói đã bị sửa. Nhập lại.\n" : "") + "Nhập mật khẩu đã dùng khi tạo gói. Gói được giải mã vào thư mục tạm, kiểm tra xong sẽ xóa bản giải mã.", { okText: "Mở gói" }, function (p) { run(acceptPartial, p); });
+              return;
+            }
             if (r && r.needsPartialAck) {
               if (confirm("Gói này là SAO LƯU MỘT PHẦN (không phải Full Backup). Thiếu:\n" + (r.missing || []).map(function (x) { return "• " + x.kind + " " + x.id + " — " + x.problem; }).join("\n") + "\n\nVẫn tiếp tục khôi phục phần có trong gói?")) run(true);
               return;
