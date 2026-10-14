@@ -208,7 +208,7 @@
     });
     return q;
   }
-  function qOf(key) { return String(st.qs[key] || "").trim().toLowerCase(); }
+  function qOf(key) { return fold(String(st.qs[key] || "").trim()); }
   /** Thanh phân trang. Trả { start, end, el }; trang hiện tại nhớ theo bảng trong phiên làm việc. */
   function pager(key, total, onChange) {
     var size = +st.pageSize || 100, pages = Math.max(1, Math.ceil(total / size));
@@ -504,24 +504,62 @@
       return h("label", { class: "chip" }, [document.createTextNode(lbl + " "), i]);
     };
     bar.appendChild(multiPick("Phòng ban", opts, f.pb, function (v) { f.pb = v; st.pg[key] = 0; onChange(); }));
-    bar.appendChild(inp("Từ ngày", "tu", "date")); bar.appendChild(inp("Đến ngày", "den", "date")); bar.appendChild(inp("Tháng", "thang", "month"));
-    var kyIds = {}; (db.kyluong || []).forEach(function (k) { if (k.ky) kyIds[k.ky] = 1; }); db[key].forEach(function (r) { var d = LF.isoDay(r["Ngày cân"]); if (d) kyIds[d.slice(0, 7)] = 1; });
-    var ks = h("select", { "aria-label": "Kỳ lương" }); ks.appendChild(h("option", { value: "", text: "Kỳ lương: kỳ đang chọn" }));
-    Object.keys(kyIds).sort().reverse().forEach(function (k) { ks.appendChild(h("option", { value: k, text: "Kỳ " + k.slice(5) + "/" + k.slice(0, 4) + (kyChot(k) ? " 🔒" : "") })); });
-    ks.value = f.ky || ""; ks.addEventListener("change", function () { f.ky = ks.value; st.pg[key] = 0; onChange(); });
-    bar.appendChild(ks);
+    bar.appendChild(kyDriveSelect(f, key, db[key], "Ngày cân", onChange));
+    bar.appendChild(inp("Từ ngày", "tu", "date")); bar.appendChild(inp("Đến ngày", "den", "date"));
     bar.classList.add("fbar-row");
     var clearAll = function () { st.plf[key] = { pb: [], tu: "", den: "", thang: "", ky: "" }; st.pg[key] = 0; render(); };
     bar.appendChild(btn("✕ Đặt lại", "ghost", clearAll));
     var items = [], rm = function (k, v) { return function () { f[k] = v; st.pg[key] = 0; render(); }; };
     if (f.pb.length) items.push({ text: "Phòng ban: " + (f.pb.length === 1 ? (f.pb[0] === LF.NONE ? "(không)" : f.pb[0]) : f.pb.length + " mục"), onRemove: rm("pb", []) });
     if (f.tu) items.push({ text: "Từ ngày: " + f.tu, onRemove: rm("tu", "") }); if (f.den) items.push({ text: "Đến ngày: " + f.den, onRemove: rm("den", "") });
-    if (f.thang) items.push({ text: "Tháng: " + f.thang, onRemove: rm("thang", "") }); if (f.ky) items.push({ text: "Kỳ: " + f.ky, onRemove: rm("ky", "") });
     var wrap = h("div", { class: "fbar-wrap" + (st.fbarOpen ? " open" : ""), "data-pc-filter": key });
     wrap.appendChild(h("button", { type: "button", class: "btn fbar-toggle", text: "Bộ lọc" + (items.length ? " ●" : ""), on: { click: function () { st.fbarOpen = !st.fbarOpen; wrap.classList.toggle("open", st.fbarOpen); } } }));
     wrap.appendChild(bar); wrap.appendChild(FP.chips(items, { expanded: !!st.rfExpand, onExpand: function () { st.rfExpand = true; render(); }, onClear: clearAll }));
     return wrap;
   }
+  /** Kỳ lương ĐIỀU KHIỂN Từ ngày/Đến ngày (không còn lọc tháng/kỳ trùng lặp): chọn kỳ → điền khoảng ngày của kỳ; sửa tay ngày → hiện "Tùy chọn". */
+  function kyBoundsIso(ky) { var y = +ky.slice(0, 4), m = +ky.slice(5, 7), last = new Date(y, m, 0).getDate(); return [ky + "-01", ky + "-" + ("0" + last).slice(-2)]; }
+  function kyDriveSelect(f, key, rows, dateCol, onChange) {
+    var kyIds = {}; (db.kyluong || []).forEach(function (k) { if (k.ky) kyIds[k.ky] = 1; });
+    rows.forEach(function (r) { var d = LF.isoDay(r[dateCol]); if (d) kyIds[d.slice(0, 7)] = 1; }); kyIds[kyStr()] = 1;
+    var ks = h("select", { "aria-label": "Kỳ lương" }), cur = "";
+    Object.keys(kyIds).sort().reverse().forEach(function (k) { var b = kyBoundsIso(k); if (f.tu === b[0] && f.den === b[1]) cur = k; });
+    ks.appendChild(h("option", { value: "", text: (f.tu || f.den) && !cur ? "Kỳ lương: tùy chọn ngày" : "Kỳ lương: kỳ đang chọn" }));
+    Object.keys(kyIds).sort().reverse().forEach(function (k) { ks.appendChild(h("option", { value: k, text: "Kỳ " + k.slice(5) + "/" + k.slice(0, 4) + (kyChot(k) ? " 🔒" : "") })); });
+    ks.value = cur;
+    ks.addEventListener("change", function () { if (ks.value) { var b = kyBoundsIso(ks.value); f.tu = b[0]; f.den = b[1]; } else { f.tu = ""; f.den = ""; } f.ky = ""; f.thang = ""; st.pg[key] = 0; render(); });
+    return ks;
+  }
+  var INPUT_FILTER = { psluong: "Ngày hạch toán", ungluong: "Ngày hạch toán", tiencom: "Ngày" };
+  var INPUT_SUM = { psluong: ["Thưởng", "Thu nhập khác", "Trừ khác"], ungluong: ["Tạm ứng"], tiencom: ["Số suất cơm"] };
+  function inputF(key) { var m = (st.inf = st.inf || {}); return m[key] = m[key] || { pb: [], nv: [], tu: "", den: "" }; }
+  var INDEX_PB = null;
+  function inputPass(key, r) {
+    var f = inputF(key), col = INPUT_FILTER[key], d = String(r[col] || "").slice(0, 10);
+    if (f.tu || f.den) { if (!d || (f.tu && d < f.tu) || (f.den && d > f.den)) return false; }
+    else if (!rowInKy(r, S[key])) return false;
+    if (f.nv.length && f.nv.indexOf(r["Mã NV"]) < 0) return false;
+    if (f.pb.length) { var pb = (INDEX_PB && INDEX_PB[r["Mã NV"]]); if (pb === undefined) pb = ""; if (!LF.inSet(f.pb, pb)) return false; }
+    return true;
+  }
+  function inputPbMap() { var ix = HRM.buildIndex(db), m = {}; db.nhanvien.forEach(function (n) { m[n["Mã NV"]] = HRM.hienHanh(db, n["Mã NV"], null, ix).pb || ""; }); return m; }
+  function inputFilterBar(key, onChange) {
+    var f = inputF(key), bar = h("div", { class: "bar fbar-row", "data-in-filter": key });
+    var pbs = {}, nvs = {}; INDEX_PB = INDEX_PB || inputPbMap();
+    db.nhanvien.forEach(function (n) { nvs[n["Mã NV"]] = n["Họ và tên"] || ""; var p = INDEX_PB[n["Mã NV"]]; if (p) pbs[p] = 1; });
+    bar.appendChild(multiPick("Phòng ban", [[LF.NONE, "(Không có phòng ban)"]].concat(Object.keys(pbs).sort().map(function (x) { return [x, x]; })), f.pb, function (v) { f.pb = v; st.pg[key] = 0; onChange(); }));
+    bar.appendChild(multiPick("Nhân viên", Object.keys(nvs).sort().map(function (m) { return [m, m + " — " + nvs[m]]; }), f.nv, function (v) { f.nv = v; st.pg[key] = 0; onChange(); }));
+    bar.appendChild(kyDriveSelect(f, key, db[key], INPUT_FILTER[key], onChange));
+    [["Từ ngày", "tu"], ["Đến ngày", "den"]].forEach(function (x) {
+      var i = h("input", { type: "date", "aria-label": x[0], title: x[0], value: f[x[1]] || "" });
+      i.addEventListener("change", function () { f[x[1]] = i.value; if (f.tu && f.den && f.tu > f.den) toast("⚠ Từ ngày lớn hơn đến ngày — không có dòng nào khớp"); st.pg[key] = 0; onChange(); });
+      bar.appendChild(h("label", { class: "chip" }, [document.createTextNode(x[0] + " "), i]));
+    });
+    bar.appendChild(btn("✕ Đặt lại", "ghost", function () { st.inf[key] = { pb: [], nv: [], tu: "", den: "" }; st.qs[key] = ""; st.pg[key] = 0; render(); }));
+    return bar;
+  }
+  function inputScopeText(key) { var f = inputF(key), p = [(f.tu || f.den) ? (f.tu ? fmtDate(f.tu) : "…") + " → " + (f.den ? fmtDate(f.den) : "…") : "kỳ " + st.thang + "/" + st.nam]; if (f.pb.length) p.push("PB: " + f.pb.length + " mục"); if (f.nv.length) p.push("NV: " + f.nv.length + " người"); return p.join(" · "); }
+
   /** Có điều kiện ngày/tháng/kỳ riêng thì KHÔNG bó theo kỳ đang chọn trên thanh trên cùng. */
   function pcScopeText(key) {
     var f = (st.plf && st.plf[key]) || {}, p = [];
@@ -570,7 +608,7 @@
     var theoKy = !!(def.kyCol || def.dateCol), cnt = h("span", { class: "hint", style: "margin:0" });
     var editPerm = S[key] ? "input.edit" : "dm.edit", noRight = !can(editPerm), isCat = !S[key];
     var locked = (theoKy && !!kyChot(kyStr())) || noRight;
-    var pcMode = key === "sanluong" || key === "bandam", pcTot = h("div", { class: "card", "data-pc-totals": key, style: "margin:6px 0;padding:8px" });
+    var inMode = !!INPUT_FILTER[key], pcMode = key === "sanluong" || key === "bandam", pcTot = h("div", { class: "card", "data-pc-totals": key, style: "margin:6px 0;padding:8px" });
     var shared = key === "chamcong"; // Chấm công dùng bộ lọc chung (phòng ban, từ khóa) như Báo cáo lương
     var deptOf = {};
     if (shared && can("payroll.view")) { try { kqKy(st.nam, st.thang).kq.bangluong.forEach(function (r) { deptOf[r["Mã NV"]] = r["Phòng ban"] || ""; }); } catch (e) { /* không tính được lương kỳ này: bỏ lọc phòng ban */ } }
@@ -582,11 +620,18 @@
     if (key === "sanluong" || key === "bandam") bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
     else bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadTemplate(key); }, "File Excel mẫu có sẵn tên cột + dòng ví dụ"));
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw); }, "Nhập từ file .xlsx / .xls / .csv"));
+    var inRows = function () { INDEX_PB = INDEX_PB || inputPbMap(); var qq0 = qOf(key); return db[key].filter(function (r) { return inputPass(key, r) && (!def.rowFilter || def.rowFilter(r)) && (!qq0 || def.cols.some(function (c) { return fold(r[c]).indexOf(qq0) >= 0; }) || fold(tenNV(r["Mã NV"])).indexOf(qq0) >= 0); }); };
     var pcRows = function () { return db[key].filter(function (r) { return (!theoKy || (pcMode && plfScoped(key) ? true : rowInKy(r, def))) && (!def.rowFilter || def.rowFilter(r)) && (!pcMode || LF.phieuCan([r], Object.assign({}, st.plf[key], { q: st.qs[key] })).length); }); };
+    if (inMode) {
+      var inPdfRows = function () { return inRows().map(function (r) { var o = {}; def.cols.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); o["Họ và tên"] = tenNV(r["Mã NV"]); return o; }); };
+      bar.appendChild(btn("⬇ PDF", "", function () { exportSheetsPdf({ title: def.ten.toLocaleUpperCase("vi-VN") + " (đã lọc)", ky: inputScopeText(key), sheets: [{ name: def.ten, rows: inPdfRows() }] }, slug(def.ten) + "_loc.pdf"); }, "Xuất đúng các dòng đang lọc"));
+      bar.appendChild(btn("🖨 In", "", function () { if (!need("export", "in")) return; window.print(); }));
+    }
     if (pcMode) bar.appendChild(btn("⬇ PDF", "", function () { var rows = pcRows(); exportSheetsPdf({ title: def.ten + " (đã lọc)", ky: pcScopeText(key), sheets: [{ name: def.ten, rows: rows.map(function (r) { var o = {}; def.cols.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); return o; }) }] }, slug(def.ten) + "_loc.pdf"); }, "Xuất đúng các dòng đang lọc"));
-    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = pcMode ? pcRows() : db[key].filter(function (r) { return (!theoKy || rowInKy(r, def)) && (!def.rowFilter || def.rowFilter(r)); }); saveXlsx(slug(def.ten) + (theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }]); }));
+    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = pcMode ? pcRows() : inMode ? inRows() : db[key].filter(function (r) { return (!theoKy || rowInKy(r, def)) && (!def.rowFilter || def.rowFilter(r)); }); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }]); }));
     card.appendChild(bar);
     if (pcMode) { card.appendChild(phieuCanFilterBar(key, function () { draw(); })); card.appendChild(pcTot); }
+    if (inMode) { INDEX_PB = null; card.appendChild(inputFilterBar(key, function () { draw(); })); card.appendChild(pcTot); }
     if (shared) {
       var fr = []; db.chamcong.forEach(function (r) { if (rowInKy(r, def)) fr.push({ "Mã NV": r["Mã NV"], "Họ và tên": "", "Phòng ban": deptOf[r["Mã NV"]] || "" }); });
       card.appendChild(reportFilterBar(fr, { compact: true }));
@@ -670,7 +715,7 @@
       db.nhanvien.forEach(function (n) { if (!(n["Mã NV"] in names)) names[n["Mã NV"]] = n["Họ và tên"] || ""; }); // tra tên 1 lần / lượt vẽ (trước: dò cả danh sách NV cho mỗi dòng)
       var nameOf = function (ma) { return Object.prototype.hasOwnProperty.call(names, ma) ? names[ma] : ""; };
       db[key].forEach(function (r, i) {
-        if (theoKy && !(pcMode && plfScoped(key) ? true : rowInKy(r, def))) return;
+        if (inMode) { if (!inputPass(key, r)) return; } else if (theoKy && !(pcMode && plfScoped(key) ? true : rowInKy(r, def))) return;
         if (def.rowFilter && !def.rowFilter(r)) return;
         if (pcMode && !LF.phieuCan([r], st.plf[key]).length) return;
         if (shared && !RF.isEmpty(st.rf)) { var nm = nameOf(r["Mã NV"]); if (!RF.applyGeneric([{ "Mã NV": r["Mã NV"], "Họ và tên": nm, "Phòng ban": deptOf[r["Mã NV"]] || "" }], st.rf).rows.length) return; }
@@ -683,7 +728,7 @@
             if (st.ccf.src === "edited" && !lk.some(function (l) { return String(r[l.day] == null ? "" : r[l.day]).replace(".", ",") !== String(l.value == null ? "" : l.value).replace(".", ","); })) return;
           }
         }
-        if (qq && def.cols.every(function (c) { return String(r[c] || "").toLowerCase().indexOf(qq) < 0; }) && String(nameOf(r["Mã NV"])).toLowerCase().indexOf(qq) < 0) return;
+        if (qq && def.cols.every(function (c) { return fold(r[c]).indexOf(qq) < 0; }) && fold(nameOf(r["Mã NV"])).indexOf(qq) < 0) return;
         idx.push(i);
       });
       if (pcMode) {
@@ -693,6 +738,10 @@
         var fl = function (o) { return Object.keys(o).sort().map(function (k2) { return k2 + ": " + fmt(o[k2]); }).join(" · "); };
         pcTot.appendChild(h("div", { class: "hint", text: "Theo ngày — " + (fl(T.theoNgay) || "—") }));
         pcTot.appendChild(h("div", { class: "hint", text: "Theo phòng ban — " + (fl(T.theoPhongBan) || "—") }));
+      }
+      if (inMode) {
+        pcTot.innerHTML = ""; var sums = INPUT_SUM[key].map(function (c) { var t = 0; idx.forEach(function (i2) { t += E.money(db[key][i2][c]); }); return "<b>" + esc(c) + ":</b> " + fmt(t); });
+        pcTot.appendChild(h("div", { "data-in-totals": key, html: "<b>Tổng theo bộ lọc (" + esc(inputScopeText(key)) + "):</b> " + idx.length + " dòng · " + sums.join(" · ") }));
       }
       if (isCat && cedit(key) && cedit(key).mode === "new") idx.unshift(-1);
       cnt.textContent = idx.length + " dòng" + (theoKy ? " (kỳ " + st.thang + "/" + st.nam + ")" : "") + (qq ? " · đang lọc \"" + st.qs[key] + "\"" : "");

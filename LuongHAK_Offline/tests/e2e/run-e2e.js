@@ -823,6 +823,34 @@ async function launch(dataDir, opt) {
     ok("Không lỗi JavaScript ở Nghiệp vụ nhân sự", errs.length === 0, errs.join(" | "));
   }
 
+  // V10: bộ lọc theo kỳ lương cho Thưởng / Tạm ứng / Suất cơm và Sản lượng (kỳ điều khiển từ–đến, không lọc tháng trùng)
+  {
+    const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-flt-"));
+    ({ app, w, errs } = await launch(SD)); await app.close();
+    const fb = path.join(SD, "data.json"), db2 = JSON.parse(fs.readFileSync(fb, "utf8"));
+    db2.nhanvien.push({ _id: "f1", "Mã NV": "F1", "Họ và tên": "Trần Thị Bình", "Trạng thái": "Đang làm việc" }, { _id: "f2", "Mã NV": "F2", "Họ và tên": "Lê Văn Cường", "Trạng thái": "Đang làm việc" });
+    db2.psluong.push({ "Ngày hạch toán": "2026-10-05", "Số chứng từ": "T1", "Mã NV": "F1", "Diễn giải": "thưởng A", "Thưởng": "1000000" }, { "Ngày hạch toán": "2026-10-20", "Số chứng từ": "T2", "Mã NV": "F2", "Diễn giải": "thưởng B", "Thưởng": "500000" }, { "Ngày hạch toán": "2026-09-10", "Số chứng từ": "T3", "Mã NV": "F1", "Diễn giải": "thưởng C", "Thưởng": "200000" });
+    db2.tiencom.push({ "Ngày": "2026-10-03", "Mã NV": "F1", "Số suất cơm": "20" }, { "Ngày": "2026-10-04", "Mã NV": "F2", "Số suất cơm": "10" });
+    fs.writeFileSync(fb, JSON.stringify(db2));
+    ({ app, w, errs } = await launch(SD));
+    await w.click("#nav button[data-k=psluong]"); await w.selectOption("#top select", "10"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
+    const tot1 = await w.locator('[data-in-totals="psluong"]').innerText();
+    ok("V10: Thưởng/Trừ — bộ lọc có Phòng ban, Nhân viên, Kỳ lương, Từ–Đến; tổng theo kỳ đang chọn = 1.500.000 (2 dòng, bỏ tháng 9)", (await w.locator('[data-in-filter="psluong"] input[type=date]').count()) === 2 && /2 dòng/.test(tot1) && /1\.500\.000/.test(tot1), tot1);
+    await w.fill('input[placeholder*="Tìm"]', "tran thi binh"); await w.waitForTimeout(300);
+    ok("V10: Thưởng/Trừ — tìm tên không dấu 'tran thi binh' chỉ còn phiếu của F1", (await w.locator("main tbody tr").count()) === 1);
+    await w.fill('input[placeholder*="Tìm"]', "");
+    await w.selectOption('[data-in-filter="psluong"] select[aria-label="Kỳ lương"]', "2026-09"); await w.waitForTimeout(300);
+    const dtu = await w.locator('[data-in-filter="psluong"] input[type=date]').first().inputValue(), tot2 = await w.locator('[data-in-totals="psluong"]').innerText();
+    ok("V10: chọn Kỳ lương 09/2026 tự điền Từ ngày–Đến ngày (01/09–30/09) và tổng = 200.000", dtu === "2026-09-01" && /200\.000/.test(tot2) && /1 dòng/.test(tot2), dtu + " · " + tot2);
+    await w.click("#nav button[data-k=tiencom]"); await w.waitForTimeout(300);
+    const tc = await w.locator('[data-in-totals="tiencom"]').innerText();
+    ok("V10: Suất cơm — cùng bộ lọc, tổng suất cơm kỳ 10/2026 = 30", /30/.test(tc), tc);
+    await w.click("#nav button[data-k=sanluong]"); await w.waitForTimeout(300);
+    ok("V10: Sản lượng — không còn ô lọc 'Tháng' trùng với Kỳ lương", (await w.locator('[data-pc-filter="sanluong"] input[type=month]').count()) === 0 && (await w.locator('[data-pc-filter="sanluong"] select[aria-label="Kỳ lương"]').count()) === 1);
+    ok("Không lỗi JavaScript ở bộ lọc theo kỳ", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
+
   // Mục VIII: CompanyID → PolicyVersion → PayrollMethod — không dùng lựa chọn tự do trên Tính lương
   // để quyết định bù sản lượng CHÍNH THỨC; thiếu Quy chế bù sản lượng hợp lệ (Trạng thái = Hiệu lực)
   // → KHÔNG chốt được kỳ có sản lượng cần bù; có quy chế khác lựa chọn đang xem → tự chuyển đúng rồi chốt.
