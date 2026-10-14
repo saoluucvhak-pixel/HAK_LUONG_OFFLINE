@@ -70,3 +70,27 @@ test("V104-07: Công chuẩn 2 = 0/trống trong bảng → không đổi Công 
   assert.equal(r["Lương thời gian"], 9000000);
   assert.equal(r["Phụ cấp công tác"], 500000); // không có Công chuẩn 2 → DQ vẫn là mã phụ cấp thường: 1 ngày × 500k
 });
+
+function themCongThuc(d, ma, bieuThuc) {
+  d.dm_congthuc = (d.dm_congthuc || []).concat([{ "Mã công thức": ma, "Loại": "ALLOWANCE", "Trạng thái": "Hiệu lực", "Hiệu lực từ": "2026-01-01", "Biểu thức": bieuThuc }]);
+}
+
+test("V104-08: mã công tác có 'Loại công thức' trỏ tới công thức ALLOWANCE → dùng công thức (QC: 100.000 × 3 ngày / 2)", () => {
+  const d = db({ "05": "1QC", "06": "1QC", "07": "1QC" });
+  d.dm_phucap.forEach(x => { if (x["Mã phụ cấp"] === "QC") x["Loại công thức"] = "CT_QC"; });
+  themCongThuc(d, "CT_QC", "MUC_PHU_CAP * CONG_HUONG_PHU_CAP / 2");
+  assert.equal(pcCT(d), 150000);
+});
+
+test("V104-09: DQ (Công chuẩn 2) có công thức riêng → công thức quyết định số tiền, CONG_HUONG_PHU_CAP = số ngày BT có DQ", () => {
+  const d = db({ "05": "1DQ", "06": "1DQ" });
+  d.dm_phucap.forEach(x => { if (x["Mã phụ cấp"] === "DQ") x["Loại công thức"] = "CT_DQ"; });
+  themCongThuc(d, "CT_DQ", "MUC_PHU_CAP * CONG_HUONG_PHU_CAP");
+  assert.equal(pcCT(d), 1000000); // 500.000 × 2 ngày BT
+});
+
+test("V104-10: 'Loại công thức' trỏ tới mã không tồn tại trong Danh mục công thức → cách tính mặc định (không mất tiền)", () => {
+  const d = db({ "05": "1QC" });
+  d.dm_phucap.forEach(x => { if (x["Mã phụ cấp"] === "QC") x["Loại công thức"] = "KHONG_CO"; });
+  assert.equal(pcCT(d), 100000);
+});

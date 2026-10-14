@@ -641,8 +641,25 @@
       var dem = {}, pcCT = 0;
       var moi1Ky = {};
       Object.keys(c.nhanTheoNgay).forEach(function (k) { var n = c.nhanTheoNgay[k]; if (!n) return; if (dmPC[n] && money(dmPC[n]["Công chuẩn 2"]) > 0) moi1Ky[n] = true; else dem[n] = (dem[n] || 0) + 1; });
-      Object.keys(moi1Ky).forEach(function (n) { if (Object.keys(c.nhanBTTheoNgay).some(function (k) { return c.nhanBTTheoNgay[k] === n; })) pcCT += money(dmPC[n]["Số tiền"]); }); // mã có Công chuẩn 2: 1 lần/kỳ nếu có ≥1 công BT mang nhãn
-      Object.keys(dem).forEach(function (n) { if (dmPC[n]) pcCT += dem[n] * money(dmPC[n]["Số tiền"]); else out.canhbao.push(ma + ": nhãn công tác '" + n + "' trên chấm công (" + dem[n] + " ngày) chưa có mã phụ cấp tương ứng trong Danh mục phụ cấp — phụ cấp công tác = 0đ cho nhãn này, kiểm tra lại danh mục"); });
+      // v10.4: "Loại công thức" của mã công tác có thể trỏ tới công thức ALLOWANCE trong Danh mục công thức.
+      // Biến: MUC_PHU_CAP = Số tiền; CONG_HUONG_PHU_CAP = số ngày có nhãn đó (BT với mã Công chuẩn 2).
+      // Trống / CO_DINH / TYLE_* = cách tính mặc định bên dưới.
+      var KIEU_CT_CO_SAN = { CO_DINH: 1, TYLE_KHONG_TRU: 1, TYLE_TRU_PHEP_TANGCA: 1, TYLE_TRU_LE_PHEP: 1 };
+      var tienCongTac = function (n, soNgay) {
+        var pcN = dmPC[n], loaiN = String(pcN["Loại công thức"] || "").trim();
+        if (!loaiN || KIEU_CT_CO_SAN[loaiN] || !fmlCtx.records || !fmlCtx.records.length) return null;
+        var tN = traCongThuc(fmlCtx, loaiN, "ALLOWANCE");
+        if (tN && tN.loi) return 0; // FORMULA_ERROR đã ghi
+        if (!tN || !tN.rec) return null;
+        var eN = tinhCongThuc(fmlCtx, tN.rec, "ALLOWANCE", { MUC_PHU_CAP: money(pcN["Số tiền"]), CONG_HUONG_PHU_CAP: soNgay, CONG_CHUAN: cChuan, NGUONG_PHU_CAP: num(pcN["Tham chiếu"]), CONG_TINH_LUONG: c.tongCong, CONG_LE: c.congLe, CONG_PHEP: c.congPhep, CONG_TC: c.congTangCa });
+        return eN.ok ? Math.round(eN.v) : 0;
+      };
+      Object.keys(moi1Ky).forEach(function (n) {
+        var nBT = Object.keys(c.nhanBTTheoNgay).filter(function (k) { return c.nhanBTTheoNgay[k] === n; }).length;
+        if (!nBT) return;
+        var fN = tienCongTac(n, nBT); pcCT += fN !== null ? fN : money(dmPC[n]["Số tiền"]); // mã có Công chuẩn 2: 1 lần/kỳ nếu có ≥1 công BT mang nhãn
+      });
+      Object.keys(dem).forEach(function (n) { if (dmPC[n]) { var fN2 = tienCongTac(n, dem[n]); pcCT += fN2 !== null ? fN2 : dem[n] * money(dmPC[n]["Số tiền"]); } else out.canhbao.push(ma + ": nhãn công tác '" + n + "' trên chấm công (" + dem[n] + " ngày) chưa có mã phụ cấp tương ứng trong Danh mục phụ cấp — phụ cấp công tác = 0đ cho nhãn này, kiểm tra lại danh mục"); });
 
       var p = ps[ma] || { "Thưởng": 0, "Thu nhập khác": 0, "Trừ khác": 0 }, u = ung[ma] || { "Tạm ứng": 0 };
       var tongTN = luongTG + luongPhu + luongSL + luongBu + luongBD + tienTC + tienPC + pcCT + luongHT + tienCom + p["Thưởng"] + p["Thu nhập khác"];
