@@ -963,6 +963,55 @@ async function launch(dataDir, opt) {
     await w.waitForTimeout(500); await app.close();
   }
 
+  // V10.1: tạo nhân viên → ĐÓNG – MỞ LẠI ứng dụng (thoát bình thường, bị tắt đột ngột, và khi bị từ chối) — dữ liệu phải còn nguyên, không nửa chừng
+  {
+    const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-restart-"));
+    ({ app, w, errs } = await launch(SD));
+    await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(300);
+    const addNV = async (ten, cccd, stk) => {
+      await w.click("#nav button[data-k=nhansu]"); await w.click('button:has-text("Thêm nhân viên")'); await w.waitForSelector(".dlg");
+      const F = (l) => w.locator(".dlg .fld", { hasText: l }).first();
+      await F("Họ và tên").locator("input").fill(ten); await F("Ngày vào làm").locator("input").fill("2026-01-05");
+      await F("Phòng ban").locator("select").selectOption("01.01"); await F("Mã lương").locator("label.chip", { hasText: "TG1" }).click();
+      await F("Lương thỏa thuận").locator("input").fill("9.000.000"); await F("Lương cơ bản").locator("input").fill("5.000.000");
+      await F("Thuế TNCN").locator("select").selectOption("MT00"); await F("Hình thức trả lương").locator("select").selectOption("Chuyển khoản");
+      await F("Số CCCD").locator("input").fill(cccd); await F("Số tài khoản").locator("input").fill(stk); await F("Tên ngân hàng").locator("input").fill("Vietcombank");
+      await w.click('button:has-text("Lưu nhân viên")'); await w.waitForTimeout(800);
+    };
+    const T6 = ["nhanvien", "canhan", "hopdong", "chitiethd", "thanhtoan", "hocvan"];
+    const read = () => JSON.parse(fs.readFileSync(path.join(SD, "data.json"), "utf8"));
+    const full = (d, ma) => T6.filter((k) => k !== "hocvan").every((k) => (d[k] || []).some((r) => r["Mã NV"] === ma));
+    // 1) thoát bình thường rồi mở lại
+    await addNV("Khởi Động Một", "079123456789", "0011223344");
+    await w.waitForTimeout(500); await app.close();
+    const d1 = read();
+    ({ app, w, errs } = await launch(SD));
+    const noRecovery = (await w.locator("[data-recovery]").count()) === 0;
+    await w.click("#nav button[data-k=nhansu]"); await w.waitForTimeout(300);
+    const lst = await w.locator("#main").innerText();
+    ok("V10.1: tạo nhân viên → đóng – mở lại app: nhân viên còn trong danh sách, đủ 5 bảng hồ sơ (nhân viên, cá nhân, hợp đồng, phụ lục, thanh toán), không vào màn hình khôi phục",
+      noRecovery && /Khởi Động Một/.test(lst) && full(d1, "NV001") && d1.canhan.find((r) => r["Mã NV"] === "NV001")["Số CCCD"] === "079123456789" && d1.thanhtoan.find((r) => r["Mã NV"] === "NV001")["Số tài khoản"] === "0011223344" && d1.chitiethd.find((r) => r["Mã NV"] === "NV001")["Lương thỏa thuận"] === "9000000",
+      JSON.stringify({ noRecovery, list: /Khởi Động Một/.test(lst), full: full(d1, "NV001") }));
+    // 2) sau khi mở lại, tạo tiếp: mã tăng đúng, không trùng
+    await addNV("Khởi Động Hai", "079987654321", "0099887766");
+    // 3) bị tắt ĐỘT NGỘT ngay sau khi lưu xong (mô phỏng mất điện / treo máy)
+    app.process().kill("SIGKILL"); await new Promise((r) => setTimeout(r, 800));
+    const d2 = read();
+    ok("V10.1: tắt đột ngột (SIGKILL) ngay sau khi lưu: file dữ liệu vẫn đọc được, NV002 có đủ bảng, NV001 không mất, không sót file tạm", full(d2, "NV002") && full(d2, "NV001") && d2.nhanvien.length === 2 && !fs.readdirSync(SD).some((f) => /\.tmp$|\.partial$/i.test(f)), JSON.stringify({ nv: d2.nhanvien.map((x) => x["Mã NV"]), files: fs.readdirSync(SD).join(",") }));
+    ({ app, w, errs } = await launch(SD));
+    ok("V10.1: mở lại sau khi bị tắt đột ngột: vào thẳng ứng dụng (không khôi phục), thấy cả 2 nhân viên", (await w.locator("[data-recovery]").count()) === 0 && await (async () => { await w.click("#nav button[data-k=nhansu]"); await w.waitForTimeout(300); const x = await w.locator("#main").innerText(); return /Khởi Động Một/.test(x) && /Khởi Động Hai/.test(x); })());
+    // 4) tạo bị TỪ CHỐI (CCCD sai) rồi tắt đột ngột: không có dòng nào của NV003
+    dialogs = [];
+    await addNV("Bị Từ Chối", "123", "0000111122"); await w.waitForTimeout(300);
+    const dRej = dialogs.some((d) => /12 chữ số/.test(d));
+    app.process().kill("SIGKILL"); await new Promise((r) => setTimeout(r, 800));
+    const d3 = read();
+    ok("V10.1: tạo bị từ chối rồi tắt đột ngột: không ghi nửa chừng bảng nào cho người bị từ chối", dRej && !JSON.stringify(d3).includes("Bị Từ Chối") && d3.nhanvien.length === 2, JSON.stringify({ dRej, n: d3.nhanvien.length }));
+    ({ app, w, errs } = await launch(SD));
+    ok("V10.1: mở lại lần cuối vẫn bình thường, nhật ký ghi 2 lần tạo nhân viên", (await w.locator("[data-recovery]").count()) === 0 && (read().auditlog || []).filter((a) => /nhân viên/i.test(a.thaoTac || "") && /(Thêm|Tạo)/i.test(a.thaoTac || "")).length >= 2, (read().auditlog || []).map((a) => a.thaoTac).slice(-6).join(" | "));
+    await app.close();
+  }
+
   // V10: bộ lọc theo kỳ lương cho Thưởng / Tạm ứng / Suất cơm và Sản lượng (kỳ điều khiển từ–đến, không lọc tháng trùng)
   {
     const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-flt-"));

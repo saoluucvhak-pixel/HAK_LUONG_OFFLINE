@@ -5,7 +5,7 @@
 | Mức | Trạng thái | Căn cứ |
 | --- | --- | --- |
 | `CODE_DONE` | **Đạt cho phạm vi đã làm** (Phase 1–5) | `V10_1_AUDIT.md` |
-| `TEST_DONE` | **Đạt cục bộ** | 570 unit/integration/regression, E2E 234/234, 0 lint, 0 lỗi JS ở 108 lượt duyệt màn hình |
+| `TEST_DONE` | **Đạt cục bộ** | 570 unit/integration/regression, E2E 239/239, 0 lint, 0 lỗi JS ở 108 lượt duyệt màn hình |
 | `CI_PASS` | **Đạt trên commit `4a0a8cf`** (run 38508166604: cú pháp/lint/unit+integration+regression/audit, E2E Electron, build Windows đều `success`). Các commit sau đó chỉ sửa tài liệu — xem run mới nhất của PR #31 | Actions → PR #31 |
 | `WINDOWS_BUILD_PASS` | **Đạt trên `4a0a8cf`** — bộ cài NSIS dựng được và OCR tự kiểm trong bản đóng gói đạt; artifact `TinhLuongHAK-Setup` (~120 MB, lưu 14 ngày mặc định). Dựng được ≠ đã chạy thử trên Windows thật | Artifacts của run 38508166604 |
 | `WINDOWS_UAT_PASS` | **Chưa thực hiện** | `V10_1_WINDOWS_UAT.md` |
@@ -29,3 +29,5 @@ Lỗi P0 đã sửa có test ✔ · Tạo nhân viên lưu đủ dữ liệu và
 
 ## Quy tắc
 Không tự merge. Không sửa `main`. PR ở trạng thái DRAFT. Nhánh chồng trên PR #30 (`feature/luong-hak-v10-business-ux-redesign`).
+- [x] OCR đo từng ô trên ảnh mẫu giả lập (`V10_1_OCR_CHECK.md`); [ ] đo trên vài ảnh bảng chấm công thật do bạn cung cấp.
+- [x] Đóng – mở lại app sau khi tạo nhân viên (kể cả tắt đột ngột) bằng E2E.

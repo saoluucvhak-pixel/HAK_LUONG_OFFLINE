@@ -28,5 +28,5 @@ Mức: P0 = sai tiền/mất dữ liệu/lọt quyền; P1 = sai nghiệp vụ n
 - Chưa có vai trò "chỉ xem phiếu lương của chính mình".
 - Mã hóa dữ liệu trên đĩa chưa làm (đánh giá trong `V10_1_PERFORMANCE.md` §6).
 - Hình thức lương → cấu hình/mã lương: `dm_luong` là danh mục phẳng, không có quan hệ cha–con thật ⇒ không tạo Modal giả.
-- Kiểm tra OCR theo prompt IV: không chạy lại trong V10.1; các test OCR hiện có (`AUDIT_V7_OCR.md`) vẫn nằm trong `npm test`.
+- Kiểm tra OCR theo prompt IV: đã chạy bổ sung sau Phase 6 — `V10_1_OCR_CHECK.md` (4/4 ca, 100% ô trên ảnh giả lập; chưa đo chữ tay thật).
 - Ghi chú từ log E2E có sẵn từ trước: main ghi "chưa đăng nhập (bảng dm_congthuc)" 2 lần do migration trước đăng nhập — vô hại, chưa sửa.
