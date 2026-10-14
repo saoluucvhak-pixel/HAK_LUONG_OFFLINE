@@ -22,6 +22,21 @@
     var db = function () { return A.db(); };
     var fenv = function () { return { can: A.can, user: A.user(), db: db() }; };
 
+    /** Danh sách chọn cho ô "Loại công thức": công thức mặc định/có sẵn của hệ thống + khóa công thức đã cấu hình + (tăng ca) mã tăng ca khác. */
+    function loaiOpts() {
+      var FD = (window.HAKCore && window.HAKCore.formulaDefaults) || {}, seen = { "": 1 }, out = [];
+      out.push(["", IS_OT ? "(Theo mã — công thức mang đúng tên mã này)" : "(Để trống — " + K.fallbackLabel.split(" (")[0] + ")"]);
+      var sys = [];
+      if (IS_OT) Object.keys(FD.OVERTIME || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; sys.push([k, k + " — " + String((FD.OVERTIME[k] || {}).ten || "công thức mặc định").replace(/^[^—]*—\s*/, "")]); } });
+      else Object.keys(K.builtin || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; sys.push([k, k + " — " + K.builtin[k]]); } });
+      if (sys.length) out.push({ group: "Công thức có sẵn của hệ thống", items: sys });
+      var cfg = [];
+      (db().dm_congthuc || []).forEach(function (r) { var k = String(r["Mã công thức"] || "").trim(); if (String(r["Loại"] || "") === type && k && !seen[k]) { seen[k] = 1; cfg.push([k, k + (r["Tên công thức"] ? " — " + r["Tên công thức"] : "")]); } });
+      if (cfg.length) out.push({ group: "Công thức đã cấu hình", items: cfg });
+      if (IS_OT) { var oth = []; OM.parentCodes(db()).forEach(function (c) { if (!seen[c] && c !== (M && M.ma)) { seen[c] = 1; oth.push([c, "Dùng chung công thức của mã " + c]); } }); if (oth.length) out.push({ group: "Dùng chung với mã tăng ca khác", items: oth }); }
+      return out;
+    }
+
     // ================= DANH SÁCH (MASTER) =================
     function rows() {
       periodInit();
@@ -45,9 +60,12 @@
       var inq = h("input", { class: "i", placeholder: "Tìm mã / tên " + K.short.toLowerCase() + "…", value: S.q, "aria-label": "Tìm " + K.noun, "data-ot-q": "1", style: "min-width:220px" });
       var sTr = h("select", { "aria-label": "Lọc trạng thái", "data-ot-ftrang": "1" }); [["", "Mọi trạng thái"], ["Đang hiệu lực", "Đang hiệu lực"], ["Chưa hiệu lực", "Chưa hiệu lực"], ["Hết hiệu lực", "Hết hiệu lực"]].forEach(function (o) { sTr.appendChild(h("option", { value: o[0], text: o[1] })); }); sTr.value = S.fTrang;
       var sCT = h("select", { "aria-label": "Lọc công thức", "data-ot-fct": "1" }); (IS_OT ? [["", "Mọi công thức"], ["cauhinh", "Có công thức cấu hình"], ["macdinh", "Dùng mặc định hệ thống"], ["thieu", "Thiếu / lỗi công thức"]] : [["", "Mọi công thức"], ["cauhinh", "Có công thức cấu hình"], ["macdinh", "Dùng cách tính có sẵn của engine"], ["lichsu", "Dùng cách tính lịch sử (chưa có công thức)"], ["thieu", "Thiếu / lỗi công thức"]]).forEach(function (o) { sCT.appendChild(h("option", { value: o[0], text: o[1] })); }); sCT.value = S.fCT;
-      var kyIn = h("input", { type: "month", value: ky(), "aria-label": "Kỳ xét", title: "Kỳ dùng để xác định công thức/phiên bản đang áp dụng" });
+      var kyIn = h("select", { "aria-label": "Kỳ xét", title: "Kỳ dùng để xác định công thức/phiên bản đang áp dụng", "data-ot-ky": "1" });
+      (function () { var ids = {}, closed = {}; (A.closedPeriods ? A.closedPeriods() : []).forEach(function (k) { if (k) { ids[k] = 1; closed[k] = 1; } });
+        for (var d = -18; d <= 6; d++) { var dt = new Date(A.st.nam, A.st.thang - 1 + d, 1); ids[dt.getFullYear() + "-" + ("0" + (dt.getMonth() + 1)).slice(-2)] = 1; } ids[ky()] = 1;
+        Object.keys(ids).sort().reverse().forEach(function (k) { var o = h("option", { value: k, text: "Kỳ " + k.slice(5) + "/" + k.slice(0, 4) + (closed[k] ? " 🔒" : "") }); if (k === ky()) o.selected = true; kyIn.appendChild(o); }); })();
       kyIn.addEventListener("change", function () { if (kyIn.value) { var m = kyIn.value.split("-"); S.nam = +m[0]; S.thang = +m[1]; paint(); } });
-      bar.appendChild(inq); bar.appendChild(sTr); bar.appendChild(sCT); bar.appendChild(h("label", { text: " Kỳ xét " })); bar.appendChild(kyIn);
+      bar.appendChild(inq); bar.appendChild(sTr); bar.appendChild(sCT); bar.appendChild(h("label", { text: "Kỳ xét" })); bar.appendChild(kyIn);
       bar.appendChild(h("span", { class: "sp" }));
       if (A.can("dm.edit")) bar.appendChild(btn("＋ Thêm " + K.noun, "pri", function () { openModal(null, { tab: "info", edit: true }); }));
       if (A.can("dm.edit") || A.can("formula.approve")) bar.appendChild(btn("🔗 Liên kết công thức cũ", "", linkDialog));
@@ -58,7 +76,7 @@
       function paint() {
         box.innerHTML = "";
         var rs = rows(), t = h("table", { "data-ot-table": "1" });
-        t.appendChild(h("tr", {}, [K.code, K.name.replace(" (nội dung)", "")].concat(K.listCols.map(function (c) { return c.label; }), ["Loại công thức", "Trạng thái", "Hiệu lực", "Công thức đang áp dụng", "Số phiên bản", "Thao tác"]).map(function (x) { return h("th", { text: x }); })));
+        t.appendChild(h("tr", {}, [{ label: K.code }, { label: K.name.replace(" (nội dung)", "") }].concat(K.listCols, [{ label: "Loại công thức" }, { label: "Trạng thái" }, { label: "Hiệu lực" }, { label: "Công thức đang áp dụng" }, { label: "Số phiên bản" }, { label: "Thao tác" }]).map(function (c) { return h("th", c.tip ? { text: c.label + " ⓘ", title: c.tip, style: "cursor:help" } : { text: c.label }); })));
         rs.forEach(function (r) {
           var act = h("td", { class: "t ot-act" });
           act.appendChild(btn("Xem chi tiết", "pri", function () { openModal(r.ma, { tab: "info" }); }));
@@ -152,13 +170,17 @@
         if (ro) { box.appendChild(h("div", { class: "ot-ro", "data-ot-ro": key, text: o.show ? o.show(f[key]) : (f[key] === "" ? "—" : String(f[key])) })); return box; }
         if (o.date) { inp = A.dateField(f[key], { "aria-label": lbl }); inp.addEventListener("change", function () { var v = A.dateIso(inp); f[key] = v === null ? inp.value : v || ""; dirty(); }); }
         else if (o.area) { inp = h("textarea", { rows: 2, "aria-label": lbl }); inp.value = f[key]; inp.addEventListener("input", function () { f[key] = inp.value; dirty(); }); }
+        else if (o.opts) { inp = h("select", { "aria-label": lbl }); var cur = String(f[key] == null ? "" : f[key]), seen0 = false;
+          o.opts().forEach(function (g) { var og = g.group ? h("optgroup", { label: g.group }) : null; (g.items || [g]).forEach(function (it) { var op = h("option", { value: it[0], text: it[1] }); if (it[0] === cur) { op.selected = true; seen0 = true; } (og || inp).appendChild(op); }); if (og) inp.appendChild(og); });
+          if (!seen0 && cur) { var op2 = h("option", { value: cur, text: cur + " (giá trị hiện tại — không còn trong danh sách)" }); op2.selected = true; inp.appendChild(op2); }
+          inp.addEventListener("change", function () { f[key] = inp.value; dirty(); }); }
         else { inp = h("input", { "aria-label": lbl, value: f[key], class: o.cls || "" }); if (o.locked) inp.disabled = true; inp.addEventListener("input", function () { f[key] = inp.value; dirty(); }); }
         inp.setAttribute("data-ot-f", key); box.appendChild(inp); if (o.note) box.appendChild(h("div", { class: "hint", style: "margin:2px 0 0", text: o.note })); return box;
       };
       grid.appendChild(fld(K.code, "ma", { req: true, locked: !M.isNew, note: M.isNew ? "Chữ không dấu, số, _ . -" : "Khóa của mã — không đổi" }));
       grid.appendChild(fld(K.name, "ten", { req: true }));
       K.fields.forEach(function (fd) { grid.appendChild(fld(fd.label, fd.key, { note: fd.note, show: function (v) { return v === "" ? (fd.type === "pct" && IS_OT ? "(trống)" : "—") : (fd.type === "money" ? money(v) : v); } })); });
-      grid.appendChild(fld("Loại công thức", "loaiCT", { note: IS_OT ? "Để trống = công thức mang đúng tên mã này; điền tên mã khác = dùng chung công thức đó" : "Để trống = " + K.fallbackLabel + ". Điền tên có sẵn (" + Object.keys(K.builtin).join(", ") + ") hoặc tên công thức cấu hình (khóa)", show: function (v) { return v || (IS_OT ? "(theo mã)" : "(trống — cách tính lịch sử)"); } }));
+      grid.appendChild(fld("Loại công thức", "loaiCT", { opts: loaiOpts, note: IS_OT ? "Chọn “Theo mã” = dùng công thức mang đúng tên mã này; chọn công thức/mã khác = dùng chung công thức đó" : "Dòng đầu = " + K.fallbackLabel + ". Hoặc chọn công thức có sẵn / công thức đã cấu hình", show: function (v) { return v || (IS_OT ? "(theo mã)" : "(trống — cách tính lịch sử)"); } }));
       grid.appendChild(fld("Hiệu lực từ", "tu", { req: true, date: true, show: fdate }));
       grid.appendChild(fld("Hiệu lực đến", "den", { date: true, show: function (v) { return fdate(v) || "không giới hạn"; } }));
       grid.appendChild(fld("Mô tả / cách tính (ghi chú)", "moTa", { area: true, wide: true }));

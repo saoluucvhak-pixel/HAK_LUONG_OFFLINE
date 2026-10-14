@@ -1958,10 +1958,12 @@
   /** Mô tả 2 phương pháp bù sản lượng chính thức (V10). Mã lưu giữ nguyên "to" / "daihiep" để không đổi engine. */
   var BU_METHODS = [
     { ma: "to", ten: "BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ",
+      nguon: ["Đơn giá khoán (đ/tấn): Danh mục → Mã lương, cột “Số tiền khoán” của mã lương gán cho từng nhân viên.", "Mức sàn: Danh mục → Mã lương, cột “Đơn giá bù lương” — MỖI MÃ LƯƠNG MỘT MỨC, lấy theo mã lương của nhân viên (đồng/công BT). Để trống hoặc 0 thì không bù.", "Ngưỡng công: Danh mục → Mã lương, cột “Ngưỡng công bù theo tổ”.", "Công BT: màn hình Chấm công. Tấn: màn hình Sản lượng. Tổ: phòng ban/tổ của nhân viên."],
       mota: "Tính bình quân tiền sản lượng của cả tổ mỗi người mỗi ngày; nếu thấp hơn mức sàn thì người đủ ngưỡng công được bù phần chênh × công BT.",
-      buoc: ["Tiền sản lượng cả tổ = Σ(tấn × đơn giá khoán) của người hưởng lương sản phẩm trong tổ.", "Bình quân tổ = Tiền sản lượng cả tổ ÷ số ngày của tháng ÷ số người của tổ.", "Điều kiện bù: công BT của người ≥ 'Ngưỡng công bù theo tổ' và Bình quân tổ < 'Đơn giá bù lương' (mức sàn).", "Tiền bù = (Mức sàn − Bình quân tổ) × công BT của người."],
+      buoc: ["Tiền sản lượng cả tổ = Σ(tấn × đơn giá khoán) của người hưởng lương sản phẩm trong tổ.", "Bình quân tổ = Tiền sản lượng cả tổ ÷ số ngày của tháng ÷ số người của tổ.", "Điều kiện bù: công BT của người ≥ 'Ngưỡng công bù theo tổ' và Bình quân tổ < 'Đơn giá bù lương' (mức sàn, lấy ở Danh mục → Mã lương — xem mục “Số liệu lấy từ đâu”).", "Tiền bù = (Mức sàn − Bình quân tổ) × công BT của người."],
       vd: function () { var tien = 31000000, ngay = 31, nguoi = 10, bq = tien / ngay / nguoi, san = 150000, cong = 26; return { dong: ["Tiền sản lượng cả tổ: " + fmt(tien) + " đ · tháng " + ngay + " ngày · tổ " + nguoi + " người", "Bình quân tổ = " + fmt(tien) + " ÷ " + ngay + " ÷ " + nguoi + " = " + fmt(Math.round(bq)) + " đ/người/ngày", "Mức sàn " + fmt(san) + " đ > bình quân → được bù", "Tiền bù = (" + fmt(san) + " − " + fmt(Math.round(bq)) + ") × " + cong + " công = " + fmt(Math.round((san - bq) * cong)) + " đ"] }; } },
     { ma: "daihiep", ten: "BÙ SẢN LƯỢNG THEO NGÀY",
+      nguon: ["Đơn giá khoán (đ/tấn): Danh mục → Mã lương, cột “Số tiền khoán” của mã lương gán cho từng nhân viên.", "Mức sàn: Danh mục → Mã lương, cột “Đơn giá bù lương” — MỖI MÃ LƯƠNG MỘT MỨC, lấy theo mã lương của nhân viên (đồng/công BT). Để trống hoặc 0 thì không bù.", "Bậc thang theo công BT từng ngày: cố định trong hệ thống (không cấu hình ở đây). Công BT và sản lượng theo ngày: màn hình Chấm công và Sản lượng."],
       mota: "Mỗi ngày có sản lượng: tiền ngày = lớn hơn giữa (tấn ngày × đơn giá) và (bậc thang công BT ngày × mức sàn); bù = tổng phần chênh các ngày.",
       buoc: ["Với từng ngày có sản lượng: Tiền sản lượng ngày = tấn ngày × đơn giá khoán.", "Tiền sàn ngày = bậc thang(công BT ngày, chủ nhật?) × Đơn giá bù lương.", "Nếu Tiền sàn ngày > Tiền sản lượng ngày thì ngày đó được bù phần chênh.", "Tiền bù = Σ phần chênh các ngày. Không xét ngưỡng công. Ngày có sản lượng mà chưa chấm công BT → cảnh báo, tính bù 0."],
       vd: function () { var tan = 1.2, dg = 90000, bt = 1, san = 150000; return { dong: ["Ngày 05: " + tan + " tấn × " + fmt(dg) + " đ = " + fmt(Math.round(tan * dg)) + " đ · công BT ngày = " + bt, "Tiền sàn ngày = bậc thang(" + bt + ") × " + fmt(san) + " = " + fmt(san) + " đ", "Bù ngày 05 = " + fmt(san) + " − " + fmt(Math.round(tan * dg)) + " = " + fmt(san - Math.round(tan * dg)) + " đ", "Cộng dồn các ngày khác trong tháng → Tiền bù cả tháng."] }; } }
@@ -1971,6 +1973,8 @@
     var body = h("div", { class: "bu-explain" });
     body.appendChild(h("p", { text: m.mota }));
     var ol = h("ol"); m.buoc.forEach(function (x) { ol.appendChild(h("li", { text: x })); }); body.appendChild(ol);
+    body.appendChild(h("div", { class: "hint", text: "Số liệu lấy từ đâu:" }));
+    var ul0 = h("ul"); (m.nguon || []).forEach(function (x) { ul0.appendChild(h("li", { text: x })); }); body.appendChild(ul0);
     body.appendChild(h("div", { class: "hint", text: "Ví dụ bằng số:" }));
     var ul = h("ul"); m.vd().dong.forEach(function (x) { ul.appendChild(h("li", { text: x })); }); body.appendChild(ul);
     body.appendChild(h("div", { class: "hint", text: "Số liệu trong ví dụ chỉ minh hoạ. Số thật lấy từ Chấm công, Sản lượng và Danh mục hình thức lương của từng nhân viên." }));

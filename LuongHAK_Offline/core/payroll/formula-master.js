@@ -16,6 +16,14 @@
   var STAMP_LINK = "Liên kết lúc", TEST_TABLE = "dm_congthuc_kiemthu";
 
   function t(v) { return String(v == null ? "" : v).trim(); }
+  /** Hiển thị số theo kiểu Việt Nam: chấm phân cách hàng nghìn, phẩy thập phân; rỗng/không phải số → "—". Chỉ để HIỂN THỊ, không đổi dữ liệu. */
+  function vn(v, blankZero) {
+    var x = String(v == null ? "" : v).trim(); if (x === "") return "—";
+    var n = +x.replace(/\s/g, "").replace(/,/g, "."); if (!isFinite(n)) return x;
+    if (blankZero && n === 0) return "—";
+    var neg = n < 0, p = String(Math.abs(Math.round(n * 10000) / 10000)).split("."), ip = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return (neg ? "-" : "") + ip + (p[1] ? "," + p[1] : "");
+  }
   function require_dn(s) { var k = String(s || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); return k ? (+k[1]) * 10000 + (+k[2]) * 100 + (+k[3]) : null; }
 
   // ---------- Cấu hình từng loại ----------
@@ -28,7 +36,7 @@
         { key: "heSo", col: "Hệ số tăng ca", label: "Hệ số tăng ca", type: "pct", note: "Đọc từ danh mục — hệ thống không tự đặt hệ số mặc định" },
         { key: "tien", col: "Tiền tăng ca (nếu tính cố định)", label: "Tiền tăng ca cố định (nếu có)", type: "money" }
       ],
-      listCols: [{ label: "Hệ số", get: function (b) { return b["Hệ số tăng ca"] == null || b["Hệ số tăng ca"] === "" ? "(trống)" : String(b["Hệ số tăng ca"]); }, num: true }],
+      listCols: [{ label: "Hệ số", get: function (b) { return b["Hệ số tăng ca"] == null || b["Hệ số tăng ca"] === "" ? "(trống)" : vn(b["Hệ số tăng ca"]); }, num: true }],
       sample: { CONG_TINH_LUONG: 28, CONG_CHUAN: 26, CONG_CHUAN_2: 40, CONG_TC: 2, CONG_CHU_NHAT: 3, CONG_LE: 1, CONG_PHEP: 1, CONG_TRUNG_CHUYEN: 1, CONG_DI_CHUYEN: 1, HE_SO_TC: 1.5 },
       zeroKeep: {}
     },
@@ -47,7 +55,11 @@
         { key: "tyLe", col: "Tỷ lệ", label: "Tỷ lệ (× lương thỏa thuận, chỉ khi cố định không có số tiền)", type: "pct" },
         { key: "thamChieu", col: "Tham chiếu", label: "Tham chiếu / ngưỡng công", type: "num", note: "Ngưỡng: đủ (công chuẩn − tham chiếu) công thì hưởng đủ, chưa đủ thì chia theo tỷ lệ công" }
       ],
-      listCols: [{ label: "Số tiền", get: function (b) { return b["Số tiền"] == null || b["Số tiền"] === "" ? "—" : String(b["Số tiền"]); }, num: true }, { label: "Tỷ lệ · Ngưỡng", get: function (b) { return (b["Tỷ lệ"] || 0) + " · " + (b["Tham chiếu"] || 0); }, num: true }],
+      listCols: [
+        { label: "Số tiền (đ)", get: function (b) { return vn(b["Số tiền"]); }, num: true },
+        { label: "Tỷ lệ", tip: "Hệ số nhân với lương thỏa thuận — chỉ dùng khi phụ cấp là CỐ ĐỊNH và không nhập số tiền. “—” = không dùng.", get: function (b) { return vn(b["Tỷ lệ"], true); }, num: true },
+        { label: "Ngưỡng công", tip: "Số công được phép thiếu so với công chuẩn mà vẫn hưởng ĐỦ phụ cấp. Thiếu nhiều hơn thì chia theo tỷ lệ công. “—” = không có ngưỡng.", get: function (b) { var x = vn(b["Tham chiếu"], true); return x === "—" ? x : x + " công"; }, num: true }
+      ],
       sample: { MUC_PHU_CAP: 1000000, CONG_CHUAN: 26, CONG_HUONG_PHU_CAP: 24, NGUONG_PHU_CAP: 2, CONG_TINH_LUONG: 24, CONG_LE: 1, CONG_PHEP: 1, CONG_TC: 2 },
       zeroKeep: { CONG_CHUAN: 26 } // engine chỉ tính theo công thức khi công chuẩn > 0
     },
@@ -60,7 +72,7 @@
       },
       fallbackLabel: "HT_THEO_NGAY (Mã hỗ trợ — tiền cơm) hoặc HT_THIEU_CHUAN (Mã hỗ trợ 2 — hỗ trợ lương) theo vị trí gán",
       fields: [{ key: "tien", col: "Số tiền", label: "Số tiền hỗ trợ", type: "money" }],
-      listCols: [{ label: "Số tiền", get: function (b) { return b["Số tiền"] == null || b["Số tiền"] === "" ? "—" : String(b["Số tiền"]); }, num: true }],
+      listCols: [{ label: "Số tiền (đ)", get: function (b) { return vn(b["Số tiền"]); }, num: true }],
       sample: { MUC_HO_TRO: 20000, CONG_CHUAN: 26, CONG_THUC_TE: 24, SO_NGAY_COM: 22, SO_NGAY_DUOC_HUONG: 22 },
       zeroKeep: {}
     }
@@ -503,6 +515,6 @@
   }
 
   var cache = {};
-  var api = { KINDS: KINDS, TYPES: ["OVERTIME", "ALLOWANCE", "SUPPORT"], forType: function (type) { return cache[type] || (cache[type] = make(type)); }, make: make };
+  var api = { vn: vn, KINDS: KINDS, TYPES: ["OVERTIME", "ALLOWANCE", "SUPPORT"], forType: function (type) { return cache[type] || (cache[type] = make(type)); }, make: make };
   if (isNode) module.exports = api; else { root.HAKCore = root.HAKCore || {}; root.HAKCore.formulaMaster = api; }
 })(typeof window !== "undefined" ? window : this);
