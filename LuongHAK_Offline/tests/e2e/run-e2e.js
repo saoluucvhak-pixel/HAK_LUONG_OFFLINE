@@ -888,6 +888,81 @@ async function launch(dataDir, opt) {
     ok("Không lỗi JavaScript ở Nghiệp vụ nhân sự", errs.length === 0, errs.join(" | "));
   }
 
+  // V10.1: 6 mẫu báo cáo riêng — nhân sự, sản lượng, bơm dăm, thưởng/trừ, tạm ứng, suất cơm (dữ liệu giả lập, kỳ 09/2026)
+  {
+    const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-ops-"));
+    ({ app, w, errs } = await launch(SD)); await app.close();
+    const fb = path.join(SD, "data.json"), d3 = JSON.parse(fs.readFileSync(fb, "utf8"));
+    d3.nhanvien.push({ _id: "o1", "Mã NV": "F1", "Họ và tên": "Trần Thị Bình", "Trạng thái": "Đang làm việc" }, { _id: "o2", "Mã NV": "F2", "Họ và tên": "Lê Văn Cường", "Trạng thái": "Đang làm việc" });
+    d3.sanluong.push({ "Phiếu cân": "S1", "Ngày cân": "2026-09-02", "Biển số": "43C-1", "KL hàng (Tấn)": 3.13, "Mã NV": "F1" }, { "Phiếu cân": "S2", "Ngày cân": "2026-09-03", "Biển số": "43C-2", "KL hàng (Tấn)": 9.11, "Mã NV": "F2" }, { "Phiếu cân": "S3", "Ngày cân": "2026-09-15", "Biển số": "43C-3", "KL hàng (Tấn)": 28.5, "Mã NV": "F1" });
+    d3.bandam.push({ "Phiếu cân": "B1", "Ngày cân": "2026-09-01", "KL hàng (Tấn)": 1, "Mã NV": "F1" }, { "Phiếu cân": "B2", "Ngày cân": "2026-09-01", "KL hàng (Tấn)": 1, "Mã NV": "F2" });
+    d3.psluong.push({ "Ngày hạch toán": "2026-09-30", "Số chứng từ": "QĐ-1", "Mã NV": "F1", "Diễn giải": "Thưởng chuyên cần", "Thưởng": 500000, "Thu nhập khác": 0, "Trừ khác": 0 });
+    d3.ungluong.push({ "Ngày hạch toán": "2026-09-15", "Số chứng từ": "PC-1", "Mã NV": "F1", "Diễn giải": "Tạm ứng kỳ 1", "Tạm ứng": 2000000 });
+    d3.tiencom.push({ "Ngày": "2026-09-15", "Mã NV": "F1", "Số suất cơm": 1, "Ghi chú": "" });
+    fs.writeFileSync(fb, JSON.stringify(d3));
+    ({ app, w, errs } = await launch(SD));
+    await w.click("#nav button[data-k=psluong]"); await w.selectOption("#top select", "9"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
+      const EX2 = require(path.join(APP, "exceljs.min.js"));
+      const waitFile = async (re, before) => { let n = null; for (let i = 0; i < 40 && !n; i++) { await w.waitForTimeout(250); n = fs.readdirSync(DL).filter((f) => re.test(f) && !before.includes(f))[0]; } return n; };
+      const spec = [["rp_ns", "DANH SÁCH NHÂN SỰ", "NHAN_SU", "Mã NV"], ["rp_sl", "BẢNG KÊ PHIẾU CÂN SẢN LƯỢNG", "SAN_LUONG", "Phiếu cân"], ["rp_bd", "BẢNG KÊ BƠM DĂM", "BOM_DAM", "Số xe"],
+        ["rp_th", "BẢNG KÊ THƯỞNG VÀ CÁC KHOẢN THU NHẬP, KHẤU TRỪ KHÁC", "THUONG", "Thực nhận"], ["rp_tu", "BẢNG KÊ TẠM ỨNG LƯƠNG", "TAM_UNG", "Ký nhận"], ["rp_com", "BẢNG TỔNG HỢP SUẤT CƠM", "SUAT_COM", "Tổng suất"]];
+      const info = [];
+      for (const [nav, title, type, col] of spec) {
+        await w.click("#nav button[data-k=" + nav + "]"); await w.waitForTimeout(150);
+        const txt = await w.locator("#main").innerText(), nr = await w.locator("[data-ops-report=" + type + "] tbody tr").count();
+        info.push(type + ":" + nr);
+        ok("V10.1: mẫu báo cáo riêng " + type + " — tiêu đề IN HOA, cột đặc thù '" + col + "', có dòng dữ liệu + dòng tổng", txt.includes(title) && txt.includes(col) && nr >= 2, "dòng(kể cả tổng)=" + nr);
+      }
+      // Tạm ứng: lọc không khớp → rỗng; Excel đúng mẫu (chữ ký 4 bên, sheet tổng hợp theo NV, số liệu khớp dữ liệu nhập)
+      await w.click("#nav button[data-k=rp_tu]");
+      await w.locator("[data-ops-key=tuKhoa]").fill("khong-co-ai-ten-nay"); await w.locator("[data-ops-key=tuKhoa]").dispatchEvent("change"); await w.waitForTimeout(200);
+      ok("V10.1: Bảng kê tạm ứng — bộ lọc từ khóa không khớp → báo không có dòng", /Không có dòng nào/.test(await w.locator("#main").innerText()));
+      await w.locator("[data-ops-key=tuKhoa]").fill(""); await w.locator("[data-ops-key=tuKhoa]").dispatchEvent("change"); await w.waitForTimeout(200);
+      let bf = fs.readdirSync(DL); await w.click('#main button:has-text("Xuất Excel")');
+      const fTu = await waitFile(/^BangKeTamUng_2026-09\.xlsx$/, bf);
+      if (!fTu) ok("V10.1: Excel Bảng kê tạm ứng", false, "không thấy file; hộp thoại: " + dialogs.join(" | ").slice(0, 160));
+      else {
+        const wb = new EX2.Workbook(); await wb.xlsx.load(fs.readFileSync(path.join(DL, fTu))); const ws = wb.worksheets[0]; const vals = []; ws.eachRow((r) => r.eachCell((c) => vals.push(String(c.value))));
+        let hr = 0; ws.eachRow((r, i) => { if (!hr && r.getCell(1).value === "STT") hr = i; });
+        ok("V10.1: Excel Bảng kê tạm ứng — IN HOA, 2 tầng tiêu đề, số tiền khớp dữ liệu nhập (2.000.000), có chữ ký Thủ quỹ, sheet tổng hợp theo NV",
+          ws.getCell("A2").value === "BẢNG KÊ TẠM ỨNG LƯƠNG" && hr > 0 && ws.getCell(hr - 1, 1).value === "CHỨNG TỪ" && vals.includes("Thủ quỹ") && wb.worksheets.length === 2 && wb.worksheets[1].name === "TheoNhanVien" &&
+          ws.getCell(hr + 1, 8).value === 2000000, JSON.stringify({ a2: ws.getCell("A2").value, hr, sheets: wb.worksheets.map((x) => x.name), tien: ws.getCell(hr + 1, 8).value }));
+      }
+      // Sản lượng: Excel đủ 3 sheet; phiếu chia tổ có cột người nhận từ kết quả chia tổ của app
+      await w.click("#nav button[data-k=rp_sl]"); bf = fs.readdirSync(DL); await w.click('#main button:has-text("Xuất Excel")');
+      const fSl = await waitFile(/^BangKeSanLuong_2026-09\.xlsx$/, bf);
+      if (!fSl) ok("V10.1: Excel Bảng kê sản lượng", false, "không thấy file; hộp thoại: " + dialogs.join(" | ").slice(0, 160));
+      else {
+        const wb = new EX2.Workbook(); await wb.xlsx.load(fs.readFileSync(path.join(DL, fSl))); const ws = wb.worksheets[0]; let hr = 0; ws.eachRow((r, i) => { if (!hr && r.getCell(1).value === "STT") hr = i; });
+        const kl = []; for (let i = hr + 1; i <= hr + 3; i++) kl.push(ws.getCell(i, 5).value);
+        ok("V10.1: Excel Bảng kê sản lượng — 3 sheet (chi tiết, theo tổ, theo công nhân), KL khớp phiếu cân (3,13 / 9,11 / 28,5), tổng 40,74", wb.worksheets.length === 3 && kl.join(",") === "3.13,9.11,28.5" && Math.abs(ws.getCell(hr + 4, 5).value - 40.74) < 1e-9, JSON.stringify({ s: wb.worksheets.map((x) => x.name), kl, tong: ws.getCell(hr + 4, 5).value }));
+      }
+      // Suất cơm: ma trận 30 ngày, khổ A3, tổng suất = dữ liệu nhập
+      await w.click("#nav button[data-k=rp_com]"); bf = fs.readdirSync(DL); await w.click('#main button:has-text("Xuất Excel")');
+      const fCm = await waitFile(/^TongHopSuatCom_2026-09\.xlsx$/, bf);
+      if (!fCm) ok("V10.1: Excel Tổng hợp suất cơm", false, "không thấy file");
+      else {
+        const wb = new EX2.Workbook(); await wb.xlsx.load(fs.readFileSync(path.join(DL, fCm))); const ws = wb.worksheets[0]; let hr = 0; ws.eachRow((r, i) => { if (!hr && r.getCell(1).value === "STT") hr = i; });
+        ok("V10.1: Excel Tổng hợp suất cơm — ma trận 30 ngày (36 cột), A3 ngang, lặp cột nhận diện, ngày 15 = 1 suất, Tổng suất = 1", ws.getCell(hr, 5).value === "01" && ws.getCell(hr, 34).value === "30" && ws.getCell(hr + 1, 5 + 14).value === 1 && ws.getCell(hr + 1, 35).value === 1 && ws.pageSetup.paperSize === 8 && ws.pageSetup.printTitlesColumn === "A:C",
+          JSON.stringify({ d1: ws.getCell(hr, 5).value, d30: ws.getCell(hr, 34).value, d15: ws.getCell(hr + 1, 19).value, tong: ws.getCell(hr + 1, 35).value, paper: ws.pageSetup.paperSize, tc: ws.pageSetup.printTitlesColumn }));
+      }
+      // PDF thật cho suất cơm (bảng rộng tách phần)
+      bf = fs.readdirSync(DL); await w.click('#main button:has-text("Xuất PDF")');
+      const pCm = await waitFile(/^TongHopSuatCom_2026-09\.pdf$/, bf);
+      const pbuf = pCm ? fs.readFileSync(path.join(DL, pCm)) : Buffer.alloc(0);
+      ok("V10.1: PDF Tổng hợp suất cơm là PDF thật, ≥1 trang", pbuf.slice(0, 5).toString() === "%PDF-" && /\/Type\s*\/Page(?![s\w])/.test(pbuf.toString("latin1")) && pbuf.length > 1500, pCm + " " + pbuf.length + "B");
+      // Báo cáo nhân sự có sẵn: Excel/PDF theo mẫu chung (tiêu đề IN HOA, chữ ký)
+      await w.click("#nav button[data-k=baocao]"); await w.click('#main button:has-text("Tình hình nhân sự")'); bf = fs.readdirSync(DL); await w.click('#main button:has-text("Xuất Excel")');
+      const fHr = await waitFile(/^BaoCaoNhanSu_.*\.xlsx$/, bf);
+      if (!fHr) ok("V10.1: Excel báo cáo nhân sự theo mẫu chung", false, "không thấy file");
+      else { const wb = new EX2.Workbook(); await wb.xlsx.load(fs.readFileSync(path.join(DL, fHr))); const a2 = String(wb.worksheets[0].getCell("A2").value); const v = []; wb.worksheets[0].eachRow((r) => r.eachCell((c) => v.push(String(c.value))));
+        ok("V10.1: báo cáo nhân sự có sẵn xuất Excel theo mẫu chung (tiêu đề IN HOA, có chữ ký Giám đốc)", a2 === a2.toLocaleUpperCase("vi-VN") && /TÌNH HÌNH NHÂN SỰ/.test(a2) && v.includes("Giám đốc"), a2); }
+      // Vai trò Trưởng bộ phận không thấy báo cáo thưởng / tạm ứng (cần payroll.view) — kiểm ở mức menu của vai trò hiện tại (admin thấy đủ)
+      ok("V10.1: admin thấy đủ 6 mục 'Báo cáo theo loại' trong menu", (await w.locator("#nav button[data-k^=rp_]").evaluateAll((els) => els.map((e) => e.getAttribute("data-k")))).filter((k) => ["rp_ns", "rp_sl", "rp_bd", "rp_th", "rp_tu", "rp_com"].includes(k)).length === 6, info.join(" "));
+    ok("Không lỗi JavaScript ở 6 mẫu báo cáo riêng", errs.length === 0, errs.join(" | "));
+    await w.waitForTimeout(500); await app.close();
+  }
+
   // V10: bộ lọc theo kỳ lương cho Thưởng / Tạm ứng / Suất cơm và Sản lượng (kỳ điều khiển từ–đến, không lọc tháng trùng)
   {
     const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-flt-"));
