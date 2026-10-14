@@ -844,18 +844,25 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch(SD));
     await w.click("#nav button[data-k=psluong]"); await w.selectOption("#top select", "10"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
     const tot1 = await w.locator('[data-in-totals="psluong"]').innerText();
-    ok("V10: Thưởng/Trừ — bộ lọc có Phòng ban, Nhân viên, Kỳ lương, Từ–Đến; tổng theo kỳ đang chọn = 1.500.000 (2 dòng, bỏ tháng 9)", (await w.locator('[data-in-filter="psluong"] input[type=date]').count()) === 2 && /2 dòng/.test(tot1) && /1\.500\.000/.test(tot1), tot1);
+    ok("V10: Thưởng/Trừ — bộ lọc có Phòng ban, Nhân viên, Kỳ lương, Từ–Đến; tổng theo kỳ đang chọn = 1.500.000 (2 dòng, bỏ tháng 9)", (await w.locator('[data-in-filter="psluong"] input.dateinp').count()) === 2 && /2 dòng/.test(tot1) && /1\.500\.000/.test(tot1), tot1);
     await w.fill('input[placeholder*="Tìm"]', "tran thi binh"); await w.waitForTimeout(300);
     ok("V10: Thưởng/Trừ — tìm tên không dấu 'tran thi binh' chỉ còn phiếu của F1", (await w.locator("main tbody tr").count()) === 1);
     await w.fill('input[placeholder*="Tìm"]', "");
     await w.selectOption('[data-in-filter="psluong"] select[aria-label="Kỳ lương"]', "2026-09"); await w.waitForTimeout(300);
-    const dtu = await w.locator('[data-in-filter="psluong"] input[type=date]').first().inputValue(), tot2 = await w.locator('[data-in-totals="psluong"]').innerText();
-    ok("V10: chọn Kỳ lương 09/2026 tự điền Từ ngày–Đến ngày (01/09–30/09) và tổng = 200.000", dtu === "2026-09-01" && /200\.000/.test(tot2) && /1 dòng/.test(tot2), dtu + " · " + tot2);
+    const dtu = await w.locator('[data-in-filter="psluong"] input.dateinp').first().inputValue(), tot2 = await w.locator('[data-in-totals="psluong"]').innerText();
+    ok("V10: chọn Kỳ lương 09/2026 tự điền Từ ngày–Đến ngày (hiển thị 01/09/2026) và tổng = 200.000", dtu === "01/09/2026" && /200\.000/.test(tot2) && /1 dòng/.test(tot2), dtu + " · " + tot2);
     await w.click("#nav button[data-k=tiencom]"); await w.waitForTimeout(300);
     const tc = await w.locator('[data-in-totals="tiencom"]').innerText();
     ok("V10: Suất cơm — cùng bộ lọc, tổng suất cơm kỳ 10/2026 = 30", /30/.test(tc), tc);
     await w.click("#nav button[data-k=sanluong]"); await w.waitForTimeout(300);
     ok("V10: Sản lượng — không còn ô lọc 'Tháng' trùng với Kỳ lương", (await w.locator('[data-pc-filter="sanluong"] input[type=month]').count()) === 0 && (await w.locator('[data-pc-filter="sanluong"] select[aria-label="Kỳ lương"]').count()) === 1);
+    await w.click("#nav button[data-k=psluong]"); await w.waitForTimeout(200);
+    const dIn = w.locator('[data-in-filter="psluong"] input.dateinp').first();
+    await dIn.fill("31/04/2026"); await dIn.dispatchEvent("change"); await w.waitForTimeout(200);
+    const badCls = await dIn.evaluate((e) => e.classList.contains("invalid"));
+    await dIn.fill("29022028"); await dIn.dispatchEvent("change"); await w.waitForTimeout(400);
+    const okVal = await w.locator('[data-in-filter="psluong"] input.dateinp').first().inputValue();
+    ok("V10: ô ngày gõ tay — 31/04/2026 bị báo sai (viền đỏ), '29022028' tự chuẩn hóa thành 29/02/2028 (năm nhuận)", badCls && okVal === "29/02/2028", badCls + " · " + okVal);
     ok("Không lỗi JavaScript ở bộ lọc theo kỳ", errs.length === 0, errs.join(" | "));
     await app.close();
   }

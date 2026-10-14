@@ -390,3 +390,5 @@ table.kt td.kt-error { color: #b42318; }
 table.kt td.kt-warning { color: #b54708; }
 table.kt td.kt-info { color: #475467; }
 .dlg.wide{width:min(1180px,100%)}
+input.dateinp{width:112px;text-align:center}
+input.dateinp.invalid{border-color:#b42318;background:#fef3f2;color:#b42318}

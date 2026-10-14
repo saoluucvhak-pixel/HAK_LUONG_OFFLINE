@@ -475,15 +475,31 @@
     var seen = {}, out = []; db[s[0]].forEach(function (r) { var v = r[s[1]]; if (v && !seen[v]) { seen[v] = 1; out.push(v); } });
     return out;
   }
+  // ---------- Ô nhập ngày dd/MM/yyyy (V10): gõ tay được (01/02/2026, 1-2-2026, 01022026), kiểm tra ngày thật (năm nhuận), không lệch múi giờ ----------
+  /** Dựng ô nhập ngày: hiển thị dd/MM/yyyy; ngày sai → viền đỏ + gợi ý, KHÔNG tự đổi thành ngày khác. */
+  function dateField(iso, attrs) {
+    var i = h("input", Object.assign({ type: "text", inputmode: "numeric", placeholder: "dd/MM/yyyy", maxlength: "10", autocomplete: "off", class: "dateinp" }, attrs || {}));
+    var n0 = VAL.normDate(iso); i.value = n0 ? n0.slice(8, 10) + "/" + n0.slice(5, 7) + "/" + n0.slice(0, 4) : (iso || "");
+    i.addEventListener("blur", function () { dateFix(i); });
+    i.addEventListener("change", function () { dateFix(i); });
+    return i;
+  }
+  function dateFix(i) {
+    var t = i.value.trim(), n = t ? VAL.normDate(t) : "";
+    if (n === null) { i.classList.add("invalid"); i.setAttribute("aria-invalid", "true"); i.title = "Ngày không hợp lệ — nhập dd/MM/yyyy (ví dụ 29/02/2028)"; return; }
+    i.classList.remove("invalid"); i.removeAttribute("aria-invalid"); i.title = i.getAttribute("aria-label") || "";
+    if (n) i.value = n.slice(8, 10) + "/" + n.slice(5, 7) + "/" + n.slice(0, 4);
+  }
+  /** "" nếu trống · "YYYY-MM-DD" nếu đúng · null nếu SAI (ngày không tồn tại). */
+  function dateIso(i) { var t = i.value.trim(); return t ? VAL.normDate(t) : ""; }
   var dlId = 0;
   function makeInput(col, value, onchange, opts, tableKey) {
-    var isDate = DATECOLS.test(col), inp = h("input", { value: value == null ? "" : value });
-    if (isDate) inp.type = "date";
+    var isDate = DATECOLS.test(col), inp = isDate ? dateField(value == null ? "" : value) : h("input", { value: value == null ? "" : value });
     if (NUMCOLS.test(col) && !isDate) inp.className = "num";
     var list = col === "Mã NV" ? "dsnv" : null, opts2 = list ? null : datalistFor(col, tableKey);
     if (list) inp.setAttribute("list", "dsnv");
     else if (opts2 && opts2.length) { var id = "dl" + (++dlId), dl = h("datalist", { id: id }); opts2.forEach(function (o) { dl.appendChild(h("option", { value: o })); }); inp.setAttribute("list", id); inp._dl = dl; }
-    inp.addEventListener("change", function () { onchange(inp.value.trim()); });
+    inp.addEventListener("change", function () { var iv = isDate ? dateIso(inp) : null; onchange(isDate && iv ? iv : inp.value.trim()); });
     return inp;
   }
   function refreshNVList() {
@@ -499,8 +515,8 @@
     var depts = {}; db[key].forEach(function (r) { var v = String(r["Mã phòng ban"] || "").trim(); if (v) depts[v] = 1; });
     var opts = [[LF.NONE, "(Không có phòng ban)"]].concat(Object.keys(depts).sort().map(function (x) { return [x, x]; }));
     var inp = function (lbl, k, type) {
-      var i = h("input", { type: type, "aria-label": lbl, title: lbl, value: f[k] || "" });
-      i.addEventListener("change", function () { f[k] = i.value; if (f.tu && f.den && f.tu > f.den) { toast("⚠ Từ ngày lớn hơn đến ngày — không có dòng nào khớp"); } st.pg[key] = 0; onChange(); });
+      var i = type === "date" ? dateField(f[k] || "", { "aria-label": lbl, title: lbl }) : h("input", { type: type, "aria-label": lbl, title: lbl, value: f[k] || "" });
+      i.addEventListener("change", function () { var iv = type === "date" ? dateIso(i) : i.value; if (iv === null) { toast("⚠ Ngày không hợp lệ — nhập dd/MM/yyyy"); return; } f[k] = iv; if (f.tu && f.den && f.tu > f.den) { toast("⚠ Từ ngày lớn hơn đến ngày — không có dòng nào khớp"); } st.pg[key] = 0; onChange(); });
       return h("label", { class: "chip" }, [document.createTextNode(lbl + " "), i]);
     };
     bar.appendChild(multiPick("Phòng ban", opts, f.pb, function (v) { f.pb = v; st.pg[key] = 0; onChange(); }));
@@ -551,8 +567,8 @@
     bar.appendChild(multiPick("Nhân viên", Object.keys(nvs).sort().map(function (m) { return [m, m + " — " + nvs[m]]; }), f.nv, function (v) { f.nv = v; st.pg[key] = 0; onChange(); }));
     bar.appendChild(kyDriveSelect(f, key, db[key], INPUT_FILTER[key], onChange));
     [["Từ ngày", "tu"], ["Đến ngày", "den"]].forEach(function (x) {
-      var i = h("input", { type: "date", "aria-label": x[0], title: x[0], value: f[x[1]] || "" });
-      i.addEventListener("change", function () { f[x[1]] = i.value; if (f.tu && f.den && f.tu > f.den) toast("⚠ Từ ngày lớn hơn đến ngày — không có dòng nào khớp"); st.pg[key] = 0; onChange(); });
+      var i = dateField(f[x[1]] || "", { "aria-label": x[0], title: x[0] });
+      i.addEventListener("change", function () { var iv = dateIso(i); if (iv === null) { toast("⚠ Ngày không hợp lệ — nhập dd/MM/yyyy"); return; } f[x[1]] = iv; if (f.tu && f.den && f.tu > f.den) toast("⚠ Từ ngày lớn hơn đến ngày — không có dòng nào khớp"); st.pg[key] = 0; onChange(); });
       bar.appendChild(h("label", { class: "chip" }, [document.createTextNode(x[0] + " "), i]));
     });
     bar.appendChild(btn("✕ Đặt lại", "ghost", function () { st.inf[key] = { pb: [], nv: [], tu: "", den: "" }; st.qs[key] = ""; st.pg[key] = 0; render(); }));
@@ -898,18 +914,21 @@
       } else if (f.t === "area") {
         el = h("textarea", { rows: 2 }); el.value = v; getters[f.k] = function () { return el.value.trim(); };
       } else {
-        el = h("input", { value: v });
-        if (f.t === "date") el.type = "date";
+        el = f.t === "date" ? dateField(v) : h("input", { value: v });
         if (f.t === "month") el.type = "month";
         if (f.t === "num" || f.t === "money" || f.t === "pct") el.className = "num";
         if (f.t === "money") { el.addEventListener("blur", function () { var n = VAL.parseMoney(el.value); if (el.value && !isNaN(n)) el.value = fmt(n); }); if (v) { var n0v = VAL.parseMoney(v); el.value = isNaN(n0v) ? v : fmt(n0v); } }
-        getters[f.k] = function () { var x = el.value.trim(); return f.t === "money" && x ? VAL.normMoney(x) : x; };
+        getters[f.k] = function () { var x = el.value.trim(); if (f.t === "date" && x) { var di = VAL.normDate(x); return di === null ? x : di; } return f.t === "money" && x ? VAL.normMoney(x) : x; };
       }
       wrap.appendChild(el); container.appendChild(wrap);
     });
     return function () { var o = {}; Object.keys(getters).forEach(function (k) { o[k] = getters[k](); }); return o; };
   }
-  function missingReq(fields, data) { return fields.filter(function (f) { return f.req && !data[f.k]; }).map(function (f) { return f.label || f.k; }); }
+  function missingReq(fields, data) {
+    var miss = fields.filter(function (f) { return f.req && !data[f.k]; }).map(function (f) { return f.label || f.k; });
+    fields.forEach(function (f) { if (f.t === "date" && data[f.k] && !/^\d{4}-\d{2}-\d{2}$/.test(String(data[f.k]))) miss.push((f.label || f.k) + " (ngày không hợp lệ — nhập dd/MM/yyyy)"); });
+    return miss;
+  }
 
   // ---------- Kiểm soát thay đổi ảnh hưởng kỳ lương đã chốt (core/period-guard.js) ----------
   function retroText(imp) { return RP.retroText(imp); }
@@ -1715,7 +1734,7 @@
     var F = st.nvf = st.nvf || { q: "", loai: "", tt: "", tu: "", den: "" };
     var q = h("input", { class: "i", placeholder: "🔍 Tìm mã / tên nhân viên, mã phiếu (không cần dấu)", value: F.q, style: "min-width:260px", "aria-label": "Tìm nhân viên" });
     var sel = function (key, lab, opts) { var e = h("select", { "aria-label": lab }); e.appendChild(h("option", { value: "", text: lab + ": tất cả" })); opts.forEach(function (o) { e.appendChild(h("option", { value: o, text: o })); }); e.value = F[key]; e.addEventListener("change", function () { F[key] = e.value; render(); }); return e; };
-    var dt = function (key, lab) { var e = h("input", { class: "i", type: "date", value: F[key], "aria-label": lab, title: lab }); e.addEventListener("change", function () { F[key] = e.value; render(); }); return e; };
+    var dt = function (key, lab) { var e = dateField(F[key], { "aria-label": lab, title: lab }); e.addEventListener("change", function () { var iv = dateIso(e); if (iv === null) { toast("⚠ Ngày không hợp lệ — nhập dd/MM/yyyy"); return; } F[key] = iv; render(); }); return e; };
     q.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { F.q = q.value; render(); } }); q.addEventListener("change", function () { F.q = q.value; render(); });
     if (can("hr.edit")) bar.appendChild(btn("＋ Lập đề nghị", "pri", function () { nvnsForm(null); }));
     bar.appendChild(q); bar.appendChild(sel("loai", "Loại", NVNS_LOAI)); bar.appendChild(sel("tt", "Trạng thái", ["Nháp", "Chờ duyệt", "Đã duyệt", "Từ chối"]));
