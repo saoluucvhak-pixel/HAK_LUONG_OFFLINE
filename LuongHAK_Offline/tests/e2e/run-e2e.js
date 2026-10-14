@@ -579,14 +579,16 @@ async function launch(dataDir, opt) {
   dialogs = [];
   await w.click("#nav button[data-k=nhansu]"); await w.locator("#main table tbody tr").first().click();
   await w.click('.subtabs button:has-text("Hợp đồng lao động")'); await w.waitForTimeout(300);
+  await w.click('#main button:has-text("Chi tiết hợp đồng")'); await w.waitForSelector(".dlg [data-hd-detail]");
   const plCard = w.locator(".card", { has: w.locator('h3:has-text("Lương & phụ lục HĐ")') });
   const nPL = await plCard.locator("tbody tr").count();
   await plCard.locator("tbody tr", { hasText: "01/01/2025" }).first().click(); await w.waitForSelector(".dlg"); // phụ lục đã dùng cho kỳ chốt 9/2026 (phụ lục 11/2026 thêm ở bước UI nằm trên cùng)
   const lock15 = await w.locator(".dlg .locked").innerText().catch(() => "");
   await w.click(".dlg footer button.pri"); await w.waitForTimeout(300);
   const blocked15 = dialogs.some((d) => /Q-15/.test(d) && /PHỤ LỤC MỚI/.test(d)) && /Q-15/.test(lock15);
-  if (await w.locator(".dlg").count()) await w.click(".dlg header button");
-  await plCard.locator('button:has-text("Thêm")').click(); await w.waitForSelector(".dlg");
+  if (await w.locator("#modal.drawer .dlg").count()) await w.click("#modal.drawer .dlg header button");
+  await w.waitForSelector(".dlg [data-hd-detail]");
+  await plCard.locator('button:has-text("Thêm")').click(); await w.waitForSelector("#modal.drawer .dlg");
   const q22Opts = await w.locator(".dlg .fld", { hasText: "Cách áp dụng trong tháng hiệu lực" }).locator("option").allInnerTexts();
   ok("Q-22: form phụ lục có lựa chọn 'Cách áp dụng trong tháng hiệu lực' (Cả tháng / Từ ngày hiệu lực)", q22Opts.includes("Cả tháng") && q22Opts.includes("Từ ngày hiệu lực"), q22Opts.join(", "));
   await w.click(".dlg footer button.pri"); await w.waitForTimeout(400);
@@ -609,7 +611,7 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=nhansu]"); await w.locator("#main table tbody tr").first().click();
     await w.click('.subtabs button:has-text("Hợp đồng lao động")'); await w.waitForTimeout(300);
     const hdCard = () => w.locator(".card", { has: w.locator('h3:has-text("Hợp đồng lao động")') });
-    const plRows = async () => { await hdCard().locator("tbody tr", { hasText: "E2E-HD2" }).click(); await w.waitForTimeout(250); return w.locator(".card", { has: w.locator('h3:has-text("Lương & phụ lục HĐ")') }).locator("tbody tr").count(); };
+    const plRows = async () => { await hdCard().locator("tbody tr", { hasText: "E2E-HD2" }).click(); await w.waitForTimeout(250); await w.click('#main button:has-text("Chi tiết hợp đồng")'); await w.waitForSelector(".dlg [data-hd-detail]"); const n = await w.locator(".card", { has: w.locator('h3:has-text("Lương & phụ lục HĐ")') }).locator("tbody tr").count(); await w.click('.dlg footer button:has-text("Đóng")'); await w.waitForTimeout(200); return n; };
     const n0 = await plRows();
     dialogs = []; dismissConfirm = true;
     await hdCard().locator("tbody tr", { hasText: "E2E-HD2" }).locator('button[title="Sửa"]').click(); await w.waitForSelector(".dlg");
@@ -680,13 +682,15 @@ async function launch(dataDir, opt) {
     await w.locator("#main table tbody tr").first().click(); await w.waitForTimeout(300);
     const head = await w.locator("main").first().innerText();
     await w.click('.subtabs button:has-text("Hợp đồng lao động")'); await w.waitForTimeout(300);
+    await w.click('#main button:has-text("Chi tiết hợp đồng")'); await w.waitForSelector(".dlg [data-hd-detail]");
     const plCardT = w.locator(".card", { has: w.locator('h3:has-text("Lương & phụ lục HĐ")') });
     const plText = await plCardT.innerText();
     await plCardT.locator("tbody tr").first().click(); await w.waitForSelector(".dlg");
     const formText = await w.locator(".dlg").innerText(), salaryInput = await w.locator(".dlg .fld", { hasText: "Lương thỏa thuận" }).count();
-    await w.click(".dlg header button");
-    await w.click('.subtabs button:has-text("Khen thưởng")'); await w.waitForTimeout(300);
+    await w.click("#modal.drawer .dlg header button"); await w.waitForSelector(".dlg [data-hd-detail]");
+    await w.click('.dlg .subtabs button:has-text("Khen thưởng")'); await w.waitForTimeout(300);
     const ktText = await w.locator(".card", { has: w.locator('h3:has-text("Khen thưởng")') }).innerText();
+    await w.click('.dlg footer button:has-text("Đóng")'); await w.waitForTimeout(200);
     ok("Q-24 bổ sung: Trưởng bộ phận thấy hồ sơ khen thưởng nhưng Giá trị tiền thưởng hiện 🔒 ẩn", /Giấy khen E2E/.test(ktText) && /🔒 ẩn/.test(ktText) && !/777[.]?000/.test(ktText), ktText.replace(/\s+/g, " ").slice(0, 160));
     await w.click("#nav button[data-k=baocao]"); await w.waitForTimeout(200);
     const sl = w.locator('.subtabs button:has-text("Sổ")'); if (await sl.count()) { await sl.first().click(); await w.waitForTimeout(300); }

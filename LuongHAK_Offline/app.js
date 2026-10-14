@@ -434,6 +434,7 @@
   function importAllFile() { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, null, m); }, name, render); }); }
 
   function modal(title, body, footer, opts) {
+    if (opts && opts.drawer && st.hdModal && !opts.onClose) opts = Object.assign({}, opts, { onClose: function () { hdReopen(); } });
     var m = $("#modal"); m.innerHTML = ""; m.className = opts && opts.drawer ? "drawer" : "";
     var close = function () { m.className = "hide"; m.innerHTML = ""; if (opts && opts.onClose) opts.onClose(); };
     var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : "") }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
@@ -1268,6 +1269,28 @@
     });
   }
 
+  /** Master–Detail dạng cửa sổ: HĐLĐ (cha) → lương & phụ lục, quyền lợi, nghỉ phép, tài liệu… (con). */
+  function hdChiTietModal(ma, soHD) {
+    var cur = db.hopdong.filter(function (r) { return r["Mã NV"] === ma && r["Số HĐLĐ"] === soHD; })[0];
+    if (!cur) { st.hdModal = null; return; }
+    st.hdModal = { ma: ma, so: soHD };
+    var body = h("div", { "data-hd-detail": soHD }), tabs = h("div", { class: "subtabs" }), content = h("div");
+    st.hdTab = st.hdTab || "chitiethd";
+    var draw = function () {
+      tabs.innerHTML = "";
+      HRM.HD_TABS.forEach(function (k) {
+        var n = (db[k] || []).filter(function (r) { return r["Mã NV"] === ma && r["Số HĐLĐ"] === soHD; }).length;
+        tabs.appendChild(h("button", { class: st.hdTab === k ? "on" : "", on: { click: function () { st.hdTab = k; draw(); } } }, [document.createTextNode(HR[k].icon + " " + HR[k].ten), n ? h("span", { class: "n", text: n }) : null]));
+      });
+      content.innerHTML = "";
+      content.appendChild(st.hdTab === "hdld_tailieu" ? hdldPanel(ma, cur) : subTable(st.hdTab, { "Mã NV": ma, "Số HĐLĐ": soHD }));
+    };
+    body.appendChild(h("div", { class: "hint", html: "Cha: hợp đồng <b>" + esc(soHD) + "</b> · " + esc(cur["Hình thức HĐLĐ"] || "") + " · vào làm " + esc(cur["Ngày vào làm"] || "") + ". Các mục con bên dưới tự gắn Mã NV và Số HĐLĐ của hợp đồng này." }));
+    body.appendChild(tabs); body.appendChild(content); draw();
+    modal("Chi tiết hợp đồng " + soHD + " — " + ma, body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true, onClose: function () { st.hdModal = null; render(); } });
+  }
+  function hdReopen() { if (st.hdModal) hdChiTietModal(st.hdModal.ma, st.hdModal.so); }
+
   function tabNhanVien() {
     var nv = db.nhanvien.filter(function (r) { return r["Mã NV"] === st.nv; })[0];
     if (!nv) { st.tab = "nhansu"; return tabNhanSu(); }
@@ -1313,14 +1336,13 @@
     w.appendChild(subTable("hopdong", { "Mã NV": ma }, { selected: cur, onPick: function (r) { st.hd = r["Số HĐLĐ"]; render(); } }));
     if (!cur) return w;
     st.hd = cur["Số HĐLĐ"];
-    w.appendChild(h("div", { class: "hint", html: "Mục con của hợp đồng <b>" + esc(cur["Số HĐLĐ"]) + "</b> (bấm vào hợp đồng khác ở bảng trên để chuyển):" }));
-    var t2 = h("div", { class: "subtabs" }); st.hdTab = st.hdTab || "chitiethd";
-    HRM.HD_TABS.forEach(function (k) {
-      var n = (db[k] || []).filter(function (r) { return r["Mã NV"] === ma && r["Số HĐLĐ"] === cur["Số HĐLĐ"]; }).length;
-      t2.appendChild(h("button", { class: st.hdTab === k ? "on" : "", on: { click: function () { st.hdTab = k; render(); } } }, [document.createTextNode(HR[k].icon + " " + HR[k].ten), n ? h("span", { class: "n", text: n }) : null]));
-    });
-    w.appendChild(t2);
-    w.appendChild(st.hdTab === "hdld_tailieu" ? hdldPanel(ma, cur) : subTable(st.hdTab, { "Mã NV": ma, "Số HĐLĐ": cur["Số HĐLĐ"] }));
+    var nPL = db.chitiethd.filter(function (r) { return r["Mã NV"] === ma && r["Số HĐLĐ"] === cur["Số HĐLĐ"]; }).length;
+    var mc = h("div", { class: "card", "data-hd-master": cur["Số HĐLĐ"] });
+    mc.appendChild(h("div", { class: "bar", style: "margin:0" }, [
+      h("div", { html: "Hợp đồng đang chọn: <b>" + esc(cur["Số HĐLĐ"]) + "</b> (" + esc(cur["Hình thức HĐLĐ"] || "") + ") · " + nPL + " dòng lương & phụ lục. Bấm vào hợp đồng khác ở bảng trên để chuyển." }),
+      h("span", { class: "sp" }),
+      btn("📂 Chi tiết hợp đồng", "pri", function () { if (!leaveOk()) return; hdChiTietModal(ma, cur["Số HĐLĐ"]); }, "Mở cửa sổ cha–con: lương & phụ lục, nghỉ phép, tài liệu… của đúng hợp đồng này")]));
+    w.appendChild(mc);
     return w;
   }
 
@@ -4359,6 +4381,7 @@
     else if (st.tab === "huongdan") m.appendChild(tabHuongDan());
     else if (S[st.tab]) m.appendChild(grid(st.tab, S[st.tab]));
     else { st.tab = "home"; render(); }
+    if (st.hdModal) { if (st.tab === "nv" && !$("#modal").classList.contains("hide") && !$("#modal").classList.contains("drawer") && $("#modal").innerHTML) hdReopen(); else if (st.tab !== "nv") st.hdModal = null; }
   }
   if (window.HAKIcons) { window.HAKIcons.watch($("#app")); window.HAKIcons.watch($("#modal")); }
   render();
