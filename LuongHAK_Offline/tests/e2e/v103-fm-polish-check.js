@@ -38,6 +38,19 @@ const ok = (n, c, x) => { if (!c) fails++; console.log((c ? "PASS " : "FAIL ") +
   const body = await w.locator("[data-ot-table] tbody, [data-ot-table]").first().innerText();
   ok("Số tiền có dấu chấm phân cách hàng nghìn (không còn số trần ≥ 4 chữ số)", !/(^|\s)\d{4,}(\s|$)/.test(body.split("\n").filter((l) => /\t/.test(l)).join(" ")) , body.slice(0, 160).replace(/\s+/g, " "));
   await w.screenshot({ path: path.join(OUT, "03-phu-cap-danh-sach.png") });
+  // --- Ô nhập số tiền trong form
+  await w.click('#main button:has-text("Thêm mã phụ cấp")'); await w.waitForSelector("[data-ot-modal]");
+  const tien = w.locator('[data-ot-modal] input[data-ot-f="tien"]'); await tien.click(); await tien.pressSequentially("1234567");
+  ok("Ô Số tiền: gõ 1234567 hiện 1.234.567", (await tien.inputValue()) === "1.234.567", await tien.inputValue());
+  await tien.fill(""); await tien.pressSequentially("1500000,5");
+  ok("Ô Số tiền: giữ phần thập phân bằng dấu phẩy", (await tien.inputValue()) === "1.500.000,5", await tien.inputValue());
+  await tien.fill(""); await tien.pressSequentially("300000");
+  await w.fill('[data-ot-modal] input[data-ot-f="ma"]', "ZZ1"); await w.fill('[data-ot-modal] input[data-ot-f="ten"]', "Phụ cấp thử định dạng"); await w.fill('[data-ot-modal] input[data-ot-f="tu"]', "01/01/2026");
+  await w.screenshot({ path: path.join(OUT, "04-phu-cap-o-nhap-so-tien.png") });
+  await w.click('[data-ot-modal] button:has-text("Lưu thông tin")'); await w.waitForTimeout(600);
+  await w.click('[data-ot-modal] button:has-text("Đóng")').catch(() => {}); await w.waitForTimeout(300);
+  const zrow = w.locator('tr[data-ot-row="ZZ1"]');
+  ok("Lưu xong: danh sách hiện 300.000 (giá trị lưu là 300000)", (await zrow.count()) === 1 && /300\.000/.test(await zrow.innerText()), (await zrow.count()) ? (await zrow.innerText()).replace(/\s+/g, " ").slice(0, 100) : "không có dòng ZZ1");
   ok("không lỗi JavaScript", errs.length === 0, errs.join(" | "));
   await app.close(); console.log(fails ? "FAILED " + fails : "ALL PASS"); process.exit(fails ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(2); });
