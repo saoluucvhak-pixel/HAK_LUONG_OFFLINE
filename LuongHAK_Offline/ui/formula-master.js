@@ -25,13 +25,13 @@
     /** Danh sách chọn cho ô "Loại công thức": công thức mặc định/có sẵn của hệ thống + khóa công thức đã cấu hình + (tăng ca) mã tăng ca khác. */
     function loaiOpts() {
       var FD = (window.HAKCore && window.HAKCore.formulaDefaults) || {}, seen = { "": 1 }, out = [];
-      out.push(["", IS_OT ? "(Theo mã — công thức mang đúng tên mã này)" : "(Để trống — " + K.fallbackLabel.split(" (")[0] + ")"]);
+      out.push(["", IS_OT ? "Theo mã này (mặc định)" : "(Để trống — " + K.fallbackLabel.split(" (")[0] + ")"]);
       var sys = [];
       if (IS_OT) Object.keys(FD.OVERTIME || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; sys.push([k, k + " — " + String((FD.OVERTIME[k] || {}).ten || "công thức mặc định").replace(/^[^—]*—\s*/, "")]); } });
       else Object.keys(K.builtin || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; sys.push([k, k + " — " + K.builtin[k]]); } });
       if (sys.length) out.push({ group: "Công thức có sẵn của hệ thống", items: sys });
       var cfg = [];
-      (db().dm_congthuc || []).forEach(function (r) { var k = String(r["Mã công thức"] || "").trim(); if (String(r["Loại"] || "") === type && k && !seen[k]) { seen[k] = 1; cfg.push([k, k + (r["Tên công thức"] ? " — " + r["Tên công thức"] : "")]); } });
+      (db().dm_congthuc || []).forEach(function (r) { var k = String(r["Mã công thức"] || "").trim(); if (String(r["Loại"] || "") === type && k && !seen[k]) { seen[k] = 1; cfg.push([k, k + (r["Tên công thức"] ? " — " + r["Tên công thức"] : "") + (r["Trạng thái"] ? " (" + r["Trạng thái"] + ")" : "")]); } });
       if (cfg.length) out.push({ group: "Công thức đã cấu hình", items: cfg });
       if (IS_OT) { var oth = []; OM.parentCodes(db()).forEach(function (c) { if (!seen[c] && c !== (M && M.ma)) { seen[c] = 1; oth.push([c, "Dùng chung công thức của mã " + c]); } }); if (oth.length) out.push({ group: "Dùng chung với mã tăng ca khác", items: oth }); }
       return out;
@@ -193,7 +193,7 @@
       grid.appendChild(fld(K.code, "ma", { req: true, locked: !M.isNew, note: M.isNew ? "Chữ không dấu, số, _ . -" : "Khóa của mã — không đổi" }));
       grid.appendChild(fld(K.name, "ten", { req: true }));
       K.fields.forEach(function (fd) { grid.appendChild(fld(fd.label, fd.key, { note: fd.note, money: fd.type === "money", right: fd.type !== "text", span2: fd.type === "pct" || fd.type === "num" ? !!fd.note || fd.key === "tyLe" : false, show: function (v) { return v === "" ? (fd.type === "pct" && IS_OT ? "(trống)" : "—") : (fd.type === "money" ? money(v) : v); } })); });
-      grid.appendChild(fld("Loại công thức", "loaiCT", { opts: loaiOpts, note: IS_OT ? "Chọn “Theo mã” = dùng công thức mang đúng tên mã này; chọn công thức/mã khác = dùng chung công thức đó" : "Dòng đầu = " + K.fallbackLabel + ". Hoặc chọn công thức có sẵn / công thức đã cấu hình", show: function (v) { return v || (IS_OT ? "(theo mã)" : "(trống — cách tính lịch sử)"); } }));
+      grid.appendChild(fld("Loại công thức", "loaiCT", { opts: loaiOpts, span2: true, note: IS_OT ? "Chọn công thức có sẵn của hệ thống (TC1–TC6) hoặc công thức bạn đã tạo ở Cài đặt → Trình thiết lập công thức. “Theo mã này” = dùng công thức riêng của mã (tab Công thức tính)" : "Dòng đầu = " + K.fallbackLabel + ". Hoặc chọn công thức có sẵn / công thức đã cấu hình", show: function (v) { return v || (IS_OT ? "(theo mã)" : "(trống — cách tính lịch sử)"); } }));
       grid.appendChild(fld("Hiệu lực từ", "tu", { req: true, date: true, show: fdate }));
       grid.appendChild(fld("Hiệu lực đến", "den", { date: true, show: function (v) { return fdate(v) || "không giới hạn"; } }));
       grid.appendChild(fld("Mô tả / cách tính (ghi chú)", "moTa", { area: true, wide: true }));
