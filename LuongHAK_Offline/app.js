@@ -1961,11 +1961,11 @@
   // ---------- Công thức tiền lương — Formula management UI (Master Prompt mục VII) ----------
   var CT_LOAI = [["OVERTIME", "Tăng ca"], ["ALLOWANCE", "Phụ cấp"], ["SUPPORT", "Hỗ trợ"]];
   function ctLoaiTen(v) { var o = CT_LOAI.filter(function (x) { return x[0] === v; })[0]; return o ? o[1] : (v || ""); }
-  var CT_SUBTABS = [["tangca", "Tăng ca"], ["phucap", "Phụ cấp"], ["hotro", "Hỗ trợ"], ["vars", "Thư viện biến"], ["mau", "Mẫu công thức"], ["test", "Kiểm tra công thức"], ["lichsu", "Lịch sử phiên bản"]];
+  var CT_SUBTABS = [["wz", "Trình thiết lập công thức"], ["tangca", "Tăng ca"], ["phucap", "Phụ cấp"], ["hotro", "Hỗ trợ"], ["vars", "Thư viện biến"], ["mau", "Mẫu công thức"], ["test", "Kiểm tra công thức"], ["lichsu", "Lịch sử phiên bản"]];
   var CT_SUBTAB_LOAI = { tangca: "OVERTIME", phucap: "ALLOWANCE", hotro: "SUPPORT" };
   function congThucPanel() {
     var w = h("div"), bar2 = h("div", { class: "bar sub" });
-    st.ct = st.ct || "tangca";
+    st.ct = st.ct || "wz";
     CT_SUBTABS.forEach(function (t) { bar2.appendChild(btn(t[1], st.ct === t[0] ? "pri" : "", function () { st.ct = t[0]; render(); })); });
     w.appendChild(bar2);
     var loai = CT_SUBTAB_LOAI[st.ct];
@@ -1973,11 +1973,71 @@
       var def = Object.assign({}, DM.dm_congthuc, { def: Object.assign({}, DM.dm_congthuc.def, { "Loại": loai }), rowFilter: function (r) { return (r["Loại"] || "") === loai; } });
       w.appendChild(h("div", { class: "hint", text: "Chỉ hiện công thức Loại = " + loai + " (" + ctLoaiTen(loai) + "). Dòng mới tự gán Loại này." }));
       w.appendChild(grid("dm_congthuc", def));
-    } else if (st.ct === "vars") w.appendChild(ctVarsPanel());
+    } else if (st.ct === "wz") w.appendChild(ctWizardPanel());
+    else if (st.ct === "vars") w.appendChild(ctVarsPanel());
     else if (st.ct === "mau") w.appendChild(ctTemplatesPanel());
     else if (st.ct === "test") w.appendChild(ctTestPanel());
     else if (st.ct === "lichsu") w.appendChild(ctHistoryPanel());
     return w;
+  }
+  /** Trình thiết lập công thức (V10): chọn loại → chọn mẫu → nhập số mẫu để xem giải thích bằng số thật → lưu Nháp (qua REPO, vẫn phải duyệt/kích hoạt). */
+  var WZ_SAMPLE = { CONG_CHUAN: 26, CONG_TINH_LUONG: 28, CONG_TC: 2, CONG_LE: 0, CONG_PHEP: 0, CONG_TRUNG_CHUYEN: 0, CONG_DI_CHUYEN: 0, CONG_CHU_NHAT: 1, CONG_CHUAN_2: 0, HE_SO_TC: 1.5, MUC_PHU_CAP: 500000, NGUONG_PHU_CAP: 2, CONG_HUONG_PHU_CAP: 24, SO_NGAY_DUOC_HUONG: 10, MUC_HO_TRO: 50000, CONG_THUC_TE: 24, SO_XE_HOP_LE: 8, DON_GIA_HO_TRO: 20000 };
+  function ctWizardPanel() {
+    var Wz = st.ctWz = st.ctWz || { loai: "OVERTIME", mau: 0, vars: {}, ma: "", ten: "", tu: "" };
+    var box = h("div", { class: "card", "data-ct-wizard": "1" });
+    box.appendChild(h("div", { class: "hint", text: "Làm theo 4 bước: (1) chọn loại, (2) chọn mẫu gần nhất với quy chế, (3) nhập số ví dụ để xem công thức tính ra bao nhiêu, (4) đặt mã/tên và lưu Nháp. Công thức lưu ở trạng thái Nháp, vẫn phải Gửi duyệt → Duyệt → Kích hoạt; kỳ lương đã chốt không bị đổi." }));
+    var step = function (n, t) { box.appendChild(h("div", { class: "fh", text: "Bước " + n + " — " + t })); };
+    step(1, "Loại công thức");
+    var bar = h("div", { class: "bar" });
+    CT_LOAI.forEach(function (lo) { bar.appendChild(btn(ctLoaiTen(lo[0]), Wz.loai === lo[0] ? "pri" : "", function () { Wz.loai = lo[0]; Wz.mau = 0; Wz.vars = {}; render(); })); });
+    box.appendChild(bar);
+    var mau = CT_TEMPLATES.filter(function (x) { return x.loai === Wz.loai; });
+    step(2, "Chọn mẫu");
+    var sel = h("select", { "aria-label": "Mẫu công thức", style: "max-width:100%" });
+    mau.forEach(function (x, i) { sel.appendChild(h("option", { value: i, text: x.ten })); }); sel.value = Wz.mau;
+    sel.addEventListener("change", function () { Wz.mau = +sel.value; Wz.vars = {}; render(); });
+    box.appendChild(sel);
+    var T = mau[Wz.mau]; if (!T) return box;
+    box.appendChild(h("div", { class: "hint", text: T.moTa }));
+    box.appendChild(h("div", { style: "font-family:monospace;background:var(--brandSoft, #eef3e8);padding:6px;border-radius:6px;word-break:break-all", text: T.bieuThuc }));
+    step(3, "Thử bằng số ví dụ");
+    var names = ctRefVars(T.bieuThuc), ctx = {}, vt = h("table");
+    vt.appendChild(h("tr", {}, [h("th", { text: "Biến" }), h("th", { text: "Ý nghĩa" }), h("th", { text: "Số ví dụ" })]));
+    names.forEach(function (n) {
+      if (Wz.vars[n] === undefined) Wz.vars[n] = WZ_SAMPLE[n] != null ? WZ_SAMPLE[n] : 0;
+      ctx[n] = +Wz.vars[n] || 0;
+      var inp = h("input", { class: "num", value: Wz.vars[n] });
+      inp.addEventListener("change", function () { Wz.vars[n] = E.num(inp.value); render(); });
+      vt.appendChild(h("tr", {}, [h("td", { class: "t", html: "<code>" + esc(n) + "</code>" }), h("td", { class: "t", text: (FML.variables.get(n) || {}).label || "" }), h("td", {}, [inp])]));
+    });
+    box.appendChild(h("div", { class: "tw" }, [vt]));
+    var kq = null, loi = null;
+    try { kq = Math.round(FML.evaluate(T.bieuThuc, ctx)); } catch (e) { loi = e.message; }
+    var cuThe = T.bieuThuc; names.slice().sort(function (a, b) { return b.length - a.length; }).forEach(function (n) { cuThe = cuThe.split(n).join(String(ctx[n])); });
+    var ex = h("div", { class: "slip", "data-ct-wizard-explain": "1" });
+    ex.appendChild(h("div", { html: "<b>Giải thích bằng số:</b> thay số ví dụ vào công thức:" }));
+    ex.appendChild(h("div", { style: "font-family:monospace;word-break:break-all;margin:4px 0", text: cuThe }));
+    ex.appendChild(h("div", { html: loi ? "⚠ Lỗi: " + esc(loi) : "<b>Kết quả: " + esc(fmt(kq)) + "</b> (đơn vị: " + (Wz.loai === "OVERTIME" ? "công/tiền tăng ca theo mẫu" : "VND") + ")" }));
+    box.appendChild(ex);
+    step(4, "Đặt tên và lưu Nháp");
+    var f = h("div", { class: "bar" });
+    var iMa = h("input", { placeholder: "Mã công thức (VD: TC7)", value: Wz.ma, "aria-label": "Mã công thức" });
+    var iTen = h("input", { placeholder: "Tên công thức", value: Wz.ten || T.ten, style: "min-width:260px", "aria-label": "Tên công thức" });
+    var iTu = h("input", { class: "dateinp", placeholder: "dd/MM/yyyy", value: Wz.tu, "aria-label": "Hiệu lực từ" });
+    iMa.addEventListener("change", function () { Wz.ma = iMa.value.trim(); }); iTen.addEventListener("change", function () { Wz.ten = iTen.value; }); iTu.addEventListener("change", function () { Wz.tu = iTu.value; });
+    f.appendChild(iMa); f.appendChild(iTen); f.appendChild(iTu);
+    f.appendChild(btn("Lưu thành Nháp", "pri", function () {
+      Wz.ma = iMa.value.trim(); Wz.ten = iTen.value; Wz.tu = iTu.value;
+      if (!Wz.ma) { alert("Nhập Mã công thức."); return; }
+      if (loi) { alert("Công thức đang lỗi, chưa lưu được."); return; }
+      var tuIso = Wz.tu ? VAL.normDate(Wz.tu) : ""; if (Wz.tu && !tuIso) { alert("Hiệu lực từ không đúng dạng dd/MM/yyyy."); return; }
+      var fenv = { can: can, user: session ? session.tenDangNhap : "", db: db };
+      var vals = { "Mã công thức": Wz.ma, "Tên công thức": Wz.ten || T.ten, "Loại": Wz.loai, "Biểu thức": T.bieuThuc, "Hiệu lực từ": tuIso, "Trạng thái": "Nháp", "Phiên bản": FAP.nextVersion(db, Wz.ma, Wz.loai), "Người lập": fenv.user, "Mô tả": T.moTa };
+      if (!commit(REPO.plan("insert", "dm_congthuc", null, vals, { what: "tạo công thức từ trình thiết lập" }), { action: "Công thức tiền lương — Tạo Nháp " + Wz.ma })) return;
+      save(); toast("Đã lưu công thức " + Wz.ma + " ở trạng thái Nháp. Vào tab " + ctLoaiTen(Wz.loai) + " để Gửi duyệt."); st.ctWz = null; render();
+    }));
+    box.appendChild(f);
+    return box;
   }
   /** Tab "Thư viện biến" (mục VII, tab 4) — danh sách biến được khai báo, chỉ xem. */
   function ctVarsPanel() {

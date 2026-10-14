@@ -220,7 +220,13 @@ async function launch(dataDir, opt) {
   // Master Prompt mục VII: Danh mục → Công thức tiền lương — 7 tab, lọc theo Loại, thư viện biến, mẫu, chạy thử, lịch sử
   await w.click("#nav button[data-k=caidat]");
   const ctTabs = await w.locator(".bar.sub button").allInnerTexts();
-  ok("Công thức tiền lương: đủ 7 tab (mục VII)", ["Tăng ca", "Phụ cấp", "Hỗ trợ", "Thư viện biến", "Mẫu công thức", "Kiểm tra công thức", "Lịch sử phiên bản"].every((t) => ctTabs.includes(t)), ctTabs.join(", "));
+  ok("Công thức tiền lương: đủ 7 tab (mục VII) + Trình thiết lập", ["Trình thiết lập công thức", "Tăng ca", "Phụ cấp", "Hỗ trợ", "Thư viện biến", "Mẫu công thức", "Kiểm tra công thức", "Lịch sử phiên bản"].every((t) => ctTabs.includes(t)), ctTabs.join(", "));
+  const wzTxt = await w.locator("[data-ct-wizard]").innerText();
+  ok("V10: Trình thiết lập công thức — có 4 bước, giải thích bằng số thật và kết quả", /Bước 1/.test(wzTxt) && /Bước 4/.test(wzTxt) && (await w.locator("[data-ct-wizard-explain]").innerText()).includes("Kết quả"));
+  await w.fill('[data-ct-wizard] input[aria-label="Mã công thức"]', "WZ_E2E"); await w.dispatchEvent('[data-ct-wizard] input[aria-label="Mã công thức"]', "change");
+  await w.click('[data-ct-wizard] button:has-text("Lưu thành Nháp")'); await w.waitForTimeout(300);
+  await w.locator(".bar.sub button", { hasText: "Tăng ca" }).click();
+  ok("V10: Trình thiết lập — công thức lưu ở trạng thái Nháp trong tab Tăng ca", await w.locator("main tbody tr input").evaluateAll((l) => l.some((x) => x.value === "WZ_E2E")) || (await w.locator("main").innerText()).includes("WZ_E2E"));
   await w.click('main button:has-text("Thêm mới")');
   const ctRow = w.locator("main tbody tr.catedit").locator("input");
   await ctRow.nth(0).fill("2020-01-01"); await ctRow.nth(0).dispatchEvent("change");
@@ -252,6 +258,7 @@ async function launch(dataDir, opt) {
   const ctResult = await w.locator("main .kpis .kpi").first().innerText();
   ok("Kiểm tra công thức: CONG_TC=10, HE_SO_TC=2 → 10×2×2 = 40 (không ghi vào bảng lương thật)", /40/.test(ctResult), ctResult.replace(/\s+/g, " "));
   await w.locator(".bar.sub button", { hasText: "Lịch sử phiên bản" }).click();
+  await w.locator("main select").first().selectOption("TC_E2E");
   const histTxt = await w.locator("main").innerText();
   ok("Lịch sử phiên bản: hiện đúng mã (chọn mặc định đã là mã duy nhất) + phiên bản Trạng thái Hiệu lực + biểu thức", histTxt.includes("TC_E2E") && histTxt.includes("Hiệu lực") && histTxt.includes("CONG_TC * HE_SO_TC * 2"), histTxt.replace(/\s+/g, " ").slice(0, 300));
   ok("Lịch sử phiên bản: V9.4 mọi lần Lưu danh mục đều ghi nhật ký (hiện dòng Thêm danh mục của TC_E2E)", histTxt.includes("Thêm danh mục") || histTxt.includes("Chưa có nhật ký khớp mã này"), histTxt.replace(/\s+/g, " ").slice(0, 300));
