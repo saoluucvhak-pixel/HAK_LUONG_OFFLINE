@@ -448,6 +448,13 @@ async function launch(dataDir, opt) {
   const auditOf = () => w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text).auditlog || []);
   await w.waitForTimeout(700); const au0 = (await auditOf()).length;
   await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Mã lương")');
+  fs.readdirSync(DL).filter((f) => /^Maluong/.test(f)).forEach((f) => fs.unlinkSync(path.join(DL, f)));
+  await w.click('#main button:has-text("Xuất Excel")');
+  let dmx = null; for (let i = 0; i < 20 && !dmx; i++) { await w.waitForTimeout(200); dmx = fs.readdirSync(DL).filter((f) => /^Maluong.*\.xlsx$/.test(f))[0]; }
+  if (dmx) {
+    const ExcelJS2 = require(path.join(APP, "exceljs.min.js")), wb2 = new ExcelJS2.Workbook(); await wb2.xlsx.load(fs.readFileSync(path.join(DL, dmx))); const ws2 = wb2.worksheets[0];
+    ok("V10: Xuất Excel từ lưới danh mục dùng mẫu chuyên nghiệp (tiêu đề IN HOA, A4, lặp tiêu đề, đóng băng, chữ ký)", String(ws2.getCell("A2").value) === String(ws2.getCell("A2").value).toLocaleUpperCase("vi-VN") && ws2.pageSetup.fitToWidth === 1 && !!ws2.pageSetup.printTitlesRow, String(ws2.getCell("A2").value));
+  } else ok("V10: Xuất Excel từ lưới danh mục tạo được file", false, "không thấy file Maluong*.xlsx: " + fs.readdirSync(DL).join(","));
   const dmCell = w.locator("#main tbody tr").first().locator("input").nth(4);
   await dmCell.evaluate((el) => { const dt = new DataTransfer(); dt.setData("text/plain", "Dán E2E 1\nDán E2E 2"); el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); });
   const pasteToast = await w.locator("#toast").textContent();

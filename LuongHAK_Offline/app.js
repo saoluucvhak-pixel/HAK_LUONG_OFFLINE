@@ -294,6 +294,7 @@
   function saveXlsx(filename, sheets, kind) { // sheets: [{name, cols, rows}] · kind "template" = file mẫu trống (không chứa dữ liệu)
     if (kind !== "template" && !need("export", "xuất dữ liệu ra Excel")) return;
     if (kind !== "template" && formulaErrorsBlock(filename)) return;
+    if (kind === "pro" && sheets.length === 1 && proXlsx(filename, sheets[0])) return;
     if (!window.XLSX) { alert("Thiếu thư viện Excel"); return; }
     var wb = XLSX.utils.book_new();
     sheets.forEach(function (sh) {
@@ -303,6 +304,25 @@
       XLSX.utils.book_append_sheet(wb, ws, sheetName(sh.name));
     });
     XLSX.writeFile(wb, filename);
+  }
+  /** V10: xuất 1 bảng bằng mẫu Excel chuyên nghiệp (tiêu đề công ty, tên báo cáo, ngày lập, dòng tổng, chữ ký, A4, lặp tiêu đề). Trả true nếu đã xử lý. */
+  function proXlsx(filename, sh) {
+    if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx || !sh.rows || !sh.rows.length) return false;
+    var isoVn = function (v) { var m = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(String(v == null ? "" : v)); return m ? m[3] + "/" + m[2] + "/" + m[1] : v; };
+    var cols = sh.cols.map(function (c, i) {
+      var vals = sh.rows.map(function (r) { return r[c]; }).filter(function (v) { return v !== "" && v != null; });
+      var allNum = vals.length > 0 && vals.every(function (v) { return typeof v === "number" || (/^-?\d+(\.\d+)?$/.test(String(v)) && String(v).replace(/^-/, "").charAt(0) !== "0") || String(v) === "0"; });
+      var kind = MONEYCOLS.test(c) && allNum ? "money" : allNum && !/^(Mã|Số|CCCD|STK|MST)/.test(c) ? "num" : "text";
+      return { key: "c" + i, label: c, kind: kind };
+    });
+    var rows = sh.rows.map(function (r) { var o = {}; sh.cols.forEach(function (c, i) { o["c" + i] = cols[i].kind === "text" ? isoVn(r[c]) : (r[c] === "" || r[c] == null ? "" : +r[c]); }); return o; });
+    var tong = {}; cols.forEach(function (c) { if (c.kind === "money") tong[c.key] = rows.reduce(function (a, r) { return a + (+r[c.key] || 0); }, 0); });
+    var d = new Date(), pad = function (n) { return ("0" + n).slice(-2); };
+    var vm = { title: String(sh.name || filename).toLocaleUpperCase("vi-VN"), congTy: congTy()["Tên công ty"] || "", kyText: "Kỳ làm việc: " + kyLabel(kyStr()), phamVi: "Theo bộ lọc đang chọn", ngayLap: pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(), cols: cols, rows: rows, tong: tong, nguoiLap: currentUser() };
+    window.HAKUi.reportXlsx.build(window.ExcelJS, vm, { chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"], nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
+      download(filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+    }, function (e) { alert("Không tạo được file: " + e.message); });
+    return true;
   }
   function sheetName(t) { return t.replace(/[\\\/\?\*\[\]:]/g, "").replace(/\s+/g, " ").trim().slice(0, 31); }
   function slug(t) { return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, ""); }
@@ -649,7 +669,7 @@
       bar.appendChild(btn("🖨 In", "", function () { if (!need("export", "in")) return; window.print(); }));
     }
     if (pcMode) bar.appendChild(btn("⬇ PDF", "", function () { var rows = pcRows(); exportSheetsPdf({ title: def.ten + " (đã lọc)", ky: pcScopeText(key), sheets: [{ name: def.ten, rows: rows.map(function (r) { var o = {}; def.cols.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); return o; }) }] }, slug(def.ten) + "_loc.pdf"); }, "Xuất đúng các dòng đang lọc"));
-    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = pcMode ? pcRows() : inMode ? inRows() : db[key].filter(function (r) { return (!theoKy || rowInKy(r, def)) && (!def.rowFilter || def.rowFilter(r)); }); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }]); }));
+    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = pcMode ? pcRows() : inMode ? inRows() : db[key].filter(function (r) { return (!theoKy || rowInKy(r, def)) && (!def.rowFilter || def.rowFilter(r)); }); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }], "pro"); }));
     card.appendChild(bar);
     if (pcMode) { card.appendChild(phieuCanFilterBar(key, function () { draw(); })); card.appendChild(pcTot); }
     if (inMode) { INDEX_PB = null; card.appendChild(inputFilterBar(key, function () { draw(); })); card.appendChild(pcTot); }
