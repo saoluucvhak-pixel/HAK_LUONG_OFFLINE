@@ -177,22 +177,22 @@
       var sh = M.ma ? OM.sharedWith(db(), M.ma) : null;
       var grid = h("div", { class: "fgrid ot-info" });
       var fld = function (lbl, key, o) {
-        o = o || {}; var box = h("div", { class: "fld" + (o.wide ? " wide" : "") }), inp;
+        o = o || {}; var box = h("div", { class: "fld" + (o.wide ? " wide" : "") + (o.span2 ? " span2" : "") }), inp;
         box.appendChild(h("label", { text: lbl + (o.req && !ro ? " *" : "") }));
-        if (ro) { box.appendChild(h("div", { class: "ot-ro", "data-ot-ro": key, text: o.show ? o.show(f[key]) : (f[key] === "" ? "—" : String(f[key])) })); return box; }
+        if (ro) { box.appendChild(h("div", { class: "ot-ro" + (o.right || o.money ? " rt" : ""), "data-ot-ro": key, text: o.show ? o.show(f[key]) : (f[key] === "" ? "—" : String(f[key])) })); return box; }
         if (o.date) { inp = A.dateField(f[key], { "aria-label": lbl }); inp.addEventListener("change", function () { var v = A.dateIso(inp); f[key] = v === null ? inp.value : v || ""; dirty(); }); }
         else if (o.area) { inp = h("textarea", { rows: 2, "aria-label": lbl }); inp.value = f[key]; inp.addEventListener("input", function () { f[key] = inp.value; dirty(); }); }
         else if (o.opts) { inp = h("select", { "aria-label": lbl }); var cur = String(f[key] == null ? "" : f[key]), seen0 = false;
           o.opts().forEach(function (g) { var og = g.group ? h("optgroup", { label: g.group }) : null; (g.items || [g]).forEach(function (it) { var op = h("option", { value: it[0], text: it[1] }); if (it[0] === cur) { op.selected = true; seen0 = true; } (og || inp).appendChild(op); }); if (og) inp.appendChild(og); });
           if (!seen0 && cur) { var op2 = h("option", { value: cur, text: cur + " (giá trị hiện tại — không còn trong danh sách)" }); op2.selected = true; inp.appendChild(op2); }
           inp.addEventListener("change", function () { f[key] = inp.value; dirty(); }); }
-        else if (o.money) { inp = h("input", { "aria-label": lbl, value: moneyShow(f[key]), class: o.cls || "", inputmode: "decimal", autocomplete: "off" }); inp.addEventListener("input", function () { f[key] = moneyEdit(inp); dirty(); }); }
-        else { inp = h("input", { "aria-label": lbl, value: f[key], class: o.cls || "" }); if (o.locked) inp.disabled = true; inp.addEventListener("input", function () { f[key] = inp.value; dirty(); }); }
+        else if (o.money) { inp = h("input", { "aria-label": lbl, value: moneyShow(f[key]), class: (o.cls || "") + " rt", inputmode: "decimal", autocomplete: "off" }); inp.addEventListener("input", function () { f[key] = moneyEdit(inp); dirty(); }); }
+        else { inp = h("input", { "aria-label": lbl, value: f[key], class: (o.cls || "") + (o.right ? " rt" : "") }); if (o.locked) inp.disabled = true; inp.addEventListener("input", function () { f[key] = inp.value; dirty(); }); }
         inp.setAttribute("data-ot-f", key); box.appendChild(inp); if (o.note) box.appendChild(h("div", { class: "hint", style: "margin:2px 0 0", text: o.note })); return box;
       };
       grid.appendChild(fld(K.code, "ma", { req: true, locked: !M.isNew, note: M.isNew ? "Chữ không dấu, số, _ . -" : "Khóa của mã — không đổi" }));
       grid.appendChild(fld(K.name, "ten", { req: true }));
-      K.fields.forEach(function (fd) { grid.appendChild(fld(fd.label, fd.key, { note: fd.note, money: fd.type === "money", show: function (v) { return v === "" ? (fd.type === "pct" && IS_OT ? "(trống)" : "—") : (fd.type === "money" ? money(v) : v); } })); });
+      K.fields.forEach(function (fd) { grid.appendChild(fld(fd.label, fd.key, { note: fd.note, money: fd.type === "money", right: fd.type !== "text", span2: fd.type === "pct" || fd.type === "num" ? !!fd.note || fd.key === "tyLe" : false, show: function (v) { return v === "" ? (fd.type === "pct" && IS_OT ? "(trống)" : "—") : (fd.type === "money" ? money(v) : v); } })); });
       grid.appendChild(fld("Loại công thức", "loaiCT", { opts: loaiOpts, note: IS_OT ? "Chọn “Theo mã” = dùng công thức mang đúng tên mã này; chọn công thức/mã khác = dùng chung công thức đó" : "Dòng đầu = " + K.fallbackLabel + ". Hoặc chọn công thức có sẵn / công thức đã cấu hình", show: function (v) { return v || (IS_OT ? "(theo mã)" : "(trống — cách tính lịch sử)"); } }));
       grid.appendChild(fld("Hiệu lực từ", "tu", { req: true, date: true, show: fdate }));
       grid.appendChild(fld("Hiệu lực đến", "den", { date: true, show: function (v) { return fdate(v) || "không giới hạn"; } }));
@@ -547,7 +547,7 @@
       t.appendChild(h("tr", {}, ["Chỉ tiêu", "Công thức hiện tại", "Phiên bản thử"].map(function (x) { return h("th", { text: x }); })));
       out.rows.forEach(function (r) {
         var nd = function (x) { return x === "Chưa có dữ liệu" ? h("td", { class: "t", style: "color:#a15c00;font-style:italic", text: x }) : h("td", { class: "t num" + (r.laKq ? " b" : ""), style: r.laChenh && typeof r.moi === "number" && r.moi ? "color:#c0362c;font-weight:700" : "", text: typeof x === "number" ? fmt(x) : String(x) }); };
-        if (r.laGhiChu) { t.appendChild(h("tr", { "data-ot-trownote": "1" }, [h("td", { class: "t", colspan: 3, style: "background:#f6f8fa;color:#4a5560;font-style:italic", text: r.chiTieu })])); return; }
+        if (r.laGhiChu) { t.appendChild(h("tr", { "data-ot-trownote": "1" }, [h("td", { colspan: 3, class: "t ot-note", style: "font-style:italic", text: r.chiTieu })])); return; }
         t.appendChild(h("tr", { "data-ot-trow": r.chiTieu }, [h("td", { class: "t", text: r.chiTieu }), nd(r.cu), nd(r.moi)]));
       });
       w.appendChild(h("div", { class: "tw", style: "max-height:none" }, [t]));

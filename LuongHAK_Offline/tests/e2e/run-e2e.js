@@ -573,7 +573,7 @@ async function launch(dataDir, opt) {
     ok("UI: Lịch sử nhân viên có quá trình lương + dòng thời gian thay đổi (trước → sau)", /Quá trình lương/.test(ls) && /Biến động: Tăng lương/.test(ls) && /0905000999/.test(ls), ls.slice(0, 200).replace(/\n/g, " "));
     await w.click('.dlg footer button:has-text("Đóng")');
     await w.click("#nav button[data-k=baocao]"); await w.click('#main button:has-text("Biến động nhân sự")');
-    await w.locator('#main input[type=month]').nth(1).fill("2026-12"); await w.locator('#main input[type=month]').nth(1).dispatchEvent("change"); await w.waitForTimeout(300);
+    await w.locator("#main select[aria-label='Kỳ lương']").nth(1).selectOption("2026-12"); await w.waitForTimeout(300);
     const bd = await w.locator("#main").innerText();
     ok("UI: Báo cáo biến động nhân sự liệt kê tăng lương 12.000.000 → 13.200.000", /Tăng lương/.test(bd) && /13\.200\.000|13200000/.test(bd), bd.slice(0, 160).replace(/\n/g, " "));
   }

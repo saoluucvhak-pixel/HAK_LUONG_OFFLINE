@@ -73,8 +73,8 @@ main>*{max-width:1400px;margin-left:auto;margin-right:auto}
 .card h3{margin:0 0 10px;font-size:16px;font-weight:650;display:flex;align-items:center}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .sp{flex:1}
-button.b,select,input.i,.fld input,.fld select{font:inherit;padding:7px 12px;border:1px solid var(--ctl);border-radius:10px;background:var(--field);color:var(--ink)}
-select:focus,input.i:focus,.fld input:focus,.fld select:focus,.fld textarea:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 .2rem var(--focus)}
+button.b,select,input.i,input.dateinp,.fld input,.fld select{font:inherit;padding:7px 12px;border:1px solid var(--ctl);border-radius:10px;background:var(--field);color:var(--ink)}
+select:focus,input.i:focus,input.dateinp:focus,.fld input:focus,.fld select:focus,.fld textarea:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 .2rem var(--focus)}
 button.b{cursor:pointer;font-weight:500;transition:background .15s,border-color .15s,box-shadow .15s;min-height:38px}button.b:hover{border-color:var(--brand)}
 button.b:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 button.pri{background:var(--brand);color:var(--onBrand);border-color:var(--brand);font-weight:600;box-shadow:0 6px 16px -8px rgba(14,124,134,.6)}button.pri:hover{background:var(--brandH);border-color:var(--brandH);color:var(--onBrand)}
@@ -206,6 +206,8 @@ tfoot td{position:sticky;bottom:0;background:var(--okBg);font-weight:700;padding
 .diff.none>div:first-child{color:var(--mut);font-weight:500}
 .slip table td{padding:5px 8px;border-bottom:1px dotted var(--line)}.slip td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 .slip tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+.slip tr.sec td{text-align:left!important;font-weight:700;background:var(--brandSoft);color:var(--ink);padding-top:6px;padding-bottom:6px;border-bottom:0}
+.slip tr.grand td{font-size:1.08em;background:var(--th)}
 .slip .head{margin-bottom:8px}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0f2740;color:#fff;padding:11px 18px;border-radius:12px;box-shadow:0 10px 30px -10px rgba(0,0,0,.45);opacity:0;transition:.25s;pointer-events:none;z-index:99;max-width:min(560px,90vw)}
 #toast.show{opacity:.97}
@@ -391,6 +393,7 @@ table.kt td.kt-warning { color: #b54708; }
 table.kt td.kt-info { color: #475467; }
 .dlg.wide{width:min(1180px,100%)}
 input.dateinp{width:112px;text-align:center}
+.fld input.dateinp{width:100%;text-align:left}
 input.dateinp.invalid{border-color:#b42318;background:#fef3f2;color:#b42318}
 td input.money{min-width:110px;font-variant-numeric:tabular-nums}
 table.kt{table-layout:fixed;width:100%}
@@ -465,3 +468,12 @@ body.sfd-open #modal{z-index:1200}
 .fpop .btn.ghost,.fchips .btn.ghost{background:transparent;min-height:30px;padding:3px 10px}
 .fchip{color:var(--ink)}
 .sfd-f .i,.sfd-f select{width:100%}
+
+/* Bảng có nhóm/tổng: dùng biến màu để đọc được ở cả giao diện sáng và tối */
+th.th-grp{text-align:center;background:var(--brandSoft);color:var(--ink)}
+td.td-grp{font-weight:700;background:var(--th);color:var(--ink)}
+tr.tr-sum td{font-weight:700;background:var(--hover);color:var(--ink);border-top:1px solid var(--line)}
+td.ot-note{background:var(--th);color:var(--mut)}
+.fld input.rt,.ot-ro.rt{text-align:right}
+.fgrid .fld.span2{grid-column:span 2}
+@media (max-width:900px){.fgrid .fld.span2{grid-column:1/-1}}

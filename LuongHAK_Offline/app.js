@@ -570,6 +570,15 @@
     if (dateCol) (rows || []).forEach(function (r) { var d = LF.isoDay(r[dateCol]); if (d) ids[d.slice(0, 7)] = 1; }); ids[kyStr()] = 1;
     return Object.keys(ids).sort().reverse().map(function (k) { return { value: k, label: "Kỳ " + k.slice(5) + "/" + k.slice(0, 4) + (kyChot(k) ? " 🔒" : "") }; });
   }
+  /** Ô chọn kỳ dạng "Kỳ MM/YYYY" (cùng kiểu bộ lọc Smart Filter) — dùng thay ô tháng gốc của trình duyệt (hiện tiếng Anh, không đồng bộ giao diện). */
+  function kyPicker(value, attrs) {
+    var ids = {}, sel = h("select", Object.assign({ "aria-label": "Kỳ lương" }, attrs || {}));
+    (db.kyluong || []).forEach(function (k) { if (k.ky) ids[k.ky] = 1; });
+    for (var d = -36; d <= 6; d++) { var dt = new Date(st.nam, st.thang - 1 + d, 1); ids[dt.getFullYear() + "-" + ("0" + (dt.getMonth() + 1)).slice(-2)] = 1; }
+    if (value) ids[value] = 1;
+    Object.keys(ids).sort().reverse().forEach(function (k) { var o = h("option", { value: k, text: "Kỳ " + k.slice(5) + "/" + k.slice(0, 4) + (kyChot(k) ? " 🔒" : "") }); if (k === value) o.selected = true; sel.appendChild(o); });
+    return sel;
+  }
   function plfOf(key) { st.plf = st.plf || {}; return st.plf[key] = st.plf[key] || { pb: [], tu: "", den: "", thang: "", ky: "" }; }
   function catF(key) { st.catf = st.catf || {}; return st.catf[key] = st.catf[key] || { tt: "", hl: "" }; }
   /** Danh mục: lọc theo Trạng thái và Hiệu lực (đang / chưa / đã hết) tại ngày hôm nay — chỉ chọn dòng hiển thị. */
@@ -1637,7 +1646,7 @@
     var card = h("div", { class: "card" }), tools = h("div", { class: "bar" }), rows = [], title = BC.filter(function (b) { return b[0] === st.bc; })[0][1].replace(/^\S+\s/, "");
     card.appendChild(tools);
     if (st.bc === "biendong") {
-      var mk = function (v, set) { var i = h("input", { class: "i", type: "month", value: v, style: "width:150px" }); i.addEventListener("change", function () { if (i.value) { set(i.value); render(); } }); return i; };
+      var mk = function (v, set) { var i = kyPicker(v); i.addEventListener("change", function () { if (i.value) { set(i.value); render(); } }); return i; };
       var den0 = st.bdDen || kyStr(), tu0 = st.bdTu || (function () { var d = new Date(+den0.slice(0, 4), +den0.slice(5, 7) - 3, 1); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2); })();
       tools.appendChild(h("label", { text: "Từ " })); tools.appendChild(mk(tu0, function (v) { st.bdTu = v; }));
       tools.appendChild(h("label", { text: "đến " })); tools.appendChild(mk(den0, function (v) { st.bdDen = v; }));
@@ -1875,7 +1884,9 @@
         if (d["Đến ngày"] && d["Đến ngày"] < d["Từ ngày"]) { alert("'Đến ngày' phải sau hoặc bằng 'Từ ngày'."); return; }
         var vals = isNew ? Object.assign({}, data, d) : d;
         if (!commit(REPO.plan(isNew ? "insert" : "update", "nghiepvu_nhansu", isNew ? null : row, vals, { what: (isNew ? "lập " : "sửa ") + "đề nghị nhân sự", checkDup: true }), { action: isNew ? "Lập đề nghị nhân sự" : "Sửa đề nghị nhân sự" })) return;
-        close(); save(); render(); toast("Đã lưu đề nghị " + vals["Mã phiếu"]);
+        close(); save();
+        var Fn = st.nvf; if (Fn && vals["Từ ngày"] && ((Fn.tu && vals["Từ ngày"] < Fn.tu) || (Fn.den && vals["Từ ngày"] > Fn.den))) { Fn.tu = ""; Fn.den = ""; Fn.tuManual = Fn.denManual = true; } // đề nghị mới nằm ngoài khoảng ngày đang lọc → bỏ khoảng ngày để người lập thấy ngay phiếu vừa lưu
+        render(); toast("Đã lưu đề nghị " + vals["Mã phiếu"]);
       })];
     }, { drawer: true });
   }
@@ -1904,9 +1915,11 @@
   function tabNghiepVuNS() {
     var w = h("div"), card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
     var F = st.nvf = st.nvf || { q: "", loai: "", tt: "", tu: "", den: "" };
+    var kb = SFC.periodBounds(kyStr()) || ["", ""]; // Từ–Đến mặc định = ngày đầu và cuối của kỳ lương đang chọn; người dùng sửa tay thì giữ nguyên
+    if (!F.tuManual) F.tu = kb[0]; if (!F.denManual) F.den = kb[1];
     var q = h("input", { class: "i", placeholder: "🔍 Tìm mã / tên nhân viên, mã phiếu (không cần dấu)", value: F.q, style: "min-width:260px", "aria-label": "Tìm nhân viên" });
     var sel = function (key, lab, opts) { var e = h("select", { "aria-label": lab }); e.appendChild(h("option", { value: "", text: lab + ": tất cả" })); opts.forEach(function (o) { e.appendChild(h("option", { value: o, text: o })); }); e.value = F[key]; e.addEventListener("change", function () { F[key] = e.value; render(); }); return e; };
-    var dt = function (key, lab) { var e = dateField(F[key], { "aria-label": lab, title: lab }); e.addEventListener("change", function () { var iv = dateIso(e); if (iv === null) { toast("⚠ Ngày không hợp lệ — nhập dd/MM/yyyy"); return; } F[key] = iv; render(); }); return e; };
+    var dt = function (key, lab) { var e = dateField(F[key], { "aria-label": lab, title: lab }); e.addEventListener("change", function () { var iv = dateIso(e); if (iv === null) { toast("⚠ Ngày không hợp lệ — nhập dd/MM/yyyy"); return; } F[key] = iv; F[key + "Manual"] = true; render(); }); return e; };
     q.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { F.q = q.value; render(); } }); q.addEventListener("change", function () { F.q = q.value; render(); });
     if (can("hr.edit")) bar.appendChild(btn("＋ Lập đề nghị", "pri", function () { nvnsForm(null); }));
     bar.appendChild(q); bar.appendChild(sel("loai", "Loại", NVNS_LOAI)); bar.appendChild(sel("tt", "Trạng thái", ["Nháp", "Chờ duyệt", "Đã duyệt", "Từ chối"]));
@@ -2202,12 +2215,13 @@
     ex.appendChild(h("div", { html: loi ? "⚠ Lỗi: " + esc(loi) : "<b>Kết quả: " + esc(fmt(kq)) + "</b> (đơn vị: " + (Wz.loai === "OVERTIME" ? "công/tiền tăng ca theo mẫu" : "VND") + ")" }));
     box.appendChild(ex);
     step(4, "Đặt tên và lưu Nháp");
-    var f = h("div", { class: "bar" });
-    var iMa = h("input", { placeholder: "Mã công thức (VD: TC7)", value: Wz.ma, "aria-label": "Mã công thức" });
-    var iTen = h("input", { placeholder: "Tên công thức", value: Wz.ten || T.ten, style: "min-width:260px", "aria-label": "Tên công thức" });
-    var iTu = h("input", { class: "dateinp", placeholder: "dd/MM/yyyy", value: Wz.tu, "aria-label": "Hiệu lực từ" });
+    var f = h("div", { class: "fgrid", style: "align-items:end" });
+    var fld = function (lab, ctl, wide) { return h("div", { class: "fld" + (wide ? " wide" : "") }, [h("label", { text: lab }), ctl]); };
+    var iMa = h("input", { placeholder: "VD: TC7", value: Wz.ma, "aria-label": "Mã công thức", autocomplete: "off" });
+    var iTen = h("input", { placeholder: "Tên công thức", value: Wz.ten || T.ten, "aria-label": "Tên công thức", autocomplete: "off" });
+    var iTu = dateField(Wz.tu, { "aria-label": "Hiệu lực từ", title: "Hiệu lực từ" });
     iMa.addEventListener("change", function () { Wz.ma = iMa.value.trim(); }); iTen.addEventListener("change", function () { Wz.ten = iTen.value; }); iTu.addEventListener("change", function () { Wz.tu = iTu.value; });
-    f.appendChild(iMa); f.appendChild(iTen); f.appendChild(iTu);
+    f.appendChild(fld("Mã công thức *", iMa)); f.appendChild(fld("Tên công thức", iTen)); f.appendChild(fld("Hiệu lực từ", iTu));
     f.appendChild(btn("Lưu thành Nháp", "pri", function () {
       Wz.ma = iMa.value.trim(); Wz.ten = iTen.value; Wz.tu = iTu.value;
       if (!Wz.ma) { alert("Nhập Mã công thức."); return; }
@@ -3195,12 +3209,13 @@
   }
   // ---------- V9.4: BÁO CÁO LƯƠNG — tổng hợp, thanh toán, kê chuyển khoản, tiền mặt + sổ chứng từ thanh toán ----------
   var PLG = C.payledger, PRP = C.payrollReports, OPS = C.opsReports;
-  var PAY_SCREENS = { rp_tonghop: "TONG_HOP", rp_ctnv: "CHI_TIET_NV", rp_thanhtoan: "THANH_TOAN", rp_cttt: "CHI_TIET_TT", rp_soct: "SO_CHUNG_TU", rp_ck: "CHUYEN_KHOAN", rp_tm: "TIEN_MAT" };
+  var PAY_SCREENS = { rp_tonghop: "TONG_HOP_NV", rp_pb: "TONG_HOP", rp_tncn: "THUE_TNCN", rp_ctnv: "CHI_TIET_NV", rp_thanhtoan: "THANH_TOAN", rp_cttt: "CHI_TIET_TT", rp_soct: "SO_CHUNG_TU", rp_ck: "CHUYEN_KHOAN", rp_tm: "TIEN_MAT" };
   function payLines() { return db.ttluong || []; }
   function ledgerSet(mut) { var next = payLines().map(function (x) { return Object.assign({}, x); }); mut(next); db.ttluong = next; }
+  function nvByMa() { var m = {}; (db.nhanvien || []).forEach(function (r) { if (r["Mã NV"]) m[r["Mã NV"]] = r; }); return m; }
   function payVm(type, src) {
     var bl = src.chot ? [] : GATE.blockers(src.kq);
-    return PRP.build(type, { bangluong: src.kq.bangluong, chot: src.chot, blockers: bl }, { nam: st.nam, thang: st.thang, filter: st.rf, tenCongTy: congTy()["Tên công ty"] || "", lines: payLines(), ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "" });
+    return PRP.build(type, { bangluong: src.kq.bangluong, chot: src.chot, blockers: bl }, { nam: st.nam, thang: st.thang, filter: st.rf, tenCongTy: congTy()["Tên công ty"] || "", lines: payLines(), ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", nhomPB: type === "TONG_HOP_NV" && !!st.thNhom, nhanVien: type === "THUE_TNCN" ? nvByMa() : null });
   }
   /** Xuất chính thức chỉ khi không có lỗi nghiêm trọng; bảng thanh toán/kê chỉ xuất từ kỳ ĐÃ CHỐT. */
   function payExportOk(vm, type) {
@@ -3221,6 +3236,7 @@
   }
   function payPdf(vm, type) {
     if (!payExportOk(vm, type)) return;
+    if (vm.nhom) { exportPdf(Object.assign({}, vm, { groups: vm.nhom }), vm.file + "_" + vm.kyKey + "_theoPhongBan.pdf", { chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] }); return; }
     exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, sheets: [{ name: vm.title, cols: vm.cols.map(function (c) { return c.label; }), rows: PRP.toRows(vm), groups: vm.groups || null }] }, vm.file + "_" + vm.kyKey + ".pdf",
       { chuKy: type === "TIEN_MAT" || type === "THANH_TOAN" ? ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] : ["Người lập", "Kế toán trưởng", "Giám đốc"] });
   }
@@ -3313,6 +3329,7 @@
     tools.appendChild(btn("⬇ Xuất PDF", "", function () { payPdf(vm, type); }));
     if (type === "CHUYEN_KHOAN") tools.appendChild(btn("Lập chứng từ chuyển khoản", "", function () { payLap(PLG.HT.CK, src); }));
     if (type === "TIEN_MAT") tools.appendChild(btn("Lập phiếu chi tiền mặt", "", function () { payLap(PLG.HT.TM, src); }));
+    if (type === "TONG_HOP_NV") { var cb = h("input", { type: "checkbox", "data-th-nhom": "1" }); cb.checked = !!st.thNhom; cb.addEventListener("change", function () { st.thNhom = cb.checked; render(); }); tools.appendChild(h("label", { class: "chip", title: "Mỗi phòng ban một nhóm, có dòng cộng từng phòng; in và Excel theo đúng dạng nhóm" }, [cb, document.createTextNode(" Nhóm theo phòng ban")])); }
     if (type === "THANH_TOAN") { tools.appendChild(btn("Lập chứng từ chuyển khoản", "", function () { payLap(PLG.HT.CK, src); })); tools.appendChild(btn("Lập phiếu chi tiền mặt", "", function () { payLap(PLG.HT.TM, src); })); }
     card.appendChild(tools);
     var kp = [h("div", { class: "kpi", html: "<small>Số dòng" + (vm.loc.length ? " (đang lọc)" : "") + "</small><b>" + vm.soDong + (vm.loc.length ? "/" + vm.soDongGoc : "") + "</b>" })];
@@ -3323,12 +3340,18 @@
     var t = h("table", { "data-pay-report": type }), hr = h("tr");
     vm.cols.forEach(function (c) { hr.appendChild(h("th", { class: c.kind === "text" ? "" : "r", text: c.label })); });
     var head = [];
-    if (vm.groups) head.push(h("tr", {}, vm.groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), style: "text-align:center;background:#d9e7dd", text: g.label }); })));
+    if (vm.groups) head.push(h("tr", {}, vm.groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), class: "th-grp", text: g.label }); })));
     head.push(hr); t.appendChild(h("thead", {}, head)); var tb = h("tbody");
-    vm.rows.forEach(function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : (v == null ? "" : String(v)) }); }));
+    var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : (v == null ? "" : String(v)) }); }));
       if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
-      tb.appendChild(trw); });
-    if (vm.rows.length) tb.appendChild(h("tr", { style: "font-weight:700;background:#f4f4f4" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })));
+      tb.appendChild(trw); };
+    if (vm.nhom) vm.nhom.forEach(function (g) {
+      tb.appendChild(h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: g.ten + " (" + g.rows.length + " người)" })]));
+      g.rows.forEach(drawRow);
+      var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
+      tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: c.kind === "text" || c.kind === "qty" ? "t" : "r", text: i === iN ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })));
+    }); else vm.rows.forEach(drawRow);
+    if (vm.rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })));
     t.appendChild(tb);
     if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào cần thanh toán theo bộ lọc hiện tại." }));
     card.appendChild(h("div", { class: "tw" }, [t])); w.appendChild(card);
@@ -3378,11 +3401,11 @@
     var t = h("table", { "data-ops-report": attr }), hr = h("tr");
     cols.forEach(function (c) { hr.appendChild(h("th", { class: c.kind === "text" ? "" : "r", text: c.label })); });
     var head = [];
-    if (groups) head.push(h("tr", {}, groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), style: "text-align:center;background:#d9e7dd", text: g.label }); })));
+    if (groups) head.push(h("tr", {}, groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), class: "th-grp", text: g.label }); })));
     head.push(hr); t.appendChild(h("thead", {}, head));
     var tb = h("tbody");
     rows.forEach(function (r) { tb.appendChild(h("tr", {}, cols.map(function (c) { return h("td", { class: c.kind === "text" ? "t" : "r", text: opsFmtCell(c, r[c.key]) }); }))); });
-    if (rows.length) tb.appendChild(h("tr", { style: "font-weight:700;background:#f4f4f4" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })));
+    if (rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })));
     t.appendChild(tb); return t;
   }
   function tabOpsReport(type) {
@@ -3437,9 +3460,9 @@
     vm.cols.forEach(function (c, i) { hr.appendChild(h("th", { class: (c.kind === "text" ? "" : "r") + (i === 0 ? " stk" : ""), text: c.label })); });
     t.appendChild(h("thead", {}, [hr])); var tb = h("tbody");
     vm.groups.forEach(function (g) {
-      tb.appendChild(h("tr", {}, [h("td", { colspan: vm.cols.length, style: "font-weight:700;background:#eef3ef", text: g.ten + " (" + g.rows.length + " người)" })]));
+      tb.appendChild(h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: g.ten + " (" + g.rows.length + " người)" })]));
       g.rows.forEach(function (r) { tb.appendChild(h("tr", {}, vm.cols.map(function (c, i) { var v = r[c.key]; return h("td", { class: (c.kind === "text" ? "t" : "r") + (i === 0 ? " stk" : ""), style: c.strong ? "font-weight:700" : "", text: c.kind === "text" ? (v == null ? "" : v) : (!v ? "–" : fmt(v)) }); }))); });
-      tb.appendChild(h("tr", { style: "font-weight:700;background:#f4f4f4" }, vm.cols.map(function (c, i) { return h("td", { class: i < 3 ? "t" : "r", text: i === 1 ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })));
+      tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i < 3 ? "t" : "r", text: i === 1 ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })));
     });
     t.appendChild(tb);
     t.appendChild(h("tfoot", {}, [h("tr", {}, vm.cols.map(function (c, i) { return h("td", { class: i < 3 ? "t" : "r", text: i === 0 ? "TỔNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); }))]));
@@ -3498,13 +3521,35 @@
   }
 
   var SLIP_LINES = [["Lương thời gian", "Lương thời gian"], ["Lương phụ", "Lương phụ"], ["Lương sản lượng", "Lương sản lượng"], ["Lương bù SL", "Lương bù sản lượng"], ["Lương bơm dăm", "Lương bơm dăm"], ["Tiền tăng ca", "Tiền tăng ca"], ["Phụ cấp", "Phụ cấp"], ["Phụ cấp công tác", "Phụ cấp công tác"], ["Lương hỗ trợ", "Lương hỗ trợ"], ["Tiền cơm", "Tiền cơm"], ["Thưởng", "Thưởng"], ["Thu nhập khác", "Thu nhập khác"], ["Tổng thu nhập", "TỔNG THU NHẬP", 1], ["BH trừ NLĐ", "− BHXH/BHYT/BHTN"], ["KPCĐ trừ NLĐ", "− KPCĐ"], ["Truy thu BH", "− Truy thu bảo hiểm"], ["Thuế TNCN", "− Thuế TNCN"], ["Trừ khác", "− Trừ khác"], ["Tạm ứng", "− Tạm ứng"], ["Thực lĩnh", "THỰC LĨNH", 1]];
+  /** Phiếu lương chia 3 phần: I. THU NHẬP · II. KHẤU TRỪ · III. TẠM ỨNG, rồi dòng THỰC LĨNH. Chỉ đọc số engine đã tính; không tính lại tiền. */
+  var SLIP_TN = [["Lương thời gian", "Lương thời gian"], ["Lương phụ", "Lương phụ"], ["Lương sản lượng", "Lương sản lượng"], ["Lương bù SL", "Lương bù sản lượng"], ["Lương bơm dăm", "Lương bơm dăm"], ["Tiền tăng ca", "Tiền tăng ca"], ["Phụ cấp", "Phụ cấp"], ["Phụ cấp công tác", "Phụ cấp công tác"], ["Lương hỗ trợ", "Lương hỗ trợ"], ["Tiền cơm", "Tiền cơm"], ["Thưởng", "Thưởng"], ["Thu nhập khác", "Thu nhập khác"]];
+  var SLIP_KT = [["BH trừ NLĐ", "Bảo hiểm (BHXH/BHYT/BHTN) người lao động"], ["KPCĐ trừ NLĐ", "Kinh phí công đoàn (KPCĐ)"], ["Truy thu BH", "Truy thu bảo hiểm"], ["Thuế TNCN", "Thuế thu nhập cá nhân"], ["Trừ khác", "Khấu trừ khác"]];
+  function slipLines(b) {
+    var out = [], n = function (k) { return +b[k] || 0; }, sum = function (L) { return L.reduce(function (a, l) { return a + n(l[0]); }, 0); };
+    out.push({ sec: "I. THU NHẬP" });
+    SLIP_TN.forEach(function (l) { if (b[l[0]]) out.push({ label: l[1], value: n(l[0]) }); });
+    out.push({ label: "Tổng thu nhập", value: n("Tổng thu nhập"), tot: true });
+    out.push({ sec: "II. KHẤU TRỪ" });
+    SLIP_KT.forEach(function (l) { if (b[l[0]]) out.push({ label: l[1], value: n(l[0]) }); });
+    out.push({ label: "Cộng khấu trừ", value: sum(SLIP_KT), tot: true });
+    out.push({ sec: "III. TẠM ỨNG" });
+    out.push({ label: "Tạm ứng đã nhận trong kỳ", value: n("Tạm ứng") });
+    out.push({ label: "Cộng tạm ứng", value: n("Tạm ứng"), tot: true });
+    var lech = n("Thực lĩnh") - (n("Tổng thu nhập") - sum(SLIP_KT) - n("Tạm ứng"));
+    if (Math.abs(lech) >= 1) out.push({ label: "Làm tròn", value: lech });
+    out.push({ label: "THỰC LĨNH (I − II − III)", value: n("Thực lĩnh"), tot: true, grand: true });
+    return out;
+  }
   function slipEl(b) {
     var s = h("div", { class: "slip" });
     if (congTy()["Tên công ty"]) s.appendChild(h("div", { text: congTy()["Tên công ty"], style: "font-weight:700;text-transform:uppercase;font-size:13px" }));
     s.appendChild(h("h3", { text: "PHIẾU LƯƠNG THÁNG " + st.thang + "/" + st.nam, style: "text-align:center;margin:4px 0 10px" }));
     s.appendChild(h("div", { class: "head", html: "<b>" + esc(b["Họ và tên"]) + "</b> · Mã NV: " + esc(b["Mã NV"]) + (b["Phòng ban"] ? " · " + esc(b["Phòng ban"]) : "") + "<br><span style='color:#6c7a74'>Tổng công: " + b["Tổng công"] + " / Công chuẩn: " + b["Công chuẩn"] + (b["Sản lượng (tấn)"] ? " · Sản lượng: " + b["Sản lượng (tấn)"] + " tấn" : "") + "</span>" }));
     var t = h("table");
-    SLIP_LINES.forEach(function (l) { if (b[l[0]] || l[2]) t.appendChild(h("tr", { class: l[2] ? "tot" : "", html: "<td>" + l[1] + "</td><td>" + fmt(b[l[0]]) + "</td>" })); });
+    slipLines(b).forEach(function (l) {
+      if (l.sec) t.appendChild(h("tr", { class: "sec" }, [h("td", { colspan: 2, text: l.sec })]));
+      else t.appendChild(h("tr", { class: l.grand ? "tot grand" : l.tot ? "tot" : "" }, [h("td", { text: l.label }), h("td", { text: fmt(l.value) })]));
+    });
     s.appendChild(t); return s;
   }
   /**
@@ -3654,7 +3699,7 @@
         if (!need("export", "xuất phiếu lương")) return;
         var vmP = { congTy: congTy()["Tên công ty"] || "", kyText: "tháng " + st.thang + "/" + st.nam, trangThai: src.chot ? "Bảng lương đã chốt" : "Chưa chốt — tính tạm",
           rawCols: cols, rawRows: list, slips: list.map(function (b) { return { maNV: b["Mã NV"], hoTen: b["Họ và tên"], phongBan: b["Phòng ban"], tongCong: b["Tổng công"], congChuan: b["Công chuẩn"], sanLuong: b["Sản lượng (tấn)"],
-            lines: SLIP_LINES.filter(function (l) { return b[l[0]] || l[2]; }).map(function (l) { return { label: l[1], value: b[l[0]], tot: !!l[2] }; }) }; }) };
+            lines: slipLines(b) }; }) };
         window.HAKUi.slipXlsx.build(window.ExcelJS, vmP, { perPage: st.slipGon ? 2 : 1, rawName: "PhieuLuong_" + kyStr(), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
           download(fileP, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
         }, function (e) { alert("Không tạo được file: " + e.message); });
@@ -4784,14 +4829,15 @@
     ["grp", "Sản lượng"], ["sanluong", "⚖", "Sản lượng"], ["bandam", "🚛", "Bơm dăm"],
     ["grp", "Nghiệp vụ tiền lương"], ["psluong", "🎁", "Thưởng / Trừ"], ["ungluong", "💵", "Tạm ứng"], ["tiencom", "🍚", "Suất cơm"],
     ["grp", "Tính lương"], ["luong", "▶", "Tính lương theo kỳ"], ["ktbl", "✔", "Kiểm tra bảng lương"], ["kyluong", "🔒", "Kỳ lương đã chốt"], ["doichieu", "↔", "Đối chiếu Excel"],
-    ["grp", "Thanh toán lương"], ["rp_thanhtoan", "💼", "Bảng thanh toán lương"], ["rp_cttt", "📒", "Chi tiết thanh toán"], ["rp_soct", "🗂", "Sổ chứng từ thanh toán"], ["rp_ck", "🏦", "Bảng kê chuyển khoản"], ["rp_tm", "💵", "Thanh toán tiền mặt"], ["slips", "🧾", "Phiếu lương"],
-    ["grp", "Báo cáo"], ["bangtinh", "📋", "Bảng tính lương"], ["rp_tonghop", "📑", "Tổng hợp theo phòng ban"], ["rp_ctnv", "📃", "Tổng hợp chi tiết nhân viên"], ["baocaoluong", "📈", "Báo cáo lương khác"], ["baocao", "📊", "Báo cáo nhân sự"],
+    ["grp", "Thanh toán lương"], ["rp_thanhtoan", "💼", "Bảng thanh toán lương"], ["rp_cttt", "📒", "Chi tiết thanh toán"], ["rp_soct", "🗂", "Sổ chứng từ thanh toán"], ["rp_ck", "🏦", "Bảng kê chuyển khoản"], ["rp_tm", "💵", "Thanh toán tiền mặt"],
+    ["grp", "Báo cáo lương"], ["bangtinh", "📋", "Bảng tính lương"], ["rp_tonghop", "📑", "Bảng tổng hợp lương"], ["slips", "🧾", "Phiếu lương chi tiết"], ["rp_tncn", "🧮", "Khấu trừ thuế TNCN"],
+    ["grp", "Báo cáo khác"], ["rp_pb", "🏢", "Tổng hợp theo phòng ban"], ["rp_ctnv", "📃", "Tổng hợp chi tiết nhân viên"], ["baocaoluong", "📈", "Báo cáo lương khác"], ["baocao", "📊", "Báo cáo nhân sự"],
     ["grp", "Báo cáo theo loại"], ["rp_ns", "👥", "Danh sách nhân sự"], ["rp_sl", "⚖", "Bảng kê sản lượng"], ["rp_bd", "🚛", "Bảng kê bơm dăm"], ["rp_th", "🎁", "Bảng kê thưởng / trừ"], ["rp_tu", "💵", "Bảng kê tạm ứng"], ["rp_com", "🍚", "Tổng hợp suất cơm"],
     ["grp", "Danh mục"], ["dm", "📚", "Danh mục"],
     ["grp", "Cài đặt"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
   ];
   // Tab nào cần quyền xem nào (kiểm tra cả khi mở bằng trạng thái đã lưu, không chỉ ẩn menu)
-  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
+  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_pb: "payroll.view", rp_tncn: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
   Object.keys(OPS_SCREENS).forEach(function (k) { TAB_PERM[k] = OPS.TYPES[OPS_SCREENS[k]].perm; });
   function tabAllowed(t) {
     if (t === "home") return true;
@@ -4801,7 +4847,7 @@
     if (S[t]) return can("input.view");
     return TAB_PERM[t] ? can(TAB_PERM[t]) : true;
   }
-  var TITLES = { nvns: "Nghiệp vụ nhân sự", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_thanhtoan: "Bảng thanh toán lương", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê bơm dăm", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
+  var TITLES = { nvns: "Nghiệp vụ nhân sự", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê bơm dăm", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
   function updateNav() { document.querySelectorAll("#nav button[data-k]").forEach(function (b) { var k = b.getAttribute("data-k"), n = $(".n", b); if (n && ALL[k]) n.textContent = countOf(k); }); }
   function periodBox() {
     var m = h("select"), y = h("input", { class: "i", type: "number", style: "width:80px", value: st.nam });
@@ -4953,7 +4999,7 @@
     var bb = $(".brand small"); if (bb) bb.textContent = congTy()["Tên công ty"] || "Chạy offline";
     var top = $("#top"); top.innerHTML = "";
     var title = TITLES[st.tab] || (S[st.tab] && S[st.tab].ten) || "";
-    top.appendChild(h("h2", { text: ["bangtinh", "rp_tonghop", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_soct", "rp_ck", "rp_tm", "slips", "baocaoluong", "rp_ns", "rp_sl", "rp_bd", "rp_th", "rp_tu", "rp_com"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
+    top.appendChild(h("h2", { text: ["bangtinh", "rp_tonghop", "rp_pb", "rp_tncn", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_soct", "rp_ck", "rp_tm", "slips", "baocaoluong", "rp_ns", "rp_sl", "rp_bd", "rp_th", "rp_tu", "rp_com"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
     top.appendChild(h("button", { class: "topbtn srch", type: "button", "aria-label": "Tìm kiếm", title: "Tìm nhanh màn hình, nhân viên, báo cáo (Ctrl+K)", on: { click: quickSearch } }, ["🔍 Tìm kiếm", h("kbd", { text: "Ctrl K" })]));
     if (["nhansu", "nv", "dm", "caidat", "backup", "kyluong"].indexOf(st.tab) < 0) top.appendChild(periodBox());
     if (FILES) top.appendChild(h("button", { class: "topbtn", type: "button", "data-files": "1", title: "Xem / mở các file Excel, báo cáo đã tải", on: { click: filesDrawer } }, ["📂 File đã tải"]));
