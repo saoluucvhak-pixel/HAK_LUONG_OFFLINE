@@ -236,7 +236,7 @@
     var el = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {
       if (k === "on") Object.keys(attrs.on).forEach(function (ev) { el.addEventListener(ev, attrs.on[ev]); });
-      else if (k === "text") el.textContent = attrs[k]; else if (k === "html") el.innerHTML = attrs[k];
+      else if (k === "text") el.textContent = (typeof attrs[k] === "number" && isFinite(attrs[k]) && !Number.isInteger(attrs[k])) ? qtyText(attrs[k]) : attrs[k]; else if (k === "html") el.innerHTML = attrs[k];
       else el.setAttribute(k, attrs[k]);
     });
     (kids || []).forEach(function (c) { if (c) el.appendChild(typeof c === "string" ? document.createTextNode(c) : c); }); // chữ → nút văn bản (icon emoji đầu chuỗi vẫn được đổi)
@@ -244,6 +244,8 @@
   }
   function btn(text, cls, fn, title) { return h("button", { class: "b " + (cls || ""), text: text, title: title || "", on: { click: fn } }); }
   function toast(m) { var t = $("#toast"); t.textContent = m; t.className = "show"; clearTimeout(toast.t); toast.t = setTimeout(function () { t.className = ""; }, 2800); }
+  /** Số lượng (tấn…): làm tròn 3 số lẻ, dấu phẩy thập phân, dấu chấm hàng nghìn — không để lộ sai số dấu phẩy động (17.049999999999997). */
+  function qtyText(v) { if (v === "" || v == null) return ""; var x = +v; return isFinite(x) ? (Math.round(x * 1000) / 1000).toLocaleString("vi-VN", { maximumFractionDigits: 3 }) : String(v); }
   function fmt(n) { return typeof n === "number" ? n.toLocaleString("vi-VN") : (n == null ? "" : n); }
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
   function ky2() { return ("0" + st.thang).slice(-2); }
@@ -1614,7 +1616,7 @@
     var cols = Object.keys(rows[0]), t = h("table"), tr = h("tr");
     cols.forEach(function (c) { tr.appendChild(h("th", { text: c })); }); t.appendChild(h("thead", {}, [tr]));
     var tb = h("tbody");
-    rows.forEach(function (r) { var x = h("tr"); cols.forEach(function (c) { var v = r[c]; x.appendChild(h("td", { class: typeof v === "number" ? "r" : "t", text: typeof v === "number" ? fmt(v) : (v == null ? "" : v), style: v === "ĐÃ QUÁ HẠN" ? "color:#c0362c;font-weight:700" : "" })); }); tb.appendChild(x); });
+    rows.forEach(function (r) { var x = h("tr"); cols.forEach(function (c) { var v = r[c]; x.appendChild(h("td", { class: typeof v === "number" ? "r" : "t", text: typeof v === "number" ? qtyText(v) : (v == null ? "" : v), style: v === "ĐÃ QUÁ HẠN" ? "color:#c0362c;font-weight:700" : "" })); }); tb.appendChild(x); });
     t.appendChild(tb); return h("div", { class: "tw" }, [t]);
   }
   /** Sổ lao động (α18): ai còn thiếu thông tin bắt buộc + nút mở đúng tab hồ sơ để bổ sung */
@@ -3369,7 +3371,7 @@
     var head = [];
     if (vm.groups) head.push(h("tr", {}, vm.groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), class: "th-grp", text: g.label }); })));
     head.push(hr); t.appendChild(h("thead", {}, head)); var tb = h("tbody");
-    var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : (v == null ? "" : String(v)) }); }));
+    var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : c.kind === "qty" ? qtyText(v) : (v == null ? "" : String(v)) }); }));
       if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
       tb.appendChild(trw); };
     if (vm.nhom) vm.nhom.forEach(function (g) {
