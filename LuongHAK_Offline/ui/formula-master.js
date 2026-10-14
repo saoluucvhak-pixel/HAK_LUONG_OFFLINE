@@ -20,7 +20,6 @@
     var fdate = function (iso) { var n = VAL.normDate(iso); return n ? n.slice(8, 10) + "/" + n.slice(5, 7) + "/" + n.slice(0, 4) : (iso || ""); };
     var money = function (v) { var n = +v; return isFinite(n) && v !== "" && v != null ? n.toLocaleString("vi-VN") : ""; };
     var db = function () { return A.db(); };
-    var fenv = function () { return { can: A.can, user: A.user(), db: db() }; };
 
     /** Danh sách chọn cho ô "Loại công thức": công thức mặc định/có sẵn của hệ thống + khóa công thức đã cấu hình + (tăng ca) mã tăng ca khác. */
     function loaiOpts() {
@@ -265,25 +264,20 @@
       box.appendChild(h("div", { class: "kpi" }, [h("small", { text: "Công thức đang áp dụng (kỳ " + S.thang + "/" + S.nam + ")" }), h("b", { style: "font-size:16px", text: ap.nguon === "cauhinh" ? "v" + (ap.rec["Phiên bản"] || 1) + " · " + ap.rec["Mã công thức"] : ap.nguon === "macdinh" ? (IS_OT ? "Mặc định hệ thống " : "Có sẵn của engine: ") + ap.key : ap.nguon === "lichsu" ? "Cách tính lịch sử" : "⚠ Chưa có" })]));
       box.appendChild(h("div", { class: "kpi" }, [h("small", { text: "Biểu thức" }), h("div", { style: "font-family:monospace;font-size:13px;word-break:break-all", text: ap.bieuThuc || "—" })]));
       w.appendChild(box);
-      if (ap.nguon === "macdinh" && IS_OT) w.appendChild(h("div", { class: "hint", text: "Chưa có công thức cấu hình hiệu lực — engine dùng công thức mặc định " + ap.key + " (formula-defaults.js, không sửa trực tiếp). Tạo phiên bản mới để ghi đè có kiểm soát." }));
+      if (ap.nguon === "macdinh" && IS_OT) w.appendChild(h("div", { class: "hint", text: "Chưa có công thức cấu hình hiệu lực — engine dùng công thức mặc định " + ap.key + " (formula-defaults.js, không sửa trực tiếp). Muốn dùng công thức riêng: tạo ở Cài đặt → Công thức rồi chọn mã công thức ở tab “Thông tin”." }));
       if (!IS_OT && ap.ten) w.appendChild(h("div", { class: ap.nguon === "none" ? "warn" : "hint", text: (ap.nguon === "macdinh" ? "Cách tính có sẵn: " : "") + ap.ten + (ap.nguon === "macdinh" ? ". Engine KHÔNG tra công thức cấu hình cho khóa này — muốn dùng công thức tùy chỉnh phải đổi “Loại công thức” sang tên công thức riêng." : "") }));
       if (!IS_OT) w.appendChild(h("div", { class: "hint", text: "Biến mà engine thực sự cấp cho " + K.short.toLowerCase() + ": " + K.vars.join(", ") + ". " + (type === "ALLOWANCE" ? "Công thức chỉ được dùng khi công chuẩn > 0 và cách tính của mã không phải CO_DINH." : "Mã hỗ trợ (tiền cơm) truyền số ngày cơm; Mã hỗ trợ 2 truyền 0.") }));
       if (sh.dungChungCongThucCuaMaKhac) {
         w.appendChild(h("div", { class: "warn", text: "Mã " + M.ma + " dùng chung công thức “" + sh.key + "”. Danh sách bên dưới là các phiên bản công thức của khóa đó; thay đổi sẽ ảnh hưởng mọi mã dùng chung (" + [sh.key].concat(sh.others).filter(function (x, i, a) { return x && x !== M.ma && a.indexOf(x) === i; }).join(", ") + "). Muốn mã này có công thức riêng, đặt “Loại công thức” trống ở tab Thông tin." }));
       }
       var list = formulasForTab(sh);
-      var bar = h("div", { class: "bar" });
-      if (A.can("dm.edit")) bar.appendChild(btn("＋ Tạo phiên bản mới", "pri", function () { if (!IS_OT && !sh.key) keyDialog(function () { startDesigner(null); }); else startDesigner(null); })).setAttribute("data-ot-new-ver", "1");
-      w.appendChild(bar);
+      w.appendChild(h("div", { class: "hint", "data-ot-readonly": "1", text: "Tab này chỉ để XEM. Tạo mới, sửa, gửi duyệt, duyệt và kích hoạt công thức ở Cài đặt → Công thức lương / tăng ca / phụ cấp / hỗ trợ. Ở đây chỉ cần chọn Mã công thức cho " + K.noun + " (tab “Thông tin”)." }));
       var t = h("table", { "data-ot-flist": "1" });
       t.appendChild(h("tr", {}, ["Phiên bản", "Tên công thức", "Biểu thức", "Trạng thái", "Hiệu lực từ", "Hiệu lực đến", "Người lập", "Người duyệt", "Cập nhật", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
       list.forEach(function (r) {
-        var acts = h("td", { class: "t ot-act" }), L = { "Chờ duyệt": "Gửi duyệt", "Nháp": "Trả về nháp", "Đã duyệt": "Duyệt", "Hiệu lực": "Kích hoạt", "Ngừng": "Ngừng hiệu lực" };
+        var acts = h("td", { class: "t ot-act" });
         acts.appendChild(btn("Xem công thức", "", function () { startDesigner(r, true); }));
-        if (A.can("dm.edit")) acts.appendChild(btn("Sao chép", "", function () { startDesigner(r, false, true); }));
-        if ((r["Trạng thái"] || "Nháp") === "Nháp" && A.can("dm.edit")) acts.appendChild(btn("Sửa nháp", "", function () { startDesigner(r); }));
         acts.appendChild(btn("Kiểm tra", "", function () { M.chk = { id: r._id, items: OM.preActivation(db(), r, pctx(r)) }; draw(); }));
-        FAP.actionsFor(r, fenv()).forEach(function (to) { acts.appendChild(btn(L[to], to === "Hiệu lực" ? "pri" : "", function () { transition(r, to); })).setAttribute("data-ot-to", to); });
         acts.appendChild(btn("Lịch sử", "", function () { M.tab = "ls"; M.lsFilter = r._id; draw(); }));
         t.appendChild(h("tr", { "data-ot-ver": (r["Mã công thức"] || "") + "#" + (r["Phiên bản"] || 1) }, [
           h("td", { class: "t", html: "<b>v" + (r["Phiên bản"] || 1) + "</b>" }), h("td", { class: "t", text: r["Tên công thức"] || "" }), h("td", { class: "t", style: "font-family:monospace;max-width:340px;word-break:break-all", text: r["Biểu thức"] || "" }),
@@ -293,30 +287,12 @@
         if (M.chk && M.chk.id === r._id) t.appendChild(h("tr", {}, [h("td", { colspan: 10 }, [chkView(M.chk.items)])]));
       });
       w.appendChild(h("div", { class: "tw", style: "max-height:none" }, [t]));
-      if (!list.length) w.appendChild(h("div", { class: "empty", text: "Mã này chưa có phiên bản công thức cấu hình. Bấm “＋ Tạo phiên bản mới” để lập (Nháp → Chờ duyệt → Đã duyệt → Hiệu lực)." }));
+      if (!list.length) w.appendChild(h("div", { class: "empty", text: "Mã này chưa có công thức riêng. Dùng công thức có sẵn (chọn ở tab “Thông tin”) hoặc tạo công thức mới ở Cài đặt → Công thức → Trình thiết lập." }));
       if (M.act) w.appendChild(actPanel());
-      w.appendChild(h("div", { class: "hint", text: "Chỉ hiện công thức của mã này (không lẫn mã khác). Chỉ bản Nháp được sửa nội dung; đã gửi duyệt trở đi muốn đổi phải “Sao chép” thành phiên bản mới. Nút nào hiện ra là nút bạn có quyền làm — quyền được kiểm lại ở tiến trình chính khi lưu." }));
       return w;
     }
     function formulasForTab() { return OM.versionsForTab(db(), M.ma); }
     /** Phụ cấp/Hỗ trợ chưa khai báo "Loại công thức": phải đặt khóa công thức cho mã cha TRƯỚC khi lập công thức (engine tra theo khóa này). Ghi qua repository (kiểm quyền/hồi tố/nhật ký). */
-    function keyDialog(next) {
-      var body = h("div"), inp = h("input", { class: "i", placeholder: "Ví dụ: " + (type === "ALLOWANCE" ? "PC_TYLE_2026" : "HT_THEO_LUOT"), "aria-label": "Khóa công thức", "data-ot-key-input": "1", style: "width:100%" });
-      body.appendChild(h("div", { class: "hint", text: "Engine tra công thức của " + K.noun + " theo “Loại công thức” của dòng cha. Mã " + M.ma + " chưa khai báo nên đang dùng " + K.fallbackLabel + ". Nhập TÊN khóa cho công thức sắp lập (chữ không dấu, số, _ . -; không trùng cách tính có sẵn: " + Object.keys(K.builtin).join(", ") + "). Việc này chỉ gán khóa; chưa đổi cách tính cho đến khi công thức được kích hoạt." }));
-      body.appendChild(inp); var err = h("div", { class: "warn", style: "display:none", "data-ot-key-err": "1" }); body.appendChild(err);
-      var m = A.$("#modal"); m.innerHTML = ""; m.className = ""; m.onclick = null;
-      var back = function () { mount(); };
-      var box = h("div", { class: "dlg", "data-ot-keydlg": "1" }, [h("header", {}, [h("h3", { text: "Khóa công thức cho " + K.noun + " " + M.ma })]), h("div", { class: "bd" }, [body]), h("footer", {}, [btn("Hủy", "", back), btn("Gán khóa", "pri", function () {
-        var k = inp.value.trim();
-        var bad = !k ? "Chưa nhập khóa" : !/^[A-Za-z0-9_.\-]+$/.test(k) ? "Khóa chỉ gồm chữ không dấu, số, _ . -" : OM.isBuiltin(k) ? "'" + k + "' là cách tính có sẵn của engine — chọn tên khác" : "";
-        if (bad) { err.style.display = ""; err.textContent = "⛔ " + bad; return; }
-        var eff = OM.effectiveRow(OM.parentRows(db(), M.ma), S.nam, S.thang) || M.row;
-        var ok = A.txn([T], function () { return !!A.commit(A.REPO.plan("update", T, eff, { "Loại công thức": k }, { what: "gán khóa công thức cho " + K.noun }), { confirm: true, action: K.title + " — gán Loại công thức " + k + " cho " + M.ma }); });
-        if (!ok) return;
-        A.dirtyBump(); var rs = OM.parentRows(db(), M.ma); M.row = OM.effectiveRow(rs, S.nam, S.thang) || rs[0]; M.info = infoFromRow(M.row, M.ma); A.toast("Đã gán Loại công thức = " + k); mount(); next();
-      })])]);
-      m.appendChild(box); inp.focus();
-    }
     function pctx(r) {
       var tenCty = db().congty && db().congty[0] ? [db().congty[0]["Mã công ty"], db().congty[0]["Tên công ty"]].filter(Boolean) : [];
       return { companyKeys: tenCty, closedPeriods: A.closedPeriods(), hasCurrent: OM.applied(db(), M.ma, S.nam, S.thang).nguon !== "none" };
@@ -327,12 +303,6 @@
       var bad = items.filter(function (x) { return !x.ok; }).length;
       b.appendChild(h("div", { class: "hint", text: bad ? "Còn " + bad + " lỗi chặn kích hoạt." : "Không có lỗi chặn kích hoạt." }));
       return b;
-    }
-    function transition(r, to) {
-      var NEED_REASON = to === "Hiệu lực" || to === "Ngừng";
-      M.act = { id: r._id, to: to, reason: M.reason || "", items: to === "Hiệu lực" ? OM.preActivation(db(), r, pctx(r)) : null };
-      if (!NEED_REASON && !M.act.items) { runTransition(r, to, ""); M.act = null; draw(); return; }
-      draw();
     }
     function actPanel() {
       var a = M.act, r = (db()[TC] || []).filter(function (x) { return x._id === a.id; })[0]; var p = h("div", { class: "card ot-act-panel", "data-ot-act": a.to });
@@ -440,7 +410,7 @@
       if (!ro) {
         fb.appendChild(btn("Lưu nháp", "pri", saveFormula)).setAttribute("data-ot-save-formula", "1");
         fb.appendChild(btn("Thử với dữ liệu thật →", "", function () { M.test.expr = f.expr; M.test.ver = "__draft"; M.tab = "test"; draw(); }));
-      } else if (A.can("dm.edit") && D.rec) fb.appendChild(btn("Tạo phiên bản mới từ bản này", "pri", function () { startDesigner(D.rec, false, true); }));
+      }
       w.appendChild(fb);
       return w;
     }

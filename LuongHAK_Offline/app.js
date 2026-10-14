@@ -1773,7 +1773,7 @@
     return w;
   }
   /** V10.2/V10.3: Danh mục Tăng ca · Phụ cấp · Hỗ trợ dạng Master–Detail dùng chung (ui/formula-master.js). Phụ thuộc đưa vào qua một đối tượng — module không đụng DOM/db ngoài luồng repository. */
-  var FM_TABLE = { dm_tangca: "OVERTIME", dm_phucap: "ALLOWANCE", dm_hotro: "SUPPORT" }, FM_DM = { OVERTIME: "dm_tangca", ALLOWANCE: "dm_phucap", SUPPORT: "dm_hotro" }, FMUI = {};
+  var FM_TABLE = { dm_tangca: "OVERTIME", dm_phucap: "ALLOWANCE", dm_hotro: "SUPPORT" }, FMUI = {};
   function fmUi(type) {
     return FMUI[type] || (FMUI[type] = window.HAKUI.formulaMaster.create({
       h: h, btn: btn, esc: esc, fmt: fmt, $: $, st: st, db: function () { return db; }, can: can, user: function () { return session ? session.tenDangNhap : currentUser(); },
@@ -2159,22 +2159,8 @@
     CT_SUBTABS.forEach(function (t) { bar2.appendChild(btn(t[1], st.ct === t[0] ? "pri" : "", function () { st.ct = t[0]; render(); })); });
     w.appendChild(bar2);
     var loai = CT_SUBTAB_LOAI[st.ct];
-    if (loai) {
-      var OMk = C.formulaMaster.forType(loai), KK = OMk.KIND, dmk = FM_DM[loai];
-      var card = h("div", { class: "card", "data-ct-ot-pointer": "1", "data-ct-pointer": loai });
-      card.appendChild(h("div", { class: "hint", text: "Công thức " + KK.short.toLowerCase() + " nay được quản lý ngay trong hồ sơ từng " + KK.noun + " (bảng cha → bảng con): Danh mục → " + KK.short + " → Quản lý công thức. Ở đó có trình thiết kế, kiểm thử trên dữ liệu thật, duyệt và lịch sử phiên bản." }));
-      card.appendChild(btn("Mở " + KK.title, "pri", function () { ktDi(["dm", dmk]); }));
-      w.appendChild(card);
-      // Công thức CHƯA gắn được mã cha (không có mã nào dùng khóa này / nhiều mã dùng chung) — vẫn liệt kê để không bị ẩn
-      var lp = OMk.linkPlan(db), un = lp.orphans.map(function (r) { return { r: r, why: "Không có " + KK.noun + " nào dùng khóa công thức này" }; }).concat(lp.ambiguous.map(function (x) { return { r: x.rec, why: "Nhiều mã dùng chung: " + x.candidates.join(", ") }; })).concat(lp.invalid.map(function (x) { return { r: x.rec, why: x.problem }; }));
-      if (un.length) {
-        var c2 = h("div", { class: "card", "data-ct-ot-unlinked": "1", "data-ct-unlinked": loai });
-        c2.appendChild(h("div", { class: "fh", text: "Công thức " + KK.short.toLowerCase() + " chưa gắn được " + KK.noun + " cha (" + un.length + ")" }));
-        c2.appendChild(h("div", { class: "hint", text: "Chỉ xem. Muốn quản lý trong hồ sơ " + KK.noun + ": tạo/chọn " + KK.noun + " có “Loại công thức” = mã công thức này, rồi " + KK.title + " → Liên kết công thức cũ." }));
-        c2.appendChild(simpleTable(un.map(function (x) { return { "Mã công thức": x.r["Mã công thức"] || "", "Phiên bản": "v" + (x.r["Phiên bản"] || 1), "Trạng thái": x.r["Trạng thái"] || "Nháp", "Biểu thức": x.r["Biểu thức"] || "", "Lý do chưa gắn": x.why }; })));
-        w.appendChild(c2);
-      }
-    } else if (st.ct === "wz") w.appendChild(ctWizardPanel());
+    if (loai) w.appendChild(ctLibraryPanel(loai));
+ else if (st.ct === "wz") w.appendChild(ctWizardPanel());
     else if (st.ct === "vars") w.appendChild(ctVarsPanel());
     else if (st.ct === "mau") w.appendChild(ctTemplatesPanel());
     else if (st.ct === "test") w.appendChild(ctTestPanel());
@@ -2244,7 +2230,7 @@
       var fenv = { can: can, user: session ? session.tenDangNhap : "", db: db };
       var vals = { "Mã công thức": Wz.ma, "Tên công thức": Wz.ten || (T.custom ? Wz.ma : T.ten), "Loại": Wz.loai, "Biểu thức": biThuc, "Hiệu lực từ": tuIso, "Trạng thái": "Nháp", "Phiên bản": FAP.nextVersion(db, Wz.ma, Wz.loai), "Người lập": fenv.user, "Mô tả": T.moTa };
       if (!commit(REPO.plan("insert", "dm_congthuc", null, vals, { what: "tạo công thức từ trình thiết lập" }), { action: "Công thức tiền lương — Tạo Nháp " + Wz.ma })) return;
-      save(); toast("Đã lưu công thức " + Wz.ma + " ở trạng thái Nháp. Bước tiếp: Gửi duyệt → Duyệt → Kích hoạt (tab " + ctLoaiTen(Wz.loai) + "), rồi chọn mã công thức này ở Danh mục → cột “Loại công thức”."); st.ctWz = null; render();
+      save(); toast("Đã lưu công thức " + Wz.ma + " ở trạng thái Nháp. Bước tiếp: Gửi duyệt → Duyệt → Kích hoạt (tab " + ctLoaiTen(Wz.loai) + "), rồi chọn mã công thức này ở Danh mục → cột “Mã công thức”."); st.ctWz = null; render();
     }));
     box.appendChild(f);
     return box;
@@ -2400,6 +2386,73 @@
   }
   /** Tab "Lịch sử phiên bản" (mục VII, tab 7 / mục VII.4) — mọi dòng cùng Mã công thức (mọi Trạng thái) +
    * nhật ký chỉnh sửa liên quan (ai, khi nào, nội dung trước/sau — lấy từ nhật ký chung của app). */
+  var CT_LBL = { "Chờ duyệt": "Gửi duyệt", "Nháp": "Trả về nháp", "Đã duyệt": "Duyệt", "Hiệu lực": "Kích hoạt", "Ngừng": "Ngừng" };
+  function ctFenv() { return { can: can, user: session ? session.tenDangNhap : "", db: db }; }
+  function ctChuyen(r, to) {
+    var reason = String(st.ctReason || "").trim(); // Electron không hỗ trợ prompt() → lý do nhập ở ô phía trên bảng
+    if ((to === "Hiệu lực" || to === "Ngừng") && !reason) { alert("Nhập 'Lý do thay đổi' vào ô phía trên bảng trước khi " + CT_LBL[to].toLowerCase() + " công thức."); return; }
+    var vals = { "Trạng thái": to }; if (reason) vals["Lý do thay đổi"] = reason;
+    // V10.2: lưu NGAY từng bước chuyển trạng thái (txn) — tiến trình chính kiểm từng bước một, không gộp nhiều bước vào một lần lưu trễ
+    if (!txn(["dm_congthuc"], function () { return !!commit(REPO.plan("update", "dm_congthuc", r, vals, { what: CT_LBL[to].toLowerCase() + " công thức" }), { confirm: true, action: "Công thức tiền lương — " + CT_LBL[to] + " " + (r["Mã công thức"] || "") }); })) return;
+    st.ctReason = ""; toast(CT_LBL[to] + " công thức " + (r["Mã công thức"] || "") + ": xong."); render();
+  }
+  function ctSaoChep(r) {
+    if (!txn(["dm_congthuc"], function () { return !!commit(REPO.plan("insert", "dm_congthuc", null, FAP.copyAsDraft(r, ctFenv()), { what: "sao chép công thức" }), { action: "Công thức tiền lương — Sao chép thành phiên bản mới " + (r["Mã công thức"] || "") }); })) return;
+    toast("Đã tạo phiên bản mới (Nháp) — bấm 'Sửa nháp' để chỉnh biểu thức rồi 'Gửi duyệt'."); render();
+  }
+  /** Sửa bản NHÁP (tên, biểu thức, hiệu lực). Bản đã gửi duyệt trở đi không sửa — dùng "Sao chép bản mới". */
+  function ctSuaNhap(r) {
+    var body = h("div"), g = h("div", { class: "fgrid" }); body.appendChild(g);
+    var fld = function (lab, ctl, cls) { return h("div", { class: "fld" + (cls ? " " + cls : "") }, [h("label", { text: lab }), ctl]); };
+    var iTen = h("input", { value: r["Tên công thức"] || "", "aria-label": "Tên công thức", autocomplete: "off" });
+    var iTu = dateField(r["Hiệu lực từ"] || "", { "aria-label": "Hiệu lực từ" }), iDen = dateField(r["Hiệu lực đến"] || "", { "aria-label": "Hiệu lực đến" });
+    var ta = h("textarea", { rows: 3, "aria-label": "Biểu thức", style: "width:100%;font-family:monospace", "data-ct-edit-expr": "1" }); ta.value = r["Biểu thức"] || "";
+    var msg = h("div", { class: "hint" });
+    var chk = function () { var v = FML.validate(ta.value || ""); msg.className = v.ok ? "hint" : "warn"; msg.textContent = v.ok ? "✓ Biểu thức hợp lệ" : "⚠ " + v.errors.map(function (e) { return e.message; }).join("; "); return v.ok; };
+    ta.addEventListener("input", chk); chk();
+    g.appendChild(fld("Mã công thức", h("input", { value: r["Mã công thức"] || "", disabled: "disabled" })));
+    g.appendChild(fld("Tên công thức", iTen)); g.appendChild(fld("Hiệu lực từ", iTu)); g.appendChild(fld("Hiệu lực đến", iDen));
+    body.appendChild(fld("Biểu thức", ta)); body.appendChild(msg);
+    modal("Sửa bản nháp — " + (r["Mã công thức"] || "") + " v" + (r["Phiên bản"] || 1), body, function (close) {
+      return [btn("Hủy", "", close), btn("Lưu nháp", "pri", function () {
+        if (!chk()) { alert("Biểu thức chưa hợp lệ."); return; }
+        var tu = iTu.value.trim() ? VAL.normDate(iTu.value) : "", den = iDen.value.trim() ? VAL.normDate(iDen.value) : "";
+        if ((iTu.value.trim() && !tu) || (iDen.value.trim() && !den)) { alert("Ngày không đúng dạng dd/MM/yyyy."); return; }
+        var vals = { "Tên công thức": iTen.value, "Biểu thức": ta.value.trim(), "Hiệu lực từ": tu || "", "Hiệu lực đến": den || "" };
+        if (!txn(["dm_congthuc"], function () { return !!commit(REPO.plan("update", "dm_congthuc", r, vals, { what: "sửa công thức nháp" }), { action: "Công thức tiền lương — Sửa nháp " + (r["Mã công thức"] || "") }); })) return;
+        close(); toast("Đã lưu bản nháp " + (r["Mã công thức"] || "")); render();
+      })];
+    });
+  }
+  /** Thư viện công thức theo loại (Cài đặt): nơi DUY NHẤT tạo / sửa nháp / sao chép / gửi duyệt / duyệt / kích hoạt / ngừng. Danh mục chỉ chọn mã công thức. */
+  function ctLibraryPanel(loai) {
+    var box = h("div", { class: "card", "data-ct-library": loai });
+    var noun = loai === "OVERTIME" ? "tăng ca" : loai === "ALLOWANCE" ? "phụ cấp" : "hỗ trợ";
+    box.appendChild(h("div", { class: "hint", text: "Thư viện công thức " + noun + ": tạo mới, sửa nháp, duyệt và kích hoạt ở đây. Ở Danh mục, mỗi mã " + noun + " chỉ cần chọn Mã công thức. Chỉ bản “Hiệu lực” được dùng để tính lương." }));
+    var inReason = h("input", { value: st.ctReason || "", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", style: "width:60%", "data-ct-reason": "1" });
+    inReason.addEventListener("input", function () { st.ctReason = inReason.value; });
+    var bar = h("div", { class: "bar" });
+    if (can("dm.edit")) bar.appendChild(btn("＋ Tạo công thức " + noun + " mới", "pri", function () { st.ctWz = { loai: loai, mau: -1, vars: {}, ma: "", ten: "", tu: "" }; st.ct = "wz"; render(); })).setAttribute("data-ct-lib-new", "1");
+    bar.appendChild(h("label", { text: " Lý do thay đổi " })); bar.appendChild(inReason); box.appendChild(bar);
+    var rows = db.dm_congthuc.filter(function (r) { return (r["Loại"] || "") === loai; }).slice().sort(function (a, b) { var ca = String(a["Mã công thức"] || ""), cb = String(b["Mã công thức"] || ""); return ca < cb ? -1 : ca > cb ? 1 : (+b["Phiên bản"] || 1) - (+a["Phiên bản"] || 1); });
+    if (!rows.length) { box.appendChild(h("div", { class: "empty", text: "Chưa có công thức " + noun + " nào do bạn tạo. Công thức có sẵn của hệ thống vẫn dùng được khi chọn ở Danh mục." })); return box; }
+    var t = h("table", { "data-ct-lib-table": loai });
+    t.appendChild(h("tr", {}, ["Mã công thức", "Phiên bản", "Tên công thức", "Biểu thức", "Trạng thái", "Hiệu lực từ", "Hiệu lực đến", "Người lập", "Người duyệt", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
+    rows.forEach(function (r) {
+      var acts = h("td", { class: "t", style: "white-space:normal;min-width:260px" }), tt = r["Trạng thái"] || "Nháp";
+      if (tt === "Nháp" && can("dm.edit")) acts.appendChild(btn("Sửa nháp", "", function () { ctSuaNhap(r); }));
+      FAP.actionsFor(r, ctFenv()).forEach(function (to) { acts.appendChild(btn(CT_LBL[to], to === "Hiệu lực" ? "pri" : "", function () { ctChuyen(r, to); })); });
+      if (can("dm.edit")) acts.appendChild(btn("⎘ Sao chép bản mới", "", function () { ctSaoChep(r); }));
+      t.appendChild(h("tr", { "data-ct-ver": (r["Mã công thức"] || "") + "#" + (r["Phiên bản"] || 1) }, [
+        h("td", { class: "t", html: "<b>" + esc(r["Mã công thức"] || "") + "</b>" }), h("td", { class: "t", text: "v" + (r["Phiên bản"] || 1) }), h("td", { class: "t", text: r["Tên công thức"] || "" }),
+        h("td", { class: "t", style: "font-family:monospace;max-width:340px;word-break:break-all", text: r["Biểu thức"] || "" }),
+        h("td", { class: "t", html: "<span class='tag " + (tt === "Hiệu lực" ? "on" : "off") + "'>" + esc(tt) + "</span>" }),
+        h("td", { class: "t", text: r["Hiệu lực từ"] || "" }), h("td", { class: "t", text: r["Hiệu lực đến"] || "" }), h("td", { class: "t", text: r["Người lập"] || "" }), h("td", { class: "t", text: r["Người duyệt"] || "" }), acts]));
+    });
+    box.appendChild(h("div", { class: "tw" }, [t]));
+    box.appendChild(h("div", { class: "hint", text: "Quy trình: Nháp → Gửi duyệt → Duyệt (người khác người lập) → Kích hoạt. Bản đã gửi duyệt trở đi không sửa nội dung — dùng “Sao chép bản mới”. Nhật ký chi tiết ở tab “Lịch sử phiên bản”." }));
+    return box;
+  }
   function ctHistoryPanel() {
     var box = h("div", { class: "card" });
     var codes = []; db.dm_congthuc.forEach(function (r) { var c = r["Mã công thức"]; if (c && codes.indexOf(c) < 0) codes.push(c); });
@@ -2410,20 +2463,6 @@
     box.appendChild(h("label", { text: "Mã công thức " })); box.appendChild(sel);
     var vers = FML.versionsOf(db.dm_congthuc, st.ctHist);
     box.appendChild(h("div", { class: "fh", text: "Các phiên bản (mới nhất trước)" }));
-    var fenv = function () { return { can: can, user: session ? session.tenDangNhap : "", db: db }; };
-    var LBL = { "Chờ duyệt": "Gửi duyệt", "Nháp": "Trả về nháp", "Đã duyệt": "Duyệt", "Hiệu lực": "Kích hoạt", "Ngừng": "Ngừng" };
-    var chuyen = function (r, to) {
-      var reason = String(st.ctReason || "").trim(); // Electron không hỗ trợ prompt() → lý do nhập ở ô phía trên bảng
-      if ((to === "Hiệu lực" || to === "Ngừng") && !reason) { alert("Nhập 'Lý do thay đổi' vào ô phía trên bảng trước khi " + LBL[to].toLowerCase() + " công thức."); return; }
-      var vals = { "Trạng thái": to }; if (reason) vals["Lý do thay đổi"] = reason;
-      // V10.2: lưu NGAY từng bước chuyển trạng thái (txn) — tiến trình chính kiểm từng bước một, không gộp nhiều bước vào một lần lưu trễ
-      if (!txn(["dm_congthuc"], function () { return !!commit(REPO.plan("update", "dm_congthuc", r, vals, { what: LBL[to].toLowerCase() + " công thức" }), { confirm: true, action: "Công thức tiền lương — " + LBL[to] + " " + (r["Mã công thức"] || "") }); })) return;
-      st.ctReason = ""; toast(LBL[to] + " công thức " + (r["Mã công thức"] || "") + ": xong."); render();
-    };
-    var saoChep = function (r) {
-      if (!txn(["dm_congthuc"], function () { return !!commit(REPO.plan("insert", "dm_congthuc", null, FAP.copyAsDraft(r, fenv()), { what: "sao chép công thức" }), { action: "Công thức tiền lương — Sao chép thành phiên bản mới " + (r["Mã công thức"] || "") }); })) return;
-      toast("Đã tạo phiên bản mới (Nháp) — sửa biểu thức rồi bấm 'Gửi duyệt'."); render();
-    };
     var inReason = h("input", { value: st.ctReason || "", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", style: "width:60%", "data-ct-reason": "1" });
     inReason.addEventListener("input", function () { st.ctReason = inReason.value; });
     box.appendChild(h("div", { class: "bar" }, [h("label", { text: "Lý do thay đổi " }), inReason]));
@@ -2431,8 +2470,8 @@
     t.appendChild(h("tr", {}, ["Phiên bản", "Hiệu lực từ", "Hiệu lực đến", "Trạng thái", "Công ty", "Biểu thức", "Người lập", "Người duyệt", "Kích hoạt", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
     vers.forEach(function (r) {
       var acts = h("td", { class: "t" });
-      FAP.actionsFor(r, fenv()).forEach(function (to) { acts.appendChild(btn(LBL[to], to === "Hiệu lực" ? "pri" : "", function () { chuyen(r, to); })); });
-      if (can("dm.edit")) acts.appendChild(btn("⎘ Sao chép bản mới", "", function () { saoChep(r); }));
+      FAP.actionsFor(r, ctFenv()).forEach(function (to) { acts.appendChild(btn(CT_LBL[to], to === "Hiệu lực" ? "pri" : "", function () { ctChuyen(r, to); })); });
+      if (can("dm.edit")) acts.appendChild(btn("⎘ Sao chép bản mới", "", function () { ctSaoChep(r); }));
       t.appendChild(h("tr", { "data-ct-ver": (r["Mã công thức"] || "") + "#" + (r["Phiên bản"] || 1) }, [h("td", { class: "t", text: "v" + (r["Phiên bản"] || 1) }), h("td", { class: "t", text: r["Hiệu lực từ"] || "" }), h("td", { class: "t", text: r["Hiệu lực đến"] || "" }),
         h("td", { class: "t", html: "<span class='tag " + (r["Trạng thái"] === "Hiệu lực" ? "on" : "off") + "'>" + esc(r["Trạng thái"] || "Nháp") + "</span>" }),
         h("td", { class: "t", text: r["Công ty"] || "(mọi công ty)" }), h("td", { class: "t", style: "font-family:monospace", text: r["Biểu thức"] || "" }),

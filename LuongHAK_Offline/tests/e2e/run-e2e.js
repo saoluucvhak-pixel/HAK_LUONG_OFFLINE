@@ -243,7 +243,7 @@ async function launch(dataDir, opt) {
   await w.fill('[data-ct-wizard] input[aria-label="Mã công thức"]', "WZ_E2E"); await w.dispatchEvent('[data-ct-wizard] input[aria-label="Mã công thức"]', "change");
   await w.click('[data-ct-wizard] button:has-text("Lưu thành Nháp")'); await w.waitForTimeout(300);
   await w.locator(".bar.sub button", { hasText: "Tăng ca" }).click();
-  ok("V10.2: tab Tăng ca của Cài đặt chỉ trỏ sang Danh mục tăng ca (không còn lưới Excel) và vẫn liệt kê công thức chưa gắn mã cha (WZ_E2E)", (await w.locator("[data-ct-ot-pointer]").count()) === 1 && (await w.locator("[data-ct-ot-unlinked]").innerText()).includes("WZ_E2E") && (await w.locator("main tbody tr.catedit").count()) === 0);
+  ok("Tab Tăng ca của Cài đặt là THƯ VIỆN công thức (nơi duy nhất tạo/sửa/duyệt) và liệt kê công thức WZ_E2E vừa tạo", (await w.locator('[data-ct-library="OVERTIME"]').count()) === 1 && (await w.locator('[data-ct-library="OVERTIME"]').innerText()).includes("WZ_E2E") && (await w.locator("[data-ct-lib-new]").count()) === 1);
   // V10.2: tạo mã tăng ca TC_E2E (cha) rồi tạo công thức con ngay trong Form Modal Master–Detail
   await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Tăng ca")');
   ok("V10.2: Danh mục tăng ca là danh sách Master (không phải bảng nhập Excel)", (await w.locator("[data-ot-master]").count()) === 1 && (await w.locator("[data-ot-table]").count()) === 1 && (await w.locator("main tr.catedit").count()) === 0);
@@ -252,19 +252,25 @@ async function launch(dataDir, opt) {
   await otFill("ma", "TC_E2E"); await otFill("ten", "Tăng ca kiểm thử E2E"); await otFill("heSo", "1.5"); await otFill("tu", "01/01/2020");
   await w.click("[data-ot-save-info]"); await w.waitForTimeout(300);
   ok("V10.2: lưu mã tăng ca mới trong modal → header hiện mã, chuyển sang chế độ chỉ xem", (await w.locator(".ot-dlg header h3").innerText()).includes("TC_E2E") && (await w.locator("[data-ot-edit-info]").count()) === 1);
-  await w.click('[data-ot-tab="ct"]'); await w.click("[data-ot-new-ver]"); await w.waitForSelector("[data-ot-designer=edit]");
-  ok("V10.2: trình thiết kế hiện thư viện biến lấy từ formula-variables (CONG_CHU_NHAT, HE_SO_TC…)", (await w.locator("[data-ot-vars]").innerText()).includes("CONG_CHU_NHAT") && (await w.locator("[data-ot-vars]").innerText()).includes("HE_SO_TC"));
-  await w.click('[data-ot-mode="adv"]');
-  await w.fill('[data-ot-designer] [data-ot-fd="tu"]', "01/01/2020"); await w.dispatchEvent('[data-ot-designer] [data-ot-fd="tu"]', "change");
-  await w.fill("[data-ot-expr]", "CONG_TC * HE_SO_TC * 2");
-  ok("V10.2: biểu thức hợp lệ được kiểm bằng cùng validator + có giải thích tiếng Việt", (await w.locator("[data-ot-syntax=ok]").count()) === 1 && (await w.locator("[data-ot-explain]").innerText()).includes("Công tăng ca"), await w.locator("[data-ot-explain]").innerText());
-  await w.click("[data-ot-save-formula]"); await w.waitForTimeout(300);
-  ok("V10.2: công thức con mới lưu ở trạng thái Nháp, hiện trong danh sách phiên bản của đúng mã cha", (await w.locator('tr[data-ot-ver="TC_E2E#1"]').innerText()).includes("Nháp"));
+  await w.click('[data-ot-tab="ct"]');
+  ok("Danh mục: tab 'Công thức tính' chỉ để XEM — không có nút tạo / sửa / sao chép / duyệt", (await w.locator("[data-ot-new-ver]").count()) === 0 && (await w.locator("[data-ot-readonly]").count()) === 1 && (await w.locator("[data-ot-ver] button:has-text('Sửa nháp')").count()) === 0);
   await w.click('[data-ot-close]'); await w.waitForTimeout(200);
-  await w.click("#nav button[data-k=caidat]");
+  // Tạo công thức TC_E2E (cùng mã với mã tăng ca) ở Cài đặt → Trình thiết lập, KHÔNG dùng mẫu
+  await w.click("#nav button[data-k=caidat]"); await w.locator(".bar.sub button", { hasText: "Trình thiết lập" }).click();
+  await w.fill("[data-ct-wizard-expr]", "CONG_TC * HE_SO_TC * 2"); await w.dispatchEvent("[data-ct-wizard-expr]", "change"); await w.waitForTimeout(150);
+  ok("Trình thiết lập: biểu thức hợp lệ → có giải thích bằng số", (await w.locator("[data-ct-wizard-explain]").count()) === 1);
+  await w.fill('[data-ct-wizard] input[aria-label="Mã công thức"]', "TC_E2E"); await w.dispatchEvent('[data-ct-wizard] input[aria-label="Mã công thức"]', "change");
+  await w.fill('[data-ct-wizard] input[aria-label="Hiệu lực từ"]', "01/01/2020"); await w.dispatchEvent('[data-ct-wizard] input[aria-label="Hiệu lực từ"]', "change");
+  await w.click('[data-ct-wizard] button:has-text("Lưu thành Nháp")'); await w.waitForTimeout(300);
+  await w.locator(".bar.sub button", { hasText: "Tăng ca" }).click();
+  ok("Công thức mới tạo ở Cài đặt ở trạng thái Nháp, hiện trong thư viện", (await w.locator('tr[data-ct-ver="TC_E2E#1"]').innerText()).includes("Nháp"));
+  await w.locator('tr[data-ct-ver="TC_E2E#1"] button', { hasText: "Sửa nháp" }).click(); await w.waitForSelector("[data-ct-edit-expr]");
+  await w.fill("[data-ct-edit-expr]", "CONG_TC * HE_SO_TC * 2 + 0"); await w.click('.dlg footer button:has-text("Lưu nháp")'); await w.waitForTimeout(300);
+  ok("Sửa nháp ở thư viện: biểu thức được lưu", (await w.locator('tr[data-ct-ver="TC_E2E#1"]').innerText()).includes("CONG_TC * HE_SO_TC * 2 + 0"));
+  await w.locator('tr[data-ct-ver="TC_E2E#1"] button', { hasText: "Sửa nháp" }).click(); await w.waitForSelector("[data-ct-edit-expr]");
+  await w.fill("[data-ct-edit-expr]", "CONG_TC * HE_SO_TC * 2"); await w.click('.dlg footer button:has-text("Lưu nháp")'); await w.waitForTimeout(300);
   await w.locator(".bar.sub button", { hasText: "Phụ cấp" }).click();
-  const pcEmpty = await w.locator("main .empty").count();
-  ok("Lọc theo Loại: mã TC_E2E (OVERTIME) KHÔNG hiện ở tab Phụ cấp (ALLOWANCE)", (pcEmpty > 0 || (await w.locator('[data-ct-pointer="ALLOWANCE"]').count()) === 1) && (await w.locator("[data-ct-unlinked]").count()) === 0 && !(await w.locator("main").innerText()).includes("TC_E2E"));
+  ok("Lọc theo Loại: mã TC_E2E (OVERTIME) KHÔNG hiện ở tab Phụ cấp (ALLOWANCE)", (await w.locator('[data-ct-library="ALLOWANCE"]').count()) === 1 && !(await w.locator('[data-ct-library="ALLOWANCE"]').innerText()).includes("TC_E2E"));
   await w.locator(".bar.sub button", { hasText: "Thư viện biến" }).click();
   const varsTxt = await w.locator("main").innerText();
   ok("Tab Thư viện biến: liệt kê biến đã khai báo (CONG_TC, HE_SO_TC…)", varsTxt.includes("CONG_TC") && varsTxt.includes("HE_SO_TC") && varsTxt.includes("Công tăng ca"));

@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-14T12:22:38.524Z",
+ "generated": "2026-10-14T13:44:28.395Z",
  "sizes": [
   "1366x768",
   "1600x900",
@@ -775,19 +775,19 @@
  "perf": {
   "loc_phieu_can_ms_tru_250ms_debounce": {
    "100": {
-    "loc_tu_khoa_ms": 57,
-    "bo_loc_ms": 60,
-    "loc_hep_ms": 18
+    "loc_tu_khoa_ms": 66,
+    "bo_loc_ms": 57,
+    "loc_hep_ms": 27
    },
    "1000": {
-    "loc_tu_khoa_ms": 62,
-    "bo_loc_ms": 64,
-    "loc_hep_ms": 20
+    "loc_tu_khoa_ms": 58,
+    "bo_loc_ms": 57,
+    "loc_hep_ms": 23
    },
    "10000": {
-    "loc_tu_khoa_ms": 81,
-    "bo_loc_ms": 67,
-    "loc_hep_ms": 46
+    "loc_tu_khoa_ms": 80,
+    "bo_loc_ms": 73,
+    "loc_hep_ms": 45
    }
   }
  },
