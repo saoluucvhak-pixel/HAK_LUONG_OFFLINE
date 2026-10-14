@@ -61,10 +61,8 @@
         t.appendChild(h("tr", {}, [K.code, K.name.replace(" (nội dung)", "")].concat(K.listCols.map(function (c) { return c.label; }), ["Loại công thức", "Trạng thái", "Hiệu lực", "Công thức đang áp dụng", "Số phiên bản", "Thao tác"]).map(function (x) { return h("th", { text: x }); })));
         rs.forEach(function (r) {
           var act = h("td", { class: "t ot-act" });
-          act.appendChild(btn("Xem chi tiết", "", function () { openModal(r.ma, { tab: "info" }); }));
+          act.appendChild(btn("Xem chi tiết", "pri", function () { openModal(r.ma, { tab: "info" }); }));
           if (A.can("dm.edit")) act.appendChild(btn("Chỉnh sửa", "", function () { openModal(r.ma, { tab: "info", edit: true }); }));
-          act.appendChild(btn("Quản lý công thức", "pri", function () { openModal(r.ma, { tab: "ct" }); }));
-          act.appendChild(btn("Lịch sử", "", function () { openModal(r.ma, { tab: "ls" }); }));
           if (A.can("dm.edit") && r.trangThai === "Đang hiệu lực") act.appendChild(btn("Ngừng sử dụng", "", function () { stopDialog(r.ma); }));
           var apCls = r.nguonApDung === "cauhinh" ? "on" : (r.nguonApDung === "macdinh" || r.nguonApDung === "lichsu") ? "off" : "bad";
           t.appendChild(h("tr", { "data-ot-row": r.ma }, [
