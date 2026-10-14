@@ -382,6 +382,17 @@ async function launch(dataDir, opt) {
     ok("V10.1: Chi tiết thanh toán có dòng cho nhân viên (không phụ thuộc chứng từ)", cttRows > 0, String(cttRows));
     if (cttRows) { await w.locator("[data-pay-report=CHI_TIET_TT] tbody tr[data-ma]").first().click(); await w.waitForTimeout(200);
       const dt = await w.locator("#modal").innerText(); ok("V10.1: bấm dòng mở cửa sổ CHI TIẾT THANH TOÁN LƯƠNG — [HỌ TÊN]", /CHI TIẾT THANH TOÁN LƯƠNG — /.test(dt) && /Tổng thu nhập/.test(dt), dt.slice(0, 80)); await w.click("#modal button:has-text('Đóng')"); }
+    { // V10.1: Excel Chi tiết thanh toán — hai tầng tiêu đề, A3 ngang nhiều trang, lặp Mã NV–Họ tên, Mã NV dạng text
+      fs.readdirSync(DL).filter((f) => /^ChiTietThanhToan_/.test(f)).forEach((f) => fs.unlinkSync(path.join(DL, f)));
+      dialogs = []; await w.click('button:has-text("Xuất Excel")'); await w.waitForTimeout(700);
+      let cf = null; for (let i = 0; i < 15 && !cf; i++) { await w.waitForTimeout(200); cf = fs.readdirSync(DL).filter((f) => /^ChiTietThanhToan_2026-09\.xlsx$/.test(f))[0]; }
+      if (!cf) ok("V10.1: xuất Excel Chi tiết thanh toán", false, "không có file; hộp thoại: " + dialogs.join(" | ").slice(0, 200));
+      else {
+        const EX = require(path.join(APP, "exceljs.min.js")), wbc = new EX.Workbook(); await wbc.xlsx.load(fs.readFileSync(path.join(DL, cf))); const wc = wbc.worksheets[0];
+        let grp = 0; wc.eachRow((row, n) => { if (row.getCell(1).value === "NHÂN VIÊN") grp = n; });
+        ok("V10.1: Excel Chi tiết thanh toán — tiêu đề 2 tầng, A3 ngang, ≥2 trang ngang, lặp cột Mã NV–Họ tên, đóng băng", grp > 0 && wc.pageSetup.paperSize === 8 && wc.pageSetup.fitToWidth >= 2 && wc.pageSetup.printTitlesColumn === "A:C" && wc.views[0].xSplit === 3, JSON.stringify({ grp, p: wc.pageSetup.paperSize, w: wc.pageSetup.fitToWidth, c: wc.pageSetup.printTitlesColumn, x: wc.views[0].xSplit }));
+      }
+    }
     await w.click("#nav button[data-k=rp_soct]");
     const soTxt = await w.locator("#main").innerText();
     ok("V10.1: Sổ chứng từ thanh toán là màn riêng", /SỔ CHỨNG TỪ THANH TOÁN LƯƠNG/.test(soTxt) && /Số chứng từ/.test(soTxt));
