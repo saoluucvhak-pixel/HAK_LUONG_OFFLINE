@@ -39,7 +39,7 @@ color-scheme:light}
 --okBg:rgba(212,176,106,.14);--okFg:#e3c88f;--focus:rgba(212,176,106,.32);--edit:#d4b06a;--editBg:#251f12;
 --hero:radial-gradient(1200px 300px at 90% -20%,rgba(212,176,106,.14),transparent 60%),linear-gradient(120deg,#090e19,#1a2b49);
 --c1:rgba(212,176,106,.16);--c1f:#e3c88f;--deep:#090e19}
-[data-skin="luxe"] #top h2,[data-skin="luxe"] .card>h3,[data-skin="luxe"] .dlg h3,[data-skin="luxe"] .brand b{font-family:Georgia,"Times New Roman","Noto Serif",serif;letter-spacing:.2px}
+[data-skin="luxe"] #top h2,[data-skin="luxe"] .card>h3,[data-skin="luxe"] .dlg h3,[data-skin="luxe"] .brand b{font-family:"HAK Serif",Georgia,"Times New Roman","Noto Serif",serif;letter-spacing:.2px}
 [data-skin="luxe"] .logo{background:linear-gradient(135deg,#d9b974,#a07c34);color:#1a1405;box-shadow:0 4px 14px rgba(201,164,92,.45)}
 [data-skin="luxe"] .brand b{color:#f1dfb4}
 [data-skin="luxe"] .grp{color:#c9a45c}
