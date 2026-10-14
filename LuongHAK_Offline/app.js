@@ -1362,7 +1362,17 @@
     body.appendChild(tabs); body.appendChild(content); draw();
     modal("Chi tiết hợp đồng " + soHD + " — " + ma, body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true, onClose: function () { st.hdModal = null; render(); } });
   }
-  function hdReopen() { if (st.hdModal) hdChiTietModal(st.hdModal.ma, st.hdModal.so); }
+  function hdReopen() { if (!st.hdModal) return; if (st.hdModal.npt) nptModal(st.hdModal.ma); else hdChiTietModal(st.hdModal.ma, st.hdModal.so); }
+  /** Master–Detail dạng cửa sổ: Nhân viên (cha) → Người phụ thuộc (con). Mã NV tự gán theo nhân viên cha. */
+  function nptModal(ma) {
+    var nv = db.nhanvien.filter(function (r) { return r["Mã NV"] === ma; })[0];
+    if (!nv) { st.hdModal = null; return; }
+    st.hdModal = { ma: ma, npt: 1 };
+    var body = h("div", { "data-npt-detail": ma });
+    body.appendChild(h("div", { class: "hint", html: "Cha: nhân viên <b>" + esc(ma) + "</b> — " + esc(nv["Họ và tên"] || "") + ". Mã NV của người phụ thuộc tự gán theo nhân viên này." }));
+    body.appendChild(subTable("nhanthan", { "Mã NV": ma }));
+    modal("Người phụ thuộc — " + ma, body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true, onClose: function () { st.hdModal = null; render(); } });
+  }
 
   function tabNhanVien() {
     var nv = db.nhanvien.filter(function (r) { return r["Mã NV"] === st.nv; })[0];
@@ -1402,6 +1412,20 @@
       tabs.appendChild(h("button", { class: st.nvTab === k ? "on" : "", on: { click: function () { st.nvTab = k; render(); } } }, [document.createTextNode(HR[k].icon + " " + HR[k].ten), n ? h("span", { class: "n", text: n }) : null]));
     });
     w.appendChild(tabs);
+    if (st.nvTab === "nhanthan") {
+      var nptRows = db.nhanthan.filter(function (r) { return r["Mã NV"] === ma; });
+      var nc = h("div", { class: "card", "data-npt-master": ma });
+      nc.appendChild(h("div", { class: "bar", style: "margin:0" }, [
+        h("div", { html: "Nhân viên <b>" + esc(ma) + "</b> có <b>" + nptRows.length + "</b> người thân / người phụ thuộc đã khai." }),
+        h("span", { class: "sp" }),
+        btn("Chi tiết người phụ thuộc", "pri", function () { if (!leaveOk()) return; nptModal(ma); }, "Mở cửa sổ cha–con để xem, thêm, sửa người phụ thuộc của nhân viên này")]));
+      if (nptRows.length) {
+        var nt = h("table"); nt.appendChild(h("tr", {}, [h("th", { text: "Họ tên" }), h("th", { text: "Quan hệ" })]));
+        nptRows.forEach(function (r) { nt.appendChild(h("tr", {}, [h("td", { class: "t", text: r["Họ tên nhân thân"] || "" }), h("td", { class: "t", text: r["Quan hệ"] || "" })])); });
+        nc.appendChild(h("div", { class: "tw" }, [nt]));
+      }
+      w.appendChild(nc); return w;
+    }
     if (st.nvTab !== "hopdong") { w.appendChild(subTable(st.nvTab, { "Mã NV": ma })); return w; }
     // Tab hợp đồng: danh sách HĐ + mục con của HĐ đang chọn
     var hds = db.hopdong.filter(function (r) { return r["Mã NV"] === ma; });

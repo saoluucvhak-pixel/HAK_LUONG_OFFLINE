@@ -480,6 +480,10 @@ async function launch(dataDir, opt) {
     ok("UI: nút sáng / tối đổi giao diện (tối → sáng)", th1 === "dark" && th2 === "light", th1 + " → " + th2);
     await w.keyboard.press("Control+k"); await w.waitForSelector(".cmdk input"); await w.fill(".cmdk input", "e2e nhan"); await w.press(".cmdk input", "Enter"); await w.waitForTimeout(300);
     ok("UI: Ctrl+K gõ không dấu tìm nhân viên → Enter mở hồ sơ", (await w.locator("#top h2").innerText()) === "Hồ sơ nhân viên" && /E2E Nhân Viên/.test(await w.locator("#main").innerText()));
+    await w.click('.subtabs button:has-text("Nhân thân")'); await w.waitForSelector("[data-npt-master]");
+    await w.click('[data-npt-master] button:has-text("Chi tiết người phụ thuộc")'); await w.waitForSelector("[data-npt-detail]");
+    ok("V10: Nhân viên → Người phụ thuộc mở bằng cửa sổ cha–con (Mã NV tự gán)", (await w.locator("[data-npt-detail]").innerText()).includes("Cha: nhân viên"));
+    await w.click('#modal footer button:has-text("Đóng")'); await w.waitForTimeout(200);
     // Thông tin cá nhân: thêm 1 bản, rồi sửa kiểu "Thông tin mới" → có 2 bản, bản cũ giữ nguyên
     await w.click('.subtabs button:has-text("Thông tin cá nhân")'); await w.click('#main button:has-text("Thêm")'); await w.waitForSelector("#modal.drawer .dlg");
     const D = (l) => w.locator(".dlg .fld", { hasText: l }).first();
