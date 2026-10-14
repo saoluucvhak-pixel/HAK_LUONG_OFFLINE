@@ -11,6 +11,10 @@
    * @param X ExcelJS   @param vm { title, congTy, kyText, phamVi, donVi, ngayLap, trangThai, cols:[{key,label,kind}], rows, tong }
    * @param o { chuKy:[...], tenSheet, nguoiLap }
    */
+  /** V10.1: chuỗi bắt đầu bằng = + - @ (hoặc tab/CR) có thể bị Excel/Sheets coi là công thức khi người dùng mở/sửa → thêm dấu nháy đơn đứng đầu (khiên CSV/formula-injection). */
+  function safeText(v) { var t = v == null ? "" : String(v); return /^[=+\-@\t\r]/.test(t) ? "'" + t : t; }
+  var ISO_D = /^(\d{4})-(\d{2})-(\d{2})$/;
+  function isoToDate(t) { var m = ISO_D.exec(String(t || "")); if (!m) return null; var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)); return d.getUTCMonth() === +m[2] - 1 ? d : null; }
   function build(X, vm, o) {
     o = o || {};
     var wb = new X.Workbook(); wb.creator = o.nguoiLap || vm.nguoiLap || "Tính lương HAK"; wb.created = new Date();
@@ -43,12 +47,14 @@
       cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true }; cell.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
     });
     r++;
+    var decCols = vm.cols.map(function (c) { return c.kind === "qty" && vm.rows.some(function (row) { var x = +row[c.key]; return isFinite(x) && Math.abs(x - Math.round(x)) > 1e-9; }); });
     vm.rows.forEach(function (row) {
       vm.cols.forEach(function (c, i) {
         var cell = ws.getCell(r, i + 1), v = row[c.key];
-        if (TEXT_COLS.test(c.label) || c.kind === "text") { cell.value = v == null ? "" : String(v); cell.numFmt = "@"; cell.alignment = { vertical: "middle", wrapText: c.label === "Nội dung" }; }
+        if (/^Ngày/.test(c.label) && isoToDate(v)) { cell.value = isoToDate(v); cell.numFmt = "dd/mm/yyyy"; cell.alignment = { horizontal: "center", vertical: "middle" }; }
+        else if (TEXT_COLS.test(c.label) || c.kind === "text") { cell.value = safeText(v); cell.numFmt = "@"; cell.alignment = { vertical: "middle", wrapText: c.label === "Nội dung" }; }
         else if (c.kind === "money") { cell.value = v === "" || v == null ? null : Math.round(+v); cell.numFmt = "#,##0;[Red]-#,##0"; }
-        else { cell.value = v === "" || v == null ? null : +v; cell.numFmt = "#,##0.###"; if (/^STT$/i.test(c.label)) cell.alignment = { horizontal: "center" }; }
+        else { cell.value = v === "" || v == null ? null : +v; cell.numFmt = decCols[i] ? "#,##0.00" : "#,##0"; if (/^STT$/i.test(c.label)) cell.alignment = { horizontal: "center" }; }
         cell.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
       });
       r++;
@@ -58,7 +64,7 @@
       vm.cols.forEach(function (c, i) {
         var cell = ws.getCell(r, i + 1);
         if (i === 0) cell.value = "TỔNG CỘNG";
-        else if (vm.tong && vm.tong[c.key] != null && vm.tong[c.key] !== "") { cell.value = +vm.tong[c.key]; cell.numFmt = c.kind === "money" ? "#,##0" : "#,##0.###"; }
+        else if (vm.tong && vm.tong[c.key] != null && vm.tong[c.key] !== "") { cell.value = +vm.tong[c.key]; cell.numFmt = c.kind === "money" ? "#,##0" : (decCols[i] ? "#,##0.00" : "#,##0"); }
         cell.font = { bold: true }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F4F4" } }; cell.border = { top: BORDER, left: BORDER, bottom: { style: "double", color: { argb: "FF444444" } }, right: BORDER };
       });
       lastData = r; r++;
@@ -79,15 +85,19 @@
       var mx = String(c.label).length; vm.rows.forEach(function (row) { var v = row[c.key]; var L = v == null ? 0 : (c.kind === "money" ? String(Math.round(+v || 0)).length + 3 : String(v).length); if (L > mx) mx = L; });
       ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(c.label === "Nội dung" ? 44 : 32, mx + 2));
     });
-    ws.pageSetup = { paperSize: nc > 14 ? 8 : 9, orientation: nc > 6 ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
+    // Bảng > 20 cột: KHÔNG ép vào 1 trang (chữ sẽ quá nhỏ) → A3 ngang, chia ~18 cột/trang, lặp cột nhận diện (Mã NV, Họ tên) ở mọi trang
+    var wide = nc > 20, pagesW = wide ? Math.ceil(nc / 18) : 1, idName = -1;
+    vm.cols.forEach(function (c, i) { if (idName < 0 && /^Họ và tên$/i.test(c.label)) idName = i; });
+    ws.pageSetup = { paperSize: wide || nc > 14 ? 8 : 9, orientation: nc > 6 ? "landscape" : "portrait", fitToPage: true, fitToWidth: pagesW, fitToHeight: 0, horizontalCentered: true,
       margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }, printTitlesRow: (vm.groups && vm.groups.length ? (hr - 1) : hr) + ":" + hr };
+    if (wide && idName >= 0) ws.pageSetup.printTitlesColumn = "A:" + colLetter(idName);
     ws.pageSetup.printArea = "A1:" + last + sigEnd;
     ws.headerFooter = { oddFooter: "&L" + (vm.congTy || "") + " · " + vm.title + "&RTrang &P / &N" };
-    ws.views = [{ state: "frozen", xSplit: Math.min(3, nc), ySplit: hr, topLeftCell: "A" + (hr + 1) }];
+    ws.views = [{ state: "frozen", xSplit: nc > 8 && idName >= 0 ? idName + 1 : 0, ySplit: hr, topLeftCell: "A" + (hr + 1) }];
     if (vm.rows.length) ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: lastData - (vm.rows.length ? 1 : 0), column: nc } };
     ws.properties.defaultRowHeight = 18;
     return wb;
   }
-  var api = { build: build, colLetter: colLetter };
+  var api = { build: build, colLetter: colLetter, safeText: safeText };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else { root.HAKUi = root.HAKUi || {}; root.HAKUi.reportXlsx = api; }
 })(typeof window !== "undefined" ? window : this);

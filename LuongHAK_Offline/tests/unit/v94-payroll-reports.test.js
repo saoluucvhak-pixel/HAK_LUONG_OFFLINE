@@ -147,3 +147,50 @@ test("U-PAY101-04 Sổ chứng từ thanh toán tách riêng: liệt kê dòng c
   assert.equal(vm.rows.length, 2); assert.match(vm.title, /SỔ CHỨNG TỪ THANH TOÁN/);
   assert.equal(vm.rows.filter((x) => x["Trạng thái"] === "Đã hủy")[0]["Lý do hủy"], "sai số");
 });
+
+// ---------- V10.1 Phase 5: Excel chuyên nghiệp — an toàn, định dạng, in bảng rộng ----------
+const mkVm = (cols, rows, extra) => Object.assign({ title: "BÁO CÁO TEST", congTy: "CTY", kyText: "THÁNG 09/2026", phamVi: "Toàn bộ", trangThai: "Kỳ đã chốt", cols: cols.map(([l, k]) => ({ key: l, label: l, kind: k })), rows, tong: {}, soDong: rows.length }, extra || {});
+const loadWs = async (vm) => { const wb = RX.build(X, vm, {}); const b = await wb.xlsx.writeBuffer(); const w2 = new X.Workbook(); await w2.xlsx.load(b); return w2.worksheets[0]; };
+
+test("U-V101-XLS-01 chuỗi bắt đầu bằng = + - @ không thành công thức; Mã NV/CCCD/STK giữ dạng text và số 0 đầu", async () => {
+  const vm = mkVm([["STT", "qty"], ["Mã NV", "text"], ["Số CCCD", "text"], ["Ghi chú", "text"]], [
+    { STT: 1, "Mã NV": "00123", "Số CCCD": "012345678901", "Ghi chú": "=HYPERLINK(\"http://x\",\"a\")" }, { STT: 2, "Mã NV": "00124", "Số CCCD": "", "Ghi chú": "@SUM(1)" }, { STT: 3, "Mã NV": "00125", "Số CCCD": "", "Ghi chú": "+1+1" }]);
+  const ws = await loadWs(vm);
+  for (let r = 1; r <= ws.rowCount; r++) ws.getRow(r).eachCell((c) => { assert.ok(!(c.value && typeof c.value === "object" && c.value.formula), "ô " + c.address + " là công thức"); });
+  let hit = 0; ws.eachRow((row) => row.eachCell((c) => { if (c.value === "00123") { hit++; assert.equal(c.numFmt, "@"); } if (c.value === "012345678901") hit++; if (typeof c.value === "string" && /^'[=@+]/.test(c.value)) hit++; }));
+  assert.equal(hit, 5);
+});
+test("U-V101-XLS-02 ngày ISO ở cột 'Ngày…' thành ngày thật hiển thị dd/mm/yyyy, không lệch múi giờ; số thập phân hiện 2 chữ số, số nguyên không", async () => {
+  const vm = mkVm([["STT", "qty"], ["Ngày lập", "text"], ["Sản lượng (tấn)", "qty"], ["Công", "qty"]], [{ STT: 1, "Ngày lập": "2026-09-30", "Sản lượng (tấn)": 12.5, "Công": 26 }, { STT: 2, "Ngày lập": "2026-02-01", "Sản lượng (tấn)": 3, "Công": 24 }]);
+  const ws = await loadWs(vm), found = {};
+  ws.eachRow((row) => row.eachCell((c) => { if (c.value instanceof Date) { found[c.numFmt] = (found[c.numFmt] || 0) + 1; assert.ok([30, 1].includes(c.value.getUTCDate())); } if (c.value === 12.5) found.dec = c.numFmt; if (c.value === 26) found.int = c.numFmt; }));
+  assert.equal(found["dd/mm/yyyy"], 2); assert.equal(found.dec, "#,##0.00"); assert.equal(found.int, "#,##0");
+});
+test("U-V101-XLS-03 bảng > 20 cột: A3 ngang, KHÔNG ép 1 trang (≥2 trang ngang), lặp cột Mã NV–Họ tên, đóng băng đến Họ tên; bảng hẹp thì không đóng băng cột", async () => {
+  const cols = [["Mã NV", "text"], ["Họ và tên", "text"]]; for (let i = 0; i < 26; i++) cols.push(["Khoản " + i, "money"]);
+  const row = {}; cols.forEach(([l, k]) => { row[l] = k === "money" ? 1000 : "x"; });
+  const ws = await loadWs(mkVm(cols, [row]));
+  assert.equal(ws.pageSetup.paperSize, 8); assert.equal(ws.pageSetup.orientation, "landscape"); assert.ok(ws.pageSetup.fitToWidth >= 2, "fitToWidth=" + ws.pageSetup.fitToWidth);
+  assert.equal(ws.pageSetup.printTitlesColumn, "A:B"); assert.equal(ws.views[0].xSplit, 2);
+  const narrow = await loadWs(mkVm([["STT", "qty"], ["Họ và tên", "text"], ["Số tiền", "money"]], [{ STT: 1, "Họ và tên": "A", "Số tiền": 5 }]));
+  assert.equal(narrow.views[0].xSplit || 0, 0); assert.equal(narrow.pageSetup.fitToWidth, 1);
+});
+test("U-V101-XLS-04 tiêu đề hai tầng: hàng nhóm gộp đúng khoảng cột, in lặp cả hai hàng tiêu đề, AutoFilter nằm trên hàng tiêu đề cột", async () => {
+  const vm = mkVm([["Mã NV", "text"], ["Họ và tên", "text"], ["Lương", "money"], ["Thưởng", "money"]], [{ "Mã NV": "1", "Họ và tên": "A", "Lương": 5, "Thưởng": 1 }],
+    { groups: [{ label: "NHÂN VIÊN", from: 0, to: 1 }, { label: "THU NHẬP", from: 2, to: 3 }] });
+  const ws = await loadWs(vm); let gr = 0; ws.eachRow((row, n) => { if (row.getCell(1).value === "NHÂN VIÊN") gr = n; });
+  assert.ok(gr > 0); assert.equal(ws.getCell(gr, 3).value, "THU NHẬP"); assert.match(ws.pageSetup.printTitlesRow, new RegExp("^" + gr + ":" + (gr + 1) + "$"));
+  const af = ws.autoFilter && (typeof ws.autoFilter === "string" ? ws.autoFilter : (ws.autoFilter.from ? ws.autoFilter.from.row : "")); assert.ok(af, "thiếu AutoFilter"); assert.match(String(af), new RegExp(typeof af === "string" ? "[A-Z]+" + (gr + 1) + ":" : "^" + (gr + 1) + "$"));
+});
+
+test("U-V101-PDF-01 PDF bảng rộng (>16 cột) tách thành các phần cột, mỗi phần lặp Mã NV–Họ tên và tiêu đề nhóm, không thu chữ về cỡ nhỏ nhất; chuỗi nguy hiểm được escape", () => {
+  const RH = require("../../core/reporting/report-html.js");
+  const cols = ["STT", "Mã NV", "Họ và tên"]; for (let i = 0; i < 26; i++) cols.push("K" + i);
+  const row = { STT: 1, "Mã NV": "00123", "Họ và tên": "<script>x</script>" }; cols.slice(3).forEach((c) => { row[c] = 1000; });
+  const groups = [{ label: "NHÂN VIÊN", from: 0, to: 2 }, { label: "THU NHẬP", from: 3, to: 28 }];
+  const html = RH.sheets({ title: "T", sheets: [{ name: "T", cols, rows: [row], groups }] }, {});
+  const tables = html.match(/<table/g).length; assert.equal(tables, Math.ceil(26 / 11));
+  assert.equal((html.match(/<td class="t">00123<\/td>/g) || []).length, tables, "mỗi phần lặp Mã NV");
+  assert.ok(!html.includes("<script>x"), "phải escape"); assert.match(html, /THU NHẬP/); assert.match(html, /Phần 1\/3/);
+  assert.doesNotMatch(html, /font-size:6\.5pt/);
+});
