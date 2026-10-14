@@ -208,6 +208,10 @@
   function curTheme() { try { return localStorage.getItem(KEY + "_theme") === "dark" ? "dark" : "light"; } catch (e) { return "light"; } }
   function applyTheme(t) { document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light"); }
   function toggleTheme() { var t = curTheme() === "dark" ? "light" : "dark"; try { localStorage.setItem(KEY + "_theme", t); } catch (e) { /* vẫn đổi cho phiên này */ } applyTheme(t); render(); }
+  function curSkin() { try { return localStorage.getItem(KEY + "_skin") === "classic" ? "classic" : "luxe"; } catch (e) { return "luxe"; } }
+  function applySkin(k) { document.documentElement.setAttribute("data-skin", k === "classic" ? "classic" : "luxe"); }
+  function toggleSkin() { var k = curSkin() === "luxe" ? "classic" : "luxe"; try { localStorage.setItem(KEY + "_skin", k); } catch (e) { /* vẫn đổi cho phiên này */ } applySkin(k); render(); }
+  applySkin(curSkin());
   applyTheme(curTheme());
   // ---------- Phân trang + tìm kiếm (PERF-03: 1.000 NV mở lưới chấm công 6,9 s, gõ 4 ký tự 19,9 s khi vẽ toàn bộ) ----------
   var PAGE_SIZES = [50, 100, 200, 500];
@@ -4883,6 +4887,7 @@
   function sideFoot(ver) {
     var f = $("#sidefoot"); f.innerHTML = "";
     f.appendChild(h("button", { class: "themebtn", type: "button", on: { click: toggleTheme } }, [curTheme() === "dark" ? "🏖 Giao diện sáng" : "🌙 Giao diện tối"]));
+    f.appendChild(h("button", { class: "themebtn", type: "button", title: "Đổi kiểu: Sang trọng (navy + vàng champagne) hoặc Cổ điển (xanh ngọc)", on: { click: toggleSkin } }, [curSkin() === "luxe" ? "◇ Kiểu cổ điển" : "◆ Kiểu sang trọng"]));
     f.appendChild(h("div", { class: "ver", text: ver }));
   }
   function fold(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase(); }
@@ -4993,7 +4998,7 @@
     }
   }
   function renderInner() {
-    applyTheme(curTheme());
+    applySkin(curSkin()); applyTheme(curTheme());
     if (loadError) { $("#nav").innerHTML = ""; $("#top").innerHTML = "<h2>Khôi phục dữ liệu</h2>"; var mm = $("#main"); mm.innerHTML = ""; mm.appendChild(recoveryScreen()); return; }
     if (!session) {
       // Chưa đăng nhập: không hiện menu, không hiện dữ liệu nào
