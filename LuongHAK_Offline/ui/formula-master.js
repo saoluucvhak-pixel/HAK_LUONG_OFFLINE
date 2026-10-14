@@ -310,8 +310,8 @@
       if (!r) { M.act = null; return p; }
       p.appendChild(h("div", { class: "fh", text: (a.to === "Hiệu lực" ? "Kích hoạt" : "Ngừng hiệu lực") + " phiên bản v" + (r["Phiên bản"] || 1) + " (" + (r["Mã công thức"] || "") + ")" }));
       if (a.items) p.appendChild(chkView(a.items));
-      var inp = h("input", { class: "i", style: "width:70%", placeholder: "Lý do thay đổi (bắt buộc)", value: a.reason, "data-ot-reason": "1", "aria-label": "Lý do thay đổi" }); inp.addEventListener("input", function () { a.reason = inp.value; M.reason = inp.value; });
-      p.appendChild(h("div", { class: "bar" }, [h("label", { text: "Lý do thay đổi " }), inp]));
+      var inp = h("input", { class: "i reason-in", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", value: a.reason, "data-ot-reason": "1", "aria-label": "Lý do thay đổi" }); inp.addEventListener("input", function () { a.reason = inp.value; M.reason = inp.value; });
+      p.appendChild(h("div", { class: "bar" }, [h("label", { class: "reason-lbl", text: "Lý do thay đổi" }), inp]));
       var blocked = a.items && a.items.some(function (x) { return !x.ok; });
       p.appendChild(h("div", { class: "bar" }, [btn("Xác nhận", "pri", function () {
         if (!String(a.reason).trim()) { A.toast("Nhập lý do thay đổi"); inp.focus(); return; }

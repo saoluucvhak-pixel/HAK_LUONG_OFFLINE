@@ -2429,11 +2429,11 @@
     var box = h("div", { class: "card", "data-ct-library": loai });
     var noun = loai === "OVERTIME" ? "tăng ca" : loai === "ALLOWANCE" ? "phụ cấp" : "hỗ trợ";
     box.appendChild(h("div", { class: "hint", text: "Thư viện công thức " + noun + ": tạo mới, sửa nháp, duyệt và kích hoạt ở đây. Ở Danh mục, mỗi mã " + noun + " chỉ cần chọn Mã công thức. Chỉ bản “Hiệu lực” được dùng để tính lương." }));
-    var inReason = h("input", { value: st.ctReason || "", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", style: "width:60%", "data-ct-reason": "1" });
+    var inReason = h("input", { class: "i reason-in", value: st.ctReason || "", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", "data-ct-reason": "1", "aria-label": "Lý do thay đổi" });
     inReason.addEventListener("input", function () { st.ctReason = inReason.value; });
     var bar = h("div", { class: "bar" });
     if (can("dm.edit")) bar.appendChild(btn("＋ Tạo công thức " + noun + " mới", "pri", function () { st.ctWz = { loai: loai, mau: -1, vars: {}, ma: "", ten: "", tu: "" }; st.ct = "wz"; render(); })).setAttribute("data-ct-lib-new", "1");
-    bar.appendChild(h("label", { text: " Lý do thay đổi " })); bar.appendChild(inReason); box.appendChild(bar);
+    bar.appendChild(h("label", { class: "reason-lbl", text: "Lý do thay đổi" })); bar.appendChild(inReason); box.appendChild(bar);
     var rows = db.dm_congthuc.filter(function (r) { return (r["Loại"] || "") === loai; }).slice().sort(function (a, b) { var ca = String(a["Mã công thức"] || ""), cb = String(b["Mã công thức"] || ""); return ca < cb ? -1 : ca > cb ? 1 : (+b["Phiên bản"] || 1) - (+a["Phiên bản"] || 1); });
     if (!rows.length) { box.appendChild(h("div", { class: "empty", text: "Chưa có công thức " + noun + " nào do bạn tạo. Công thức có sẵn của hệ thống vẫn dùng được khi chọn ở Danh mục." })); return box; }
     var t = h("table", { "data-ct-lib-table": loai });
@@ -2474,9 +2474,9 @@
     box.appendChild(h("label", { text: "Mã công thức " })); box.appendChild(sel);
     var vers = FML.versionsOf(db.dm_congthuc, st.ctHist);
     box.appendChild(h("div", { class: "fh", text: "Các phiên bản (mới nhất trước)" }));
-    var inReason = h("input", { value: st.ctReason || "", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", style: "width:60%", "data-ct-reason": "1" });
+    var inReason = h("input", { class: "i reason-in", value: st.ctReason || "", placeholder: "Lý do thay đổi (bắt buộc khi Kích hoạt / Ngừng)", "data-ct-reason": "1", "aria-label": "Lý do thay đổi" });
     inReason.addEventListener("input", function () { st.ctReason = inReason.value; });
-    box.appendChild(h("div", { class: "bar" }, [h("label", { text: "Lý do thay đổi " }), inReason]));
+    box.appendChild(h("div", { class: "bar" }, [h("label", { class: "reason-lbl", text: "Lý do thay đổi" }), inReason]));
     var t = h("table");
     t.appendChild(h("tr", {}, ["Phiên bản", "Hiệu lực từ", "Hiệu lực đến", "Trạng thái", "Công ty", "Biểu thức", "Người lập", "Người duyệt", "Kích hoạt", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
     vers.forEach(function (r) {
