@@ -309,7 +309,7 @@ td input:disabled{color:var(--ink);background:transparent}
 .g-doc h1{text-align:center;font-size:19px;margin:18px 0 4px}
 .g-doc-head{display:flex;justify-content:space-between;text-align:center;gap:20px;font-size:14px}
 .g-center{text-align:center}.g-small{font-size:13px;color:var(--mut)}
-.g-warn{background:var(--warnBg);border:1px solid var(--warnBd);border-radius:12px;padding:10px 14px;margin:10px 0}
+.g-warn{background:var(--warnBg);border:1px solid var(--warnBd);color:var(--warnFg);border-radius:12px;padding:10px 14px;margin:10px 0}
 .g-sign{display:flex;justify-content:space-around;text-align:center;margin:30px 0 10px}
 /* Phân trang bảng lớn (2.0-α8) */
 .pager{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 2px;font-size:13px;color:var(--mut)}
