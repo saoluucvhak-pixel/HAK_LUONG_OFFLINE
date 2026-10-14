@@ -3401,7 +3401,16 @@
     bar.appendChild(btn("⬇ Xuất Excel", "", function () {
       if (!list.length) { toast("Không có phiếu nào"); return; }
       var cols = ["Mã NV", "Họ và tên", "Phòng ban", "Tổng công", "Công chuẩn"].concat(SLIP_LINES.map(function (l) { return l[0]; }));
-      saveXlsx("PhieuLuong_" + kyStr() + (st.slipPB && !single ? "_" + slug(st.slipPB) : "") + ".xlsx", [{ name: "PhieuLuong_" + kyStr(), cols: cols, rows: list.map(function (b) { var o = {}; cols.forEach(function (c) { o[c] = b[c] == null ? "" : b[c]; }); return o; }) }]);
+      var fileP = "PhieuLuong_" + kyStr() + (st.slipPB && !single ? "_" + slug(st.slipPB) : "") + ".xlsx";
+      if (window.ExcelJS && window.HAKUi && window.HAKUi.slipXlsx) {
+        if (!need("export", "xuất phiếu lương")) return;
+        var vmP = { congTy: congTy()["Tên công ty"] || "", kyText: "tháng " + st.thang + "/" + st.nam, trangThai: src.chot ? "Bảng lương đã chốt" : "Chưa chốt — tính tạm",
+          rawCols: cols, rawRows: list, slips: list.map(function (b) { return { maNV: b["Mã NV"], hoTen: b["Họ và tên"], phongBan: b["Phòng ban"], tongCong: b["Tổng công"], congChuan: b["Công chuẩn"], sanLuong: b["Sản lượng (tấn)"],
+            lines: SLIP_LINES.filter(function (l) { return b[l[0]] || l[2]; }).map(function (l) { return { label: l[1], value: b[l[0]], tot: !!l[2] }; }) }; }) };
+        window.HAKUi.slipXlsx.build(window.ExcelJS, vmP, { perPage: st.slipGon ? 2 : 1, rawName: "PhieuLuong_" + kyStr(), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
+          download(fileP, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+        }, function (e) { alert("Không tạo được file: " + e.message); });
+      } else saveXlsx(fileP, [{ name: "PhieuLuong_" + kyStr(), cols: cols, rows: list.map(function (b) { var o = {}; cols.forEach(function (c) { o[c] = b[c] == null ? "" : b[c]; }); return o; }) }]);
       audit("Xuất phiếu lương Excel", kyLabel(kyStr()) + " · " + list.length + " phiếu");
     }));
     bar.appendChild(btn("⬇ PDF", "", function () {

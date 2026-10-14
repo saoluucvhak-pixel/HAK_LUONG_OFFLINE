@@ -1,7 +1,7 @@
 # V10 — Tái thiết kế giao diện nghiệp vụ: bảng nghiệm thu
 
 Nhánh: `feature/luong-hak-v10-business-ux-redesign` (từ V9.4). Không đụng `main`. PR ở trạng thái DRAFT, không tự merge.
-Kiểm thử: unit 532/532, ESLint sạch, E2E giao diện thật 211/211, kiểm tra 87 màn hình × 3 độ phân giải (1366×768, 1600×900, 1920×1080): 0 tràn trang, 0 lỗi JS (`docs/V10_SCREEN_CHECK.json`).
+Kiểm thử: unit 534/534, ESLint sạch, E2E giao diện thật 212/212, kiểm tra 87 màn hình × 3 độ phân giải (1366×768, 1600×900, 1920×1080): 0 tràn trang, 0 lỗi JS (`docs/V10_SCREEN_CHECK.json`).
 
 | Hạng mục V10 | Trạng thái | Ghi chú |
 |---|---|---|
@@ -19,7 +19,8 @@ Kiểm thử: unit 532/532, ESLint sạch, E2E giao diện thật 211/211, kiể
 | Nghiệp vụ nhân sự độc lập (gửi/duyệt/từ chối/lịch sử) + báo cáo | DONE | Quyền mới `hr.approve` |
 | Báo cáo lương: chi tiết NV, chi tiết thanh toán | DONE | Có lọc, Excel/PDF/in, tổng đối soát |
 | Mẫu Excel chuyên nghiệp: báo cáo lương (V9.4/V10) + xuất từ lưới Danh mục/nhập liệu | DONE | Tiêu đề công ty, tên IN HOA, ngày lập, dòng tổng, chữ ký, A4, lặp tiêu đề; E2E |
-| Mẫu Excel/PDF cho Phiếu lương và các xuất Excel phụ còn lại | PARTIAL | Phiếu lương xuất bảng dữ liệu thô (dùng để đối chiếu); chưa có bố cục in riêng |
+| Phiếu lương Excel bố cục in riêng | DONE | Mỗi NV một phiếu (A4 dọc, chữ ký, 1 hoặc 2 phiếu/trang) + sheet dữ liệu thô để đối chiếu; unit + E2E |
+| Các xuất Excel phụ còn lại (ngoài lưới/báo cáo lương/phiếu lương) | PARTIAL | Vẫn bảng dữ liệu trơn |
 | Icon SVG thống nhất | DONE | Test U-UI-03 |
 | Ngày dd/MM/yyyy, nhập tay ổn định; số 15.000.000, căn phải | DONE | |
 | Bản dựng Windows (NSIS) | WINDOWS_UAT_PENDING | Chỉ build được qua GitHub Actions; chưa chạy thử trên Windows thật |

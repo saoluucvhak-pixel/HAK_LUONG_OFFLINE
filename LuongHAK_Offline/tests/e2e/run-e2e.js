@@ -430,6 +430,7 @@ async function launch(dataDir, opt) {
   let pf = null; for (let i = 0; i < 30 && !pf; i++) { await w.waitForTimeout(200); pf = fs.readdirSync(DL).filter((f) => /^PhieuLuong_2026-09\.xlsx$/.test(f))[0]; }
   let pfOk = false;
   if (pf) { const XLSX = require(path.join(APP, "xlsx.full.min.js")), r0 = XLSX.utils.sheet_to_json(XLSX.read(fs.readFileSync(path.join(DL, pf)), { type: "buffer" }).Sheets["PhieuLuong_2026-09"])[0]; pfOk = r0 && r0["Thực lĩnh"] === 11370000 && r0["Mã NV"] === "NV001"; }
+  if (pf) { const XL = require(path.join(APP, "xlsx.full.min.js")), sn = XL.read(fs.readFileSync(path.join(DL, pf)), { type: "buffer" }).SheetNames; ok("V10: Excel phiếu lương có sheet 'Phiếu lương' (bố cục in riêng) + sheet dữ liệu thô", sn[0] === "Phiếu lương" && sn.indexOf("PhieuLuong_2026-09") > 0, sn.join(",")); }
   ok("Phiếu lương (menu riêng): kỳ đã chốt, tìm không dấu, xuất Excel khớp bảng đã chốt", /PHIẾU LƯƠNG THÁNG 9\/2026/.test(slTxt) && /đã chốt/.test(slTxt) && nSl === 1 && nSl0 === 0 && nSl1 === 1 && pfOk, [nSl, nSl0, nSl1, pf, pfOk].join(" · "));
   await w.waitForSelector("#dlcard"); await w.click("#dlcard .t button");
   // α18: Báo cáo bảo hiểm
