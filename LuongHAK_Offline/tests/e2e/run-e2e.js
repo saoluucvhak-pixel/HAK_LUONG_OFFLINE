@@ -104,7 +104,9 @@ async function launch(dataDir, opt) {
   ok("Dán từ Excel: ô '-1' không được ghi, ô hợp lệ vẫn ghi", v13 === "" && v14 === "1", "13='" + v13 + "', 14='" + v14 + "'");
   ok("Chấm công: ô '-1' bị từ chối (giữ trống), cột 31 tháng 9 bị khóa", v6 === "" && dis31 && dialogs.some((d) => /không được âm/.test(d)), "ô 06='" + v6 + "', 31 khóa=" + dis31 + " | " + dialogs.join(" | "));
   // tính + chốt
-  await w.click("#nav button[data-k=luong]"); await w.click("button.big");
+  await w.click("#nav button[data-k=luong]");
+  ok("V10: Tính lương có thanh 7 bước", (await w.locator("[data-steps7] li").count()) === 7);
+  await w.click("button.big");
   const line = await w.locator("main tbody tr").first().innerText();
   ok("Tính lương: 12.000.000 − BH 630.000 = 11.370.000", /11\.370\.000/.test(line), line.replace(/\t/g, " | "));
   // V5: Bảng tính lương nội bộ + bộ lọc dùng chung + xuất PDF thật

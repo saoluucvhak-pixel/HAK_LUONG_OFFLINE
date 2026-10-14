@@ -2874,8 +2874,30 @@
     card.appendChild(h("div", { class: "hint", style: "margin-top:10px", text: "Chưa hỗ trợ đối chiếu Đại Hiệp theo từng ngày ở màn hình này — dùng sheet \"Bu luong theo ngay - DH\" trong file Excel Phân bổ khối lượng (Báo cáo lương → Sản lượng) để so sánh thủ công theo ngày." }));
     w.appendChild(card); return w;
   }
+  /** Thanh 7 bước Tính lương (V10): hiện bước đã xong / đang ở / chưa tới; bấm để sang màn hình tương ứng. */
+  function luongSteps(chot) {
+    var daTinh = !!(st.kq && !st.kqStale) || !!chot;
+    var S7 = [
+      ["Chọn kỳ & cách tính", true, null],
+      ["Kiểm tra dữ liệu đầu vào", daTinh, "ktbl"],
+      ["Tính lương", daTinh, null],
+      ["Kiểm tra bảng lương", !!chot, "ktbl"],
+      ["Chốt kỳ", !!chot, null],
+      ["Thanh toán lương", false, "rp_thanhtoan"],
+      ["Báo cáo & phiếu lương", false, "slips"]];
+    var cur = chot ? 5 : daTinh ? 3 : 0;
+    var bar = h("ol", { class: "steps7", "data-steps7": "1", "aria-label": "7 bước tính lương" });
+    S7.forEach(function (x, i) {
+      var cls = i < cur ? "done" : i === cur ? "now" : "";
+      var li = h("li", { class: cls }, [h("span", { class: "n", text: String(i + 1) }), h("span", { text: x[0] })]);
+      if (x[2]) { li.classList.add("go"); li.addEventListener("click", function () { if (!leaveOk()) return; st.tab = x[2]; render(); }); }
+      bar.appendChild(li);
+    });
+    return bar;
+  }
   function tabLuong() {
     var box = h("div"), chot = kyChot(kyStr());
+    box.appendChild(luongSteps(chot));
     var card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
     if (chot) {
       st.kq = Object.assign({ ky: chot.ky }, chot.kq);

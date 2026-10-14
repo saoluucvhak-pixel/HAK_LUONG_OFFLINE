@@ -397,3 +397,11 @@ table.kt{table-layout:fixed;width:100%}
 table.kt th:nth-child(1){width:70px}table.kt th:nth-child(2){width:110px}table.kt th:nth-child(3){width:26%}table.kt th:nth-child(5){width:150px}
 table.kt td{white-space:normal;word-break:break-word;vertical-align:top}
 table.nvns td{white-space:normal;vertical-align:top}
+
+/* V10: thanh 7 bước tính lương */
+ol.steps7{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0 0 10px;padding:0}
+ol.steps7 li{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line,#d5ddd8);border-radius:16px;font-size:12.5px;background:var(--card,#fff);color:#6c7a74}
+ol.steps7 li .n{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#e4eae6;font-weight:700;font-size:11px}
+ol.steps7 li.done{color:#2f6b3a}ol.steps7 li.done .n{background:#2f6b3a;color:#fff}
+ol.steps7 li.now{border-color:#2f6b3a;color:#1d4d28;font-weight:600}ol.steps7 li.now .n{background:#1d4d28;color:#fff}
+ol.steps7 li.go{cursor:pointer}ol.steps7 li.go:hover{border-color:#2f6b3a}
