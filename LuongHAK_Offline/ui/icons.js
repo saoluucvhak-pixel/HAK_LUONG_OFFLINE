@@ -81,7 +81,7 @@
     "⚠": "warn", "✔": "check", "✓": "check", "🖨": "printer", "📂": "folder", "📁": "folder", "🗂": "folder", "🛡": "shield", "🚑": "medical", "🗑": "trash", "🏢": "building",
     "📋": "clipboard", "📒": "book", "↔": "swap", "🧾": "receipt", "🌴": "leaf", "🏖": "sun", "🤒": "thermo", "🎂": "cake",
     "🩺": "steth", "❤": "heart", "📞": "phone", "🪪": "id", "🎓": "cap", "👪": "family", "🏦": "bank", "💼": "case", "🔀": "shuffle",
-    "🏆": "award", "📎": "clip", "＋": "plus", "✕": "close", "←": "left", "⛔": "stop", "👁": "eye", "🔑": "key", "📖": "book", "🖨️": "printer", "🌙": "moon", "📶": "trend", "📐": "ruler"
+    "🏆": "award", "📝": "clip", "📎": "clip", "＋": "plus", "✕": "close", "←": "left", "⛔": "stop", "👁": "eye", "🔑": "key", "📖": "book", "🖨️": "printer", "🌙": "moon", "📶": "trend", "📐": "ruler"
   };
   var LEAD = /^\s*([←-⯿＋]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDC00-\uDFFF])️?\s*/;
   var NS = "http://www.w3.org/2000/svg";

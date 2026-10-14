@@ -786,6 +786,43 @@ async function launch(dataDir, opt) {
     await app.close();
   }
 
+  // V10: Nghiệp vụ nhân sự độc lập — lập đề nghị → gửi duyệt → duyệt → ghi vào hồ sơ + đối chiếu chấm công
+  {
+    const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-nvns-"));
+    ({ app, w, errs } = await launch(SD));
+    await app.close();
+    const fb = path.join(SD, "data.json"), db2 = JSON.parse(fs.readFileSync(fb, "utf8"));
+    db2.nhanvien.push({ _id: "hr1", "Mã NV": "HR1", "Họ và tên": "Nguyễn Văn Ân", "Trạng thái": "Đang làm việc" });
+    db2.hopdong.push({ _id: "hr1hd", "Mã NV": "HR1", "Số HĐLĐ": "HR1/HĐ", "Hình thức HĐLĐ": "Xác định thời hạn", "Ngày vào làm": "2026-01-01" });
+    db2.chitiethd.push({ _id: "hr1pl", "Mã NV": "HR1", "Số HĐLĐ": "HR1/HĐ", "Hiệu lực từ": "2026-01-01", "Mã lương": "TG1", "Lương thỏa thuận": "9000000", "HTTT": "Tiền mặt" });
+    db2.chamcong.push({ "Kỳ": "2026-11", "Mã NV": "HR1", "Hình thức công": "BT", "03": "1" });
+    fs.writeFileSync(fb, JSON.stringify(db2));
+    ({ app, w, errs } = await launch(SD));
+    await w.click("#nav button[data-k=nvns]"); await w.waitForSelector(".card");
+    await w.click('#main button:has-text("Lập đề nghị")'); await w.waitForSelector("#modal.drawer .dlg");
+    const fld = (k) => w.locator('.dlg .fld[data-k="' + k + '"]');
+    await fld("Mã NV").locator("select").selectOption("HR1"); await fld("Loại nghiệp vụ").locator("select").selectOption("Nghỉ không lương");
+    await fld("Từ ngày").locator("input").fill("2026-11-03"); await fld("Đến ngày").locator("input").fill("2026-11-04"); await fld("Số ngày").locator("input").fill("2");
+    await fld("Lý do").locator("textarea").fill("Việc gia đình E2E");
+    await w.click(".dlg footer button.pri"); await w.waitForTimeout(400);
+    const r1 = await w.locator("table.nvns tbody tr").first().innerText();
+    ok("V10: Nghiệp vụ nhân sự — lập đề nghị lưu ở trạng thái Nháp, chưa ghi vào hồ sơ", /Nháp/.test(r1) && /Nguyễn Văn Ân/.test(r1) && /03\/11\/2026/.test(r1), r1.replace(/\s+/g, " "));
+    await w.click('table.nvns button:has-text("Gửi duyệt")'); await w.waitForTimeout(300);
+    ok("V10: Nghiệp vụ nhân sự — gửi duyệt chuyển sang Chờ duyệt", /Chờ duyệt/.test(await w.locator("table.nvns tbody tr").first().innerText()));
+    dialogs = [];
+    await w.click('table.nvns button:has-text("Duyệt")'); await w.waitForTimeout(500);
+    ok("V10: Nghiệp vụ nhân sự — khi duyệt cảnh báo ngày vẫn có công trong chấm công (đối chiếu)", dialogs.some((d) => /vẫn có công thường 1 ngày/.test(d)), dialogs.join(" | ").slice(0, 200));
+    await w.waitForTimeout(500);
+    const nv2 = await w.locator("table.nvns tbody tr").first().innerText();
+    ok("V10: Nghiệp vụ nhân sự — Đã duyệt, ghi vào Nghỉ phép của hợp đồng, không còn nút sửa/duyệt", /Đã duyệt/.test(nv2) && /Nghỉ phép/.test(nv2) && !(await w.locator('table.nvns button:has-text("Duyệt")').count()));
+    await w.fill('input[aria-label="Tìm nhân viên"]', "nguyen van an"); await w.press('input[aria-label="Tìm nhân viên"]', "Enter"); await w.waitForTimeout(300);
+    ok("V10: Nghiệp vụ nhân sự — tìm theo tên không dấu", (await w.locator("table.nvns tbody tr").count()) === 1);
+    await w.waitForTimeout(800); await app.close();
+    const sv = JSON.parse(fs.readFileSync(fb, "utf8")), np = (sv.nghiphep || []).filter((x) => x["Mã NV"] === "HR1");
+    ok("V10: Nghiệp vụ nhân sự — hồ sơ Nghỉ phép có đúng 1 dòng 'Nghỉ không hưởng lương' Đã duyệt gắn Số HĐLĐ, ghi nhật ký", np.length === 1 && np[0]["Loại nghỉ"] === "Nghỉ không hưởng lương" && np[0]["Trạng thái duyệt"] === "Đã duyệt" && np[0]["Số HĐLĐ"] === "HR1/HĐ" && sv.auditlog.some((a) => /Nghiệp vụ nhân sự/.test(a.chiTiet + a.thaoTac)), JSON.stringify(np));
+    ok("Không lỗi JavaScript ở Nghiệp vụ nhân sự", errs.length === 0, errs.join(" | "));
+  }
+
   // Mục VIII: CompanyID → PolicyVersion → PayrollMethod — không dùng lựa chọn tự do trên Tính lương
   // để quyết định bù sản lượng CHÍNH THỨC; thiếu Quy chế bù sản lượng hợp lệ (Trạng thái = Hiệu lực)
   // → KHÔNG chốt được kỳ có sản lượng cần bù; có quy chế khác lựa chọn đang xem → tự chuyển đúng rồi chốt.

@@ -18,6 +18,7 @@ function permsFor(t) {
   if (t === "ttluong") return ["payment.record"];
   if (t === "kyluong") return ["payroll.close", "payroll.reopen"];
   if (t === "kyluong_lichsu") return ["payroll.reopen"];
+  if (t === "nghiepvu_nhansu") return ["hr.edit", "hr.approve"];
   if (t === "nhansu") return ["hr.edit", "payroll.calc", "payroll.close"];
   return ["hr.edit"];
 }

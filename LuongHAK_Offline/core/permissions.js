@@ -8,6 +8,7 @@
 
   var PERMS = {
     "hr.view": "Xem hồ sơ nhân sự", "hr.edit": "Thêm/sửa/xóa hồ sơ nhân sự, hợp đồng, phụ lục",
+    "hr.approve": "Duyệt / từ chối nghiệp vụ nhân sự (nghỉ phép, nghỉ việc, điều chuyển, đổi chức vụ)",
     "input.view": "Xem chấm công, sản lượng, thưởng, tạm ứng", "input.edit": "Nhập/sửa/xóa chấm công, sản lượng, thưởng, tạm ứng",
     "dm.edit": "Sửa danh mục (mã lương, phụ cấp, BH, thuế…)",
     "formula.approve": "Duyệt, kích hoạt, ngừng công thức tiền lương",
@@ -22,11 +23,11 @@
   // Vai trò mặc định theo Master Prompt 2.0 §9. Q-14: chỉ Admin được sửa hồi tố.
   var ROLES = {
     admin: { ten: "Quản trị (Admin)", perms: ALLP },
-    nhansu: { ten: "Nhân sự", perms: ["hr.view", "hr.edit", "report.view", "import", "export", "input.view"] },
+    nhansu: { ten: "Nhân sự", perms: ["hr.view", "hr.edit", "hr.approve", "report.view", "import", "export", "input.view"] },
     ketoanluong: { ten: "Kế toán lương", perms: ["hr.view", "input.view", "input.edit", "dm.edit", "payroll.view", "payroll.calc", "payroll.close", "payment.record", "report.view", "import", "export", "ocr.library"] },
     ketoanthanhtoan: { ten: "Kế toán thanh toán", perms: ["payroll.view", "export", "hr.view", "payment.record"] },
     truongbophan: { ten: "Trưởng bộ phận", perms: ["hr.view", "input.view", "input.edit", "report.view"] },
-    pheduyet: { ten: "Người phê duyệt", perms: ["hr.view", "input.view", "payroll.view", "report.view", "export", "formula.approve"] },
+    pheduyet: { ten: "Người phê duyệt", perms: ["hr.view", "hr.approve", "input.view", "payroll.view", "report.view", "export", "formula.approve"] },
     xembaocao: { ten: "Người xem báo cáo", perms: ["report.view", "payroll.view"] }
   };
   function roleOf(u) { return u && ROLES[u.vaiTro] ? ROLES[u.vaiTro] : null; }
