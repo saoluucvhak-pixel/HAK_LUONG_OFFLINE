@@ -2331,12 +2331,12 @@
     var T = st.ctTest, box = h("div", { class: "card" });
     box.appendChild(h("div", { class: "hint", text: "Thử công thức với dữ liệu của 1 nhân viên đã tính (hoặc giả lập, nếu không chọn nhân viên) — KHÔNG ghi/đổi bảng lương thật. Chọn 'Mã công thức' có sẵn để nạp biểu thức, hoặc tự sửa trực tiếp." }));
     refreshNVList();
-    var row1 = h("div", { class: "bar" });
+    var fg = h("div", { class: "fgrid", style: "grid-template-columns:repeat(auto-fit,minmax(220px,1fr))" });
+    var fld = function (label, ctl, cls) { return h("div", { class: "fld" + (cls ? " " + cls : "") }, [h("label", { text: label }), ctl]); };
     var selLoai = h("select"); CT_LOAI.forEach(function (x) { selLoai.appendChild(h("option", { value: x[0], text: x[1] })); }); selLoai.value = T.loai;
     selLoai.addEventListener("change", function () { T.loai = selLoai.value; T.maCT = ""; T.vars = {}; render(); });
-    row1.appendChild(h("label", { text: "Loại " })); row1.appendChild(selLoai);
     var rows = db.dm_congthuc.filter(function (r) { return (r["Loại"] || "") === T.loai; });
-    var selMa = h("select"); selMa.appendChild(h("option", { value: "", text: "— tự nhập biểu thức —" }));
+    var selMa = h("select"); selMa.appendChild(h("option", { value: "", text: "— Tự nhập biểu thức —" }));
     rows.forEach(function (r) { selMa.appendChild(h("option", { value: r._id, text: (r["Mã công thức"] || "") + " — " + (r["Tên công thức"] || "") + " (" + (r["Trạng thái"] || "") + ")" })); });
     selMa.value = T.maCT;
     selMa.addEventListener("change", function () {
@@ -2344,18 +2344,18 @@
       if (r) { T.ma = r["Mã công thức"] || ""; T.expr = r["Biểu thức"] || ""; T.vars = {}; }
       render();
     });
-    row1.appendChild(h("label", { text: " Mã công thức " })); row1.appendChild(selMa);
-    box.appendChild(row1);
-    var row2 = h("div", { class: "bar" });
-    var inNV = h("input", { value: T.maNV, placeholder: "Mã NV (để trống = giả lập)", list: "dsnv" });
-    inNV.addEventListener("change", function () { T.maNV = inNV.value.trim(); render(); });
-    row2.appendChild(h("label", { text: "Nhân viên " })); row2.appendChild(inNV);
-    var inKy = h("input", { type: "month", value: T.nam + "-" + ("0" + T.thang).slice(-2) });
+    // Nhân viên: danh sách chọn "Mã — Họ tên" (không phải gõ tay mã), để trống = chạy giả lập
+    var inNV = h("select", { "aria-label": "Nhân viên" }); inNV.appendChild(h("option", { value: "", text: "— Giả lập —" }));
+    var coNV = false; db.nhanvien.forEach(function (r) { var ma = r["Mã NV"]; if (!ma) return; if (ma === T.maNV) coNV = true; inNV.appendChild(h("option", { value: ma, text: ma + " — " + (r["Họ và tên"] || "") })); });
+    if (T.maNV && !coNV) inNV.appendChild(h("option", { value: T.maNV, text: T.maNV + " (không có trong Nhân sự)" }));
+    inNV.value = T.maNV || "";
+    inNV.addEventListener("change", function () { T.maNV = inNV.value; render(); });
+    var inKy = kyPicker(T.nam + "-" + ("0" + T.thang).slice(-2), { "aria-label": "Kỳ" });
     inKy.addEventListener("change", function () { if (inKy.value) { var m = inKy.value.split("-"); T.nam = +m[0]; T.thang = +m[1]; render(); } });
-    row2.appendChild(h("label", { text: " Kỳ " })); row2.appendChild(inKy);
-    row2.appendChild(btn("↺ Lấy lại giá trị theo nhân viên/kỳ", "", function () { T.vars = {}; render(); }));
-    box.appendChild(row2);
-    box.appendChild(h("label", { text: "Biểu thức (có thể sửa trực tiếp để thử, không ảnh hưởng danh mục)" }));
+    [fld("Loại công thức", selLoai), fld("Mã công thức", selMa), fld("Nhân viên (bỏ trống = giả lập)", inNV), fld("Kỳ lương", inKy)].forEach(function (x) { fg.appendChild(x); });
+    box.appendChild(fg);
+    box.appendChild(h("div", { class: "bar", style: "margin-top:0" }, [btn("↺ Lấy lại giá trị theo nhân viên/kỳ", "", function () { T.vars = {}; render(); })]));
+    box.appendChild(h("div", { class: "fld" }, [h("label", { text: "Biểu thức (sửa trực tiếp để thử, không ảnh hưởng danh mục)" })]));
     var ta = h("textarea", { rows: 2, style: "width:100%;font-family:monospace" }); ta.value = T.expr;
     ta.addEventListener("change", function () { T.expr = ta.value; render(); });
     box.appendChild(ta);
