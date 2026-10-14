@@ -2184,29 +2184,30 @@
   /** Trình thiết lập công thức (V10): chọn loại → chọn mẫu → nhập số mẫu để xem giải thích bằng số thật → lưu Nháp (qua REPO, vẫn phải duyệt/kích hoạt). */
   var WZ_SAMPLE = { CONG_CHUAN: 26, CONG_TINH_LUONG: 28, CONG_TC: 2, CONG_LE: 0, CONG_PHEP: 0, CONG_TRUNG_CHUYEN: 0, CONG_DI_CHUYEN: 0, CONG_CHU_NHAT: 1, CONG_CHUAN_2: 0, HE_SO_TC: 1.5, MUC_PHU_CAP: 500000, NGUONG_PHU_CAP: 2, CONG_HUONG_PHU_CAP: 24, SO_NGAY_DUOC_HUONG: 10, MUC_HO_TRO: 50000, CONG_THUC_TE: 24, SO_XE_HOP_LE: 8, DON_GIA_HO_TRO: 20000 };
   function ctWizardPanel() {
-    var Wz = st.ctWz = st.ctWz || { loai: "OVERTIME", mau: 0, vars: {}, ma: "", ten: "", tu: "" };
+    var Wz = st.ctWz = st.ctWz || { loai: "OVERTIME", mau: -1, vars: {}, ma: "", ten: "", tu: "" };
     var box = h("div", { class: "card", "data-ct-wizard": "1" });
-    box.appendChild(h("div", { class: "hint", text: "Làm theo 4 bước: (1) chọn loại, (2) chọn mẫu gần nhất với quy chế rồi SỬA biểu thức cho đúng quy chế của bạn (hoặc chọn “Tự soạn” để viết từ đầu), (3) nhập số ví dụ để xem công thức tính ra bao nhiêu, (4) đặt mã/tên và lưu Nháp. Công thức lưu ở trạng thái Nháp, vẫn phải Gửi duyệt → Duyệt → Kích hoạt; kỳ lương đã chốt không bị đổi." }));
+    box.appendChild(h("div", { class: "hint", text: "Tạo công thức mới: (1) chọn loại, (2) viết biểu thức — muốn có sẵn khung thì chọn “Điền sẵn từ mẫu”, KHÔNG bắt buộc, (3) nhập số ví dụ để thử, (4) đặt mã/tên và lưu Nháp. Công thức lưu ở trạng thái Nháp, vẫn phải Gửi duyệt → Duyệt → Kích hoạt; kỳ lương đã chốt không bị đổi. Sau đó ở Danh mục (Tăng ca / Phụ cấp / Hỗ trợ) chỉ cần chọn mã công thức này." }));
     var step = function (n, t) { box.appendChild(h("div", { class: "fh", text: "Bước " + n + " — " + t })); };
     step(1, "Loại công thức");
     var bar = h("div", { class: "bar" });
-    CT_LOAI.forEach(function (lo) { bar.appendChild(btn(ctLoaiTen(lo[0]), Wz.loai === lo[0] ? "pri" : "", function () { Wz.loai = lo[0]; Wz.mau = 0; Wz.vars = {}; Wz.expr = null; render(); })); });
+    CT_LOAI.forEach(function (lo) { bar.appendChild(btn(ctLoaiTen(lo[0]), Wz.loai === lo[0] ? "pri" : "", function () { Wz.loai = lo[0]; Wz.mau = -1; Wz.vars = {}; Wz.expr = null; render(); })); });
     box.appendChild(bar);
-    var mau = CT_TEMPLATES.filter(function (x) { return x.loai === Wz.loai && !x.chuaKetNoi; }).concat([{ custom: true, loai: Wz.loai, ten: "— Tự soạn công thức mới (bắt đầu từ ô trống) —", moTa: "Tự viết biểu thức bằng các biến ở tab Thư viện biến và các hàm MIN / MAX / ROUND / IF. Ô “Số ví dụ” bên dưới giúp kiểm tra kết quả.", bieuThuc: "" }]);
-    step(2, "Chọn mẫu");
-    var sel = h("select", { "aria-label": "Mẫu công thức", style: "max-width:100%" });
-    mau.forEach(function (x, i) { sel.appendChild(h("option", { value: i, text: x.ten })); }); sel.value = Wz.mau;
+    var mau = CT_TEMPLATES.filter(function (x) { return x.loai === Wz.loai && !x.chuaKetNoi; });
+    step(2, "Biểu thức công thức");
+    var sel = h("select", { "aria-label": "Điền sẵn từ mẫu", style: "max-width:100%" });
+    sel.appendChild(h("option", { value: "-1", text: "— Không dùng mẫu: tự viết biểu thức —" }));
+    mau.forEach(function (x, i) { sel.appendChild(h("option", { value: i, text: "Điền sẵn từ mẫu: " + x.ten })); }); sel.value = String(Wz.mau);
     sel.addEventListener("change", function () { Wz.mau = +sel.value; Wz.vars = {}; Wz.expr = null; render(); });
-    box.appendChild(sel);
-    var T = mau[Wz.mau]; if (!T) return box;
-    box.appendChild(h("div", { class: "hint", text: T.moTa }));
+    box.appendChild(h("div", { class: "fld" }, [h("label", { text: "Mẫu có sẵn (không bắt buộc)" }), sel]));
+    var T = Wz.mau >= 0 && mau[Wz.mau] ? mau[Wz.mau] : { custom: true, ten: "", moTa: "", bieuThuc: "" };
+    if (T.moTa) box.appendChild(h("div", { class: "hint", text: T.moTa }));
     var biThuc = Wz.expr != null ? Wz.expr : T.bieuThuc;
     var taE = h("textarea", { rows: 2, "aria-label": "Biểu thức", style: "width:100%;font-family:monospace", "data-ct-wizard-expr": "1" }); taE.value = biThuc;
     taE.addEventListener("change", function () { Wz.expr = taE.value; Wz.vars = {}; render(); });
-    box.appendChild(h("div", { class: "fld" }, [h("label", { text: "Biểu thức (sửa trực tiếp được — mẫu chỉ là điểm bắt đầu)" }), taE]));
+    box.appendChild(h("div", { class: "fld" }, [h("label", { text: "Biểu thức" }), taE]));
     if (Wz.expr != null && Wz.expr !== T.bieuThuc && T.bieuThuc) box.appendChild(btn("↺ Khôi phục biểu thức của mẫu", "", function () { Wz.expr = null; Wz.vars = {}; render(); }));
     var vrW = FML.validate(biThuc || "");
-    if (!biThuc.trim()) { box.appendChild(h("div", { class: "hint", text: "Nhập biểu thức ở ô trên (VD: ROUND(MUC_PHU_CAP * CONG_HUONG_PHU_CAP / CONG_CHUAN))." })); return box; }
+    if (!biThuc.trim()) { box.appendChild(h("div", { class: "hint", text: "Nhập biểu thức ở ô trên để thử và lưu (VD: ROUND(MUC_PHU_CAP * CONG_HUONG_PHU_CAP / CONG_CHUAN))." })); return box; }
     if (!vrW.ok) { box.appendChild(h("div", { class: "warn", text: "⚠ Biểu thức không hợp lệ: " + vrW.errors.map(function (e) { return e.message; }).join("; ") })); return box; }
     step(3, "Thử bằng số ví dụ");
     var names = ctRefVars(biThuc), ctx = {}, vt = h("table");

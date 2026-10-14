@@ -88,7 +88,7 @@
       function paint() {
         box.innerHTML = "";
         var rs = rows(), t = h("table", { "data-ot-table": "1" });
-        t.appendChild(h("tr", {}, [{ label: K.code }, { label: K.name.replace(" (nội dung)", "") }].concat(K.listCols, [{ label: "Loại công thức" }, { label: "Trạng thái" }, { label: "Hiệu lực" }, { label: "Công thức đang áp dụng" }, { label: "Số phiên bản" }, { label: "Thao tác" }]).map(function (c) { return h("th", c.tip ? { text: c.label + " ⓘ", title: c.tip, style: "cursor:help" } : { text: c.label }); })));
+        t.appendChild(h("tr", {}, [{ label: K.code }, { label: K.name.replace(" (nội dung)", "") }].concat(K.listCols, [{ label: "Mã công thức" }, { label: "Trạng thái" }, { label: "Hiệu lực" }, { label: "Công thức đang áp dụng" }, { label: "Số phiên bản" }, { label: "Thao tác" }]).map(function (c) { return h("th", c.tip ? { text: c.label + " ⓘ", title: c.tip, style: "cursor:help" } : { text: c.label }); })));
         rs.forEach(function (r) {
           var act = h("td", { class: "t ot-act" });
           act.appendChild(btn("Xem chi tiết", "pri", function () { openModal(r.ma, { tab: "info" }); }));
@@ -193,7 +193,7 @@
       grid.appendChild(fld(K.code, "ma", { req: true, locked: !M.isNew, note: M.isNew ? "Chữ không dấu, số, _ . -" : "Khóa của mã — không đổi" }));
       grid.appendChild(fld(K.name, "ten", { req: true }));
       K.fields.forEach(function (fd) { grid.appendChild(fld(fd.label, fd.key, { note: fd.note, money: fd.type === "money", right: fd.type !== "text", span2: fd.type === "pct" || fd.type === "num" ? !!fd.note || fd.key === "tyLe" : false, show: function (v) { return v === "" ? (fd.type === "pct" && IS_OT ? "(trống)" : "—") : (fd.type === "money" ? money(v) : v); } })); });
-      grid.appendChild(fld("Loại công thức", "loaiCT", { opts: loaiOpts, span2: true, note: IS_OT ? "Chọn công thức có sẵn của hệ thống (TC1–TC6) hoặc công thức bạn đã tạo ở Cài đặt → Trình thiết lập công thức. “Theo mã này” = dùng công thức riêng của mã (tab Công thức tính)" : "Dòng đầu = " + K.fallbackLabel + ". Hoặc chọn công thức có sẵn / công thức đã cấu hình", show: function (v) { return v || (IS_OT ? "(theo mã)" : "(trống — cách tính lịch sử)"); } }));
+      grid.appendChild(fld("Mã công thức", "loaiCT", { opts: loaiOpts, span2: true, note: IS_OT ? "Chọn công thức có sẵn (TC1–TC6) hoặc công thức đã tạo. Chưa có công thức phù hợp thì tạo ở Cài đặt → Công thức → Trình thiết lập. Để “Theo mã này” = công thức riêng của mã" : "Dòng đầu = " + K.fallbackLabel + ". Hoặc chọn công thức có sẵn / công thức đã cấu hình", show: function (v) { return v || (IS_OT ? "(theo mã)" : "(trống — cách tính lịch sử)"); } }));
       grid.appendChild(fld("Hiệu lực từ", "tu", { req: true, date: true, show: fdate }));
       grid.appendChild(fld("Hiệu lực đến", "den", { date: true, show: function (v) { return fdate(v) || "không giới hạn"; } }));
       grid.appendChild(fld("Mô tả / cách tính (ghi chú)", "moTa", { area: true, wide: true }));

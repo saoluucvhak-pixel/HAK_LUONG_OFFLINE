@@ -234,6 +234,10 @@ async function launch(dataDir, opt) {
   await w.click("#nav button[data-k=caidat]");
   const ctTabs = await w.locator(".bar.sub button").allInnerTexts();
   ok("Công thức tiền lương: đủ 7 tab (mục VII) + Trình thiết lập", ["Trình thiết lập công thức", "Tăng ca", "Phụ cấp", "Hỗ trợ", "Thư viện biến", "Mẫu công thức", "Kiểm tra công thức", "Lịch sử phiên bản"].every((t) => ctTabs.includes(t)), ctTabs.join(", "));
+  ok("Trình thiết lập: mẫu KHÔNG bắt buộc — mặc định không dùng mẫu, ô biểu thức trống, tự viết được", (await w.locator('[data-ct-wizard] select[aria-label="Điền sẵn từ mẫu"]').inputValue()) === "-1" && (await w.locator("[data-ct-wizard-expr]").inputValue()) === "");
+  await w.fill("[data-ct-wizard-expr]", "ROUND(CONG_TC * HE_SO_TC)"); await w.dispatchEvent("[data-ct-wizard-expr]", "change"); await w.waitForTimeout(150);
+  ok("Trình thiết lập: tự viết biểu thức → có giải thích bằng số, không cần chọn mẫu", (await w.locator("[data-ct-wizard-explain]").count()) === 1);
+  await w.selectOption('[data-ct-wizard] select[aria-label="Điền sẵn từ mẫu"]', "0"); await w.waitForTimeout(150);
   const wzTxt = await w.locator("[data-ct-wizard]").innerText();
   ok("V10: Trình thiết lập công thức — có 4 bước, giải thích bằng số thật và kết quả", /Bước 1/.test(wzTxt) && /Bước 4/.test(wzTxt) && (await w.locator("[data-ct-wizard-explain]").innerText()).includes("Kết quả"));
   await w.fill('[data-ct-wizard] input[aria-label="Mã công thức"]', "WZ_E2E"); await w.dispatchEvent('[data-ct-wizard] input[aria-label="Mã công thức"]', "change");
