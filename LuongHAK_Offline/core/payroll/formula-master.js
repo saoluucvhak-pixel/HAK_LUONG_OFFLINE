@@ -296,6 +296,35 @@
       return { closed: closed.sort(function (a, b) { return a.ky < b.ky ? 1 : -1; }), dangDung: now };
     }
 
+    /**
+     * Xóa mã (bảng cha) CHƯA ÁP DỤNG: không nhân viên / hồ sơ nào đang gán mã, chưa từng vào bảng lương kỳ đã chốt,
+     * và các công thức con (nếu có) đều chưa áp dụng (Nháp / Chờ duyệt / Đã duyệt) và không dùng chung với mã khác.
+     * Công thức con chưa áp dụng được xóa cùng mã. Không xóa gì ở đây — chỉ trả kế hoạch cho UI/repository.
+     * @returns { ok, reason, rows (dòng cha), kids (công thức con xóa cùng), used [{bang,n}] }
+     */
+    function deleteCheck(db, ma) {
+      var rows = parentRows(db, ma), out = { ok: false, reason: "", rows: rows, kids: [], used: [] };
+      if (!rows.length) { out.reason = "Không tìm thấy " + K.noun + " “" + ma + "”."; return out; }
+      var skip = { auditlog: 1, nguoidung: 1, baomat: 1, kyluong: 1, kyluong_lichsu: 1 };
+      Object.keys(db).forEach(function (tb) {
+        if (skip[tb] || /^dm_/.test(tb) || !Array.isArray(db[tb])) return;
+        var n = 0;
+        db[tb].forEach(function (r) { for (var k in r) { var v = r[k]; if (typeof v === "string" && v.split(/[,;]+/).some(function (x) { return x.trim() === ma; })) { n++; break; } } });
+        if (n) out.used.push({ bang: tb, n: n });
+      });
+      if (out.used.length) { out.reason = K.noun.charAt(0).toUpperCase() + K.noun.slice(1) + " “" + ma + "” đang được gán ở: " + out.used.map(function (u) { return u.bang + " (" + u.n + ")"; }).join(", ") + ". Gỡ khỏi các hồ sơ đó trước, hoặc dùng “Ngừng sử dụng”."; return out; }
+      var us = usage(db, ma, null);
+      if (us.closed.length) { out.reason = "Mã “" + ma + "” đã được dùng tính lương kỳ đã chốt (" + us.closed.slice(0, 4).map(function (x) { return x.ky; }).join(", ") + ") — không xóa để giữ khả năng xem lại; dùng “Ngừng sử dụng”."; return out; }
+      var kids = formulasOf(db, ma), owners = ownersByKey(db);
+      for (var i = 0; i < kids.length; i++) {
+        var st = t(kids[i]["Trạng thái"]);
+        if (st === "Hiệu lực" || st === "Ngừng") { out.reason = "Công thức " + t(kids[i]["Mã công thức"]) + " v" + (kids[i]["Phiên bản"] || 1) + " đang ở trạng thái “" + st + "” (đã/đang áp dụng) — không xóa để giữ lịch sử; dùng “Ngừng sử dụng”."; return out; }
+        var ow = owners[t(kids[i]["Mã công thức"])] || [];
+        if (ow.some(function (o) { return o !== ma; })) { out.reason = "Công thức " + t(kids[i]["Mã công thức"]) + " đang dùng chung với mã " + ow.filter(function (o) { return o !== ma; }).join(", ") + " — không xóa."; return out; }
+      }
+      out.kids = kids; out.ok = true; return out;
+    }
+
     // ---------- Kiểm tra trước khi kích hoạt ----------
     function zeroSet() { var z = {}; Object.keys(K.sample).forEach(function (k) { z[k] = (K.zeroKeep && K.zeroKeep[k] != null) ? K.zeroKeep[k] : 0; }); return z; }
     function preActivation(db, rec, ctx) {
@@ -508,7 +537,7 @@
       formulaKey: formulaKey, isBuiltin: isBuiltin, parentCodes: parentCodes, parentRows: parentRows, effectiveRow: effectiveRow, ownersByKey: ownersByKey,
       parentOf: parentOf, formulasOf: formulasOf, versionsForTab: versionsForTab, sharedWith: sharedWith, applied: applied, summary: summary,
       linkPlan: linkPlan, linkOps: linkOps, rollbackOps: rollbackOps, batches: batches, integrityDiff: integrityDiff,
-      validateInfo: validateInfo, usage: usage, preActivation: preActivation,
+      validateInfo: validateInfo, usage: usage, deleteCheck: deleteCheck, preActivation: preActivation,
       coChamCong: coChamCong, employeesOf: employeesOf, supportSlots: supportSlots, trial: trial, runSaved: runSaved,
       explain: explain, chips: chips, joinTokens: joinTokens, varLibrary: varLibrary, compareTemplateToDefault: compareTemplateToDefault
     };

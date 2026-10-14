@@ -141,7 +141,8 @@
     }
     var from = st(before);
     if (op === "remove") {
-      if (from !== S.NHAP) return deny("formula-keep", "Không xóa công thức đã gửi duyệt/đã duyệt/đang hiệu lực — chuyển sang 'Ngừng' để giữ lịch sử phiên bản.");
+      // Chưa từng áp dụng vào lương (Nháp / Chờ duyệt / Đã duyệt) thì được xóa; Hiệu lực / Ngừng đã (hoặc có thể đã) tính lương → giữ lịch sử.
+      if (from === S.HL || from === S.NGUNG) return deny("formula-keep", "Không xóa công thức đang hiệu lực hoặc đã ngừng (đã từng áp dụng) — chuyển sang 'Ngừng' để giữ lịch sử phiên bản. Chỉ xóa được bản Nháp / Chờ duyệt / Đã duyệt chưa áp dụng.");
       return { ok: true, patch: patch };
     }
     var to = st(after), changed = CONTENT.filter(function (c) { return !same(before[c], after[c]); });

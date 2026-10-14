@@ -2443,6 +2443,7 @@
       if (tt === "Nháp" && can("dm.edit")) acts.appendChild(btn("Sửa nháp", "", function () { ctSuaNhap(r); }));
       FAP.actionsFor(r, ctFenv()).forEach(function (to) { acts.appendChild(btn(CT_LBL[to], to === "Hiệu lực" ? "pri" : "", function () { ctChuyen(r, to); })); });
       if (can("dm.edit")) acts.appendChild(btn("⎘ Sao chép bản mới", "", function () { ctSaoChep(r); }));
+      if (can("dm.edit") && tt !== "Hiệu lực" && tt !== "Ngừng") acts.appendChild(btn("Xóa", "red ghost", function () { ctXoa(r); }, "Chỉ xóa được bản chưa áp dụng (Nháp / Chờ duyệt / Đã duyệt)")).setAttribute("data-ct-del", "1");
       t.appendChild(h("tr", { "data-ct-ver": (r["Mã công thức"] || "") + "#" + (r["Phiên bản"] || 1) }, [
         h("td", { class: "t", html: "<b>" + esc(r["Mã công thức"] || "") + "</b>" }), h("td", { class: "t", text: "v" + (r["Phiên bản"] || 1) }), h("td", { class: "t", text: r["Tên công thức"] || "" }),
         h("td", { class: "t", style: "font-family:monospace;max-width:340px;word-break:break-all", text: r["Biểu thức"] || "" }),
@@ -2452,6 +2453,16 @@
     box.appendChild(h("div", { class: "tw" }, [t]));
     box.appendChild(h("div", { class: "hint", text: "Quy trình: Nháp → Gửi duyệt → Duyệt (người khác người lập) → Kích hoạt. Bản đã gửi duyệt trở đi không sửa nội dung — dùng “Sao chép bản mới”. Nhật ký chi tiết ở tab “Lịch sử phiên bản”." }));
     return box;
+  }
+  /** Xóa 1 phiên bản công thức CHƯA áp dụng (Nháp / Chờ duyệt / Đã duyệt). Hiệu lực / Ngừng → dùng "Ngừng" để giữ lịch sử. */
+  function ctXoa(r) {
+    var ma = r["Mã công thức"] || "", loai = r["Loại"] || "", ref = [];
+    var P = FAP.PARENT[loai]; if (P) (db[P.table] || []).forEach(function (x) { if (String(x["Loại công thức"] || "").trim() === ma) ref.push(String(x[P.code] || "")); });
+    var p = REPO.plan("remove", "dm_congthuc", r, null, { what: "xóa công thức chưa áp dụng" });
+    if (!p.ok) { alert("⛔ Không xóa được: " + p.msg); return; }
+    if (!confirm("Xóa công thức " + ma + " v" + (r["Phiên bản"] || 1) + " (" + (r["Trạng thái"] || "Nháp") + ")?\n\nBản này chưa áp dụng vào lương nên không ảnh hưởng số liệu." + (ref.length ? "\n\nLưu ý: mã " + ref.join(", ") + " đang chọn mã công thức này; sau khi xóa mã đó sẽ không còn công thức này để tra (dùng cách tính có sẵn của hệ thống)." : "") + "\nThao tác được ghi vào nhật ký.")) return;
+    if (!txn(["dm_congthuc"], function () { return !!commit(p, { action: "Công thức tiền lương — xóa bản chưa áp dụng " + ma + " v" + (r["Phiên bản"] || 1) }); })) return;
+    save(); toast("Đã xóa công thức " + ma); render();
   }
   function ctHistoryPanel() {
     var box = h("div", { class: "card" });

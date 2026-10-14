@@ -93,6 +93,7 @@
           act.appendChild(btn("Xem chi tiết", "pri", function () { openModal(r.ma, { tab: "info" }); }));
           if (A.can("dm.edit")) act.appendChild(btn("Chỉnh sửa", "", function () { openModal(r.ma, { tab: "info", edit: true }); }));
           if (A.can("dm.edit") && r.trangThai === "Đang hiệu lực") act.appendChild(btn("Ngừng sử dụng", "", function () { stopDialog(r.ma); }));
+          if (A.can("dm.edit")) act.appendChild(btn("Xóa", "red ghost", function () { deleteMa(r.ma); }, "Chỉ xóa được " + K.noun + " chưa áp dụng cho nhân viên nào")).setAttribute("data-ot-del", r.ma);
           var apCls = r.nguonApDung === "cauhinh" ? "on" : (r.nguonApDung === "macdinh" || r.nguonApDung === "lichsu") ? "off" : "bad";
           t.appendChild(h("tr", { "data-ot-row": r.ma }, [
             h("td", { class: "t", html: "<b>" + esc(r.ma) + "</b>" }), h("td", { class: "t", text: r.ten })
@@ -581,6 +582,17 @@
     }
 
     // ================= NGỪNG SỬ DỤNG MÃ =================
+    /** Xóa mã CHƯA ÁP DỤNG (và các công thức con chưa áp dụng của nó). Mã đã dùng → chỉ được "Ngừng sử dụng". */
+    function deleteMa(ma) {
+      var ck = OM.deleteCheck(db(), ma);
+      if (!ck.ok) { A.alert("⛔ Không xóa được: " + ck.reason); return; }
+      var msg = "Xóa " + K.noun + " “" + ma + "”?\n\n• " + ck.rows.length + " dòng danh mục của mã" + (ck.kids.length ? "\n• " + ck.kids.length + " phiên bản công thức chưa áp dụng đi kèm: " + ck.kids.map(function (k) { return String(k["Mã công thức"] || "") + " v" + (k["Phiên bản"] || 1) + " (" + (k["Trạng thái"] || "Nháp") + ")"; }).join(", ") : "") + "\n\nChưa nhân viên nào dùng mã này nên không ảnh hưởng lương. Thao tác được ghi vào nhật ký.";
+      var plans = [];
+      for (var i = 0; i < ck.kids.length; i++) { var pk = A.REPO.plan("remove", TC, ck.kids[i], null, { what: "xóa công thức chưa áp dụng" }); if (!pk.ok) { A.alert("⛔ Không xóa được: " + pk.msg); return; } plans.push(pk); }
+      for (var j = 0; j < ck.rows.length; j++) { var pp = A.REPO.plan("remove", T, ck.rows[j], null, { what: "xóa " + K.noun }); if (!pp.ok) { A.alert("⛔ Không xóa được: " + pp.msg); return; } plans.push(pp); }
+      if (!confirm(msg)) return;
+      if (A.txn([T, TC], function () { var ok = true; plans.forEach(function (p) { if (ok && !A.commit(p, { action: K.title + " — xóa " + ma + " (chưa áp dụng)" })) ok = false; }); return ok; })) { A.dirtyBump(); A.toast("Đã xóa " + K.noun + " " + ma); A.render(); }
+    }
     function stopDialog(ma) {
       var rs = OM.parentRows(db(), ma), row = OM.effectiveRow(rs, S.nam || A.st.nam, S.thang || A.st.thang);
       if (!row) { A.toast("Mã này không có phiên bản đang hiệu lực"); return; }

@@ -244,6 +244,9 @@ async function launch(dataDir, opt) {
   await w.click('[data-ct-wizard] button:has-text("Lưu thành Nháp")'); await w.waitForTimeout(300);
   await w.locator(".bar.sub button", { hasText: "Tăng ca" }).click();
   ok("Tab Tăng ca của Cài đặt là THƯ VIỆN công thức (nơi duy nhất tạo/sửa/duyệt) và liệt kê công thức WZ_E2E vừa tạo", (await w.locator('[data-ct-library="OVERTIME"]').count()) === 1 && (await w.locator('[data-ct-library="OVERTIME"]').innerText()).includes("WZ_E2E") && (await w.locator("[data-ct-lib-new]").count()) === 1);
+  ok("Thư viện: bản Nháp chưa áp dụng có nút Xóa", (await w.locator('tr[data-ct-ver="WZ_E2E#1"] [data-ct-del]').count()) === 1);
+  await w.locator('tr[data-ct-ver="WZ_E2E#1"] [data-ct-del]').click(); await w.waitForTimeout(500);
+  ok("Xóa công thức Nháp chưa áp dụng: dòng biến mất khỏi thư viện", (await w.locator('tr[data-ct-ver="WZ_E2E#1"]').count()) === 0);
   // V10.2: tạo mã tăng ca TC_E2E (cha) rồi tạo công thức con ngay trong Form Modal Master–Detail
   await w.click("#nav button[data-k=dm]"); await w.click('#main button:has-text("Tăng ca")');
   ok("V10.2: Danh mục tăng ca là danh sách Master (không phải bảng nhập Excel)", (await w.locator("[data-ot-master]").count()) === 1 && (await w.locator("[data-ot-table]").count()) === 1 && (await w.locator("main tr.catedit").count()) === 0);
