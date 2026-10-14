@@ -492,14 +492,19 @@
   }
   /** "" nếu trống · "YYYY-MM-DD" nếu đúng · null nếu SAI (ngày không tồn tại). */
   function dateIso(i) { var t = i.value.trim(); return t ? VAL.normDate(t) : ""; }
+  // Cột tiền: hiển thị 15.000.000 / 1.250,5 (dấu chấm phân nghìn, phẩy thập phân), canh phải; lưu số thuần
+  var MONEYCOLS = /^(Thưởng|Thu nhập (khác|từ|đến)|Trừ khác|Tạm ứng|Số tiền.*|Đơn giá.*|Lương (phụ|thỏa thuận)|Trừ nhanh|Tiền tăng ca.*|Mức tiền)$/;
+  function moneyText(v) { var t = String(v == null ? "" : v).trim(); if (!t) return ""; var n = VAL.parseMoney(t); return isNaN(n) ? t : n.toLocaleString("vi-VN", { maximumFractionDigits: 4 }); }
   var dlId = 0;
   function makeInput(col, value, onchange, opts, tableKey) {
     var isDate = DATECOLS.test(col), inp = isDate ? dateField(value == null ? "" : value) : h("input", { value: value == null ? "" : value });
     if (NUMCOLS.test(col) && !isDate) inp.className = "num";
+    var isMoney = MONEYCOLS.test(col) && !isDate;
+    if (isMoney) { inp.className = "num money"; inp.value = moneyText(inp.value); inp.addEventListener("blur", function () { inp.value = moneyText(inp.value); }); }
     var list = col === "Mã NV" ? "dsnv" : null, opts2 = list ? null : datalistFor(col, tableKey);
     if (list) inp.setAttribute("list", "dsnv");
     else if (opts2 && opts2.length) { var id = "dl" + (++dlId), dl = h("datalist", { id: id }); opts2.forEach(function (o) { dl.appendChild(h("option", { value: o })); }); inp.setAttribute("list", id); inp._dl = dl; }
-    inp.addEventListener("change", function () { var iv = isDate ? dateIso(inp) : null; onchange(isDate && iv ? iv : inp.value.trim()); });
+    inp.addEventListener("change", function () { var iv = isDate ? dateIso(inp) : null, raw = inp.value.trim(); if (isMoney && raw && !isNaN(VAL.parseMoney(raw))) raw = String(VAL.parseMoney(raw)); onchange(isDate && iv ? iv : raw); });
     return inp;
   }
   function refreshNVList() {
@@ -770,7 +775,7 @@
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
         var th = h("th", { class: cls, text: isDay ? String(+c) : c });
-        if (COLW[c]) th.style.minWidth = COLW[c] + "px";
+        if (COLW[c]) th.style.minWidth = COLW[c] + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
         trh.appendChild(th);
         if (c === "Mã NV" && def.showName) trh.appendChild(h("th", { text: "Họ tên", style: "min-width:150px" }));
       });

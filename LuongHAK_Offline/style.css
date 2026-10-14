@@ -392,3 +392,8 @@ table.kt td.kt-info { color: #475467; }
 .dlg.wide{width:min(1180px,100%)}
 input.dateinp{width:112px;text-align:center}
 input.dateinp.invalid{border-color:#b42318;background:#fef3f2;color:#b42318}
+td input.money{min-width:110px;font-variant-numeric:tabular-nums}
+table.kt{table-layout:fixed;width:100%}
+table.kt th:nth-child(1){width:70px}table.kt th:nth-child(2){width:110px}table.kt th:nth-child(3){width:26%}table.kt th:nth-child(5){width:150px}
+table.kt td{white-space:normal;word-break:break-word;vertical-align:top}
+table.nvns td{white-space:normal;vertical-align:top}
