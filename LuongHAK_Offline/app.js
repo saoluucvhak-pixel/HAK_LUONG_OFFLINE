@@ -722,6 +722,12 @@
       }
       if (locked) return td;
       var busy = !!cedit(key);
+      if (key !== "dm_tncn") td.appendChild(btn("Chi tiết", "ghost", function () {
+        var b = h("div", { "data-cat-detail": key }), t = h("table");
+        def.cols.filter(function (c) { return (def.hide || []).indexOf(c) < 0; }).forEach(function (c) { t.appendChild(h("tr", {}, [h("th", { text: c, style: "text-align:left;width:38%" }), h("td", { class: "t", text: r[c] == null ? "" : String(r[c]) })])); });
+        b.appendChild(h("div", { class: "tw" }, [t]));
+        modal("Chi tiết — " + def.ten, b, function (close) { return [btn("Đóng", "pri", close)]; });
+      }, "Xem toàn bộ trường của dòng (chỉ xem)"));
       td.appendChild(btn("Sửa", "ghost", function () { if (busy && !confirm("Đang sửa một dòng khác" + (cedit(key).dirty ? " (có thay đổi chưa lưu)" : "") + " — bỏ để sửa dòng này?")) return; if (!need(editPerm)) return; st.cedit = st.cedit || {}; st.cedit[key] = { mode: "edit", ri: ri, draft: Object.assign({}, r), dirty: false, state: "EDITING" }; draw(); }, "Sửa dòng này (chưa ghi cho tới khi bấm Lưu)"));
       td.appendChild(btn("Sao chép", "ghost", function () { if (!need(editPerm)) return; var c2 = Object.assign({}, r); delete c2._id; st.cedit = st.cedit || {}; st.cedit[key] = { mode: "new", ri: -1, draft: c2, dirty: true, state: "EDITING" }; draw(); }, "Tạo dòng mới từ dòng này (nháp)"));
       td.appendChild(btn("Lịch sử", "ghost", function () { catHistory(key, r, def); }));

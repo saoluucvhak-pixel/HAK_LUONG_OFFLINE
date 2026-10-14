@@ -1,7 +1,7 @@
 # V10 — Tái thiết kế giao diện nghiệp vụ: bảng nghiệm thu
 
 Nhánh: `feature/luong-hak-v10-business-ux-redesign` (từ V9.4). Không đụng `main`. PR ở trạng thái DRAFT, không tự merge.
-Kiểm thử: unit 532/532, ESLint sạch, E2E giao diện thật 209/209, kiểm tra 87 màn hình × 3 độ phân giải (1366×768, 1600×900, 1920×1080): 0 tràn trang, 0 lỗi JS (`docs/V10_SCREEN_CHECK.json`).
+Kiểm thử: unit 532/532, ESLint sạch, E2E giao diện thật 210/210, kiểm tra 87 màn hình × 3 độ phân giải (1366×768, 1600×900, 1920×1080): 0 tràn trang, 0 lỗi JS (`docs/V10_SCREEN_CHECK.json`).
 
 | Hạng mục V10 | Trạng thái | Ghi chú |
 |---|---|---|
@@ -12,7 +12,7 @@ Kiểm thử: unit 532/532, ESLint sạch, E2E giao diện thật 209/209, kiể
 | Master–Detail modal: DM_TNCN→biểu thuế, HĐLĐ→tài liệu | DONE | |
 | Master–Detail modal: NV→người phụ thuộc | DONE | E2E |
 | Master–Detail modal: hình thức lương, chứng từ thanh toán→dòng | NOT_APPLICABLE | Dữ liệu hiện phẳng (dm_luong, sổ thanh toán ttluong không có bảng cha–con); cần thiết kế lại mô hình dữ liệu trước |
-| Danh mục CRUD mặc định chỉ xem, nút Thêm/Sửa/Lưu/Hủy/Ngừng/Lịch sử thống nhất | PARTIAL | Đã áp dụng ở các bảng đã làm; chưa rà toàn bộ danh mục |
+| Danh mục CRUD mặc định chỉ xem, nút Thêm/Chi tiết/Sửa/Lưu/Hủy/Xóa-Ngừng/Lịch sử thống nhất | DONE | Một lưới chung cho mọi danh mục; E2E |
 | Màn hình Kiểm tra bảng lương (ERROR/WARNING/INFO) | DONE | |
 | Luồng Tính lương 7 bước | DONE | Thanh 7 bước trên màn Tính lương (bước xong/đang ở, bấm sang màn tương ứng); chưa có bước Duyệt riêng |
 | Kỳ lương điều khiển từ ngày–đến ngày, bộ lọc thống nhất các màn nhập liệu | DONE | Tổng cộng + xem/Excel/PDF/in |

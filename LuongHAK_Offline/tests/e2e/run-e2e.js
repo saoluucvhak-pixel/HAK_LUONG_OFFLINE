@@ -582,6 +582,9 @@ async function launch(dataDir, opt) {
   const cell = w.locator("#main tbody tr").first().locator("input").nth(4);
   const before = await cell.inputValue();
   ok("V9.4: click/gõ vào ô danh mục khi chưa bấm Sửa không đổi dữ liệu (ô khóa)", await cell.isDisabled());
+  await w.locator("#main tbody tr").first().locator('button:has-text("Chi tiết")').click(); await w.waitForSelector("[data-cat-detail]");
+  ok("V10: Danh mục có nút Chi tiết (xem toàn bộ trường, chỉ xem)", (await w.locator("[data-cat-detail] tr").count()) > 2);
+  await w.click('#modal footer button:has-text("Đóng")'); await w.waitForTimeout(200);
   await w.locator("#main tbody tr").first().locator('button:has-text("Sửa")').click();
   await cell.fill("Sửa hồi tố E2E"); await cell.press("Tab"); await w.waitForTimeout(200);
   await shotOf(w, "06-danh-muc-dang-sua");
