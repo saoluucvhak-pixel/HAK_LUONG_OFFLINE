@@ -246,9 +246,8 @@
     }
   }
 
-  // congChuan2: mốc chuẩn riêng cho TC2 khi chấm công có nhãn "DQ" (đối chiếu công thức M thật của HAK_DN,
-  // query QR_CHAMCONG2/QR_TH_CC: nhãn chấm công chứa "DQ" → "Công chuẩn 2" = 40 cố định, dùng thay Công chuẩn
-  // thường khi tính phần tăng ca vượt chuẩn của TC2). congChuan2 = 0/không có nhãn DQ → dùng cChuan như cũ.
+  // congChuan2: "Công chuẩn 2" của người (lấy từ Danh mục phụ cấp theo nhãn công tác trên dòng công BT).
+  // > 0 → thay Công chuẩn thường (cChuan) cho lương thời gian, tăng ca. 0 → dùng Công chuẩn thường như cũ.
   // loai: "Loại công thức" khai trong DM_TANGCA (mục 8.1 — mã mới dùng lại công thức có sẵn mà không cần
   // sửa engine, VD mã "TC7" khai "Loại công thức" = "TC1" để dùng công thức TC1). Để trống → dùng chính
   // tên mã (hành vi cũ, giữ đúng số liệu cho dữ liệu đã khai TC1-TC6 từ trước khi có cột này).
@@ -344,7 +343,7 @@
     list.forEach(function (row) {
       var ma = row["Mã NV"]; if (!ma) return;
       var k = kyChamCong(row); if (!k || k.y !== nam || k.m !== thang) return;
-      var r = res[ma] || (res[ma] = { tongCong: 0, congChuNhat: 0, congTangCa: 0, congLe: 0, congPhep: 0, congCom: 0, congDiChuyen: 0, congTrungChuyen: 0, nhanTheoNgay: {}, congChinhTheoNgay: {}, congBT: 0, congBTTheoNgay: {} });
+      var r = res[ma] || (res[ma] = { tongCong: 0, congChuNhat: 0, congTangCa: 0, congLe: 0, congPhep: 0, congCom: 0, congDiChuyen: 0, congTrungChuyen: 0, nhanTheoNgay: {}, nhanBTTheoNgay: {}, congChinhTheoNgay: {}, congBT: 0, congBTTheoNgay: {} });
       var ht = String(row["Hình thức công"] || "BT").trim().toUpperCase();
       var laCong = ht !== "CC", laTC = /TC/.test(ht), tong = 0;
       for (var d = 1; d <= 31; d++) {
@@ -352,6 +351,7 @@
         if (t.soCong === 0 && !t.nhan) continue;
         tong += t.soCong;
         if (t.nhan) r.nhanTheoNgay[ten] = t.nhan;
+        if (t.nhan && ht === "BT") r.nhanBTTheoNgay[ten] = t.nhan; // Công chuẩn 2 / 500k chỉ xét dòng công BT
         if (!laTC && laCong) {
           var dt = new Date(nam, thang - 1, d);
           if (dt.getMonth() === thang - 1 && dt.getDay() === 0) r.congChuNhat += t.soCong;
@@ -469,7 +469,7 @@
       fmlCtx.maNV = ma; // gắn mã NV vào FORMULA_ERROR (nếu có) của người này
       var nghi = ns["Ngày nghỉ/thay đổi"];
       if (nghi && new Date(nghi) < dauKy) return;
-      var c = cc[ma] || { tongCong: 0, congChuNhat: 0, congTangCa: 0, congLe: 0, congPhep: 0, congCom: 0, congDiChuyen: 0, congTrungChuyen: 0, nhanTheoNgay: {}, congChinhTheoNgay: {}, congBT: 0, congBTTheoNgay: {} };
+      var c = cc[ma] || { tongCong: 0, congChuNhat: 0, congTangCa: 0, congLe: 0, congPhep: 0, congCom: 0, congDiChuyen: 0, congTrungChuyen: 0, nhanTheoNgay: {}, nhanBTTheoNgay: {}, congChinhTheoNgay: {}, congBT: 0, congBTTheoNgay: {} };
       var luongTT = money(ns["Lương thỏa thuận"]), luongTTMoi = luongTT, chiaPL = false;
       // Q-22 (R-56): phụ lục mới hiệu lực từ ngày tuNgay trong kỳ, chọn "Từ ngày hiệu lực" → lương thỏa thuận của kỳ =
       // bình quân theo công: (mức cũ × công chính trước ngày + mức mới × công chính từ ngày) / tổng công chính. Không có trường này = như cũ.
@@ -485,7 +485,13 @@
       var maTL1 = ns["Mã tiền lương 1"] || "";
       var dmL = dmLuong[ns["Mã tiền lương 1"]] || dmLuong[ns["Mã tiền lương 2"]] || null;
       if (!dmL && maTL1) out.canhbao.push(ma + ": mã lương '" + maTL1 + "' chưa có trong Danh mục lương (hoặc hết hiệu lực)");
-      var cChuan = congChuan(dmLuong[maTL1] || null, thang, nam, c.tongCong, qc2026);
+      // Công chuẩn 2 (Danh mục phụ cấp, cột "Công chuẩn 2"): nhãn công tác trên dòng BT có Công chuẩn 2 > 0 → công chuẩn của người này = Công chuẩn 2
+      var cc2Map = {}; Object.keys(c.nhanBTTheoNgay).forEach(function (k) { var n = c.nhanBTTheoNgay[k], v = dmPC[n] ? money(dmPC[n]["Công chuẩn 2"]) : 0; if (v > 0) cc2Map[n] = v; });
+      var ccV = Object.keys(cc2Map).map(function (n) { return cc2Map[n]; });
+      var congChuan2 = ccV.length ? Math.max.apply(null, ccV) : 0;
+      if (ccV.some(function (v) { return v !== congChuan2; })) out.canhbao.push(ma + ": có nhiều nhãn công tác BT với Công chuẩn 2 khác nhau (" + Object.keys(cc2Map).map(function (n) { return n + "=" + cc2Map[n]; }).join(", ") + ") — dùng mức lớn nhất " + congChuan2);
+      var cChuanThuong = congChuan(dmLuong[maTL1] || null, thang, nam, c.tongCong, qc2026);
+      var cChuan = congChuan2 > 0 ? congChuan2 : cChuanThuong;
       var ccMa = congChuanTheoMa(dmLuong[maTL1] || null);
       if (ccMa && ccMa.loi) { out.loiCongChuan.push({ maNV: ma, maLuong: maTL1, message: ccMa.loi }); out.canhbao.push("CONG_CHUAN_ERROR — " + ma + ": mã lương '" + maTL1 + "': " + ccMa.loi + " — chặn chốt/xuất bảng lương chính thức cho đến khi sửa mã lương."); }
       var laSL = !!(dmL && /SP/i.test(dmL["Mã hình thức lương"] || ""));
@@ -561,8 +567,6 @@
       // Tăng ca
       var dmT = dmTC[ns["Mã tăng ca"]] || null, tienTC = 0, congTCQuyDoi = 0; var coSoTC = 0, nhanhTC = ""; fmlCtx.lastTC = null; // V10.2: cơ sở nhân tiền + nhánh tính (chỉ ghi nhận)
       if (!dmT && ns["Mã tăng ca"]) out.canhbao.push(ma + ": mã tăng ca '" + ns["Mã tăng ca"] + "' chưa có trong Danh mục tăng ca (hoặc hết hiệu lực) — Tiền tăng ca = 0đ, kiểm tra lại danh mục");
-      // Nhãn chấm công chứa "DQ" → Công chuẩn 2 = 40, dùng thay Công chuẩn khi tính TC2 (công thức M thật HAK_DN)
-      var congChuan2 = Object.keys(c.nhanTheoNgay).some(function (k) { return /DQ/i.test(c.nhanTheoNgay[k]); }) ? 40 : 0;
       if (cChuan > 0) {
         if ((maTL1 === "CN1" || maTL1 === "CN2") && qc2026) { // 2026 (C5): công nhật tính tăng ca theo công thức của mã tăng ca, công chuẩn = số ngày − Số ngày giảm trừ
           if (dmT) { var ccCN = (congChuanTheoMa(dmLuong[maTL1]) || { cong: new Date(nam, thang, 0).getDate() - ngayGiamTru(dmLuong[maTL1]) }).cong; congTCQuyDoi = heSoTangCa(ns["Mã tăng ca"], c.tongCong, c.congTrungChuyen, c.congLe, ccCN, c.congChuNhat, c.congTangCa, pct(dmT["Hệ số tăng ca"]), c.congPhep, c.congDiChuyen, congChuan2, dmT["Loại công thức"], fmlCtx); tienTC = Math.round(luongTT * congTCQuyDoi); coSoTC = luongTT; nhanhTC = "CN_2026"; }
@@ -635,7 +639,9 @@
       var tienCom = ht1 ? hoTro(ht1, "HT_THEO_NGAY", ngayCom, "ht1") : 0;
       // Phụ cấp công tác theo nhãn chấm công
       var dem = {}, pcCT = 0;
-      Object.keys(c.nhanTheoNgay).forEach(function (k) { var n = c.nhanTheoNgay[k]; if (n) dem[n] = (dem[n] || 0) + 1; });
+      var moi1Ky = {};
+      Object.keys(c.nhanTheoNgay).forEach(function (k) { var n = c.nhanTheoNgay[k]; if (!n) return; if (dmPC[n] && money(dmPC[n]["Công chuẩn 2"]) > 0) moi1Ky[n] = true; else dem[n] = (dem[n] || 0) + 1; });
+      Object.keys(moi1Ky).forEach(function (n) { if (Object.keys(c.nhanBTTheoNgay).some(function (k) { return c.nhanBTTheoNgay[k] === n; })) pcCT += money(dmPC[n]["Số tiền"]); }); // mã có Công chuẩn 2: 1 lần/kỳ nếu có ≥1 công BT mang nhãn
       Object.keys(dem).forEach(function (n) { if (dmPC[n]) pcCT += dem[n] * money(dmPC[n]["Số tiền"]); else out.canhbao.push(ma + ": nhãn công tác '" + n + "' trên chấm công (" + dem[n] + " ngày) chưa có mã phụ cấp tương ứng trong Danh mục phụ cấp — phụ cấp công tác = 0đ cho nhãn này, kiểm tra lại danh mục"); });
 
       var p = ps[ma] || { "Thưởng": 0, "Thu nhập khác": 0, "Trừ khác": 0 }, u = ung[ma] || { "Tạm ứng": 0 };
