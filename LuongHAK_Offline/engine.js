@@ -575,12 +575,14 @@
 
       // Phụ cấp — PV-10/PV-11: "Loại công thức" (danh mục, như DM_TANGCA) cho phép 1 mã CHỌN ĐÚNG công
       // thức tính thay vì để engine tự đoán qua nội dung "Cách tính" — để trống = hành vi CŨ, không đổi.
-      var pc = dmPC[ns["Mã phụ cấp"]], tienPC = 0;
+      var pc = dmPC[ns["Mã phụ cấp"]], tienPC = 0, pcVars = null, pcNhanh = ""; // V10.3: pcVars/pcNhanh chỉ ghi nhận để kiểm thử công thức, không ảnh hưởng kết quả
       if (pc) {
         var soPC = money(pc["Số tiền"]);
         var trongCT = !String(pc["Cách tính"] || "").trim();
         var loaiPC = String(pc["Loại công thức"] || "").trim();
         var coDinh = loaiPC ? loaiPC === "CO_DINH" : (/cố định/i.test(String(pc["Cách tính"] || "")) || (trongCT && !qc2026));
+        if (cChuan > 0) pcVars = { MUC_PHU_CAP: soPC, CONG_CHUAN: cChuan, CONG_HUONG_PHU_CAP: c.tongCong, NGUONG_PHU_CAP: num(pc["Tham chiếu"]), CONG_TINH_LUONG: c.tongCong, CONG_LE: c.congLe, CONG_PHEP: c.congPhep, CONG_TC: c.congTangCa };
+        pcNhanh = coDinh ? "CO_DINH" : (cChuan > 0 ? (loaiPC || (trongCT ? "TYLE_TRU_PHEP_TANGCA" : "TYLE_KHONG_TRU")) : "CONG_CHUAN_0");
         if (coDinh) tienPC = soPC || Math.round(luongTT * pct(pc["Tỷ lệ"]));
         else if (cChuan > 0) {
           var du = cChuan - num(pc["Tham chiếu"]);
@@ -596,10 +598,8 @@
           }
           if (pcLoi) tienPC = 0; // FORMULA_ERROR đã ghi (kèm mã NV) — không dùng công thức mặc định
           else if (pcRec) {
-            var ep = tinhCongThuc(fmlCtx, pcRec, "ALLOWANCE", {
-              MUC_PHU_CAP: soPC, CONG_CHUAN: cChuan, CONG_HUONG_PHU_CAP: c.tongCong, NGUONG_PHU_CAP: num(pc["Tham chiếu"]),
-              CONG_TINH_LUONG: c.tongCong, CONG_LE: c.congLe, CONG_PHEP: c.congPhep, CONG_TC: c.congTangCa
-            });
+            pcNhanh = "CONG_THUC";
+            var ep = tinhCongThuc(fmlCtx, pcRec, "ALLOWANCE", pcVars);
             tienPC = ep.ok ? Math.round(ep.v) : 0;
           }
           else {
@@ -612,8 +612,10 @@
       }
       // Hỗ trợ lương (Mã hỗ trợ 2) & tiền cơm (Mã hỗ trợ) — "Loại công thức" cho phép 1 mã dùng công
       // thức khác với vị trí (Mã hỗ trợ / Mã hỗ trợ 2) gán nó; để trống = đúng công thức cũ theo vị trí.
-      var hoTro = function (dm, macDinh, ngay) {
+      var htGhi = {}; // V10.3: ghi nhận biến + nhánh của từng vị trí (ht1 = Mã hỗ trợ/tiền cơm, ht2 = Mã hỗ trợ 2) cho kiểm thử công thức
+      var hoTro = function (dm, macDinh, ngay, slot) {
         var loai = String(dm["Loại công thức"] || "").trim() || macDinh;
+        htGhi[slot] = { ma: dm["Mã hỗ trợ"] || "", loai: loai, nhanh: loai === "HT_THIEU_CHUAN" ? "HT_THIEU_CHUAN" : "HT_THEO_NGAY", vars: { MUC_HO_TRO: money(dm["Số tiền"]), CONG_CHUAN: cChuan, CONG_THUC_TE: c.tongCong, SO_NGAY_COM: ngay, SO_NGAY_DUOC_HUONG: ngay } };
         if (loai === "HT_THIEU_CHUAN") return (cChuan > 0 && c.tongCong - cChuan <= 0) ? Math.round((cChuan - c.tongCong) * money(dm["Số tiền"])) : 0;
         if (loai !== "HT_THEO_NGAY" && fmlCtx.records && fmlCtx.records.length) {
           // Dynamic Payroll Formula Engine (mục VI): "Loại công thức" không phải HT_THIEU_CHUAN/HT_THEO_NGAY
@@ -621,15 +623,16 @@
           var th = traCongThuc(fmlCtx, loai, "SUPPORT");
           if (th && th.loi) return 0; // FORMULA_ERROR đã ghi — không dùng công thức mặc định
           if (th && th.rec) {
-            var eh = tinhCongThuc(fmlCtx, th.rec, "SUPPORT", { MUC_HO_TRO: money(dm["Số tiền"]), CONG_CHUAN: cChuan, CONG_THUC_TE: c.tongCong, SO_NGAY_COM: ngay, SO_NGAY_DUOC_HUONG: ngay });
+            htGhi[slot].nhanh = "CONG_THUC";
+            var eh = tinhCongThuc(fmlCtx, th.rec, "SUPPORT", htGhi[slot].vars);
             return eh.ok ? Math.round(eh.v) : 0;
           }
         }
         return Math.round(ngay * money(dm["Số tiền"])); // HT_THEO_NGAY (hoặc "Loại công thức" lạ chưa có công thức cấu hình — giữ đúng hành vi cũ)
       };
-      var ht2 = dmHT[ns["Mã hỗ trợ 2"]], luongHT = ht2 ? hoTro(ht2, "HT_THIEU_CHUAN", 0) : 0;
+      var ht2 = dmHT[ns["Mã hỗ trợ 2"]], luongHT = ht2 ? hoTro(ht2, "HT_THIEU_CHUAN", 0, "ht2") : 0;
       var ht1 = dmHT[ns["Mã hỗ trợ"]], ngayCom = (c.congCom || 0) + (comMap[ma] || 0);
-      var tienCom = ht1 ? hoTro(ht1, "HT_THEO_NGAY", ngayCom) : 0;
+      var tienCom = ht1 ? hoTro(ht1, "HT_THEO_NGAY", ngayCom, "ht1") : 0;
       // Phụ cấp công tác theo nhãn chấm công
       var dem = {}, pcCT = 0;
       Object.keys(c.nhanTheoNgay).forEach(function (k) { var n = c.nhanTheoNgay[k]; if (n) dem[n] = (dem[n] || 0) + 1; });
@@ -717,6 +720,7 @@
           laSanLuong: laSL, donGiaKhoan: donGiaSL, phuongPhapBu: laSL ? cheDoBu : "",
           mucBuDmLuong: laSL && dmL ? money(dmL["Đơn giá bù lương"]) : 0,
           binhQuanTo: laSL && cheDoBu === "to" ? Math.round(binhQuanTo[ns["Mã PB"] || ""] || 0) : null,
+          bienPC: pcVars ? Object.assign({}, pcVars) : null, nhanhPC: pcNhanh, bienHT: htGhi, maHoTro: ns["Mã hỗ trợ"] || "", maHoTro2: ns["Mã hỗ trợ 2"] || "", // V10.3 (chỉ ghi nhận)
           maPhuCap: ns["Mã phụ cấp"] || "", loaiCongThucPhuCap: pc ? (loaiPC || (trongCT ? "TYLE_TRU_PHEP_TANGCA" : "TYLE_KHONG_TRU")) : "",
           maThueTNCN: maT, phuongPhapThue: kieu, thuNhapTinhThue: Math.round(tinhThue), nguonThue: ppT.nguon || null,
           thuNhapChiuThue: Math.round(chiuThue), giamTruBanThan: kieu === "VL" ? 0 : tienGTBT, giamTruPhuThuoc: kieu === "VL" ? 0 : tongGTPT, soNPT: npt,

@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "luonghak_db_v1";
-  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, OTM = C.overtimeMaster, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate, HDD = C.hdld, LF = C.lf, CMP = C.company;
+  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate, HDD = C.hdld, LF = C.lf, CMP = C.company;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
 
   // ---------- Định nghĩa bảng ----------
@@ -27,11 +27,11 @@
     dm_chucvu: { ten: "Chức vụ", cols: ["Mã chức vụ", "Tên chức vụ", "Hiệu lực từ", "Hiệu lực đến"] },
     dm_cc: { ten: "Hình thức công", cols: ["Mã CC", "Nội dung", "Hình thức công", "Diễn giải", "Hiệu lực từ", "Hiệu lực đến"], hint: "Danh sách mã hình thức công dùng trong bảng chấm công (BT, PN, CL, TC, CC…)." },
     // V10.2: ca kiểm thử công thức tăng ca (khóa kết quả kỳ vọng để kiểm thử hồi quy) — quản lý trong modal Danh mục tăng ca, không hiện ở Danh mục
-    dm_congthuc_kiemthu: { ten: "Ca kiểm thử công thức", cols: ["Mã tăng ca", "Tên ca", "Công quy đổi kỳ vọng", "Nguồn", "Người tạo", "Ngày tạo"], hint: "Các ca kiểm thử của công thức tăng ca (biến lấy từ dữ liệu thật lúc lưu)." },
+    dm_congthuc_kiemthu: { ten: "Ca kiểm thử công thức", cols: ["Mã tăng ca", "Loại", "Mã cha", "Tên ca", "Công quy đổi kỳ vọng", "Kết quả kỳ vọng", "Nguồn", "Người tạo", "Ngày tạo"], hint: "Các ca kiểm thử của công thức tăng ca (biến lấy từ dữ liệu thật lúc lưu)." },
     // Master Prompt mục III/VII: Dynamic Payroll Formula Engine — thêm/sửa công thức tăng ca, phụ cấp, hỗ trợ KHÔNG cần sửa code.
     dm_congthuc: {
       ten: "Công thức tiền lương",
-      cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã công thức", "Mã tăng ca cha", "Tên công thức", "Loại", "Công ty", "Biểu thức", "Tham số", "Đơn vị tính", "Mức tiền", "Hệ số", "Đối tượng áp dụng", "Trạng thái", "Phiên bản", "Người lập", "Ngày lập", "Người duyệt", "Thời điểm duyệt", "Người kích hoạt", "Thời điểm kích hoạt", "Người ngừng", "Thời điểm ngừng", "Lý do thay đổi", "Mô tả"],
+      cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã công thức", "Mã tăng ca cha", "Mã phụ cấp cha", "Mã hỗ trợ cha", "Tên công thức", "Loại", "Công ty", "Biểu thức", "Tham số", "Đơn vị tính", "Mức tiền", "Hệ số", "Đối tượng áp dụng", "Trạng thái", "Phiên bản", "Người lập", "Ngày lập", "Người duyệt", "Thời điểm duyệt", "Người kích hoạt", "Thời điểm kích hoạt", "Người ngừng", "Thời điểm ngừng", "Lý do thay đổi", "Mô tả"],
       def: { "Trạng thái": "Nháp" },
       hint: "'Loại': OVERTIME (tăng ca) · ALLOWANCE (phụ cấp) · SUPPORT (hỗ trợ) — khớp đúng 'Mã công thức' đã gán cho nhân viên (Mã tăng ca / Mã phụ cấp / Mã hỗ trợ), engine tự tra công thức này TRƯỚC, không cần sửa phần mềm. 'Trạng thái': chỉ 'Hiệu lực' mới được dùng để tính lương chính thức — 'Nháp'/'Đã duyệt' dùng để soạn & chạy thử (tab Kiểm tra công thức) trước khi kích hoạt; 'Ngừng' = thôi áp dụng. 'Công ty': để trống = áp dụng mọi công ty; ghi cụ thể để ưu tiên hơn bản chung. 'Biểu thức' dùng tên biến ở tab Thư viện biến (CONG_TC, MUC_PHU_CAP, HE_SO_TC…), hàm MIN/MAX/ROUND/IF… Xem tab Mẫu công thức để copy công thức có sẵn."
     },
@@ -1707,18 +1707,18 @@
     if (DM_CAI_DAT[st.dm]) st.dm = Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; })[0];
     Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; }).forEach(function (k) { bar.appendChild(btn(DM[k].ten + (countOf(k) ? " (" + countOf(k) + ")" : ""), st.dm === k ? "pri" : "", function () { if (st.dm !== k && !leaveOk()) return; st.dm = k; saveUi(); render(); })); });
     w.appendChild(bar);
-    w.appendChild(st.dm === "dm_tncn" ? thuePanel() : st.dm === "dm_tangca" ? otUi().masterView() : grid(st.dm, DM[st.dm]));
+    w.appendChild(st.dm === "dm_tncn" ? thuePanel() : FM_TABLE[st.dm] ? fmUi(FM_TABLE[st.dm]).masterView() : grid(st.dm, DM[st.dm]));
     return w;
   }
-  /** V10.2: Danh mục tăng ca dạng Master–Detail (ui/overtime-master.js). Phụ thuộc đưa vào qua một đối tượng — module không đụng DOM/db ngoài luồng repository. */
-  var OTUI = null;
-  function otUi() {
-    return OTUI || (OTUI = window.HAKUI.overtimeMaster.create({
+  /** V10.2/V10.3: Danh mục Tăng ca · Phụ cấp · Hỗ trợ dạng Master–Detail dùng chung (ui/formula-master.js). Phụ thuộc đưa vào qua một đối tượng — module không đụng DOM/db ngoài luồng repository. */
+  var FM_TABLE = { dm_tangca: "OVERTIME", dm_phucap: "ALLOWANCE", dm_hotro: "SUPPORT" }, FM_DM = { OVERTIME: "dm_tangca", ALLOWANCE: "dm_phucap", SUPPORT: "dm_hotro" }, FMUI = {};
+  function fmUi(type) {
+    return FMUI[type] || (FMUI[type] = window.HAKUI.formulaMaster.create({
       h: h, btn: btn, esc: esc, fmt: fmt, $: $, st: st, db: function () { return db; }, can: can, user: function () { return session ? session.tenDangNhap : currentUser(); },
       REPO: REPO, commit: commit, txn: txn, save: save, render: render, audit: audit, toast: toast, alert: function (m) { alert(m); }, fmtTime: fmtTime,
       dateField: dateField, dateIso: dateIso, kqKy: kqKy, closedPeriods: function () { return db.kyluong.map(function (k) { return k.ky; }); }, pct: E.pct,
       backup: function (tag) { if (store && store.backup) store.backup(tag); }, dirtyBump: function () { dbRev++; st.kqStale = true; }
-    }));
+    }, type));
   }
 
   // ---------- Kiểm tra bảng lương (V10): ERROR / WARNING / INFO, đi tới dữ liệu, kiểm tra lại, xuất Excel ----------
@@ -2089,24 +2089,21 @@
     CT_SUBTABS.forEach(function (t) { bar2.appendChild(btn(t[1], st.ct === t[0] ? "pri" : "", function () { st.ct = t[0]; render(); })); });
     w.appendChild(bar2);
     var loai = CT_SUBTAB_LOAI[st.ct];
-    if (loai === "OVERTIME") {
-      var card = h("div", { class: "card", "data-ct-ot-pointer": "1" });
-      card.appendChild(h("div", { class: "hint", text: "Công thức tăng ca nay được quản lý ngay trong hồ sơ từng mã tăng ca (bảng cha → bảng con): Danh mục → Tăng ca → Quản lý công thức. Ở đó có trình thiết kế, kiểm thử trên dữ liệu thật, duyệt và lịch sử phiên bản." }));
-      card.appendChild(btn("Mở Danh mục tăng ca", "pri", function () { ktDi(["dm", "dm_tangca"]); }));
+    if (loai) {
+      var OMk = C.formulaMaster.forType(loai), KK = OMk.KIND, dmk = FM_DM[loai];
+      var card = h("div", { class: "card", "data-ct-ot-pointer": "1", "data-ct-pointer": loai });
+      card.appendChild(h("div", { class: "hint", text: "Công thức " + KK.short.toLowerCase() + " nay được quản lý ngay trong hồ sơ từng " + KK.noun + " (bảng cha → bảng con): Danh mục → " + KK.short + " → Quản lý công thức. Ở đó có trình thiết kế, kiểm thử trên dữ liệu thật, duyệt và lịch sử phiên bản." }));
+      card.appendChild(btn("Mở " + KK.title, "pri", function () { ktDi(["dm", dmk]); }));
       w.appendChild(card);
-      // Công thức tăng ca CHƯA gắn được mã cha (không có mã tăng ca dùng khóa này / nhiều mã dùng chung) — vẫn liệt kê để không bị ẩn
-      var lp = OTM.linkPlan(db), un = lp.orphans.map(function (r) { return { r: r, why: "Không có mã tăng ca nào dùng khóa công thức này" }; }).concat(lp.ambiguous.map(function (x) { return { r: x.rec, why: "Nhiều mã dùng chung: " + x.candidates.join(", ") }; })).concat(lp.invalid.map(function (x) { return { r: x.rec, why: x.problem }; }));
+      // Công thức CHƯA gắn được mã cha (không có mã nào dùng khóa này / nhiều mã dùng chung) — vẫn liệt kê để không bị ẩn
+      var lp = OMk.linkPlan(db), un = lp.orphans.map(function (r) { return { r: r, why: "Không có " + KK.noun + " nào dùng khóa công thức này" }; }).concat(lp.ambiguous.map(function (x) { return { r: x.rec, why: "Nhiều mã dùng chung: " + x.candidates.join(", ") }; })).concat(lp.invalid.map(function (x) { return { r: x.rec, why: x.problem }; }));
       if (un.length) {
-        var c2 = h("div", { class: "card", "data-ct-ot-unlinked": "1" });
-        c2.appendChild(h("div", { class: "fh", text: "Công thức tăng ca chưa gắn được mã tăng ca cha (" + un.length + ")" }));
-        c2.appendChild(h("div", { class: "hint", text: "Chỉ xem. Muốn quản lý trong hồ sơ mã tăng ca: tạo/chọn mã tăng ca có “Loại công thức” = mã công thức này, rồi Danh mục tăng ca → Liên kết công thức cũ." }));
+        var c2 = h("div", { class: "card", "data-ct-ot-unlinked": "1", "data-ct-unlinked": loai });
+        c2.appendChild(h("div", { class: "fh", text: "Công thức " + KK.short.toLowerCase() + " chưa gắn được " + KK.noun + " cha (" + un.length + ")" }));
+        c2.appendChild(h("div", { class: "hint", text: "Chỉ xem. Muốn quản lý trong hồ sơ " + KK.noun + ": tạo/chọn " + KK.noun + " có “Loại công thức” = mã công thức này, rồi " + KK.title + " → Liên kết công thức cũ." }));
         c2.appendChild(simpleTable(un.map(function (x) { return { "Mã công thức": x.r["Mã công thức"] || "", "Phiên bản": "v" + (x.r["Phiên bản"] || 1), "Trạng thái": x.r["Trạng thái"] || "Nháp", "Biểu thức": x.r["Biểu thức"] || "", "Lý do chưa gắn": x.why }; })));
         w.appendChild(c2);
       }
-    } else if (loai) {
-      var def = Object.assign({}, DM.dm_congthuc, { def: Object.assign({}, DM.dm_congthuc.def, { "Loại": loai }), rowFilter: function (r) { return (r["Loại"] || "") === loai; } });
-      w.appendChild(h("div", { class: "hint", text: "Chỉ hiện công thức Loại = " + loai + " (" + ctLoaiTen(loai) + "). Dòng mới tự gán Loại này." }));
-      w.appendChild(grid("dm_congthuc", def));
     } else if (st.ct === "wz") w.appendChild(ctWizardPanel());
     else if (st.ct === "vars") w.appendChild(ctVarsPanel());
     else if (st.ct === "mau") w.appendChild(ctTemplatesPanel());
@@ -2125,7 +2122,7 @@
     var bar = h("div", { class: "bar" });
     CT_LOAI.forEach(function (lo) { bar.appendChild(btn(ctLoaiTen(lo[0]), Wz.loai === lo[0] ? "pri" : "", function () { Wz.loai = lo[0]; Wz.mau = 0; Wz.vars = {}; render(); })); });
     box.appendChild(bar);
-    var mau = CT_TEMPLATES.filter(function (x) { return x.loai === Wz.loai; });
+    var mau = CT_TEMPLATES.filter(function (x) { return x.loai === Wz.loai && !x.chuaKetNoi; });
     step(2, "Chọn mẫu");
     var sel = h("select", { "aria-label": "Mẫu công thức", style: "max-width:100%" });
     mau.forEach(function (x, i) { sel.appendChild(h("option", { value: i, text: x.ten })); }); sel.value = Wz.mau;
