@@ -129,7 +129,10 @@ async function launch(dataDir, opt) {
   { // V9.4: bộ lọc mới — một popover tại một thời điểm, Áp dụng/Hủy, Escape, chip, Đặt lại; không lỗi JS
     const errs0 = errs.length, keys = await w.locator("[data-rf] button.fbtn").evaluateAll((bs) => bs.map((b) => b.getAttribute("data-fkey")));
     const pops = () => w.locator("[data-fpop]").count();
-    ok("Bộ lọc V9.4: thanh lọc là nút (không còn dropdown details), có ≥3 nhóm", keys.length >= 3 && (await w.locator("details.msel").count()) === 0, keys.join(","));
+    // V10.3: thanh nhanh chỉ giữ 2–4 điều kiện thường dùng; các nhóm còn lại nằm trong bộ lọc nâng cao (ngăn kéo) — kiểm cả hai
+    await w.locator("[data-sf-adv]").click(); await w.waitForSelector("[data-sf-drawer]");
+    const advGroups = await w.locator("[data-sf-drawer] .sfm").count(); await w.locator("[data-sf-drawer] button:has-text('Hủy')").click();
+    ok("Bộ lọc V9.4/V10.3: thanh nhanh là nút (không còn dropdown details) ≥2 nhóm; bộ lọc nâng cao có ≥3 nhóm", keys.length >= 2 && advGroups >= 3 && (await w.locator("details.msel").count()) === 0, keys.join(",") + " · nâng cao=" + advGroups);
     await w.locator('[data-fkey="' + keys[0] + '"]').click(); const p1 = await pops();
     await w.locator('[data-fkey="' + keys[1] + '"]').click(); const p2 = await pops(), id2 = await w.locator("[data-fpop]").getAttribute("data-fpop");
     ok("Bộ lọc V9.4: mở nhóm khác thì nhóm trước tự đóng — luôn đúng 1 popover", p1 === 1 && p2 === 1 && id2 === keys[1], p1 + "," + p2 + "," + id2);
@@ -204,7 +207,7 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=chamcong]");
     const nAll = await w.locator("main table tbody tr").count();
     await w.locator("[data-rf-key=tuKhoa]").fill("zzzkhongco"); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
-    const nNone = await w.locator("main table tbody tr").count(), hasOld = await w.locator("main input.search").count();
+    const nNone = await w.locator("main table tbody tr").count(), hasOld = await w.locator("main input.search:not([data-rf-key=tuKhoa])").count();
     await w.locator("[data-rf-key=tuKhoa]").fill(""); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
     const nBack = await w.locator("main table tbody tr").count();
     ok("Chấm công: dùng thanh lọc chung (từ khóa, phòng ban), không còn ô tìm riêng; lọc không khớp → hết dòng, xóa lọc → hiện lại", nAll > 0 && nNone === 0 && nBack === nAll && hasOld === 0, [nAll, nNone, nBack, hasOld].join("/"));
@@ -257,7 +260,7 @@ async function launch(dataDir, opt) {
   await w.click("#nav button[data-k=caidat]");
   await w.locator(".bar.sub button", { hasText: "Phụ cấp" }).click();
   const pcEmpty = await w.locator("main .empty").count();
-  ok("Lọc theo Loại: mã TC_E2E (OVERTIME) KHÔNG hiện ở tab Phụ cấp (ALLOWANCE)", pcEmpty > 0 && !(await w.locator("main").innerText()).includes("TC_E2E"));
+  ok("Lọc theo Loại: mã TC_E2E (OVERTIME) KHÔNG hiện ở tab Phụ cấp (ALLOWANCE)", (pcEmpty > 0 || (await w.locator('[data-ct-pointer="ALLOWANCE"]').count()) === 1) && (await w.locator("[data-ct-unlinked]").count()) === 0 && !(await w.locator("main").innerText()).includes("TC_E2E"));
   await w.locator(".bar.sub button", { hasText: "Thư viện biến" }).click();
   const varsTxt = await w.locator("main").innerText();
   ok("Tab Thư viện biến: liệt kê biến đã khai báo (CONG_TC, HE_SO_TC…)", varsTxt.includes("CONG_TC") && varsTxt.includes("HE_SO_TC") && varsTxt.includes("Công tăng ca"));

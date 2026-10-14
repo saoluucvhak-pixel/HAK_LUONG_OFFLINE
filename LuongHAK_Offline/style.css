@@ -428,3 +428,40 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .ot-vars td,.ot-vars th{font-size:12.5px}
 .ot-designer .fld input,.ot-designer .fld textarea{width:100%}
 @media (max-width:1400px){.ot-dlg{height:94vh}.ot-list{max-height:calc(100vh - 300px)}}
+
+/* ===== HAK Smart Filter (V10.3): cao 36–40px · bo góc 8–10px · khoảng cách 4/8/12/16/24 ===== */
+.sf{margin:0 0 8px}
+.sf .sf-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px}
+.sf .sf-bar .i,.sf .sf-bar select,.sf .sf-bar .b,.sf .sf-bar .fbtn,.sf .sf-bar .dateinp{min-height:36px;box-sizing:border-box;border-radius:8px}
+.sf .sf-bar .i.search{min-width:200px;flex:1 1 220px;max-width:340px}
+.sf .sf-bar .dateinp{width:112px}
+.sf .sfdr{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sf .sf-adv.has{border-color:var(--brand);color:var(--brand);font-weight:600}
+.sf .sf-warn,.sfd .sf-warn{color:var(--red)}
+.sf-sum{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;padding:8px 12px;background:var(--th);border:1px solid var(--line);border-radius:8px;font-size:13px}
+.sf-sum .sf-sum-i{white-space:nowrap}
+.sf-sum .sf-act{margin-left:auto;display:inline-flex;gap:8px;flex-wrap:wrap}
+.sfd-mask{position:fixed;inset:0;background:rgba(10,20,30,.35);z-index:1100}
+.sfd{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--card);color:var(--ink);box-shadow:-8px 0 28px rgba(0,0,0,.22);z-index:1101;display:flex;flex-direction:column}
+.sfd-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+.sfd-body{flex:1 1 auto;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.sfd-foot{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.sfd-foot .sp{flex:1}
+.sfd-f{display:flex;flex-direction:column;gap:4px}
+.sfd-l{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.sfd select,.sfd .i,.sfd .dateinp{min-height:36px;box-sizing:border-box;border-radius:8px}
+.sfm{border:1px solid var(--ctl);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:8px}
+.sfm .i{width:100%}
+.sfm-list{max-height:190px;overflow:auto}
+.sfm-row{display:block;padding:4px 0;cursor:pointer}
+.sfd-presets{border-top:1px dashed var(--line);padding-top:12px}
+@media (max-width:1100px){.sf .sf-bar .i.search{max-width:none}}
+body.sfd-open #modal{z-index:1200}
+/* nút của popover/chip lọc dùng cùng kiểu với nút ứng dụng */
+.fbtn,.fpop .btn,.fchips .btn,.fpop-foot .btn{font:inherit;padding:7px 12px;border:1px solid var(--ctl);border-radius:8px;background:var(--field);color:var(--ink);cursor:pointer;min-height:36px;box-sizing:border-box}
+.fbtn:hover,.fpop .btn:hover,.fchips .btn:hover{border-color:var(--brand)}
+.fbtn.has{border-color:var(--brand);color:var(--brand);font-weight:600}
+.fpop .btn.pri{background:var(--brand);color:var(--onBrand);border-color:var(--brand)}
+.fpop .btn.ghost,.fchips .btn.ghost{background:transparent;min-height:30px;padding:3px 10px}
+.fchip{color:var(--ink)}
+.sfd-f .i,.sfd-f select{width:100%}
