@@ -1,6 +1,6 @@
 {
- "generated": "2026-10-14T01:08:23.091Z",
- "screens": 29,
+ "generated": "2026-10-14T03:44:55.155Z",
+ "screens": 30,
  "sizes": [
   "1366x768",
   "1600x900",
@@ -145,6 +145,14 @@
   },
   {
    "size": "1366x768",
+   "screen": "rp_soct",
+   "title": "",
+   "pageOverflowX": false,
+   "mainOverflowPx": 0,
+   "jsErrors": 0
+  },
+  {
+   "size": "1366x768",
    "screen": "rp_ck",
    "title": "BẢNG KÊ CHUYỂN KHOẢN",
    "pageOverflowX": false,
@@ -377,6 +385,14 @@
   },
   {
    "size": "1600x900",
+   "screen": "rp_soct",
+   "title": "",
+   "pageOverflowX": false,
+   "mainOverflowPx": 0,
+   "jsErrors": 0
+  },
+  {
+   "size": "1600x900",
    "screen": "rp_ck",
    "title": "BẢNG KÊ CHUYỂN KHOẢN",
    "pageOverflowX": false,
@@ -602,6 +618,14 @@
   {
    "size": "1920x1080",
    "screen": "rp_cttt",
+   "title": "",
+   "pageOverflowX": false,
+   "mainOverflowPx": 0,
+   "jsErrors": 0
+  },
+  {
+   "size": "1920x1080",
+   "screen": "rp_soct",
    "title": "",
    "pageOverflowX": false,
    "mainOverflowPx": 0,
@@ -705,7 +729,7 @@
   }
  ],
  "summary": {
-  "total": 87,
+  "total": 90,
   "pageOverflowX": 0,
   "jsErrors": 0,
   "errors": []
