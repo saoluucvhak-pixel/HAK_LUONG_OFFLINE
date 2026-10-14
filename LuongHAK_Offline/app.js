@@ -2450,6 +2450,29 @@
   // Quy chế tính lương (R-68): "2026" = quy chế HAK Group (HAK, CNHAK, HAKQN — chủ sở hữu duyệt 11/10/2026) · "1.7" = cách tính trước đó (đối chiếu)
   var QC_OPTS = [["2026", "Quy chế lương HAK Group 2026"], ["1.7", "Cách tính cũ (engine 1.7 — để đối chiếu)"]];
   function quyChe() { var v = congTy()["Quy chế tính lương"]; return v === "1.7" ? "1.7" : "2026"; }
+  /** Chi tiết 2 quy chế tính lương (đúng như engine.js — các mục C1…C10). */
+  var QC_RULES = [
+    ["Công chuẩn", "Số ngày của tháng − “Số ngày giảm trừ” khai ở Danh mục → Mã lương (VD TG3: 30 − 4 = 26). Mã “tất cả ngày CN” = số ngày − số Chủ nhật.", "Trừ Chủ nhật rồi trừ tiếp số sau dấu “-” trong cột Cách tính (VD tháng 30 ngày: 30 − 4 CN − 4 = 22).", "C2"],
+    ["Lương thời gian", "Trả đủ số công đi làm, KHÔNG cắt ở công chuẩn: đơn giá ngày × công thực tế.", "Công tính lương = nhỏ hơn giữa công thực tế và công chuẩn (cắt ở công chuẩn).", "C1"],
+    ["Công nhân sản phẩm (SP)", "Lương thời gian chỉ tính cho công lễ + công phép. Mã lương chọn “Loại công thức” = TG_LE_TANGCA thì tính lễ + tăng ca.", "Tính theo công thời gian thông thường.", "C3"],
+    ["Bù theo đơn giá bình quân tổ", "Tiền của tổ chỉ gồm sản lượng (tấn × đơn giá khoán), không cộng tiền bơm dăm.", "Tiền của tổ gồm cả sản lượng và bơm dăm.", "C4"],
+    ["Công nhật (CN1, CN2)", "Tăng ca tính theo công thức của mã tăng ca (nhân hệ số); công chuẩn = số ngày − Số ngày giảm trừ (CN2: 30 − 4 = 26) cho tăng ca, phụ cấp, hỗ trợ. Lương vẫn = đơn giá × công.", "Công chuẩn = công thực tế.", "C5, C9"],
+    ["Phụ cấp để trống “Cách tính”", "Chia theo công chuẩn (không tính phép, tăng ca): đủ công thì đủ tiền.", "Hiểu là phụ cấp cố định.", "C6"],
+    ["Bảo hiểm — lương đóng", "Chỉ lấy “Lương cơ bản” khai ở phụ lục hợp đồng. Có mã BHXH mà chưa khai Lương cơ bản thì KHÔNG tính BH / truy thu và có cảnh báo.", "Không có Lương cơ bản thì lấy lương thỏa thuận làm lương đóng BH.", "C8"],
+    ["Mã tăng ca TC5", "Công TC5 (ca vị trí khác) đã trả riêng nên KHÔNG cộng vào công tính lương thời gian.", "Cộng vào tổng công.", "C10"],
+    ["KPCĐ người lao động đóng", "Trừ riêng, không gộp vào “BH NLĐ đóng” — áp dụng cho CẢ HAI quy chế.", "Như bên cạnh.", "—"]
+  ];
+  function xemQuyChe(cur) {
+    var body = h("div", { class: "bu-explain" });
+    body.appendChild(h("p", { text: "Quy chế được chọn áp dụng cho mọi kỳ CHƯA chốt của dữ liệu này; kỳ đã chốt giữ nguyên số đã lưu. Đang chọn: " + qcLabel(cur) + ". Dùng “Cách tính cũ” chỉ để đối chiếu số với bản trước." }));
+    var t = h("table", { class: "tbl" }), hd = h("tr");
+    ["Nội dung", "Quy chế lương HAK Group 2026", "Cách tính cũ (engine 1.7)", "Mã"].forEach(function (c) { hd.appendChild(h("th", { text: c })); });
+    t.appendChild(h("thead", {}, [hd]));
+    var tb = h("tbody"); QC_RULES.forEach(function (r) { var tr = h("tr"); r.forEach(function (c, i) { tr.appendChild(h("td", { text: c, style: i === 0 ? "font-weight:600" : "" })); }); tb.appendChild(tr); });
+    t.appendChild(tb); body.appendChild(h("div", { class: "tw" }, [t]));
+    body.appendChild(h("div", { class: "hint", text: "Số tiền / tỷ lệ / ngưỡng cụ thể của từng nhân viên nằm ở Danh mục (Mã lương, Phụ cấp, Tăng ca, Bảo hiểm…) và Cài đặt → Công thức lương. Muốn xem số tính ra của từng người: bấm vào tên trong bảng lương → “📐 Xem cách tính”." }));
+    modal("Quy chế tính lương", body, function (close) { return [btn("Đóng", "", close)]; });
+  }
   function qcLabel(v) { var o = QC_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : "Cách tính cũ (trước quy chế 2026)"; }
   function buLabel(v) { var o = BU_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : (BU_LEGACY[String(v)] || String(v)); }
   function tinhLuong(nam, thang, qcDung) {
@@ -3085,7 +3108,7 @@
       render(); toast("Đã tính xong " + st.kq.bangluong.length + " nhân viên");
     }));
     bar.appendChild(sel);
-    bar.appendChild(btn("Xem cách tính", "", function () { var m = buMethodOf(st.bu); if (m) xemCachTinhBu(m); else alert(buLabel(st.bu)); }));
+    bar.appendChild(btn("Xem cách bù", "", function () { var m = buMethodOf(st.bu); if (m) xemCachTinhBu(m); else alert(buLabel(st.bu)); }));
     var qs = h("select", { "aria-label": "Quy chế tính lương", title: "Áp dụng cho mọi kỳ chưa chốt của dữ liệu này (kỳ đã chốt giữ nguyên số)" }); QC_OPTS.forEach(function (o) { qs.appendChild(h("option", { value: o[0], text: o[1] })); });
     qs.value = quyChe();
     qs.addEventListener("change", function () {
@@ -3093,7 +3116,7 @@
       var cu = quyChe(); db.congty = [Object.assign({}, congTy(), { "Quy chế tính lương": qs.value })]; save();
       audit("Đổi quy chế tính lương", qcLabel(cu) + " → " + qcLabel(qs.value)); st.kq = null; render(); toast("Đã đổi: " + qcLabel(qs.value) + " — bấm Tính lương lại");
     });
-    bar.appendChild(qs); card.appendChild(bar);
+    bar.appendChild(qs); bar.appendChild(btn("Xem quy chế", "", function () { xemQuyChe(qs.value); })); card.appendChild(bar);
     // Mục VIII: lựa chọn "Cách bù lương sản lượng" ở trên chỉ để XEM THỬ/so sánh — khi Chốt kỳ, app
     // tự dùng đúng bản "Hiệu lực" trong Danh mục → Quy chế bù sản lượng (nếu có), không theo lựa chọn này.
     // Chỉ hiện khi công ty này có dùng lương sản phẩm (mã hình thức lương chứa SP) — không làm phiền
