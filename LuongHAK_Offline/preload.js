@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("hakStore", {
   noteExternal: () => ipcRenderer.sendSync("backup-note-external"),
   login: (name, pw) => ipcRenderer.sendSync("auth-login", name, pw), // V9: tiến trình chính tự xác thực & cấp quyền (renderer không gửi được danh sách quyền)
   logout: () => ipcRenderer.sendSync("auth-logout"),
+  recover: (code, name) => ipcRenderer.sendSync("auth-recover", code, name), // V10.1: main xác minh mã khôi phục Admin → phiên khôi phục ngắn hạn
   authState: () => ipcRenderer.sendSync("auth-state"), // quyền HIỆN TẠI do main xác định (chỉ để ẩn/hiện giao diện)
   whoami: () => ipcRenderer.sendSync("app-user"),            // { user, host } — tài khoản Windows đang dùng
   authSalt: () => ipcRenderer.sendSync("auth-salt"),

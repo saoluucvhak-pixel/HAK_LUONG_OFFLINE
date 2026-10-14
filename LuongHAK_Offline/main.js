@@ -26,8 +26,16 @@ function readUsersFromDisk() {
     return usersCache.list;
   } catch (e) { return usersCache.list; }
 }
+function readRecoveryFromDisk() {
+  try {
+    if (!storage) return null;
+    const ld = storage.load(); if (!ld || !ld.ok || !ld.text) return null;
+    const rec = (JSON.parse(ld.text).baomat || [])[0], k = rec && rec.khoiPhuc;
+    return k && k.hash ? { salt: k.salt, iter: k.iter, hash: k.hash } : null;
+  } catch (e) { return null; }
+}
 const guard = createGuard(__dirname, {
-  readUsers: readUsersFromDisk,
+  readUsers: readUsersFromDisk, readRecovery: readRecoveryFromDisk,
   rolePerms: (role) => (PERMCORE.ROLES[role] ? PERMCORE.ROLES[role].perms.slice() : []),
   verify: (pw, u) => { try { const a = kdfNode(pw, u.salt, u.iter), b = Buffer.from(String(u.hash), "hex"); return b.length === a.length && cryptoNode.timingSafeEqual(a, b); } catch (e) { return false; } }
 });
@@ -64,6 +72,8 @@ function registerIpc() {
   // V9: phiên do TIẾN TRÌNH CHÍNH tạo sau khi tự kiểm mật khẩu với tài khoản trên đĩa; renderer không gửi được danh sách quyền
   ipcMain.on("auth-login", (e, name, pw) => { e.returnValue = guard.login(e, name, pw); });
   ipcMain.on("auth-logout", (e) => { e.returnValue = guard.logout(e); });
+  // V10.1: main tự xác minh mã khôi phục Admin, cấp phiên khôi phục ngắn hạn (1 tài khoản, 1 lần ghi) — policy chỉ chấp nhận đặt lại Admin khi có phiên này
+  ipcMain.on("auth-recover", (e, code, name) => { try { e.returnValue = guard.recover(e, code, name); } catch (err) { e.returnValue = { ok: false, error: "Lỗi xác minh mã khôi phục" }; } });
   ipcMain.on("auth-state", (e) => { const c = guard.trusted(e) ? guard.current(e) : null; e.returnValue = c ? { ok: true, user: c.user, role: c.role, perms: c.perms } : { ok: false }; });
   ipcMain.on("store-load", (e) => { e.returnValue = storage.load(); });
   // V9.2: main so với bản đang lưu, tìm bảng thay đổi và kiểm quyền THEO PHIÊN ĐĂNG NHẬP CỦA MAIN (không tin renderer); chốt kỳ được tính lại để chặn lỗi
@@ -72,10 +82,11 @@ function registerIpc() {
   ipcMain.on("store-save", (e, text) => {
     try {
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
-      const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()) });
-      if (!v.ok) { e.returnValue = v.error; return; }
+      const rcv = guard.recoveryFor(e);
+      const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv });
+      if (!v.ok) { if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n"); e.returnValue = v.error; return; }
       const r = storage.save(text);
-      if (r === true) policy().commit();
+      if (r === true) { policy().commit(); if (rcv && !who) guard.recoveryDone(e); }
       if (c && c.touch) c.touch();
       e.returnValue = r;
     } catch (err) { e.returnValue = "Lỗi kiểm tra quyền ghi: " + String(err && err.message || err); }
@@ -91,6 +102,9 @@ function registerIpc() {
   ipcMain.handle("report-pdf", guarded("export", async (e, payload) => {
     try {
       const bad = pdfSvc.validate(payload); if (bad) return { ok: false, error: bad };
+      // V10.1: PDF bảng lương cũng bị kiểm tra như file tải về (trước đây PDF không đi qua gate)
+      const chk = payGate.checkExport(String(payload.name || ""), () => { const ld = storage.load(); if (!ld || !ld.ok || !ld.text) throw new Error("no data"); return JSON.parse(ld.text); });
+      if (!chk.ok) return { ok: false, error: "⛔ " + chk.message, code: chk.code, blocked: chk.blocked };
       const buf = await pdfSvc.renderPdf({ BrowserWindow }, payload);
       let name = exportsDir.cleanName(payload.name || "BaoCao"); if (!/\.pdf$/i.test(name)) name = name.replace(/\.[^.]*$/, "") + ".pdf";
       const f = exportsDir.target(name); require("fs").writeFileSync(f, buf);
@@ -279,20 +293,12 @@ function createWindow() {
   win.webContents.on("will-navigate", (ev, url) => { if (!url.startsWith("file://")) ev.preventDefault(); });
   // Tải file (xuất Excel, báo cáo, sao lưu ra file): lưu thẳng vào thư mục xuất, không ghi đè; xong → báo giao diện + (mặc định) mở thư mục chọn sẵn file
   win.webContents.session.on("will-download", (ev, item) => {
-    // V9.2: tệp có vẻ là bảng lương của kỳ CHƯA chốt mà kỳ đó còn lỗi chặn (FORMULA_ERROR, TAX_CONFIG_ERROR, CONG_CHUAN_ERROR…) → hủy tải. Kiểm tra lại từ dữ liệu trên đĩa tại main.
-    try {
+    // V9.2→V10.1: tệp có vẻ là bảng lương → main kiểm lại từ dữ liệu trên đĩa, FAIL-CLOSED (không xác định được kỳ / không đọc được dữ liệu / engine lỗi ⇒ hủy tải)
+    {
       const nm = item.getFilename();
-      if (payGate.isPayrollFile(nm)) {
-        const ky = payGate.kyFromName(nm), ld = ky ? storage.load() : null;
-        if (ky && ld && ld.ok && ld.text) {
-          const d = JSON.parse(ld.text);
-          if (!(d.kyluong || []).some((k) => k.ky === ky)) {
-            const bl = payGate.blockers(d, ky, { quyChe: ((d.congty || [])[0] || {})["Quy chế tính lương"] === "1.7" ? "1.7" : "2026" });
-            if (bl.length) { item.cancel(); if (!win.isDestroyed()) win.webContents.send("download-done", { ok: false, name: nm, state: "blocked", blocked: bl.map((b) => b.code + " ×" + b.count).join(", ") }); return; }
-          }
-        }
-      }
-    } catch (err) { /* không kiểm tra được → không chặn nhầm; renderer đã chặn ở lớp giao diện */ }
+      const chk = payGate.checkExport(nm, () => { const ld = storage.load(); if (!ld || !ld.ok || !ld.text) throw new Error("no data"); return JSON.parse(ld.text); });
+      if (!chk.ok) { item.cancel(); if (!win.isDestroyed()) win.webContents.send("download-done", { ok: false, name: nm, state: "blocked", blocked: chk.code + ": " + chk.message }); return; }
+    }
     const f = exportsDir.target(item.getFilename());
     item.setSavePath(f);
     item.once("done", (e2, state) => {

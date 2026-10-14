@@ -116,6 +116,16 @@
     try { localStorage.setItem(KEY, str); dirty = false; return true; } catch (e) { dirty = true; toast("⚠ Bộ nhớ trình duyệt đã đầy — hãy bấm Sao lưu ra file ngay!"); return false; }
   }
   var dbRev = 0; // V9.4: tăng mỗi lần dữ liệu đổi → làm hết hiệu lực bản tính lương tạm đang nhớ (kqKy)
+  /** V10.1: giao dịch nhiều bước. Chụp các bảng liên quan (+ nhật ký), chạy fn; fn thất bại/ném lỗi HOẶC tiến trình chính từ chối lưu ⇒ HOÀN TÁC toàn bộ trong bộ nhớ.
+   * Ghi xuống đĩa NGAY trong một lần lưu duy nhất — main thấy trọn bộ thay đổi (vd. duyệt nghỉ việc = phiếu + hợp đồng + nhân viên) hoặc không thấy gì. */
+  function txn(tables, fn) {
+    var names = tables.concat(["auditlog"]), snap = {}, ok = false;
+    names.forEach(function (k) { snap[k] = JSON.stringify(db[k] || []); });
+    try { ok = fn() !== false; } catch (e) { ok = false; toast("⛔ Lỗi khi xử lý: " + (e && e.message || e)); }
+    if (ok) ok = saveNow();
+    if (!ok) { names.forEach(function (k) { db[k] = JSON.parse(snap[k]); }); dbRev++; st.kqStale = true; dirty = false; }
+    return ok;
+  }
   function save() { dbRev++; dirty = true; st.kqStale = true; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
   function backupNow(tag) { if (!store || !store.backup) return null; if (dirty) saveNow(); return store.backup(tag); }
   // P0: backupNow() có thể âm thầm thất bại (đĩa đầy, mất quyền ghi…) và trả null — các hành động KHÔNG THỂ
@@ -1769,20 +1779,27 @@
       })];
     }, { drawer: true });
   }
-  function nvnsDoi(r, tt, extra) {
+  function nvnsDoiRaw(r, tt, extra) {
     var p = REPO.plan("update", "nghiepvu_nhansu", r, Object.assign({ "Trạng thái": tt }, extra || {}), { what: "đổi trạng thái đề nghị" });
     if (!commit(p, { action: "Nghiệp vụ nhân sự — " + tt + " " + r["Mã phiếu"] })) return false;
     return true;
   }
+  /** Đổi trạng thái 1 phiếu và ghi đĩa NGAY (từng bước Nháp→Chờ duyệt→… phải tới main đúng thứ tự, không gộp theo thời gian trễ). */
+  function nvnsDoi(r, tt, extra) { return txn(["nghiepvu_nhansu"], function () { return nvnsDoiRaw(r, tt, extra); }); }
   function nvnsDuyet(r) {
     if (!need("hr.approve", "duyệt nghiệp vụ nhân sự")) return;
     if (r["Người đề nghị"] && r["Người đề nghị"] === currentUser() && !can("system.admin")) { alert("Người đề nghị không được tự duyệt phiếu của mình — nhờ người có quyền duyệt khác."); return; }
     var ccTrung = nvnsCongTrung(r), msg = "Duyệt " + r["Loại nghiệp vụ"] + " cho " + r["Mã NV"] + " — " + nvnsTen(r["Mã NV"]) + "?\nSau khi duyệt hệ thống ghi vào hồ sơ và KHÔNG sửa/xóa phiếu nữa." + (ccTrung ? "\n\n⚠ Bảng chấm công vẫn có công thường " + ccTrung + " ngày trong khoảng nghỉ này (chỉ cảnh báo, hãy chỉnh chấm công sau)." : "");
     if (!confirm(msg)) return;
-    var kq = nvnsGhiHoSo(r);
-    if (!kq.ok) { alert("Không duyệt được: " + kq.msg); return; }
-    if (!nvnsDoi(r, "Đã duyệt", { "Người duyệt": currentUser(), "Ngày duyệt": HRM.today(), "Đã ghi vào hồ sơ": kq.msg })) return;
-    save(); render(); toast(kq.msg);
+    var msgOk = "";
+    var done = txn(["nghiepvu_nhansu", "nhanvien", "hopdong", "nghiphep", "nghiom", "congtac"], function () {
+      var kq = nvnsGhiHoSo(r);
+      if (!kq.ok) { alert("Không duyệt được: " + kq.msg); return false; }
+      msgOk = kq.msg;
+      return nvnsDoiRaw(r, "Đã duyệt", { "Người duyệt": currentUser(), "Ngày duyệt": HRM.today(), "Đã ghi vào hồ sơ": kq.msg });
+    });
+    if (!done) { render(); return; }
+    render(); toast(msgOk);
   }
   function tabNghiepVuNS() {
     var w = h("div"), card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
@@ -3100,19 +3117,25 @@
   }
   function payLap(ht, src) {
     if (!need("payment.record", "lập chứng từ thanh toán lương")) return;
-    var ky = kyStr(), pl = PLG.lapChungTu({ ky: ky, ht: ht, rows: src.kq.bangluong, lines: payLines(), nguoi: session ? session.hoTen : "", ngay: new Date().toISOString().slice(0, 10), chot: src.chot, blockers: src.chot ? [] : GATE.blockers(src.kq).map(function (b) { return b.code; }) });
+    var ky = kyStr(), pl = PLG.lapChungTu({ ky: ky, ht: ht, rows: src.kq.bangluong, lines: payLines(), nguoi: session ? session.tenDangNhap : "", ngay: new Date().toISOString().slice(0, 10), chot: src.chot, blockers: src.chot ? [] : GATE.blockers(src.kq).map(function (b) { return b.code; }) });
     if (!pl.ok) { alert("⛔ " + pl.msg + (pl.boQua && pl.boQua.length ? "\n\nBỏ qua:\n" + pl.boQua.slice(0, 8).map(function (x) { return "• " + x.maNV + ": " + x.ly; }).join("\n") : "")); return; }
     if (!confirm("Lập chứng từ " + pl.so + " (" + ht + ") cho " + pl.dong.length + " người, tổng " + fmt(pl.tong) + " đ?" + (pl.boQua.length ? "\n\nBỏ qua " + pl.boQua.length + " người:\n" + pl.boQua.slice(0, 6).map(function (x) { return "• " + x.maNV + ": " + x.ly; }).join("\n") : ""))) return;
-    ledgerSet(function (next) { pl.dong.forEach(function (d) { next.push(d); }); });
-    audit("Lập chứng từ thanh toán lương", pl.so + " · " + ht + " · " + pl.dong.length + " người · " + fmt(pl.tong) + " đ"); save(); render(); toast("Đã lập chứng từ " + pl.so);
+    var lapOk = txn(["ttluong"], function () {
+      ledgerSet(function (next) { pl.dong.forEach(function (d) { next.push(d); }); });
+      audit("Lập chứng từ thanh toán lương", pl.so + " · " + ht + " · " + pl.dong.length + " người · " + fmt(pl.tong) + " đ"); return true;
+    });
+    render(); if (lapOk) toast("Đã lập chứng từ " + pl.so);
   }
   function payChuyen(so, to) {
     if (!need("payment.record", "xử lý chứng từ thanh toán lương")) return;
     var run = function (lyDo) {
-      var rs = PLG.chuyen(payLines(), so, to, { nguoi: session ? session.hoTen : "", ngay: new Date().toISOString().slice(0, 10), lyDo: lyDo, admin: can("system.admin") });
+      var rs = PLG.chuyen(payLines(), so, to, { nguoi: session ? session.tenDangNhap : "", ngay: new Date().toISOString().slice(0, 10), lyDo: lyDo, admin: can("system.admin") });
       if (!rs.ok) { alert("⛔ " + rs.msg); return; }
-      ledgerSet(function (next) { next.forEach(function (l, i) { if (l["Số chứng từ"] === so) next[i] = Object.assign({}, l, rs.patch); }); });
-      audit("Chứng từ thanh toán lương → " + to, so + (lyDo ? " · lý do: " + lyDo : "")); save(); render();
+      txn(["ttluong"], function () {
+        ledgerSet(function (next) { next.forEach(function (l, i) { if (l["Số chứng từ"] === so) next[i] = Object.assign({}, l, rs.patch); }); });
+        audit("Chứng từ thanh toán lương → " + to, so + (lyDo ? " · lý do: " + lyDo : "")); return true;
+      });
+      render();
     };
     if (to === PLG.TT.HUY) { askText("Hủy chứng từ " + so, "Chứng từ hủy sẽ trả lại khoản phải thanh toán. Ghi rõ lý do.", { label: "Lý do hủy", required: true }, function (d) { run(d); }); return; }
     if (to === PLG.TT.TRA && !confirm("Xác nhận ĐÃ CHI chứng từ " + so + "? Sau khi ghi nhận, chứng từ bị khóa, không sửa/hủy được.")) return;
@@ -4408,6 +4431,8 @@
         return AUTH.verify(v.c.trim().toUpperCase().replace(/-/g, ""), rec.khoiPhuc).then(function (ok) {
           if (!ok) { PERM.noteFail("#recovery"); throw new Error("Mã khôi phục không đúng"); }
           if (!u || u.vaiTro !== "admin") throw new Error("Không có tài khoản Admin tên này");
+          // V10.1: tiến trình chính xác minh lại mã trên dữ liệu đĩa và cấp phiên khôi phục; không có phiên này main từ chối ghi đặt lại Admin
+          if (store && store.recover) { var rr = store.recover(v.c, u.tenDangNhap); if (!rr || !rr.ok) throw new Error((rr && rr.error) || "Tiến trình chính từ chối khôi phục"); }
           PERM.noteOk("#recovery");
           var code = randomCode();
           return AUTH.make(v.p).then(function (k) {
