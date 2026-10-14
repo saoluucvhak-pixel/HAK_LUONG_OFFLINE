@@ -415,6 +415,10 @@ async function launch(dataDir, opt) {
       const lg = await w.locator("[data-pay-ledger]").innerText();
       await shotOf(w, "05-so-chung-tu-thanh-toan");
       ok("V9.4: lập chứng từ → xuất hiện trong sổ với trạng thái 'Đã lập' (" + nav + ")", lg.includes(pre) && /Đã lập/.test(lg), lg.replace(/\s+/g, " ").slice(0, 200));
+      await w.locator('[data-pay-ledger] button:has-text("Chi tiết")').first().click(); await w.waitForSelector("[data-voucher-detail]");
+      const vd = await w.locator("[data-voucher-detail]").innerText();
+      ok("V10.1: chứng từ (cha) mở cửa sổ chi tiết với các dòng nhân viên (con) (" + nav + ")", vd.includes(pre) && /Các dòng nhân viên/.test(vd) && /NV001/.test(vd), vd.replace(/\s+/g, " ").slice(0, 160));
+      await w.click("#modal button:has-text('Đóng')");
       dialogs = []; await w.locator('[data-pay-ledger] button:has-text("Duyệt")').click(); await w.waitForTimeout(300);
       ok("V9.4: người lập không tự duyệt chứng từ (tách nhiệm vụ)", dialogs.some((d) => /khác người lập/.test(d)), dialogs.join(" | "));
       dialogs = []; await w.click('button:has-text("' + btnTxt + '")'); await w.waitForTimeout(300);

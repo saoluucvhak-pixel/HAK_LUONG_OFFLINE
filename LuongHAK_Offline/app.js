@@ -3154,6 +3154,17 @@
     if (to === PLG.TT.TRA && !confirm("Xác nhận ĐÃ CHI chứng từ " + so + "? Sau khi ghi nhận, chứng từ bị khóa, không sửa/hủy được.")) return;
     run("");
   }
+  /** Master–detail: chứng từ thanh toán (cha) → các dòng nhân viên (con). Cha hiển thị trên đầu, con ở bảng bên trong. */
+  function payVoucherModal(so) {
+    var L = payLines().filter(function (l) { return l["Số chứng từ"] === so; });
+    if (!L.length) return;
+    var f = L[0], body = h("div", { "data-voucher-detail": so }), tong = L.reduce(function (a, x) { return a + (+x["Số tiền"] || 0); }, 0);
+    var head = h("table", { class: "kv" });
+    [["Số chứng từ", so], ["Kỳ", f["Kỳ"]], ["Hình thức", f["Hình thức"]], ["Trạng thái", f["Trạng thái"]], ["Số người", String(L.length)], ["Tổng tiền", fmt(tong) + " đ"], ["Người lập", f["Người lập"] || ""], ["Ngày lập", f["Ngày lập"] || ""], ["Người duyệt", f["Người duyệt"] || ""], ["Ngày duyệt", f["Ngày duyệt"] || ""], ["Người ghi nhận", f["Người ghi nhận"] || ""], ["Ngày thanh toán", f["Ngày thanh toán"] || ""], ["Lý do hủy", f["Lý do hủy"] || ""]].forEach(function (x) { if (x[1]) head.appendChild(h("tr", {}, [h("td", { class: "t", text: x[0] }), h("td", { class: "r", text: x[1] })])); });
+    body.appendChild(head); body.appendChild(h("h4", { text: "Các dòng nhân viên (" + L.length + ")" }));
+    body.appendChild(simpleTable(L.map(function (x, i) { return { "STT": i + 1, "Mã NV": x["Mã NV"], "Họ và tên": x["Họ và tên"], "Số tiền": fmt(x["Số tiền"]), "Trạng thái": x["Trạng thái"] }; })));
+    modal("CHỨNG TỪ " + so, body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true });
+  }
   function payLedgerPanel(type, ky) {
     var ht = type === "CHUYEN_KHOAN" ? PLG.HT.CK : type === "TIEN_MAT" ? PLG.HT.TM : "";
     var ls = payLines().filter(function (l) { return l["Kỳ"] === ky && (!ht || l["Hình thức"] === ht); }), by = {}, ord = [];
@@ -3168,6 +3179,7 @@
       var L = by[so], f = L[0], tr = h("tr", { "data-so": so }), canR = can("payment.record");
       [so, f["Hình thức"], String(L.length), fmt(L.reduce(function (a, x) { return a + (+x["Số tiền"] || 0); }, 0)) + " đ", f["Trạng thái"], f["Người lập"] || "", f["Người duyệt"] || "", f["Ngày thanh toán"] || ""].forEach(function (x, i) { tr.appendChild(h("td", { class: i === 3 ? "r" : "t", text: x })); });
       var act = h("td", { class: "t" });
+      act.appendChild(btn("Chi tiết", "ghost", function () { payVoucherModal(so); }));
       if (canR && f["Trạng thái"] === PLG.TT.LAP) act.appendChild(btn("Duyệt", "pri", function () { payChuyen(so, PLG.TT.DUYET); }));
       if (canR && f["Trạng thái"] === PLG.TT.DUYET) act.appendChild(btn("Ghi nhận đã chi", "pri", function () { payChuyen(so, PLG.TT.TRA); }));
       if (canR && (f["Trạng thái"] === PLG.TT.LAP || f["Trạng thái"] === PLG.TT.DUYET)) act.appendChild(btn("Hủy", "red ghost", function () { payChuyen(so, PLG.TT.HUY); }));
