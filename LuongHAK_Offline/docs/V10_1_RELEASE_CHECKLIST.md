@@ -6,15 +6,15 @@
 | --- | --- | --- |
 | `CODE_DONE` | **Đạt cho phạm vi đã làm** (Phase 1–5) | `V10_1_AUDIT.md` |
 | `TEST_DONE` | **Đạt cục bộ** | 558 unit/integration/regression, E2E 220/220, 0 lint, 0 lỗi JS ở 90 lượt duyệt màn hình |
-| `CI_PASS` | **Chờ** — cập nhật theo run của đúng HEAD của PR | tab Checks của PR |
-| `WINDOWS_BUILD_PASS` | **Chờ** — job Windows trong `build-exe.yml` | Artifacts của run |
+| `CI_PASS` | **Đạt trên commit `4a0a8cf`** (run 38508166604: cú pháp/lint/unit+integration+regression/audit, E2E Electron, build Windows đều `success`). Các commit sau đó chỉ sửa tài liệu — xem run mới nhất của PR #31 | Actions → PR #31 |
+| `WINDOWS_BUILD_PASS` | **Đạt trên `4a0a8cf`** — bộ cài NSIS dựng được và OCR tự kiểm trong bản đóng gói đạt; artifact `TinhLuongHAK-Setup` (~120 MB, lưu 14 ngày mặc định). Dựng được ≠ đã chạy thử trên Windows thật | Artifacts của run 38508166604 |
 | `WINDOWS_UAT_PASS` | **Chưa thực hiện** | `V10_1_WINDOWS_UAT.md` |
 | `BUSINESS_RECONCILED` | **Một phần** (HAK ĐN 2 kỳ 2025, A=0, B/C/E chờ quyết định); các công ty/kỳ khác `BLOCKED_SOURCE_DATA` | `V10_1_PAYROLL_RECONCILIATION.md` |
 | `RELEASE_READY` | **KHÔNG** | còn các điều kiện bên dưới |
 
 ## Điều kiện chưa đạt (chặn `RELEASE_READY`)
 
-- [ ] CI xanh trên HEAD mới nhất + bộ cài Windows dựng được.
+- [ ] CI xanh trên HEAD cuối cùng của PR (đã xanh ở `4a0a8cf`; kiểm lại sau commit tài liệu).
 - [ ] Windows UAT 12 kịch bản.
 - [ ] Quyết định quản lý cho nhóm B/C/E trong đối chiếu; workbook các công ty/kỳ còn lại.
 - [ ] Quyền **đọc** theo vai trò tại Main (DESIGN_GAP).

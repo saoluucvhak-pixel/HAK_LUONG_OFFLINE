@@ -25,4 +25,4 @@ Test mới của V10.1: `v101-security` (khôi phục Admin, gate, chứng từ)
 - Chưa có kiểm thử OCR mới ngoài bộ hiện có trong `npm test`.
 
 ## CI (GitHub Actions — `build-exe.yml`)
-Workflow chạy khi mở PR: Cú pháp · Lint · Unit/Integration/Regression · audit → E2E Electron (xvfb) → Build bộ cài Windows + tự kiểm OCR trong bản đóng gói. **Cập nhật kết quả cho đúng HEAD tại mục "Trạng thái nghiệm thu" của `V10_1_RELEASE_CHECKLIST.md`.**
+Workflow chạy khi mở PR: Cú pháp · Lint · Unit/Integration/Regression · audit → E2E Electron (xvfb) → Build bộ cài Windows + tự kiểm OCR trong bản đóng gói. **Kết quả trên commit `4a0a8cf` (PR #31, run 38508166604): cả 3 job — kiểm tra tĩnh+unit/integration/regression+audit, E2E Electron, build Windows — đều `success`.** Commit sau đó chỉ đổi tài liệu; kiểm tra lại run mới nhất trước khi coi là HEAD cuối.
