@@ -4274,6 +4274,7 @@
     };
     var tw = h("div", { class: "tw ocrgrid" }), t = h("table"), hr = h("tr");
     ["Tên trên giấy", "Nhân viên", "Loại"].concat(pg.days.map(String), ["Tổng tính", "Tổng giấy"]).forEach(function (x) { hr.appendChild(h("th", { text: x })); });
+    hr.appendChild(h("th", { text: "" })); // cột "Bỏ dòng"
     t.appendChild(h("thead", {}, [hr]));
     var tbody = h("tbody"), list = nvChoices();
     pg.lines.forEach(function (L, li) {
@@ -4311,6 +4312,7 @@
         tr.appendChild(h("td", { class: "oc" }, [inp]));
       });
       tr.appendChild(sumTd); tr.appendChild(totTd); upd();
+      tr.appendChild(h("td", {}, [btn("✕ Bỏ dòng", "ghost", function () { if (!confirm("Bỏ dòng \"" + (L.name || "(không tên)") + "\" khỏi trang này? (Chỉ bỏ khỏi màn hình, không ảnh hưởng ảnh gốc và chưa ghi vào Chấm công.)")) return; pg.lines.splice(li, 1); render(); }, "Bỏ dòng này khỏi trang OCR (không ghi vào Chấm công)")]));
       if (!L.ma) tr.classList.add("nomatch");
       tbody.appendChild(tr);
     });
