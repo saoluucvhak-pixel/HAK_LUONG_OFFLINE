@@ -333,11 +333,11 @@ async function launch(dataDir, opt) {
     const nChiTiet = await w.locator('#main table button:has-text("Chi tiết")').count();
     if (nChiTiet) {
       await w.locator('#main table button:has-text("Chi tiết")').first().click(); await w.waitForTimeout(300);
-      const open1 = await w.locator("[data-tax-child]").count(), childTxt = await w.locator("#main").innerText();
+      const open1 = await w.locator(".dlg [data-tax-child]").count(), childTxt = await w.locator(".dlg").innerText();
       await shotOf(w, "04-thue-tncn-chi-tiet-cha-con");
-      ok("V9.4: Thuế TNCN — bấm 'Chi tiết' mở panel bậc thuế con của đúng mã/phiên bản (mã & hiệu lực tự gán)", before === 0 && open1 === 1 && /Các bậc của mã/.test(childTxt), "before=" + before + " open=" + open1);
-      await w.locator('#main table button:has-text("Chi tiết")').first().click(); await w.waitForTimeout(200);
-      ok("V9.4: Thuế TNCN — bấm 'Chi tiết' lần nữa đóng panel", (await w.locator("[data-tax-child]").count()) === 0);
+      ok("V10: Thuế TNCN — 'Chi tiết' mở CỬA SỔ cha–con với bậc thuế của đúng mã/phiên bản (mã & hiệu lực tự gán), có Thêm/Lưới con", before === 0 && open1 === 1 && /tự gắn mã thuế/.test(childTxt) && (await w.locator('.dlg button:has-text("Thêm")').count()) >= 1, "before=" + before + " open=" + open1);
+      await w.click('.dlg footer button:has-text("Đóng")'); await w.waitForTimeout(200);
+      ok("V10: Thuế TNCN — đóng cửa sổ cha–con quay lại bảng cha", (await w.locator(".dlg").count()) === 0 && (await w.locator("[data-tax-child]").count()) === 0);
     } else ok("V9.4: Thuế TNCN — có nút 'Chi tiết' ở bảng phiên bản", false, "không thấy nút");
   }
   // ---- V9.4: BÁO CÁO LƯƠNG (kỳ 2026-09 đã chốt) ----

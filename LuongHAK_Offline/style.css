@@ -389,3 +389,4 @@ td.catact .btn { margin: 0 2px; }
 table.kt td.kt-error { color: #b42318; }
 table.kt td.kt-warning { color: #b54708; }
 table.kt td.kt-info { color: #475467; }
+.dlg.wide{width:min(1180px,100%)}

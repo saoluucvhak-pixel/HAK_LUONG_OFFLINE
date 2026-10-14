@@ -435,8 +435,8 @@
 
   function modal(title, body, footer, opts) {
     var m = $("#modal"); m.innerHTML = ""; m.className = opts && opts.drawer ? "drawer" : "";
-    var close = function () { m.className = "hide"; m.innerHTML = ""; };
-    var d = h("div", { class: "dlg" }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
+    var close = function () { m.className = "hide"; m.innerHTML = ""; if (opts && opts.onClose) opts.onClose(); };
+    var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : "") }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
     m.appendChild(d); m.onclick = function (e) { if (e.target === m) close(); };
     return close;
   }
@@ -1636,6 +1636,16 @@
   // ---------- Thuế TNCN cha–con (V9.2): DM_TNCN → DM_TNCN_BIEUTHUE ----------
   function thueIsCha(r) { return r["Mã thuế TNCN"] && (r["Bậc"] === "" || r["Bậc"] == null); }
   function thueBo(ma, tu) { return db.dm_bacthue.filter(function (r) { return r["Mã thuế TNCN"] === ma && String(r["Hiệu lực từ"] || "") === String(tu || ""); }); }
+  /** Master–Detail dạng cửa sổ: DM_TNCN (cha) → DM_TNCN_BIEUTHUE (con). Mã thuế & hiệu lực tự gán theo bảng cha. */
+  function thueChiTietModal(cha) {
+    var ma = cha["Mã thuế TNCN"], tu = cha["Hiệu lực từ"] || "";
+    var childDef = Object.assign({}, DM.dm_bacthue, { ten: "Biểu thuế mã " + ma + " · hiệu lực từ " + (tu || "—"), def: { "Mã thuế TNCN": ma, "Hiệu lực từ": tu, "Trạng thái": cha["Trạng thái"] || "Hiệu lực" },
+      rowFilter: function (r) { return r["Mã thuế TNCN"] === ma && String(r["Hiệu lực từ"] || "") === tu; } });
+    var body = h("div", { "data-tax-child": ma });
+    body.appendChild(h("div", { class: "hint", text: "Cha: mã " + ma + " · " + (cha["Nội dung"] || "") + " · hiệu lực từ " + (tu || "—") + " · " + (cha["Trạng thái"] || "Hiệu lực") + ". Các bậc bên dưới tự gắn mã thuế và ngày hiệu lực của bảng cha, không cần nhập lại." }));
+    body.appendChild(grid("dm_bacthue", childDef));
+    modal("Biểu thuế TNCN — mã " + ma, body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true, onClose: function () { render(); } });
+  }
   function thuePanel() {
     var w = h("div"), codes = [];
     db.dm_tncn.filter(thueIsCha).forEach(function (r) { if (codes.indexOf(r["Mã thuế TNCN"]) < 0) codes.push(r["Mã thuế TNCN"]); });
@@ -1673,7 +1683,6 @@
     // Danh sách phiên bản của mã đang chọn + thao tác
     var vers = db.dm_tncn.filter(function (r) { return thueIsCha(r) && r["Mã thuế TNCN"] === st.thueMa; })
       .sort(function (a, b) { return String(a["Hiệu lực từ"] || "") < String(b["Hiệu lực từ"] || "") ? 1 : -1; });
-    var thueVerRow = function (o) { return vers.filter(function (r) { return String(r["Hiệu lực từ"] || "") === o.tu; })[0]; };
     var can2 = can("dm.edit");
     var vt = h("table"), vh = h("tr");
     ["Hiệu lực từ", "Hiệu lực đến", "Phương pháp", "Trạng thái", "Số bậc", ""].forEach(function (x) { vh.appendChild(h("th", { text: x })); });
@@ -1711,24 +1720,13 @@
         else if (!/^ng[ừu]ng/i.test(r["Trạng thái"] || "")) act.appendChild(btn("Ngừng", "", function () { setTT(r, "Ngừng"); }));
         act.appendChild(btn("Sao chép", "", function () { copyVer(r); }));
       }
-      act.appendChild(btn("Chi tiết", st.thueOpen && st.thueOpen.ma === r["Mã thuế TNCN"] && st.thueOpen.tu === (r["Hiệu lực từ"] || "") ? "pri" : "", function () {
-        if (!leaveOk()) return;
-        var same = st.thueOpen && st.thueOpen.ma === r["Mã thuế TNCN"] && st.thueOpen.tu === (r["Hiệu lực từ"] || "");
-        st.thueOpen = same ? null : { ma: r["Mã thuế TNCN"], tu: r["Hiệu lực từ"] || "" }; render();
-      }, "Mở/đóng biểu thuế (các bậc) của đúng phiên bản này"));
+      act.appendChild(btn("Chi tiết", "", function () { if (!leaveOk()) return; thueChiTietModal(r); }, "Mở biểu thuế (các bậc) của đúng phiên bản này trong cửa sổ cha–con"));
       tr.appendChild(act); vb.appendChild(tr);
     });
     vt.appendChild(vb);
     if (vers.length) card.appendChild(h("div", { class: "tw" }, [vt])); else card.appendChild(h("div", { class: "empty", text: "Chưa có mã thuế nào ở bảng cha. Thêm dòng ở bảng trên." }));
     w.appendChild(card);
-    // Bảng con: biểu thuế của mã đang chọn
-    var op = st.thueOpen && st.thueOpen.ma === st.thueMa ? st.thueOpen : null;
-    if (op) {
-      var childDef = Object.assign({}, DM.dm_bacthue, { ten: "Biểu thuế mã " + op.ma + " · hiệu lực từ " + (op.tu || "—"), def: { "Mã thuế TNCN": op.ma, "Hiệu lực từ": op.tu, "Trạng thái": (thueVerRow(op) || {})["Trạng thái"] || "Hiệu lực" },
-        rowFilter: function (r) { return r["Mã thuế TNCN"] === op.ma && String(r["Hiệu lực từ"] || "") === op.tu; } });
-      w.appendChild(h("div", { class: "hint", "data-tax-child": op.ma, text: "Các bậc của mã " + op.ma + " (phiên bản từ " + (op.tu || "—") + "): mã thuế và ngày hiệu lực tự gán theo bảng cha, không cần nhập lại. Kiểm tra chồng/hở bậc bằng nút 'Kiểm tra cấu hình thuế'." }));
-      w.appendChild(grid("dm_bacthue", childDef));
-    } else if (st.thueMa) w.appendChild(h("div", { class: "hint", text: "Bấm 'Chi tiết' ở một phiên bản phía trên để xem và sửa các bậc thuế của đúng phiên bản đó." }));
+    if (st.thueMa) w.appendChild(h("div", { class: "hint", text: "Bấm 'Chi tiết' ở một phiên bản phía trên để xem và sửa các bậc thuế của đúng phiên bản đó (cửa sổ cha–con)." }));
     // Lịch sử thay đổi (nhật ký) liên quan mã đang chọn
     var hist = (db.auditlog || []).filter(function (a) { return /Thuế TNCN|biểu thuế|dm_tncn|dm_bacthue/i.test((a.thaoTac || "") + " " + (a.chiTiet || "")) && ((a.chiTiet || "") + (a.thaoTac || "")).indexOf(st.thueMa) >= 0; }).slice(-15).reverse();
     if (hist.length) { var hc = h("div", { class: "card" }); hc.appendChild(h("h3", { text: "Lịch sử thay đổi mã " + st.thueMa })); hc.appendChild(simpleTable(hist.map(function (a) { return { "Thời điểm": fmtTime(a.luc || ""), "Người": a.nguoi || "", "Thao tác": a.thaoTac || "", "Chi tiết": a.chiTiet || "" }; }))); w.appendChild(hc); }
