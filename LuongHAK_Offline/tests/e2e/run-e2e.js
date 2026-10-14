@@ -343,13 +343,22 @@ async function launch(dataDir, opt) {
   // ---- V9.4: BÁO CÁO LƯƠNG (kỳ 2026-09 đã chốt) ----
   {
     const navTxt = await w.locator("#nav").innerText();
-    ok("V10: menu có nhóm 'THANH TOÁN LƯƠNG' + 'BÁO CÁO' và đủ 6 báo cáo", /THANH TOÁN LƯƠNG/.test(navTxt) && /BÁO CÁO/.test(navTxt) && ["Bảng tính lương", "Bảng tổng hợp lương", "Bảng thanh toán lương", "Bảng kê chuyển khoản", "Thanh toán tiền mặt", "Phiếu lương"].every((t) => navTxt.includes(t)), navTxt.replace(/\s+/g, " ").slice(0, 300));
+    ok("V10: menu có nhóm 'THANH TOÁN LƯƠNG' + 'BÁO CÁO' và đủ 8 báo cáo", /THANH TOÁN LƯƠNG/.test(navTxt) && /BÁO CÁO/.test(navTxt) && ["Bảng tính lương", "Tổng hợp theo phòng ban", "Tổng hợp chi tiết nhân viên", "Bảng thanh toán lương", "Chi tiết thanh toán", "Bảng kê chuyển khoản", "Thanh toán tiền mặt", "Phiếu lương"].every((t) => navTxt.includes(t)), navTxt.replace(/\s+/g, " ").slice(0, 300));
     await w.click("#nav button[data-k=rp_tonghop]");
     const h2 = await w.locator("#top h2").innerText(), rt = await w.locator("[data-report-title]").innerText();
     ok("V9.4: tiêu đề báo cáo IN HOA trên màn hình", h2 === h2.toLocaleUpperCase("vi-VN") && rt === rt.toLocaleUpperCase("vi-VN") && /TỔNG HỢP LƯƠNG/.test(rt), h2 + " | " + rt);
     const thTxt = await w.locator("[data-pay-report] tbody").innerText();
     ok("V9.4: tổng hợp lương khớp thực lĩnh bảng đã chốt (11.370.000)", /11\.370\.000/.test(thTxt), thTxt.replace(/\s+/g, " ").slice(0, 200));
     await shotOf(w, "02-bao-cao-tong-hop-luong");
+    await w.click("#nav button[data-k=rp_ctnv]");
+    const ctTxt = await w.locator("[data-pay-report]").innerText(), ctTitle = await w.locator("[data-report-title]").innerText();
+    ok("V10: Tổng hợp chi tiết nhân viên — IN HOA, đủ cột thành phần lương (Lương bù SL, Tiền tăng ca, Thuế TNCN…), dòng TỔNG CỘNG khớp thực lĩnh 11.370.000", ctTitle === ctTitle.toLocaleUpperCase("vi-VN") && /Lương bù SL/.test(ctTxt) && /Tiền tăng ca/.test(ctTxt) && /Thuế TNCN/.test(ctTxt) && /TỔNG CỘNG/.test(ctTxt) && /11\.370\.000/.test(ctTxt), ctTxt.replace(/\s+/g, " ").slice(0, 200));
+    await w.click('button:has-text("Xuất Excel")'); await w.waitForTimeout(700);
+    let ctf = null; for (let i = 0; i < 15 && !ctf; i++) { await w.waitForTimeout(200); ctf = fs.readdirSync(DL).filter((f) => /^ChiTietLuongNhanVien_2026-09\.xlsx$/.test(f))[0]; }
+    ok("V10: Tổng hợp chi tiết nhân viên — xuất được Excel", !!ctf);
+    await w.click("#nav button[data-k=rp_cttt]");
+    const cttTxt = await w.locator("#main").innerText();
+    ok("V10: Chi tiết thanh toán — mở được, có cột Số chứng từ/Hình thức/Trạng thái, tiêu đề IN HOA", /BẢNG CHI TIẾT THANH TOÁN LƯƠNG/.test(cttTxt) && /Số chứng từ/.test(cttTxt) && /Ngày thanh toán/.test(cttTxt));
     await w.click("#nav button[data-k=rp_thanhtoan]");
     const tt0 = await w.locator("[data-pay-report]").innerText();
     ok("V9.4: bảng thanh toán có Thực lĩnh / Đã thanh toán / Còn phải thanh toán, trạng thái ban đầu 'Chưa thanh toán'", /Còn phải thanh toán/.test(tt0) && /Chưa thanh toán/.test(tt0), tt0.replace(/\s+/g, " ").slice(0, 240));

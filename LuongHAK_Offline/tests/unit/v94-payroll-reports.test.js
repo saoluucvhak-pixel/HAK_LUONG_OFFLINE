@@ -102,3 +102,23 @@ test("U-XLSX94-01 Excel: tiêu đề IN HOA, Mã NV/STK là chữ giữ số 0 �
   let tong = null; ws.eachRow((row) => { if (row.getCell(1).value === "TỔNG CỘNG") tong = row; });
   assert.ok(tong); assert.equal(tong.getCell(6).value, 13000000);
 });
+
+test("U-PAY10-01 Tổng hợp chi tiết nhân viên: mỗi người một dòng, tổng thực lĩnh khớp Tổng hợp theo phòng ban; kỳ chưa chốt vẫn xem được", () => {
+  const th = PR.build("TONG_HOP", { bangluong: rows(), chot: false, blockers: [] }, opt());
+  const ct = PR.build("CHI_TIET_NV", { bangluong: rows(), chot: false, blockers: [] }, opt());
+  assert.equal(ct.rows.length, 3); assert.match(ct.title, /CHI TIẾT LƯƠNG TOÀN BỘ NHÂN VIÊN/);
+  assert.equal(ct.tong["Thực lĩnh"], th.tong["Thực lĩnh"]);
+  assert.equal(ct.tong["Tổng thu nhập"], th.tong["Tổng thu nhập"]);
+  assert.ok(PR.KHONG_CAN_CHOT.CHI_TIET_NV && !PR.KHONG_CAN_CHOT.CHI_TIET_TT);
+});
+
+test("U-PAY10-02 Chi tiết thanh toán: liệt kê dòng chứng từ của kỳ, bỏ dòng đã hủy, tổng = tổng số tiền các dòng còn hiệu lực", () => {
+  const lines = [
+    { "Số chứng từ": "UNC-202609-001", "Kỳ": "2026-09", "Hình thức": "Chuyển khoản", "Mã NV": "00123", "Họ và tên": "Nguyễn Văn Á", "Số tiền": 8000000, "Trạng thái": "Đã thanh toán", "Ngày lập": "2026-10-01" },
+    { "Số chứng từ": "PC-202609-001", "Kỳ": "2026-09", "Hình thức": "Tiền mặt", "Mã NV": "00124", "Họ và tên": "Trần Thị Bình", "Số tiền": 100, "Trạng thái": "Đã hủy" },
+    { "Số chứng từ": "PC-202608-001", "Kỳ": "2026-08", "Hình thức": "Tiền mặt", "Mã NV": "00124", "Họ và tên": "Trần Thị Bình", "Số tiền": 5, "Trạng thái": "Đã thanh toán" }
+  ];
+  const vm = PR.build("CHI_TIET_TT", { bangluong: rows(), chot: true, blockers: [] }, opt({ lines }));
+  assert.equal(vm.rows.length, 1); assert.equal(vm.tong["Số tiền"], 8000000);
+  assert.ok(vm.canhbao.some((m) => /đã hủy/.test(m)));
+});
