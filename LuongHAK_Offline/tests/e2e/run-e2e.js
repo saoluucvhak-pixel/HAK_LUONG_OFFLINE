@@ -297,6 +297,8 @@ async function launch(dataDir, opt) {
   await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
   await w.locator(".dlg input").fill("Chốt bởi E2E"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
   ok("Chốt kỳ lương (hộp nhập của app, không dùng window.prompt)", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
+  { const stt = await w.locator("[data-steps7] li").evaluateAll((els) => els.map((e) => e.getAttribute("data-step-state")));
+    ok("V10.1: thanh 7 bước phản ánh trạng thái thật sau chốt (bước 1-5 xong, thanh toán đang làm)", stt.length === 7 && stt.slice(0, 5).every((x) => x === "xong") && stt[5] === "dang", stt.join(",")); }
   // mở chốt bắt buộc lý do → chốt lại = phiên bản 2
   await w.click('button:has-text("Mở chốt để sửa")'); await w.waitForSelector(".dlg");
   await w.click(".dlg footer button.pri");

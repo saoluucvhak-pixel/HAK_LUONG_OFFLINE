@@ -5,6 +5,7 @@ const E = require("../engine.js");
 const HRM = require("../hr.js");
 const GATE = require("../core/payroll-gate.js");
 const PA = require("../core/production-alloc.js");
+const CLS = require("../core/payroll-close.js");
 
 function parseKy(ky) { const m = String(ky || "").match(/^(\d{4})-(\d{2})$/); return m ? { nam: +m[1], thang: +m[2] } : null; }
 
@@ -74,4 +75,28 @@ function checkExport(name, loadDb, opts) {
   if (bl.length) return { ok: false, code: "EXPORT_BLOCKED", message: "Kỳ " + ky + " còn lỗi chặn: " + bl.map((b) => b.code + " ×" + b.count).join(", "), blocked: bl };
   return { ok: true, closed: false };
 }
-module.exports = { computeKy, blockers, isPayrollFile, isPaymentFile, kyFromName, parseKy, checkExport };
+/**
+ * V10.1 — MAIN kiểm tra bản chốt mà renderer gửi lên: (1) checksum kết quả khớp; (2) tính lại từ dữ liệu → từng nhân viên cùng Thu nhập/Thực lĩnh;
+ * (3) kỳ có sản lượng cần bù thì phương pháp bù trong bản chốt phải là bản "Hiệu lực" của Quy chế bù sản lượng (không tin lựa chọn xem thử).
+ * Trả về mảng lý do từ chối (rỗng = hợp lệ).
+ */
+function verifySnapshot(db, snap) {
+  const why = [];
+  if (!snap || !snap.kq || !Array.isArray(snap.kq.bangluong)) return ["bản chốt thiếu bảng lương"];
+  try { if (snap.checksum && CLS.checksum(snap.kq) !== snap.checksum) why.push("checksum kết quả không khớp (bản chốt bị sửa sau khi tạo)"); } catch (e) { why.push("không tính được checksum: " + (e && e.message || e)); }
+  let r; try { r = computeKy(db, snap.ky, { quyChe: snap.quyChe || "2026", bu: snap.buTheoNgay }); } catch (e) { return why.concat(["không tính lại được kỳ " + snap.ky + ": " + (e && e.message || e)]); }
+  const mine = {}; r.kq.bangluong.forEach((x) => { mine[x["Mã NV"]] = x; });
+  const theirs = {}; snap.kq.bangluong.forEach((x) => { theirs[x["Mã NV"]] = x; });
+  const lech = [];
+  Object.keys(mine).forEach((ma) => { const a = mine[ma], b = theirs[ma]; if (!b) lech.push(ma + " thiếu trong bản chốt"); else if (Math.abs((+a["Thực lĩnh"] || 0) - (+b["Thực lĩnh"] || 0)) > 1 || Math.abs((+a["Tổng thu nhập"] || 0) - (+b["Tổng thu nhập"] || 0)) > 1) lech.push(ma + ": thực lĩnh " + Math.round(+b["Thực lĩnh"] || 0) + " ≠ tính lại " + Math.round(+a["Thực lĩnh"] || 0)); });
+  Object.keys(theirs).forEach((ma) => { if (!mine[ma]) lech.push(ma + " không có trong kết quả tính lại"); });
+  if (lech.length) why.push(lech.length + " nhân viên lệch khi tính lại: " + lech.slice(0, 3).join(" | "));
+  const p = parseKy(snap.ky);
+  if (p && r.kq.bangluong.some((b) => b._ct && b._ct.laSanLuong)) {
+    const qc = E.quyCheBuChinhThuc(db.dm_quychebu, p.nam, p.thang), ma = qc && String(qc["Cách bù"] || "").trim();
+    if (!ma || (ma !== "daihiep" && ma !== "to")) why.push("kỳ có sản lượng cần bù nhưng chưa có phương pháp bù CHÍNH THỨC hợp lệ");
+    else if (String(snap.buTheoNgay) !== ma) why.push("phương pháp bù trong bản chốt (" + snap.buTheoNgay + ") khác phương pháp chính thức (" + ma + ")");
+  }
+  return why;
+}
+module.exports = { verifySnapshot, computeKy, blockers, isPayrollFile, isPaymentFile, kyFromName, parseKy, checkExport };

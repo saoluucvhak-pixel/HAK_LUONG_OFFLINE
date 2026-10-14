@@ -98,7 +98,10 @@ test("U-WP-07 chốt kỳ có TAX_CONFIG_ERROR / CONG_CHUAN_ERROR bị main từ
   db.chitiethd = [ct]; db.chamcong = [ccRow("NV001", 2026, 9)]; db.kyluong = []; db.kyluong_lichsu = [];
   fs.writeFileSync(file, JSON.stringify(db));
   const pol = createPolicy({ readText: () => fs.readFileSync(file, "utf8"), sigOf: fileSig(file), gate: PG });
-  const ad = who("a", "admin"), snap = { ky: "2026-09", version: 1, quyChe: "2026", buTheoNgay: false, kq: { bangluong: [], canhbao: [] } };
+  const ad = who("a", "admin"), CLSX = require("../../core/payroll-close.js");
+  // V10.1: bản chốt phải là kết quả THẬT của engine (main tính lại và đối chiếu) — không còn chấp nhận bảng lương rỗng giả
+  const real = PG.computeKy(db, "2026-09", { quyChe: "2026", bu: false }).kq;
+  const snap = CLSX.buildSnapshot(db, "2026-09", real, [], { quyChe: "2026", buTheoNgay: false });
   // sạch → được chốt
   let d = clone(db); d.kyluong = [snap];
   assert.equal(pol.check(JSON.stringify(d), ad).ok, true, JSON.stringify(pol.check(JSON.stringify(d), ad)));
@@ -193,4 +196,26 @@ test("U-V101-PAY-01 chứng từ: không nhảy thẳng sang Đã thanh toán, k
 test("U-WP-12 (V9.4) tên file báo cáo lương mới đều được nhận là file bảng lương (bị chặn khi kỳ chưa chốt còn lỗi)", () => {
   for (const n of ["BangTinhLuong_2026-10.xlsx", "TongHopLuong_2026-10.xlsx", "ThanhToanLuong_2026-10.pdf", "KeChuyenKhoan_2026-10.xlsx", "ThanhToanTienMat_2026-10.xlsx", "PhieuLuong_2026-10.pdf"]) assert.equal(PG.isPayrollFile(n), true, n);
   assert.equal(PG.isPayrollFile("Phan_bo_khoi_luong_2026-10.xlsx"), false);
+});
+
+test("U-V101-CLOSE-01 main tính lại bản chốt: bảng lương bị sửa số / thiếu người / checksum sai → TỪ CHỐI; bản đúng → cho chốt", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wp-")), file = path.join(dir, "data.json");
+  const db = baseDb();
+  db.nguoidung = [{ tenDangNhap: "a", vaiTro: "admin", hash: "h", salt: "s", iter: 1, khoa: false }]; db.baomat = [{ khoiPhuc: "x" }]; db.auditlog = [];
+  db.nhanvien = [{ "Mã NV": "NV001", "Họ và tên": "A", "Trạng thái": "Đang làm việc" }];
+  db.hopdong = [{ "Mã NV": "NV001", "Số HĐLĐ": "NV001/HĐ01", "Ngày vào làm": "2025-01-01", "Hình thức HĐLĐ": "Xác định thời hạn" }];
+  db.chitiethd = [{ "Mã NV": "NV001", "Số HĐLĐ": "NV001/HĐ01", "Hiệu lực từ": "2025-01-01", "Phòng ban": "01.01", "Chức vụ": "8", "Mã lương": "CĐ", "Lương thỏa thuận": "9000000", "Mức đóng bảo hiểm": "BH00", "Thuế TNCN": "LT01" }];
+  db.chamcong = [ccRow("NV001", 2026, 9)]; db.kyluong = []; db.kyluong_lichsu = [];
+  fs.writeFileSync(file, JSON.stringify(db));
+  const pol = createPolicy({ readText: () => fs.readFileSync(file, "utf8"), sigOf: fileSig(file), gate: PG });
+  const ad = who("a", "admin"), CLSX = require("../../core/payroll-close.js");
+  const real = PG.computeKy(db, "2026-09", { quyChe: "2026", bu: false }).kq;
+  const mk = (kq) => CLSX.buildSnapshot(db, "2026-09", kq, [], { quyChe: "2026", buTheoNgay: false });
+  const tryClose = (snap) => { const d = clone(db); d.kyluong = [snap]; return pol.check(JSON.stringify(d), ad); };
+  assert.ok(real.bangluong.length >= 1);
+  assert.equal(tryClose(mk(real)).ok, true);
+  const bump = clone(real); bump.bangluong[0]["Thực lĩnh"] = (+bump.bangluong[0]["Thực lĩnh"] || 0) + 1000000;
+  let v = tryClose(mk(bump)); assert.equal(v.ok, false); assert.match(v.error, /không khớp tính lại/);
+  const empty = clone(real); empty.bangluong = []; v = tryClose(mk(empty)); assert.equal(v.ok, false); assert.match(v.error, /thiếu trong bản chốt|không khớp/);
+  const forged = mk(real); forged.kq.bangluong[0]["Thực lĩnh"] += 5; v = tryClose(forged); assert.equal(v.ok, false); assert.match(v.error, /checksum|lệch/);
 });

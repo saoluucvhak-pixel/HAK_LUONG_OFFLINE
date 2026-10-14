@@ -2473,7 +2473,7 @@
         toast("Đã tự chuyển sang đúng phương pháp bù đã duyệt (" + buLabel(buChinhThuc) + ") theo Quy chế bù sản lượng để chốt.");
       }
     }
-    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); });
+    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); }); // hộp thoại dùng chung #modal nên bấm đúp không mở 2 hộp; chống chốt 2 lần nằm trong chotKyTiep (kyChot) và ở main (kỳ trùng)
   }
   function chotKyTiep(ky, fresh, now2) {
     var w = fresh.canhbao.length;
@@ -2917,23 +2917,30 @@
     card.appendChild(h("div", { class: "hint", style: "margin-top:10px", text: "Chưa hỗ trợ đối chiếu Đại Hiệp theo từng ngày ở màn hình này — dùng sheet \"Bu luong theo ngay - DH\" trong file Excel Phân bổ khối lượng (Báo cáo lương → Sản lượng) để so sánh thủ công theo ngày." }));
     w.appendChild(card); return w;
   }
-  /** Thanh 7 bước Tính lương (V10): hiện bước đã xong / đang ở / chưa tới; bấm để sang màn hình tương ứng. */
+  /** Thanh 7 bước Tính lương (V10.1): trạng thái THẬT tính từ dữ liệu (core/payroll-steps.js) — xong / đang ở / bị chặn / chưa tới. */
+  var STEP_CACHE = { key: "", v: null };
+  function luongStepsIn(chot) {
+    var ky = kyStr(), daTinh = !!(st.kq && !st.kqStale && st.kq.ky === ky);
+    var key = [ky, dbRev, daTinh ? 1 : 0, chot ? 1 : 0, (db.ttluong || []).length].join("|");
+    if (STEP_CACHE.key === key) return STEP_CACHE.v;
+    var loiDauVao = 0, loiChan = 0, tt = { soNV: 0, soCT: 0, nguoiDaTraDu: 0 };
+    if (!chot) {
+      try { loiDauVao = INT.check(db).filter(function (x) { return x.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN)/.test(x.msg); }).length; } catch (e) { loiDauVao = 1; }
+      if (daTinh) { try { loiChan = GATE.blockers(st.kq).length; } catch (e) { loiChan = 1; } }
+    } else {
+      var os = PLG.outstanding(chot.kq.bangluong || [], db.ttluong || [], ky);
+      tt = { soNV: os.length, soCT: (db.ttluong || []).filter(function (l) { return l["Kỳ"] === ky && l["Trạng thái"] !== PLG.TT.HUY; }).length, nguoiDaTraDu: os.filter(function (o) { return o.thucLinh > 0 ? o.daTra >= o.thucLinh : true; }).length };
+    }
+    var v = C.payrollSteps.compute({ chot: !!chot, daTinh: daTinh, loiDauVao: loiDauVao, loiChan: loiChan, thanhToan: tt });
+    STEP_CACHE = { key: key, v: v }; return v;
+  }
   function luongSteps(chot) {
-    var daTinh = !!(st.kq && !st.kqStale) || !!chot;
-    var S7 = [
-      ["Chọn kỳ & cách tính", true, null],
-      ["Kiểm tra dữ liệu đầu vào", daTinh, "ktbl"],
-      ["Tính lương", daTinh, null],
-      ["Kiểm tra bảng lương", !!chot, "ktbl"],
-      ["Chốt kỳ", !!chot, null],
-      ["Thanh toán lương", false, "rp_thanhtoan"],
-      ["Báo cáo & phiếu lương", false, "slips"]];
-    var cur = chot ? 5 : daTinh ? 3 : 0;
+    var steps = luongStepsIn(chot), go = [null, "ktbl", null, "ktbl", null, "rp_thanhtoan", "slips"];
     var bar = h("ol", { class: "steps7", "data-steps7": "1", "aria-label": "7 bước tính lương" });
-    S7.forEach(function (x, i) {
-      var cls = i < cur ? "done" : i === cur ? "now" : "";
-      var li = h("li", { class: cls }, [h("span", { class: "n", text: String(i + 1) }), h("span", { text: x[0] })]);
-      if (x[2]) { li.classList.add("go"); li.addEventListener("click", function () { if (!leaveOk()) return; st.tab = x[2]; render(); }); }
+    steps.forEach(function (x, i) {
+      var cls = x.trangThai === "xong" ? "done" : x.trangThai === "dang" ? "now" : x.trangThai === "chan" ? "block" : "";
+      var li = h("li", { class: cls, "data-step-state": x.trangThai, title: x.ly || "" }, [h("span", { class: "n", text: x.trangThai === "xong" ? "✓" : x.trangThai === "chan" ? "!" : String(i + 1) }), h("span", { text: x.ten })]);
+      if (go[i]) { li.classList.add("go"); li.addEventListener("click", function () { if (!leaveOk()) return; st.tab = go[i]; render(); }); }
       bar.appendChild(li);
     });
     return bar;
@@ -2956,7 +2963,9 @@
     bar.appendChild(btn("▶ Tính lương tháng " + st.thang + "/" + st.nam, "pri big", function () {
       if (!need("payroll.calc")) return;
       if (!db.nhanvien.length) { alert("Chưa có nhân viên. Hãy nhập ở mục Nhân sự trước."); return; }
-      st.kq = tinhLuong(); render(); toast("Đã tính xong " + st.kq.bangluong.length + " nhân viên");
+      if (st.dangTinh) return; st.dangTinh = true;
+      try { st.kq = tinhLuong(); } finally { st.dangTinh = false; }
+      render(); toast("Đã tính xong " + st.kq.bangluong.length + " nhân viên");
     }));
     bar.appendChild(sel);
     bar.appendChild(btn("Xem cách tính", "", function () { var m = buMethodOf(st.bu); if (m) xemCachTinhBu(m); else alert(buLabel(st.bu)); }));
@@ -2976,7 +2985,7 @@
       var qcBu = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
       if (qcBu) {
         var dungPP = String(qcBu["Cách bù"]) === String(st.bu);
-        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", text: (dungPP ? "✓ " : "⚠ ") + "Phương pháp bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; khi Chốt kỳ, app sẽ tự tính lại theo đúng quy chế chính thức.") }));
+        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", "data-bu-trial": dungPP ? "0" : "1", text: (dungPP ? "✓ " : "⚠ ") + "Phương pháp bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; khi Chốt kỳ, app sẽ tự tính lại theo đúng quy chế chính thức.") }));
       } else card.appendChild(h("div", { class: "warn", text: "⚠ Chưa có Phương pháp bù sản lượng CHÍNH THỨC (Cài đặt → Phương pháp bù sản lượng) cho kỳ " + st.thang + "/" + st.nam + " — lựa chọn ở trên chỉ để xem thử/so sánh. Nếu kỳ này có sản lượng cần bù, sẽ KHÔNG chốt được cho đến khi khai báo quy chế." }));
     }
     if (!st.kq) {
@@ -2988,6 +2997,8 @@
       box.appendChild(card); return box;
     }
     bar.appendChild(btn("🔒 Chốt kỳ lương", "pri", chotKy, "Lưu bảng lương kỳ này để xem lại về sau và khóa dữ liệu kỳ"));
+    var qcOf = db.dm_luong.some(function (l) { return /SP/.test(l["Mã hình thức lương"] || ""); }) ? E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang) : null;
+    if (qcOf && String(qcOf["Cách bù"]) !== String(st.kq.cheDoBu)) box.appendChild(h("div", { class: "warn", "data-bu-result-trial": "1", html: "<b>⚠ KẾT QUẢ XEM THỬ</b> — bảng dưới tính theo <b>" + esc(buLabel(st.kq.cheDoBu)) + "</b>, KHÔNG phải phương pháp chính thức (<b>" + esc(buLabel(qcOf["Cách bù"])) + "</b>). Không dùng số này để thanh toán; khi chốt, app tự tính lại theo phương pháp chính thức." }));
     return renderKq(box, card, bar);
   }
   // ---------- Bộ lọc báo cáo dùng chung + xuất PDF (Master V5) ----------

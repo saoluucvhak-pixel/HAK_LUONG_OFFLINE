@@ -226,6 +226,7 @@ function createPolicy(opts) {
             const snap = (next.kyluong || []).filter((k) => kyKey(k) === key)[0] || {};
             let bl; try { bl = gate.blockers(JSON.parse(text), snap.ky, { quyChe: snap.quyChe || "2026", bu: snap.buTheoNgay }); } catch (e) { return deny("không kiểm tra lại được kỳ " + snap.ky + ": " + (e && e.message || e)); }
             if (bl.length) return deny("kỳ " + snap.ky + " còn lỗi chặn chốt: " + bl.map((b) => b.code + " ×" + b.count).join(", "));
+            if (gate.verifySnapshot) { let vs; try { vs = gate.verifySnapshot(JSON.parse(text), snap); } catch (e) { return deny("không xác minh được bản chốt kỳ " + snap.ky + ": " + (e && e.message || e)); } if (vs.length) return deny("bản chốt kỳ " + snap.ky + " không khớp tính lại tại tiến trình chính: " + vs.join("; ")); }
           }
         }
         continue;
