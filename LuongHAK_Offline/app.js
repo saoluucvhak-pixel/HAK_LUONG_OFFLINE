@@ -1237,17 +1237,19 @@
         if (!need("hr.edit", "thêm nhân viên")) return;
         var b = gB(), c = gC(), hd = gH(), l = gL(), tk = gT(), hv = gV();
         var miss = missingReq(fBase, b).concat(missingReq(fHD, hd), missingReq(fCT, l));
-        if (miss.length) { alert("Cần nhập: " + miss.join(", ")); return; }
-        if (db.nhanvien.some(function (r) { return r["Mã NV"] === b["Mã NV"]; })) { alert("Mã NV đã tồn tại"); return; }
-        var m = b["Mã NV"], vao = hd["Ngày vào làm"];
-        db.nhanvien.push(Object.assign({ _id: HRM.uid(), "Ngày tạo hồ sơ": HRM.today(), "Số CCCD": c["Số CCCD"] }, b));
-        // chỉ có Quốc tịch mặc định "Việt Nam" (người dùng không nhập gì khác) → chưa tạo bản Thông tin cá nhân
-        if (Object.keys(c).some(function (k) { return c[k] && !(k === "Quốc tịch" && c[k] === "Việt Nam"); })) db.canhan.push(Object.assign({ _id: HRM.uid(), "Mã NV": m, "Hiệu lực từ": vao }, c));
-        db.hopdong.push(Object.assign({ _id: HRM.uid(), "Mã NV": m }, hd));
-        db.chitiethd.push(Object.assign({ _id: HRM.uid(), "Mã NV": m, "Số HĐLĐ": hd["Số HĐLĐ"], "Mã công tác": hd["Số HĐLĐ"] + "-PL01", "Loại phụ lục": "Hợp đồng gốc", "Hiệu lực từ": vao }, l));
-        if (tk["Số tài khoản"]) db.thanhtoan.push(Object.assign({ _id: HRM.uid(), "Mã NV": m, "Hiệu lực từ": vao }, tk));
-        if (Object.keys(hv).some(function (k) { return hv[k]; })) db.hocvan.push(Object.assign({ _id: HRM.uid(), "Mã NV": m }, hv));
-        save(); close(); st.tab = "nv"; st.nv = m; st.nvTab = "canhan"; render(); toast("Đã thêm nhân viên " + b["Họ và tên"]);
+        var inp = { b: b, c: c, hv: hv, hd: hd, l: l, tk: tk, today: HRM.today() }, errs = C.hrCreate.validate(inp, db);
+        miss.forEach(function (x) { if (errs.indexOf(x) < 0 && !/ngày không hợp lệ/.test(x)) errs.unshift("Cần nhập: " + x); });
+        miss.filter(function (x) { return /ngày không hợp lệ/.test(x); }).forEach(function (x) { if (!errs.some(function (y) { return y.indexOf(x.split(" (")[0]) >= 0; })) errs.push(x); });
+        // KHÔNG lưu nửa chừng: có lỗi → giữ nguyên form (dữ liệu đang nhập), báo rõ từng trường, chưa ghi gì
+        if (errs.length) { alert("⛔ Chưa lưu nhân viên — sửa " + errs.length + " lỗi sau:\n\n" + errs.slice(0, 12).map(function (x) { return "• " + x; }).join("\n")); return; }
+        var m = b["Mã NV"], rows = C.hrCreate.build(inp, HRM.uid);
+        // một giao dịch duy nhất: ghi đủ 6 bảng cùng lúc; main từ chối/lỗi ghi → hoàn tác TẤT CẢ, không để hồ sơ dở dang
+        var okNV = txn(["nhanvien", "canhan", "hopdong", "chitiethd", "thanhtoan", "hocvan"], function () {
+          Object.keys(rows).forEach(function (k) { rows[k].forEach(function (r) { db[k].push(r); }); });
+          audit("Thêm nhân viên", m + " — " + b["Họ và tên"] + " (" + Object.keys(rows).filter(function (k) { return rows[k].length; }).join(", ") + ")"); return true;
+        });
+        if (!okNV) { alert("⛔ KHÔNG lưu được nhân viên " + m + ". Dữ liệu chưa được ghi (không có hồ sơ dở dang). Form vẫn giữ nguyên để bạn sửa/thử lại."); return; }
+        close(); st.tab = "nv"; st.nv = m; st.nvTab = "canhan"; render(); toast("Đã thêm nhân viên " + b["Họ và tên"]);
       })];
     });
   }

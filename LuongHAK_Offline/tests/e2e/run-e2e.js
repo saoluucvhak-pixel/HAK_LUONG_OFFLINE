@@ -72,6 +72,14 @@ async function launch(dataDir, opt) {
   const qtDefault = await F("Quốc tịch").locator("input").inputValue();
   await F("Trình độ học vấn").locator("input").fill("12/12");
   await F("Vị trí việc làm").locator("input").fill("Kế toán viên");
+  { // V10.1: dữ liệu sai → KHÔNG lưu nửa chừng, báo rõ trường, form giữ nguyên dữ liệu đang nhập
+    dialogs = []; await F("Số CCCD").locator("input").fill("123");
+    await w.click('button:has-text("Lưu nhân viên")'); await w.waitForTimeout(500);
+    const dBad = JSON.parse(fs.readFileSync(path.join(DATA, "data.json"), "utf8"));
+    ok("V10.1: Thêm nhân viên với CCCD sai bị chặn, báo trường lỗi, KHÔNG ghi hồ sơ nào", dialogs.some((d) => /12 chữ số/.test(d)) && !(dBad.nhanvien || []).some((r) => r["Mã NV"] === "NV001") && !(dBad.hopdong || []).some((r) => r["Mã NV"] === "NV001"), dialogs.join(" | ").slice(0, 160));
+    ok("V10.1: form vẫn mở và giữ nguyên dữ liệu đã nhập sau khi bị từ chối", (await w.locator(".dlg").count()) === 1 && (await F("Họ và tên").locator("input").inputValue()) === "E2E Nhân Viên");
+    await F("Số CCCD").locator("input").fill("");
+  }
   await w.click('button:has-text("Lưu nhân viên")');
   await w.waitForTimeout(700);
   { // α18: form Thêm nhân viên có đủ trường sổ lao động; sổ báo ai còn thiếu + mở đúng tab hồ sơ
