@@ -112,13 +112,38 @@ test("U-PAY10-01 Tổng hợp chi tiết nhân viên: mỗi người một dòng
   assert.ok(PR.KHONG_CAN_CHOT.CHI_TIET_NV && !PR.KHONG_CAN_CHOT.CHI_TIET_TT);
 });
 
-test("U-PAY10-02 Chi tiết thanh toán: liệt kê dòng chứng từ của kỳ, bỏ dòng đã hủy, tổng = tổng số tiền các dòng còn hiệu lực", () => {
-  const lines = [
-    { "Số chứng từ": "UNC-202609-001", "Kỳ": "2026-09", "Hình thức": "Chuyển khoản", "Mã NV": "00123", "Họ và tên": "Nguyễn Văn Á", "Số tiền": 8000000, "Trạng thái": "Đã thanh toán", "Ngày lập": "2026-10-01" },
-    { "Số chứng từ": "PC-202609-001", "Kỳ": "2026-09", "Hình thức": "Tiền mặt", "Mã NV": "00124", "Họ và tên": "Trần Thị Bình", "Số tiền": 100, "Trạng thái": "Đã hủy" },
-    { "Số chứng từ": "PC-202608-001", "Kỳ": "2026-08", "Hình thức": "Tiền mặt", "Mã NV": "00124", "Họ và tên": "Trần Thị Bình", "Số tiền": 5, "Trạng thái": "Đã thanh toán" }
-  ];
-  const vm = PR.build("CHI_TIET_TT", { bangluong: rows(), chot: true, blockers: [] }, opt({ lines }));
-  assert.equal(vm.rows.length, 1); assert.equal(vm.tong["Số tiền"], 8000000);
-  assert.ok(vm.canhbao.some((m) => /đã hủy/.test(m)));
+const L = (so, ma, tien, tt, extra) => Object.assign({ "Số chứng từ": so, "Kỳ": "2026-09", "Hình thức": "Chuyển khoản", "Mã NV": ma, "Họ và tên": "x", "Số tiền": tien, "Trạng thái": tt }, extra || {});
+
+test("U-PAY101-01 Chi tiết thanh toán: MỘT dòng mỗi nhân viên trong phạm vi, kể cả khi chưa có chứng từ nào", () => {
+  const vm = PR.build("CHI_TIET_TT", { bangluong: rows(), chot: true, blockers: [] }, opt({ lines: [] }));
+  assert.equal(vm.rows.length, 3);
+  vm.rows.forEach((r) => { assert.equal(r["Đã thanh toán"], 0); assert.equal(r["Đang chờ chi"], 0); assert.equal(r["Còn phải thanh toán"], r["Thực lĩnh"]); });
+  assert.deepEqual(vm.groups.map((g) => g.label), ["NHÂN VIÊN", "CÔNG & SẢN LƯỢNG", "THU NHẬP", "KHẤU TRỪ", "THANH TOÁN"]);
+  assert.equal(vm.groups[vm.groups.length - 1].to, vm.cols.length - 1);
+});
+
+test("U-PAY101-02 Chi tiết thanh toán: trả một phần / chờ chi / hủy được tính đúng, tổng khớp bảng lương", () => {
+  const r0 = rows(), tl = (m) => r0.filter((x) => x["Mã NV"] === m)[0]["Thực lĩnh"];
+  const lines = [L("UNC-1", "00123", 3000000, "Đã thanh toán"), L("UNC-2", "00123", 1000000, "Đã lập"), L("UNC-3", "00124", 500, "Đã hủy")];
+  const vm = PR.build("CHI_TIET_TT", { bangluong: r0, chot: true, blockers: [] }, opt({ lines }));
+  const a = vm.rows.filter((x) => x["Mã NV"] === "00123")[0], b = vm.rows.filter((x) => x["Mã NV"] === "00124")[0];
+  assert.equal(a["Đã thanh toán"], 3000000); assert.equal(a["Đang chờ chi"], 1000000);
+  assert.equal(a["Còn phải thanh toán"], tl("00123") - 3000000); assert.equal(a["Có thể lập đề nghị chi"], tl("00123") - 4000000);
+  assert.equal(b["Đã thanh toán"], 0); assert.equal(b["Còn phải thanh toán"], tl("00124"));
+  assert.equal(vm.tong["Thực lĩnh"], r0.reduce((x, y) => x + y["Thực lĩnh"], 0));
+});
+
+test("U-PAY101-03 Chi tiết thanh toán: trả vượt thực lĩnh KHÔNG bị che bằng 0 — hiện số âm, ghi chú và lỗi chặn xuất", () => {
+  const r0 = rows(), t = r0[0]["Thực lĩnh"];
+  const vm = PR.build("CHI_TIET_TT", { bangluong: r0, chot: true, blockers: [] }, opt({ lines: [L("UNC-9", "00123", t + 1000, "Đã thanh toán")] }));
+  const a = vm.rows.filter((x) => x["Mã NV"] === "00123")[0];
+  assert.equal(a["Còn phải thanh toán"], -1000); assert.equal(a["Có thể lập đề nghị chi"], 0);
+  assert.match(a["Ghi chú"], /TRẢ VƯỢT/); assert.ok(vm.loi.some((m) => /vượt thực lĩnh/.test(m))); assert.equal(vm.choXuatChinhThuc, false);
+});
+
+test("U-PAY101-04 Sổ chứng từ thanh toán tách riêng: liệt kê dòng chứng từ của kỳ (kể cả đã hủy, kèm lý do), không thuộc bảng nhân viên", () => {
+  const lines = [L("UNC-1", "00123", 8000000, "Đã thanh toán"), L("PC-1", "00124", 100, "Đã hủy", { "Lý do hủy": "sai số" }), Object.assign(L("PC-0", "00124", 5, "Đã thanh toán"), { "Kỳ": "2026-08" })];
+  const vm = PR.build("SO_CHUNG_TU", { bangluong: rows(), chot: true, blockers: [] }, opt({ lines }));
+  assert.equal(vm.rows.length, 2); assert.match(vm.title, /SỔ CHỨNG TỪ THANH TOÁN/);
+  assert.equal(vm.rows.filter((x) => x["Trạng thái"] === "Đã hủy")[0]["Lý do hủy"], "sai số");
 });

@@ -26,6 +26,16 @@
     put(r, "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""), { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++;
     put(r, "Đơn vị tính: " + (vm.donVi || "Đồng (VND)") + (vm.ngayLap ? " · Ngày lập: " + vm.ngayLap : ""), { font: { size: 10 }, alignment: { horizontal: "center" } }); merge(r); r++;
     r++;
+    if (vm.groups && vm.groups.length) { // tiêu đề hai tầng: nhóm cột ở hàng trên
+      vm.groups.forEach(function (g) {
+        if (g.to > g.from) ws.mergeCells(r, g.from + 1, r, g.to + 1);
+        var gc = ws.getCell(r, g.from + 1); gc.value = g.label; gc.font = { bold: true };
+        gc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E7DD" } };
+        gc.alignment = { horizontal: "center", vertical: "middle" };
+        for (var k = g.from; k <= g.to; k++) ws.getCell(r, k + 1).border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
+      });
+      r++;
+    }
     var hr = r; ws.getRow(hr).height = 32;
     vm.cols.forEach(function (c, i) {
       var cell = ws.getCell(hr, i + 1); cell.value = c.label;
@@ -70,10 +80,10 @@
       ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(c.label === "Nội dung" ? 44 : 32, mx + 2));
     });
     ws.pageSetup = { paperSize: nc > 14 ? 8 : 9, orientation: nc > 6 ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
-      margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }, printTitlesRow: hr + ":" + hr };
+      margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }, printTitlesRow: (vm.groups && vm.groups.length ? (hr - 1) : hr) + ":" + hr };
     ws.pageSetup.printArea = "A1:" + last + sigEnd;
     ws.headerFooter = { oddFooter: "&L" + (vm.congTy || "") + " · " + vm.title + "&RTrang &P / &N" };
-    ws.views = [{ state: "frozen", xSplit: 0, ySplit: hr, topLeftCell: "A" + (hr + 1) }];
+    ws.views = [{ state: "frozen", xSplit: Math.min(3, nc), ySplit: hr, topLeftCell: "A" + (hr + 1) }];
     if (vm.rows.length) ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: lastData - (vm.rows.length ? 1 : 0), column: nc } };
     ws.properties.defaultRowHeight = 18;
     return wb;

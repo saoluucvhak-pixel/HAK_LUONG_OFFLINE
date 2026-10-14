@@ -3086,7 +3086,7 @@
   }
   // ---------- V9.4: BÁO CÁO LƯƠNG — tổng hợp, thanh toán, kê chuyển khoản, tiền mặt + sổ chứng từ thanh toán ----------
   var PLG = C.payledger, PRP = C.payrollReports;
-  var PAY_SCREENS = { rp_tonghop: "TONG_HOP", rp_ctnv: "CHI_TIET_NV", rp_thanhtoan: "THANH_TOAN", rp_cttt: "CHI_TIET_TT", rp_ck: "CHUYEN_KHOAN", rp_tm: "TIEN_MAT" };
+  var PAY_SCREENS = { rp_tonghop: "TONG_HOP", rp_ctnv: "CHI_TIET_NV", rp_thanhtoan: "THANH_TOAN", rp_cttt: "CHI_TIET_TT", rp_soct: "SO_CHUNG_TU", rp_ck: "CHUYEN_KHOAN", rp_tm: "TIEN_MAT" };
   function payLines() { return db.ttluong || []; }
   function ledgerSet(mut) { var next = payLines().map(function (x) { return Object.assign({}, x); }); mut(next); db.ttluong = next; }
   function payVm(type, src) {
@@ -3162,6 +3162,25 @@
     });
     t.appendChild(tb); card.appendChild(h("div", { class: "tw" }, [t])); return card;
   }
+  /** Cửa sổ "CHI TIẾT THANH TOÁN LƯƠNG — [HỌ TÊN]": thu nhập, khấu trừ, thanh toán và các chứng từ của nhân viên trong kỳ. */
+  function payDetailModal(r, src) {
+    var ky = kyStr(), body = h("div", { "data-pay-detail": r["Mã NV"] });
+    function sec(title, keys) {
+      var t = h("table", { class: "kv" });
+      keys.forEach(function (k) { var v = r[k]; if (v === "" || v == null) return; t.appendChild(h("tr", {}, [h("td", { class: "t", text: k }), h("td", { class: "r", text: typeof v === "number" ? fmt(v) : String(v) })])); });
+      body.appendChild(h("h4", { text: title })); body.appendChild(t);
+    }
+    sec("Nhân viên", ["Mã NV", "Họ và tên", "Công ty", "Phòng ban", "Hình thức lương", "Kỳ lương"]);
+    sec("Thu nhập", ["Lương thời gian", "Lương phụ", "Lương sản lượng", "Lương bù SL", "Lương bơm dăm", "Tiền tăng ca", "Phụ cấp", "Phụ cấp công tác", "Lương hỗ trợ", "Tiền cơm", "Thưởng", "Thu nhập khác", "Tổng thu nhập"]);
+    sec("Khấu trừ", ["BHXH NLĐ", "BHYT NLĐ", "BHTN NLĐ", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Truy thu BH", "Thuế TNCN", "Tạm ứng", "Trừ khác", "Tổng khấu trừ"]);
+    sec("Thanh toán", ["Thực lĩnh", "Đã thanh toán", "Đang chờ chi", "Còn phải thanh toán", "Có thể lập đề nghị chi", "Hình thức thanh toán", "Ngân hàng", "Số tài khoản", "Trạng thái", "Ghi chú"]);
+    var ls = payLines().filter(function (l) { return l["Kỳ"] === ky && l["Mã NV"] === r["Mã NV"]; });
+    body.appendChild(h("h4", { text: "Chứng từ liên quan (" + ls.length + ")" }));
+    if (!ls.length) body.appendChild(h("div", { class: "hint", text: "Chưa có chứng từ thanh toán nào cho nhân viên này trong kỳ." }));
+    else { var t = h("table"), hh = h("tr"); ["Số chứng từ", "Hình thức", "Số tiền", "Trạng thái", "Ngày lập", "Ngày thanh toán", "Lý do hủy"].forEach(function (x) { hh.appendChild(h("th", { text: x })); }); t.appendChild(h("thead", {}, [hh]));
+      var tb = h("tbody"); ls.forEach(function (l) { tb.appendChild(h("tr", {}, ["Số chứng từ", "Hình thức", "Số tiền", "Trạng thái", "Ngày lập", "Ngày thanh toán", "Lý do hủy"].map(function (k, i) { return h("td", { class: i === 2 ? "r" : "t", text: i === 2 ? fmt(l[k]) : (l[k] || "") }); }))); }); t.appendChild(tb); body.appendChild(h("div", { class: "tw" }, [t])); }
+    modal("CHI TIẾT THANH TOÁN LƯƠNG — " + String(r["Họ và tên"]).toLocaleUpperCase("vi-VN"), body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true });
+  }
   function tabPayReport(type) {
     var w = h("div"), card = h("div", { class: "card" }), src = kqKy(st.nam, st.thang);
     var vm = payVm(type, src), ky = vm.kyKey;
@@ -3182,13 +3201,17 @@
     if (vm.canhbao.length) card.appendChild(h("div", { class: "hint", html: "⚠ " + vm.canhbao.slice(0, 5).map(esc).join(" · ") }));
     var t = h("table", { "data-pay-report": type }), hr = h("tr");
     vm.cols.forEach(function (c) { hr.appendChild(h("th", { class: c.kind === "text" ? "" : "r", text: c.label })); });
-    t.appendChild(h("thead", {}, [hr])); var tb = h("tbody");
-    vm.rows.forEach(function (r) { tb.appendChild(h("tr", {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : (v == null ? "" : String(v)) }); }))); });
+    var head = [];
+    if (vm.groups) head.push(h("tr", {}, vm.groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), style: "text-align:center;background:#d9e7dd", text: g.label }); })));
+    head.push(hr); t.appendChild(h("thead", {}, head)); var tb = h("tbody");
+    vm.rows.forEach(function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : (v == null ? "" : String(v)) }); }));
+      if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
+      tb.appendChild(trw); });
     if (vm.rows.length) tb.appendChild(h("tr", { style: "font-weight:700;background:#f4f4f4" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })));
     t.appendChild(tb);
     if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào cần thanh toán theo bộ lọc hiện tại." }));
     card.appendChild(h("div", { class: "tw" }, [t])); w.appendChild(card);
-    if (!PRP.KHONG_CAN_CHOT[type] && type !== "CHI_TIET_TT") w.appendChild(payLedgerPanel(type, ky));
+    if (type === "SO_CHUNG_TU" || type === "CHUYEN_KHOAN" || type === "TIEN_MAT" || type === "THANH_TOAN") w.appendChild(payLedgerPanel(type, ky));
     return w;
   }
   function tabBangTinhNoiBo() {
@@ -4553,13 +4576,13 @@
     ["grp", "Sản lượng"], ["sanluong", "⚖", "Sản lượng"], ["bandam", "🚛", "Bơm dăm"],
     ["grp", "Nghiệp vụ tiền lương"], ["psluong", "🎁", "Thưởng / Trừ"], ["ungluong", "💵", "Tạm ứng"], ["tiencom", "🍚", "Suất cơm"],
     ["grp", "Tính lương"], ["luong", "▶", "Tính lương theo kỳ"], ["ktbl", "✔", "Kiểm tra bảng lương"], ["kyluong", "🔒", "Kỳ lương đã chốt"], ["doichieu", "↔", "Đối chiếu Excel"],
-    ["grp", "Thanh toán lương"], ["rp_thanhtoan", "💼", "Bảng thanh toán lương"], ["rp_cttt", "📒", "Chi tiết thanh toán"], ["rp_ck", "🏦", "Bảng kê chuyển khoản"], ["rp_tm", "💵", "Thanh toán tiền mặt"], ["slips", "🧾", "Phiếu lương"],
+    ["grp", "Thanh toán lương"], ["rp_thanhtoan", "💼", "Bảng thanh toán lương"], ["rp_cttt", "📒", "Chi tiết thanh toán"], ["rp_soct", "🗂", "Sổ chứng từ thanh toán"], ["rp_ck", "🏦", "Bảng kê chuyển khoản"], ["rp_tm", "💵", "Thanh toán tiền mặt"], ["slips", "🧾", "Phiếu lương"],
     ["grp", "Báo cáo"], ["bangtinh", "📋", "Bảng tính lương"], ["rp_tonghop", "📑", "Tổng hợp theo phòng ban"], ["rp_ctnv", "📃", "Tổng hợp chi tiết nhân viên"], ["baocaoluong", "📈", "Báo cáo lương khác"], ["baocao", "📊", "Báo cáo nhân sự"],
     ["grp", "Danh mục"], ["dm", "📚", "Danh mục"],
     ["grp", "Cài đặt"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
   ];
   // Tab nào cần quyền xem nào (kiểm tra cả khi mở bằng trạng thái đã lưu, không chỉ ẩn menu)
-  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
+  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
   function tabAllowed(t) {
     if (t === "home") return true;
     if (t === "backup") return can("system.admin") || can("backup.restore");
@@ -4720,7 +4743,7 @@
     var bb = $(".brand small"); if (bb) bb.textContent = congTy()["Tên công ty"] || "Chạy offline";
     var top = $("#top"); top.innerHTML = "";
     var title = TITLES[st.tab] || (S[st.tab] && S[st.tab].ten) || "";
-    top.appendChild(h("h2", { text: ["bangtinh", "rp_tonghop", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_ck", "rp_tm", "slips", "baocaoluong"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
+    top.appendChild(h("h2", { text: ["bangtinh", "rp_tonghop", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_soct", "rp_ck", "rp_tm", "slips", "baocaoluong"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
     top.appendChild(h("button", { class: "topbtn srch", type: "button", "aria-label": "Tìm kiếm", title: "Tìm nhanh màn hình, nhân viên, báo cáo (Ctrl+K)", on: { click: quickSearch } }, ["🔍 Tìm kiếm", h("kbd", { text: "Ctrl K" })]));
     if (["nhansu", "nv", "dm", "caidat", "backup", "kyluong"].indexOf(st.tab) < 0) top.appendChild(periodBox());
     if (FILES) top.appendChild(h("button", { class: "topbtn", type: "button", "data-files": "1", title: "Xem / mở các file Excel, báo cáo đã tải", on: { click: filesDrawer } }, ["📂 File đã tải"]));

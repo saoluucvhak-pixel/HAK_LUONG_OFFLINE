@@ -367,7 +367,14 @@ async function launch(dataDir, opt) {
     ok("V10: Tổng hợp chi tiết nhân viên — xuất được Excel", !!ctf);
     await w.click("#nav button[data-k=rp_cttt]");
     const cttTxt = await w.locator("#main").innerText();
-    ok("V10: Chi tiết thanh toán — mở được, có cột Số chứng từ/Hình thức/Trạng thái, tiêu đề IN HOA", /BẢNG CHI TIẾT THANH TOÁN LƯƠNG/.test(cttTxt) && /Số chứng từ/.test(cttTxt) && /Ngày thanh toán/.test(cttTxt));
+    ok("V10.1: Chi tiết thanh toán — một dòng/nhân viên, nhóm cột hai tầng, tiêu đề IN HOA", /BẢNG CHI TIẾT THANH TOÁN TIỀN LƯƠNG/.test(cttTxt) && /THU NHẬP/.test(cttTxt) && /KHẤU TRỪ/.test(cttTxt) && /Còn phải thanh toán/.test(cttTxt) && /Có thể lập đề nghị chi/.test(cttTxt));
+    const cttRows = await w.locator("[data-pay-report=CHI_TIET_TT] tbody tr[data-ma]").count();
+    ok("V10.1: Chi tiết thanh toán có dòng cho nhân viên (không phụ thuộc chứng từ)", cttRows > 0, String(cttRows));
+    if (cttRows) { await w.locator("[data-pay-report=CHI_TIET_TT] tbody tr[data-ma]").first().click(); await w.waitForTimeout(200);
+      const dt = await w.locator("#modal").innerText(); ok("V10.1: bấm dòng mở cửa sổ CHI TIẾT THANH TOÁN LƯƠNG — [HỌ TÊN]", /CHI TIẾT THANH TOÁN LƯƠNG — /.test(dt) && /Tổng thu nhập/.test(dt), dt.slice(0, 80)); await w.click("#modal button:has-text('Đóng')"); }
+    await w.click("#nav button[data-k=rp_soct]");
+    const soTxt = await w.locator("#main").innerText();
+    ok("V10.1: Sổ chứng từ thanh toán là màn riêng", /SỔ CHỨNG TỪ THANH TOÁN LƯƠNG/.test(soTxt) && /Số chứng từ/.test(soTxt));
     await w.click("#nav button[data-k=rp_thanhtoan]");
     const tt0 = await w.locator("[data-pay-report]").innerText();
     ok("V9.4: bảng thanh toán có Thực lĩnh / Đã thanh toán / Còn phải thanh toán, trạng thái ban đầu 'Chưa thanh toán'", /Còn phải thanh toán/.test(tt0) && /Chưa thanh toán/.test(tt0), tt0.replace(/\s+/g, " ").slice(0, 240));
