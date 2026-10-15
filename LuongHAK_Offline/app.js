@@ -4748,26 +4748,36 @@
     return AUTH.make(code.replace(/-/g, "")).then(function (k) { db.baomat = [{ khoiPhuc: k, taoLuc: new Date().toISOString() }]; });
   }
   function setupAdminScreen() {
-    return authCard("Thiết lập tài khoản Quản trị (Admin)", "Từ bản 2.0 app có đăng nhập & phân quyền. Tạo tài khoản Admin đầu tiên — Admin tạo tài khoản cho người khác ở Công ty & Sao lưu → Người dùng.",
-      [{ k: "u", label: "Tên đăng nhập" }, { k: "n", label: "Họ tên" }, { k: "p", label: "Mật khẩu (≥ 8 ký tự, có chữ và số)", type: "password", ac: "new-password" }, { k: "p2", label: "Nhập lại mật khẩu", type: "password", ac: "new-password" }],
-      "Tạo tài khoản Admin", function (v) {
+    // Máy mới: tạo dữ liệu trống cho công ty (không cần file), hoặc khôi phục từ file có sẵn (tùy chọn).
+    var restoreBtn = btn("⬆ Khôi phục từ file có sẵn…", "", function () {
+      var f = h("input", { type: "file", accept: ".json" });
+      f.addEventListener("change", function () { var fr = new FileReader(); fr.onload = function () { restoreFromText(fr.result, f.files[0].name); }; fr.readAsText(f.files[0]); });
+      f.click();
+    });
+    return authCard("Thiết lập ban đầu", "Nhập thông tin công ty và tạo tài khoản Admin đầu tiên. Dữ liệu được tạo mới với danh mục chuẩn — không cần file. Nếu đã có file sao lưu của công ty này, bấm \"Khôi phục từ file có sẵn\" ở dưới.",
+      [{ k: "cty", label: "Tên công ty (đầy đủ, dùng trên báo cáo)" }, { k: "ma", label: "Mã công ty (viết tắt, ví dụ HAKQN)" },
+        { k: "u", label: "Tên đăng nhập Admin" }, { k: "n", label: "Họ tên Admin" }, { k: "p", label: "Mật khẩu (≥ 8 ký tự, có chữ và số)", type: "password", ac: "new-password" }, { k: "p2", label: "Nhập lại mật khẩu", type: "password", ac: "new-password" }],
+      "Tạo dữ liệu và tài khoản Admin", function (v) {
+        if (!v.cty.trim()) throw new Error("Cần nhập tên công ty");
+        if (!/^[A-Za-z0-9_-]{2,20}$/.test(v.ma.trim())) throw new Error("Mã công ty 2–20 ký tự: chữ không dấu, số, _ hoặc -");
         if (!/^[a-z0-9._-]{3,30}$/i.test(v.u.trim())) throw new Error("Tên đăng nhập 3–30 ký tự: chữ không dấu, số, . _ -");
         if (!v.n.trim()) throw new Error("Cần nhập họ tên");
         var bad = PERM.validatePassword(v.p); if (bad) throw new Error(bad);
         if (v.p !== v.p2) throw new Error("Hai lần nhập mật khẩu không khớp");
         if ((db.nguoidung || []).length) throw new Error("Đã có tài khoản — hãy đăng nhập");
-        var code = randomCode();
+        var code = randomCode(), snap = JSON.parse(JSON.stringify(db));
         return AUTH.make(v.p).then(function (k) {
           var u = Object.assign({ id: HRM.uid(), tenDangNhap: v.u.trim(), hoTen: v.n.trim(), vaiTro: "admin", khoa: false, taoLuc: new Date().toISOString() }, k);
+          HRM.khoiTaoMoi(db, v.cty, v.ma);
           db.nguoidung.push(u);
           return setRecovery(code).then(function () {
-            session = u; audit("Khởi tạo tài khoản Admin", u.tenDangNhap);
-            if (!saveNow()) { db.nguoidung = []; db.baomat = []; session = null; throw new Error("Không lưu được xuống đĩa — chưa tạo tài khoản"); }
+            session = u; audit("Khởi tạo dữ liệu công ty mới", v.cty.trim() + " (" + v.ma.trim() + ")"); audit("Khởi tạo tài khoản Admin", u.tenDangNhap);
+            if (!saveNow()) { db.nguoidung = []; db.baomat = []; Object.keys(db).forEach(function (key) { delete db[key]; }); Object.assign(db, snap); session = null; throw new Error("Không lưu được xuống đĩa — chưa tạo dữ liệu"); }
             if (!mainLogin(u.tenDangNhap, v.p)) { session = null; throw new Error("Đã tạo tài khoản nhưng chưa thiết lập được phiên — đăng nhập lại"); }
             showRecoveryCode(code);
           });
         });
-      });
+      }, [restoreBtn]);
   }
   function loginScreen() {
     return authCard("Đăng nhập", congTy()["Tên công ty"] || "", [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "p", label: "Mật khẩu", type: "password", ac: "current-password" }], "Đăng nhập", function (v) {

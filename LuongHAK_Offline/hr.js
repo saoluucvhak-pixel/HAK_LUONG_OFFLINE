@@ -707,7 +707,16 @@
     };
   }
 
+  // Khởi tạo dữ liệu MỚI cho một công ty (màn thiết lập lần đầu): ghi thông tin công ty + nạp danh mục chuẩn cho bảng còn trống.
+  // Không đụng bảng đã có dữ liệu. Trả về danh sách bảng danh mục đã nạp.
+  function khoiTaoMoi(db, tenCongTy, maCongTy) {
+    var sd = seedDanhMuc(), seeded = [];
+    db.congty = [{ "Mã công ty": String(maCongTy || "").trim(), "Tên công ty": String(tenCongTy || "").trim() }];
+    Object.keys(sd).forEach(function (k) { if (!Array.isArray(db[k]) || !db[k].length) { db[k] = sd[k]; seeded.push(k); } });
+    return seeded;
+  }
+
   var api = { dsNguoiPhuThuoc: dsNguoiPhuThuoc, HR: HR, BIEN_DONG: BIEN_DONG, NV_TABS: NV_TABS, HD_TABS: HD_TABS, REFS: REFS, refName: refName, hienHanh: hienHanh, buildIndex: buildIndex, isPayField: isPayField, PAY_HIDDEN: PAY_HIDDEN, staffForPayroll: staffForPayroll, sanLuongKy: sanLuongKy, nghiNgay: nghiNgay, leaveCheck: leaveCheck, LEAVE_TAG: LEAVE_TAG,
-    seedDanhMuc: seedDanhMuc, migrate: migrate, reports: reports, uid: uid, today: today, split: split, activeHD: activeHD };
+    seedDanhMuc: seedDanhMuc, khoiTaoMoi: khoiTaoMoi, migrate: migrate, reports: reports, uid: uid, today: today, split: split, activeHD: activeHD };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.HRM = api;
 })(typeof window !== "undefined" ? window : this);
