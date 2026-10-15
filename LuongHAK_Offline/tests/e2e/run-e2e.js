@@ -23,7 +23,7 @@ async function auth(w, who) {
   who = who || ADMIN;
   const t = await w.locator("#top h2").innerText();
   if (/Thiết lập/.test(t)) {
-    for (const [k, v] of [["u", who.u], ["n", who.n], ["p", who.p], ["p2", who.p]]) await w.fill("#main input[data-f=" + k + "]", v);
+    for (const [k, v] of [["cty", "Công ty E2E"], ["ma", "E2E"], ["u", who.u], ["n", who.n], ["p", who.p], ["p2", who.p]]) await w.fill("#main input[data-f=" + k + "]", v);
     await w.click("#main button.big"); await w.waitForSelector("[data-recovery]");
     const code = await w.locator("[data-recovery]").innerText();
     await w.click(".dlg footer button.pri"); await w.waitForSelector("#nav button[data-k=home]");
