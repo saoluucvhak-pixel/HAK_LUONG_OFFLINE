@@ -198,6 +198,24 @@
       grid.appendChild(fld("Hiệu lực đến", "den", { date: true, show: function (v) { return fdate(v) || "không giới hạn"; } }));
       grid.appendChild(fld("Mô tả / cách tính (ghi chú)", "moTa", { area: true, wide: true }));
       w.appendChild(grid);
+      // Giải thích công thức theo ngôn ngữ nghiệp vụ — chỉ đọc, không đổi kết quả tính lương.
+      if (IS_OT) {
+        var defaults = (window.HAKCore && window.HAKCore.formulaDefaults && window.HAKCore.formulaDefaults.OVERTIME) || {};
+        var key = String(f.loaiCT || f.ma || "").trim(), preset = defaults[key];
+        var explain = {
+          TC1: "Công vượt chuẩn (loại trừ lễ, trung chuyển, phép, tăng ca) cộng công tăng ca; sau đó nhân hệ số.",
+          TC2: "Như TC1, trừ thêm công di chuyển; có thể dùng công chuẩn riêng khi có nhãn DQ.",
+          TC3: "Cộng công tăng ca và công Chủ nhật, sau đó nhân hệ số.",
+          TC4: "Lấy công tăng ca nhân hệ số.",
+          TC5: "Lấy công tăng ca nhân hệ số; tiền tăng ca có nhánh đơn giá cố định riêng trong bộ tính lương.",
+          TC6: "Lấy phần công vượt chuẩn sau khi trừ trung chuyển và công lễ; không nhân hệ số."
+        };
+        var note = h("div", { class: "hint", "data-ot-formula-explain": "1", style: "margin:12px 0;padding:12px;border:1px solid var(--line,#d5dce5);border-radius:8px" });
+        note.appendChild(h("b", { text: "Công thức áp dụng: " + (key || "(chưa chọn)") }));
+        note.appendChild(h("div", { text: explain[key] || (preset ? preset.ten : "Công thức cấu hình riêng hoặc dùng chung — xem tab Công thức để kiểm tra phiên bản đang hiệu lực."), style: "margin-top:6px" }));
+        note.appendChild(h("div", { class: "hint", text: "Lưu ý: công thức trên tính công quy đổi. Tiền tăng ca còn phụ thuộc loại lương, đơn giá và nhánh tính của nhân viên. Thay đổi mã công thức cần lưu và kiểm thử trước khi áp dụng.", style: "margin-top:6px" }));
+        w.appendChild(note);
+      }
       if (sh && sh.dungChungCongThucCuaMaKhac) w.appendChild(h("div", { class: "warn", text: "Mã này dùng chung công thức “" + sh.key + "” (Loại công thức). Công thức được quản lý ở mã " + (sh.ownerMa || sh.key) + "; đổi công thức đó sẽ ảnh hưởng mọi mã dùng chung (" + [sh.ownerMa || sh.key].concat(sh.others).filter(function (x, i, a) { return x && a.indexOf(x) === i; }).join(", ") + ")." }));
       if (M.edit && !M.isNew) {
         var us = OM.usage(db(), M.ma, A.kqKy(S.nam, S.thang).kq);
