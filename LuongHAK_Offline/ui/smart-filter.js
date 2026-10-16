@@ -127,7 +127,7 @@
         body.appendChild(presetManager(cfg, getS, setS, fill));
       };
       var close = function () { closeDrawer(true); };
-      var apply = btn("Áp dụng", "pri", function () { var p = SF.dateProblem(draft); if (p) { A.toast("⚠ " + p); } cfg.state.set(draft); closeDrawer(true); onApplied(); }, "Áp dụng các điều kiện đang chọn"),
+      var apply = btn("Áp dụng", "pri", function () { var p = SF.dateProblem(draft); if (p) { A.toast("⚠ " + p); return; } cfg.state.set(draft); closeDrawer(true); onApplied(); }, "Áp dụng các điều kiện đang chọn"),
         cancel = btn("Hủy", "", close, "Đóng, không đổi gì"),
         reset = btn("Đặt lại", "ghost", function () { draft = SF.empty(); fill(); }, "Bỏ hết điều kiện trong ngăn này (bấm Áp dụng để dùng)");
       el.appendChild(h("div", { class: "sfd-head" }, [h("b", { text: "Bộ lọc nâng cao" }), btn("✕", "ghost", close, "Đóng")]));
