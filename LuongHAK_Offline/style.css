@@ -666,3 +666,15 @@ td.ot-note{background:var(--th);color:var(--mut)}
 @keyframes hakDrawerIn { from { transform:translateX(18px);opacity:.75 } to { transform:translateX(0);opacity:1 } }
 @media(max-width:700px){#modal .hak-detail-drawer{width:100vw;border-radius:0}#modal .hak-detail-drawer > .bd{padding:14px}}
 @media(prefers-reduced-motion:reduce){#modal .hak-detail-drawer{animation:none}}
+
+
+/* V10.4 shared Smart Filter visual hierarchy */
+.sfd .hak-sfd-head { display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:19px 20px;border-bottom:1px solid var(--line);background:var(--card); }
+.sfd .hak-sfd-head > div { display:flex;flex-direction:column;gap:6px;min-width:0; }
+.sfd .hak-sfd-head small { font-size:10px;letter-spacing:.11em;font-weight:800;color:var(--mut);overflow-wrap:anywhere; }
+.sfd .hak-sfd-head b { font-size:19px;color:var(--ink); }
+.sfd .hak-sfd-head span { font-size:12px;color:var(--mut);line-height:1.45; }
+.sfd .sfd-body { scrollbar-gutter:stable; }
+.sfd .sfd-foot { border-top:1px solid var(--line);background:var(--card); }
+.sfd :is(button,input,select):focus-visible { outline:2px solid var(--brand);outline-offset:2px; }
+@media(max-width:600px){.sfd .hak-sfd-head{padding:15px}}
