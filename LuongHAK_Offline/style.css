@@ -563,3 +563,23 @@ td.ot-note{background:var(--th);color:var(--mut)}
 .ot-dlg .ot-body { min-width:0; }
 .ot-dlg .ot-tabs { display:flex; gap:5px; overflow-x:auto; }
 .ot-dlg .ot-tabs button { white-space:nowrap; }
+
+
+/* V10.4 inline master–detail inspector: shared by overtime, allowances, and support. */
+.hak-master-guide { padding:12px 14px; border-left:3px solid var(--brand); background:var(--brandSoft); border-radius:7px; line-height:1.6; }
+.hak-master-guide b { display:block; margin-bottom:4px; color:var(--ink); }
+.ot-master [data-ot-row] { cursor:pointer; }
+.ot-master [data-ot-row]:focus-visible { outline:2px solid var(--brand); outline-offset:-2px; }
+.ot-master [data-ot-row].hak-master-selected td { background:var(--brandSoft); }
+.hak-child-preview { margin-top:14px; padding:18px; background:var(--card); border:1px solid var(--line); border-radius:12px; min-width:0; }
+.hak-child-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+.hak-child-head small,.hak-child-metric small,.hak-child-expression small { color:var(--mut); font-size:11px; letter-spacing:.035em; display:block; }
+.hak-child-head h3 { margin:5px 0 0; font-size:17px; color:var(--ink); }
+.hak-child-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.hak-child-metric { background:var(--bg); border:1px solid var(--line2); padding:12px; border-radius:8px; min-width:0; }
+.hak-child-metric b { display:block; margin-top:7px; font-size:15px; overflow-wrap:anywhere; }
+.hak-child-expression { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--field); }
+.hak-child-expression code { display:block; margin-top:8px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+.hak-child-actions { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+@media(max-width:900px) { .hak-child-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:520px) { .hak-child-grid { grid-template-columns:1fr; } .hak-child-preview { padding:12px; } }
