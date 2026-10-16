@@ -1165,7 +1165,10 @@ async function launch(dataDir, opt) {
     await fc.setFiles([path.join(FX, "bang-cham-cong-mau.png"), path.join(FX, "bang-cham-cong-mau.pdf")]);
     let done = false;
     for (let i = 0; i < 300 && !done; i++) { await w.waitForTimeout(500); done = await w.evaluate(() => { const n = [...document.querySelectorAll(".subtabs button .n")].map((e) => e.textContent); return n.length === 2 && n.every((x) => /^\d+$/.test(x)); }); }
-    const grid = () => w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => ({ nv: tr.querySelector("select").value, cls: tr.className, d27: tr.querySelector("input[data-day='27']").value, d3: tr.querySelector("input[data-day='3']").value, sum: tr.children[tr.children.length - 2].textContent, tot: tr.children[tr.children.length - 1].textContent })));
+    const grid = () => w.evaluate(() => {
+      const heads = [...document.querySelectorAll(".ocrgrid thead th")].map((th) => th.textContent.trim());
+      return [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => ({ nv: tr.querySelector("select").value, cls: tr.className, d27: tr.querySelector("input[data-day='27']").value, d3: tr.querySelector("input[data-day='3']").value, sum: tr.children[heads.indexOf("Tổng tính")].textContent, tot: tr.children[heads.indexOf("Tổng giấy")].textContent }));
+    });
     const g1 = done ? await grid() : [];
     ok("OCR ảnh PNG: 3 dòng, tự ghép NV theo tên (NV001, OC1), người chưa có trong app để trống; đọc đúng 0,5 và cột Tổng công",
       g1.length === 3 && g1[0].nv === "NV001" && g1[1].nv === "OC1" && g1[2].nv === "" && /nomatch/.test(g1[2].cls) && g1[0].d27 === "0,5" && g1[0].sum === "28,5" && g1[0].tot === "28,5" && !g1.some((r) => /mismatch/.test(r.cls)), JSON.stringify(g1));
@@ -1244,7 +1247,10 @@ async function launch(dataDir, opt) {
       let n6 = ""; for (let i = 0; i < 240 && !/^\d+$/.test(n6); i++) { await w.waitForTimeout(500); n6 = await w.locator(".subtabs button .n").nth(5).innerText().catch(() => ""); }
       await w.locator(".subtabs button").nth(5).click(); await w.waitForTimeout(200);
       const pm = await w.locator('select[aria-label="Cách đọc ô của trang"]').inputValue();
-      const g6 = await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => [tr.querySelector("input.i").value, tr.querySelectorAll("select")[1].value, tr.querySelector("input[data-day='9']").value, tr.children[tr.children.length - 2].textContent]));
+      const g6 = await w.evaluate(() => {
+        const sumIndex = [...document.querySelectorAll(".ocrgrid thead th")].findIndex((th) => th.textContent.trim() === "Tổng tính");
+        return [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => [tr.querySelector("input.i").value, tr.querySelectorAll("select")[1].value, tr.querySelector("input[data-day='9']").value, tr.children[sumIndex].textContent]);
+      });
       ok("Cách đọc ô Dấu x: bảng tay 2 khối, mỗi người 1 cột → tên lấy từ tiêu đề cột, loại Công; xx = 2, ô '7h-15h' = 1; tổng 47 / 35 / 29", pm === "mark" && g6.map((r) => r.join(":")).join("|") === "Lê Văn An:Công:1:47|Trần Bình:Công:1:35|Ngô Cường:Công:2:29", pm + " " + JSON.stringify(g6));
     }
     // V7: PDF có lớp chữ → lấy chữ trực tiếp (không OCR ảnh), tốc độ tức thì, số chính xác; thêm PDF scan vẫn đi đường OCR
