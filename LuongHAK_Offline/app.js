@@ -5087,13 +5087,37 @@
     if (!tabAllowed(st.tab)) st.tab = "home";
     var nav = $("#nav"); nav.innerHTML = "";
     var activeNav = st.tab === "slips" && st.kqFull ? "luong" : (st.tab === "nv" ? "nhansu" : st.tab);
+    // Navigation accordion: persistent presentation preference, no payroll/database mutation.
+    var collapsed = {};
+    try { collapsed = JSON.parse(localStorage.getItem(KEY + "_nav_collapsed") || "{}") || {}; } catch (e) { collapsed = {}; }
+    var groupKey = "", groupLabel = "", groupIndex = 0;
     NAV.forEach(function (n, i) {
       if (n[0] === "grp") {
-        // Nhóm không còn mục nào người này được xem thì không hiện tiêu đề nhóm
-        for (var j = i + 1; j < NAV.length && NAV[j][0] !== "grp"; j++) if (tabAllowed(NAV[j][0])) { nav.appendChild(h("div", { class: "grp", text: n[1] })); break; }
+        groupKey = "group_" + (++groupIndex);
+        groupLabel = n[1];
+        var visible = false, containsActive = false, groupCount = 0;
+        for (var j = i + 1; j < NAV.length && NAV[j][0] !== "grp"; j++) {
+          if (tabAllowed(NAV[j][0])) { visible = true; groupCount++; if (activeNav === NAV[j][0]) containsActive = true; }
+        }
+        if (visible) {
+          var gk = groupKey, gl = groupLabel, gc = groupCount;
+          var isClosed = !!collapsed[gk] && !containsActive;
+          var heading = h("button", { class: "grp hak-nav-group" + (isClosed ? " is-collapsed" : ""), type: "button", "aria-expanded": isClosed ? "false" : "true", title: "Thu gọn / mở rộng " + gl, on: { click: function () {
+            var nowClosed = this.getAttribute("aria-expanded") === "true";
+            collapsed[gk] = nowClosed;
+            try { localStorage.setItem(KEY + "_nav_collapsed", JSON.stringify(collapsed)); } catch (e) {}
+            render();
+          } } }, [h("span", { text: gl }), h("span", { class: "hak-nav-group-count", text: String(gc) }), h("span", { class: "hak-nav-chevron", text: isClosed ? "▸" : "▾" })]);
+          nav.appendChild(heading);
+        }
         return;
       }
       if (!tabAllowed(n[0])) return;
+      if (groupKey && collapsed[groupKey] && activeNav !== n[0]) {
+        var activeInGroup = false;
+        for (var k = i; k >= 0 && NAV[k][0] !== "grp"; k--) if (NAV[k][0] === activeNav) activeInGroup = true;
+        if (!activeInGroup) return;
+      }
       var b = h("button", { class: activeNav === n[0] ? "on" : "", "data-k": n[0], on: { click: function () { if (!leaveOk()) return; if (st.kqFull) { st.kq = st.kqFull; st.kqFull = null; } st.tab = n[0]; saveUi(); render(); } } }, [h("span", { class: "ic", text: n[1] }), h("span", { text: n[2] })]);
       if (S[n[0]]) b.appendChild(h("span", { class: "n", text: countOf(n[0]) }));
       if (n[0] === "kyluong") b.appendChild(h("span", { class: "n", text: db.kyluong.length }));
