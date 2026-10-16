@@ -182,7 +182,17 @@
       if (M && M.dirty && !confirm("Có thay đổi CHƯA LƯU trong hồ sơ này. Đóng và bỏ thay đổi?")) return false;
       var m = A.$("#modal"); m.className = "hide"; m.innerHTML = ""; m.onclick = null; document.removeEventListener("keydown", onKey, true); M = null; A.render(); return true;
     }
-    function onKey(e) { if (e.key === "Escape" && M) { e.stopPropagation(); tryClose(); } }
+    function onKey(e) {
+      if (!M) return;
+      if (e.key === "Escape") { e.stopPropagation(); tryClose(); return; }
+      if (e.key !== "Tab") return;
+      var dlg = A.$("#modal .ot-dlg"); if (!dlg) return;
+      var focusable = Array.prototype.slice.call(dlg.querySelectorAll("button, input, select, textarea, a[href], [tabindex]")).filter(function (n) { return !n.disabled && n.tabIndex !== -1 && n.getClientRects().length > 0; });
+      if (!focusable.length) { e.preventDefault(); return; }
+      var first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
     function mount() {
       var m = A.$("#modal"); m.innerHTML = ""; m.className = "";
       m.onclick = function (e) { if (e.target === m) tryClose(); };
