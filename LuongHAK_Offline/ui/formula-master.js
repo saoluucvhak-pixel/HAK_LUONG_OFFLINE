@@ -65,9 +65,11 @@
     }
     function masterView() {
       periodInit();
-      var w = h("div", { class: "card ot-master", "data-ot-master": "1" });
-      var bar = h("div", { class: "bar" });
-      bar.appendChild(h("h3", { text: K.title, style: "margin:0 12px 0 0" }));
+      var w = h("div", { class: "card ot-master hak-workspace", "data-ot-master": "1" });
+      var hero = h("div", { class: "hak-workspace-hero" });
+      hero.appendChild(h("div", {}, [h("small", { text: "HAK ENTERPRISE · DANH MỤC & CÔNG THỨC" }), h("h2", { text: K.title }), h("p", { text: "Quản lý mã, phiên bản công thức và lịch sử theo kỳ trên một không gian làm việc." })]));
+      w.appendChild(hero);
+      var bar = h("div", { class: "bar hak-workspace-toolbar" });
       var inq = h("input", { class: "i", placeholder: "Tìm mã / tên " + K.short.toLowerCase() + "…", value: S.q, "aria-label": "Tìm " + K.noun, "data-ot-q": "1", style: "min-width:220px" });
       var sTr = h("select", { "aria-label": "Lọc trạng thái", "data-ot-ftrang": "1" }); [["", "Mọi trạng thái"], ["Đang hiệu lực", "Đang hiệu lực"], ["Chưa hiệu lực", "Chưa hiệu lực"], ["Hết hiệu lực", "Hết hiệu lực"]].forEach(function (o) { sTr.appendChild(h("option", { value: o[0], text: o[1] })); }); sTr.value = S.fTrang;
       var sCT = h("select", { "aria-label": "Lọc công thức", "data-ot-fct": "1" }); (IS_OT ? [["", "Mọi công thức"], ["cauhinh", "Có công thức cấu hình"], ["macdinh", "Dùng mặc định hệ thống"], ["thieu", "Thiếu / lỗi công thức"]] : [["", "Mọi công thức"], ["cauhinh", "Có công thức cấu hình"], ["macdinh", "Dùng cách tính có sẵn của engine"], ["lichsu", "Dùng cách tính lịch sử (chưa có công thức)"], ["thieu", "Thiếu / lỗi công thức"]]).forEach(function (o) { sCT.appendChild(h("option", { value: o[0], text: o[1] })); }); sCT.value = S.fCT;
@@ -88,7 +90,15 @@
       if (IS_OT) guide.appendChild(h("div", { text: "Địa điểm DQ/QC là thuộc tính chấm công, không phải mã TC. Tính riêng từng địa điểm rồi tổng hợp ở bảng lương; quy tắc tính mới chỉ áp dụng khi đã được phê duyệt và kiểm thử." }));
       if (!IS_OT) guide.appendChild(h("div", { text: "Mỗi mã " + K.noun + " có thể có nhiều phiên bản công thức. Công thức có hiệu lực được xác định theo kỳ, không sửa trực tiếp dữ liệu kỳ đã chốt." }));
       w.appendChild(guide);
-      var box = h("div", { class: "tw ot-list" }); w.appendChild(box);
+      var workspace = h("div", { class: "hak-workspace-grid" });
+      var masterPane = h("section", { class: "hak-workspace-master", "aria-label": "Danh sách mã cha" });
+      masterPane.appendChild(h("div", { class: "hak-pane-title" }, [h("h3", { text: "Danh sách " + K.noun }), h("span", { text: "Chọn dòng để xem chi tiết →" })]));
+      var box = h("div", { class: "tw ot-list" }); masterPane.appendChild(box);
+      workspace.appendChild(masterPane);
+      var detailPane = h("aside", { class: "hak-workspace-detail", "aria-label": "Chi tiết mã con" });
+      detailPane.appendChild(h("div", { class: "hak-pane-title" }, [h("h3", { text: "Công thức & phiên bản" }), h("span", { text: "BẢNG CON" })]));
+      workspace.appendChild(detailPane);
+      w.appendChild(workspace);
       function paint() {
         box.innerHTML = "";
         var rs = rows(), t = h("table", { "data-ot-table": "1" });
@@ -153,8 +163,8 @@
       inq.addEventListener("input", function () { S.q = inq.value; paint(); });
       sTr.addEventListener("change", function () { S.fTrang = sTr.value; paint(); });
       sCT.addEventListener("change", function () { S.fCT = sCT.value; paint(); });
-      w.appendChild(h("div", { class: "hint", "data-ot-count": "1" }));
-      w.appendChild(h("section", { class: "hak-child-preview", "data-hak-child-preview": "1", "aria-label": "Bảng con công thức đang áp dụng" }));
+      masterPane.appendChild(h("div", { class: "hint hak-pane-count", "data-ot-count": "1" }));
+      detailPane.appendChild(h("section", { class: "hak-child-preview", "data-hak-child-preview": "1", "aria-label": "Bảng con công thức đang áp dụng" }));
       paint();
       return w;
     }
