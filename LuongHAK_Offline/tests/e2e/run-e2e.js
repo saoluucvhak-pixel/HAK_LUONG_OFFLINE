@@ -36,6 +36,15 @@ async function auth(w, who) {
   }
   return {};
 }
+async function crashApp(app) {
+  const child = app.process();
+  const exited = new Promise((resolve) => child.exitCode !== null ? resolve() : child.once("exit", resolve));
+  // On Windows killing only the browser leaves renderer children holding the profile lock.
+  if (process.platform === "win32") require("child_process").execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+  else child.kill("SIGKILL");
+  await exited;
+  await app.close().catch(() => {});
+}
 async function launch(dataDir, opt) {
   opt = opt || {};
   const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: dataDir || DATA, HAK_DOWNLOAD_DIR: DL, HAK_NO_SHELL: "1" }, opt.env || {}) });
@@ -1029,7 +1038,7 @@ async function launch(dataDir, opt) {
     // 2) sau khi mở lại, tạo tiếp: mã tăng đúng, không trùng
     await addNV("Khởi Động Hai", "079987654321", "0099887766");
     // 3) bị tắt ĐỘT NGỘT ngay sau khi lưu xong (mô phỏng mất điện / treo máy)
-    app.process().kill("SIGKILL"); await new Promise((r) => setTimeout(r, 800));
+    await crashApp(app);
     const d2 = read();
     ok("V10.1: tắt đột ngột (SIGKILL) ngay sau khi lưu: file dữ liệu vẫn đọc được, NV002 có đủ bảng, NV001 không mất, không sót file tạm", full(d2, "NV002") && full(d2, "NV001") && d2.nhanvien.length === 2 && !fs.readdirSync(SD).some((f) => /\.tmp$|\.partial$/i.test(f)), JSON.stringify({ nv: d2.nhanvien.map((x) => x["Mã NV"]), files: fs.readdirSync(SD).join(",") }));
     ({ app, w, errs } = await launch(SD));
@@ -1038,7 +1047,7 @@ async function launch(dataDir, opt) {
     dialogs = [];
     await addNV("Bị Từ Chối", "123", "0000111122"); await w.waitForTimeout(300);
     const dRej = dialogs.some((d) => /12 chữ số/.test(d));
-    app.process().kill("SIGKILL"); await new Promise((r) => setTimeout(r, 800));
+    await crashApp(app);
     const d3 = read();
     ok("V10.1: tạo bị từ chối rồi tắt đột ngột: không ghi nửa chừng bảng nào cho người bị từ chối", dRej && !JSON.stringify(d3).includes("Bị Từ Chối") && d3.nhanvien.length === 2, JSON.stringify({ dRej, n: d3.nhanvien.length }));
     ({ app, w, errs } = await launch(SD));
