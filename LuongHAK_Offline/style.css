@@ -529,3 +529,37 @@ td.ot-note{background:var(--th);color:var(--mut)}
 .ot-dlg [data-ot-formula-explain] { background:var(--hover); color:var(--ink); }
 [data-theme="dark"] .ot-dlg { box-shadow:0 18px 48px rgba(0,0,0,.45); }
 @media (max-width:1000px) { .ot-master .bar { flex-wrap:wrap; } .ot-master .ot-list { max-width:100%; } }
+
+
+/* HAK Enterprise V10.4 — shared theme tokens for payroll and future modules. */
+[data-skin="neutral"] {
+--brand:#345777;--brand2:#52718d;--brandH:#294660;--brandA:#1d3449;--brandSoft:rgba(52,87,119,.10);--onBrand:#fff;
+--bg:#f3f5f7;--card:#fff;--ink:#202b36;--mut:#647282;--line:#dce2e8;--line2:#edf0f3;--ctl:#cbd4dd;--th:#eef2f5;--hover:#f0f4f7;--field:#fff;
+--sb:linear-gradient(180deg,#233344,#192633);--sbText:#d5dce5;--sbMut:#a1afbd;--focus:rgba(52,87,119,.23);
+--shadow:0 1px 3px rgba(20,32,44,.06);--shadowH:0 9px 22px rgba(20,32,44,.13);--r:10px;
+--hero:linear-gradient(120deg,#233344,#345777);--deep:#233344;--pri:var(--brand);--pri2:var(--brandH);
+}
+[data-skin="neutral"][data-theme="dark"] {
+--brand:#83a9cc;--brand2:#a3c3de;--brandH:#a3c3de;--brandA:#c5d9eb;--brandSoft:rgba(131,169,204,.17);--onBrand:#101e2b;
+--bg:#151b23;--card:#202a35;--ink:#edf1f6;--mut:#a4b2c1;--line:#354251;--line2:#2b3643;--ctl:#465566;--th:#283441;--hover:#2b3948;--field:#1a2430;
+--sb:linear-gradient(180deg,#111923,#0d141c);--sbText:#dce5ef;--focus:rgba(131,169,204,.30);--deep:#111923;
+}
+[data-skin="champagne"] {
+--brand:#977022;--brand2:#b58c38;--brandH:#7b5817;--brandA:#5e4312;--brandSoft:rgba(151,112,34,.12);--onBrand:#fff;
+--bg:#f8f5ee;--card:#fffefa;--ink:#2c291f;--mut:#746d5e;--line:#e7dfd0;--line2:#f0ebe2;--ctl:#d5c9b5;--th:#f4eee1;--hover:#f8f1e2;--field:#fffefa;
+--sb:linear-gradient(180deg,#3b3326,#24221d);--sbText:#e9e0d0;--sbMut:#b8a992;--focus:rgba(151,112,34,.25);--r:11px;
+--hero:linear-gradient(120deg,#3b3326,#977022);--deep:#3b3326;--pri:var(--brand);--pri2:var(--brandH);
+}
+[data-skin="champagne"][data-theme="dark"] {
+--brand:#e0bc71;--brand2:#efd39a;--brandH:#efd39a;--brandA:#f7e4b8;--brandSoft:rgba(224,188,113,.16);--onBrand:#271e0c;
+--bg:#181713;--card:#24221d;--ink:#f2eee5;--mut:#b8ae9d;--line:#3c382e;--line2:#312e27;--ctl:#514a3d;--th:#302d26;--hover:#373329;--field:#201f1a;
+--sb:linear-gradient(180deg,#171612,#11100e);--sbText:#e9e0d0;--focus:rgba(224,188,113,.30);--deep:#171612;
+}
+.hak-skin-select { width:100%; min-width:0; cursor:pointer; font:inherit; color:var(--sbText); background:rgba(255,255,255,.07); border:1px solid var(--sbLine); border-radius:8px; padding:9px 10px; }
+.hak-skin-select option { color:#182638; background:#fff; }
+.ot-master .bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.ot-master .ot-list { max-width:100%; overflow:auto; }
+.ot-master .ot-list table { min-width:760px; }
+.ot-dlg .ot-body { min-width:0; }
+.ot-dlg .ot-tabs { display:flex; gap:5px; overflow-x:auto; }
+.ot-dlg .ot-tabs button { white-space:nowrap; }
