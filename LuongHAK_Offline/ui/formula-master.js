@@ -197,7 +197,7 @@
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
     function mount() {
-      previousFocus = document.activeElement;
+      if (!previousFocus || !previousFocus.isConnected) previousFocus = document.activeElement;
       var m = A.$("#modal"); m.innerHTML = ""; m.className = "";
       m.onclick = function (e) { if (e.target === m) tryClose(); };
       document.removeEventListener("keydown", onKey, true); document.addEventListener("keydown", onKey, true);
