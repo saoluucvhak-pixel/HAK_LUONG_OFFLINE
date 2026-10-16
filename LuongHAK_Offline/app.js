@@ -5100,7 +5100,7 @@
           if (tabAllowed(NAV[j][0])) { visible = true; groupCount++; if (activeNav === NAV[j][0]) containsActive = true; }
         }
         if (visible) {
-          var gk = groupKey, gl = groupLabel, gc = groupCount;
+          let gk = groupKey, gl = groupLabel, gc = groupCount;
           var isClosed = !!collapsed[gk] && !containsActive;
           var heading = h("button", { class: "grp hak-nav-group" + (isClosed ? " is-collapsed" : ""), type: "button", "aria-expanded": isClosed ? "false" : "true", title: "Thu gọn / mở rộng " + gl, on: { click: function () {
             var nowClosed = this.getAttribute("aria-expanded") === "true";
