@@ -130,7 +130,7 @@
       var apply = btn("Áp dụng", "pri", function () { var p = SF.dateProblem(draft); if (p) { A.toast("⚠ " + p); return; } cfg.state.set(draft); closeDrawer(true); onApplied(); }, "Áp dụng các điều kiện đang chọn"),
         cancel = btn("Hủy", "", close, "Đóng, không đổi gì"),
         reset = btn("Đặt lại", "ghost", function () { draft = SF.empty(); fill(); }, "Bỏ hết điều kiện trong ngăn này (bấm Áp dụng để dùng)");
-      el.appendChild(h("div", { class: "sfd-head" }, [h("b", { text: "Bộ lọc nâng cao" }), btn("✕", "ghost", close, "Đóng")]));
+      el.appendChild(h("div", { class: "sfd-head hak-sfd-head" }, [h("div", {}, [h("small", { text: "HAK SMART FILTER · " + cfg.screenId }), h("b", { text: "Bộ lọc nâng cao" }), h("span", { text: "Thiết lập điều kiện rồi nhấn Áp dụng để lọc dữ liệu." })]), btn("✕", "ghost", close, "Đóng")]));
       el.appendChild(body); el.appendChild(h("div", { class: "sfd-foot" }, [reset, h("span", { class: "sp" }), cancel, apply]));
       fill();
       mask.addEventListener("mousedown", close);
