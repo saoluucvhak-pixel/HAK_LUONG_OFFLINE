@@ -468,7 +468,7 @@
     if (opts && opts.drawer && st.hdModal && !opts.onClose) opts = Object.assign({}, opts, { onClose: function () { hdReopen(); } });
     var m = $("#modal"); m.innerHTML = ""; m.className = opts && opts.drawer ? "drawer" : "";
     var close = function () { m.className = "hide"; m.innerHTML = ""; if (opts && opts.onClose) opts.onClose(); };
-    var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : "") }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
+    var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
     m.appendChild(d); m.onclick = function (e) { if (e.target === m) close(); };
     return close;
   }
