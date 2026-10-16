@@ -114,12 +114,14 @@
       if (!openDrawer) return; var d = openDrawer; openDrawer = null;
       document.removeEventListener("keydown", d.onKey, true); document.body.classList.remove("sfd-open");
       if (d.el.parentNode) d.el.parentNode.removeChild(d.el); if (d.mask.parentNode) d.mask.parentNode.removeChild(d.mask);
-      if (focusBack && d.opener && d.opener.focus) d.opener.focus();
+      if (d.opener && d.opener.setAttribute) d.opener.setAttribute("aria-expanded", "false");
+      if (focusBack && d.opener && d.opener.isConnected && d.opener.focus) d.opener.focus();
     }
     function drawer(cfg, opener, onApplied) {
       closeDrawer(); if (FP) FP.close();
       var draft = SF.normalize(cfg.state.get(), cfg), getS = function () { return draft; }, setS = function (s) { draft = SF.normalize(s); };
       var mask = h("div", { class: "sfd-mask" }), el = h("aside", { class: "sfd", role: "dialog", "aria-modal": "true", "aria-label": "Bộ lọc nâng cao", "data-sf-drawer": cfg.screenId });
+      if (opener && opener.setAttribute) opener.setAttribute("aria-expanded", "true");
       var body = h("div", { class: "sfd-body" });
       var fill = function () {
         body.innerHTML = "";
@@ -203,7 +205,7 @@
           }
         });
       };
-      var adv = h("button", { type: "button", class: "b sf-adv", "aria-haspopup": "dialog", "data-sf-adv": "1" });
+      var adv = h("button", { type: "button", class: "b sf-adv", "aria-haspopup": "dialog", "aria-expanded": "false", "data-sf-adv": "1" });
       adv.addEventListener("click", function () { drawer(cfg, adv, applied); });
       var rst = btn("✕ Đặt lại", "ghost", function () { cfg.state.set(SF.empty()); if (cfg.onReset) cfg.onReset(); if (qIn) qIn.value = ""; applied(); }, "Bỏ toàn bộ điều kiện lọc của màn hình này");
       rst.setAttribute("data-sf-reset", "1");
