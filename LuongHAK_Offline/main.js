@@ -273,7 +273,7 @@ function registerIpc() {
     if (!Array.isArray(items) || items.length > 5000) throw new Error("Lô OCR không hợp lệ");
     return ocrSvc().batch(sanitizeOcrItems(items)); // ô sai kích thước → kết quả rỗng ĐÚNG VỊ TRÍ (không làm lệch thứ tự)
   }));
-  ipcMain.handle("ocr-selftest", async () => { try { return await ocrSvc().selfTest(); } catch (err) { return { ok: false, error: String(err.message || err) }; } });
+  ipcMain.handle("ocr-selftest", guarded("input.edit", async () => { try { return await ocrSvc().selfTest(); } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
   // Lịch sao lưu (α17) — cấu hình của máy này (settings.json)
   ipcMain.on("backup-schedule-get", (e) => { try { e.returnValue = Object.assign({ ok: true }, storage.getSchedule()); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
   ipcMain.on("backup-schedule-set", (e, o) => { try { e.returnValue = storage.setSchedule(o && typeof o === "object" ? { everyHours: o.everyHours, onClose: o.onClose, keepDaily: o.keepDaily } : {}); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
