@@ -31,6 +31,8 @@ jobs:
           done
           node --check main.js
           node --check preload.js
+      - name: Install application dependencies
+        run: npm install --no-audit --no-fund --ignore-scripts
       - name: Run offline unit integration and regression tests
         run: npm test
       - name: Store audit metadata
