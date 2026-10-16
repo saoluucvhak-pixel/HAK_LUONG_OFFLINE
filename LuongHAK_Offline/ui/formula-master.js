@@ -187,7 +187,7 @@
       var m = A.$("#modal"); m.innerHTML = ""; m.className = "";
       m.onclick = function (e) { if (e.target === m) tryClose(); };
       document.removeEventListener("keydown", onKey, true); document.addEventListener("keydown", onKey, true);
-      var d = h("div", { class: "dlg wide ot-dlg", "data-ot-modal": M.ma || "(mới)", role: "dialog", "aria-modal": "true" });
+      var d = h("div", { class: "dlg wide ot-dlg hak-detail-drawer", "data-ot-modal": M.ma || "(mới)", role: "dialog", "aria-modal": "true", "aria-label": K.title + " — chi tiết và phiên bản" });
       m.appendChild(d); draw();
     }
     function draw() {
