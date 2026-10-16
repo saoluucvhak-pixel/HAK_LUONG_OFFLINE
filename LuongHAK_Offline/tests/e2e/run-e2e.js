@@ -131,7 +131,12 @@ async function launch(dataDir, opt) {
     const pops = () => w.locator("[data-fpop]").count();
     // V10.3: thanh nhanh chỉ giữ 2–4 điều kiện thường dùng; các nhóm còn lại nằm trong bộ lọc nâng cao (ngăn kéo) — kiểm cả hai
     await w.locator("[data-sf-adv]").click(); await w.waitForSelector("[data-sf-drawer]");
-    const advGroups = await w.locator("[data-sf-drawer] .sfm").count(); await w.locator("[data-sf-drawer] button:has-text('Hủy')").click();
+    const advGroups = await w.locator("[data-sf-drawer] .sfm").count();
+    await w.locator("[data-sf-drawer] button:has-text('Đặt lại')").click();
+    await w.keyboard.press("Tab");
+    ok("V10.4: Tab vẫn ở trong Smart Filter sau khi Đặt lại vẽ lại nội dung", await w.evaluate(() => !!document.activeElement.closest("[data-sf-drawer]")));
+    await w.keyboard.press("Escape");
+    ok("V10.4: Escape đóng Smart Filter và trả focus về nút mở", await w.locator("[data-sf-adv]").evaluate((el) => document.activeElement === el && el.getAttribute("aria-expanded") === "false"));
     ok("Bộ lọc V9.4/V10.3: thanh nhanh là nút (không còn dropdown details) ≥2 nhóm; bộ lọc nâng cao có ≥3 nhóm", keys.length >= 2 && advGroups >= 3 && (await w.locator("details.msel").count()) === 0, keys.join(",") + " · nâng cao=" + advGroups);
     await w.locator('[data-fkey="' + keys[0] + '"]').click(); const p1 = await pops();
     await w.locator('[data-fkey="' + keys[1] + '"]').click(); const p2 = await pops(), id2 = await w.locator("[data-fpop]").getAttribute("data-fpop");
@@ -256,6 +261,9 @@ async function launch(dataDir, opt) {
   await w.click("[data-ot-save-info]"); await w.waitForTimeout(300);
   ok("V10.2: lưu mã tăng ca mới trong modal → header hiện mã, chuyển sang chế độ chỉ xem", (await w.locator(".ot-dlg header h3").innerText()).includes("TC_E2E") && (await w.locator("[data-ot-edit-info]").count()) === 1);
   await w.click('[data-ot-tab="ct"]');
+  ok("V10.4: đổi tab cha-con giữ focus ở tab vừa chọn", await w.locator('[data-ot-tab="ct"]').evaluate((el) => document.activeElement === el));
+  await w.keyboard.press("Shift+Tab");
+  ok("V10.4: Shift+Tab sau đổi tab vẫn nằm trong Side Drawer", await w.evaluate(() => !!document.activeElement.closest("[data-ot-modal]")));
   ok("Danh mục: tab 'Công thức tính' chỉ để XEM — không có nút tạo / sửa / sao chép / duyệt", (await w.locator("[data-ot-new-ver]").count()) === 0 && (await w.locator("[data-ot-readonly]").count()) === 1 && (await w.locator("[data-ot-ver] button:has-text('Sửa nháp')").count()) === 0);
   await w.click('[data-ot-close]'); await w.waitForTimeout(200);
   // Tạo công thức TC_E2E (cùng mã với mã tăng ca) ở Cài đặt → Trình thiết lập, KHÔNG dùng mẫu

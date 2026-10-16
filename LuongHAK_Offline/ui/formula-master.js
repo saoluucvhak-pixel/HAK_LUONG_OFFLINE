@@ -193,7 +193,8 @@
       var focusable = Array.prototype.slice.call(dlg.querySelectorAll("button, input, select, textarea, a[href], [tabindex]")).filter(function (n) { return !n.disabled && n.tabIndex !== -1 && n.getClientRects().length > 0; });
       if (!focusable.length) { e.preventDefault(); return; }
       var first = focusable[0], last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      if (!dlg.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
     function mount() {
@@ -207,7 +208,9 @@
       if (focusTarget && focusTarget.focus) focusTarget.focus();
     }
     function draw() {
-      var d = A.$("#modal .ot-dlg"); if (!d) return; d.innerHTML = "";
+      var d = A.$("#modal .ot-dlg"); if (!d) return;
+      var hadFocus = d.contains(document.activeElement);
+      d.innerHTML = "";
       var sm = M.ma ? OM.summary(db(), M.ma, S.nam, S.thang) : null;
       var hd = h("header", {}, [h("h3", { text: M.ma ? M.ma + " — " + (sm.ten || "") : "Thêm " + K.noun + " mới" })]);
       if (sm) { hd.appendChild(tag(sm.trangThai, sm.trangThai === "Đang hiệu lực" ? "on" : "off")); hd.appendChild(h("span", { class: "hint", style: "margin:0 8px", text: "Hiệu lực " + (fdate(sm.tu) || "…") + " → " + (fdate(sm.den) || "không giới hạn") })); }
@@ -225,6 +228,11 @@
       if (M.tab === "info") bd.appendChild(infoTab()); else if (M.tab === "ct") bd.appendChild(formulaTab()); else if (M.tab === "test") bd.appendChild(testTab()); else bd.appendChild(historyTab());
       d.appendChild(bd);
       var ft = h("footer", {}); footerFor(ft); d.appendChild(ft);
+      // Redrawing removes the focused control; keep keyboard navigation in the drawer.
+      if (hadFocus) {
+        var target = d.querySelector('[data-ot-tab="' + M.tab + '"]');
+        if (target) target.focus();
+      }
     }
     function footerFor(ft) {
       if (M.tab === "info" && M.edit) {

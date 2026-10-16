@@ -124,9 +124,11 @@
       if (opener && opener.setAttribute) opener.setAttribute("aria-expanded", "true");
       var body = h("div", { class: "sfd-body" });
       var fill = function () {
+        var hadFocus = body.contains(document.activeElement);
         body.innerHTML = "";
         (cfg.advancedFields || []).forEach(function (k) { var n = drawerField(cfg, k, getS, setS, fill); if (n) body.appendChild(n); });
         body.appendChild(presetManager(cfg, getS, setS, fill));
+        if (hadFocus) { var target = body.querySelector("input, select, button"); if (target) target.focus(); }
       };
       var close = function () { closeDrawer(true); };
       var apply = btn("Áp dụng", "pri", function () { var p = SF.dateProblem(draft); if (p) { A.toast("⚠ " + p); return; } cfg.state.set(draft); closeDrawer(true); onApplied(); }, "Áp dụng các điều kiện đang chọn"),
@@ -139,9 +141,10 @@
       var onKey = function (e) {
         if (e.key === "Escape") { e.stopPropagation(); close(); return; }
         if (e.key === "Tab") { // giữ tiêu điểm trong ngăn kéo
-          var f = Array.prototype.slice.call(el.querySelectorAll("button, input, select, [tabindex]")).filter(function (x) { return !x.disabled && x.offsetParent !== null; });
+          var f = Array.prototype.slice.call(el.querySelectorAll("button, input, select, textarea, a[href], [tabindex]")).filter(function (x) { return !x.disabled && x.tabIndex !== -1 && x.getClientRects().length > 0; });
           if (!f.length) return; var first = f[0], last = f[f.length - 1];
-          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          if (!el.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+          else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
         }
       };
       document.addEventListener("keydown", onKey, true);

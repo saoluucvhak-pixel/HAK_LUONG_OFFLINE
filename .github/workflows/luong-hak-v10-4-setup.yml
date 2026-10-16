@@ -25,6 +25,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Test payroll engine and integrations
         run: npm test
+      - name: Test drawer DOM focus regressions
+        run: npm run test:ui-dom
       - name: Build Windows NSIS installer
         run: npm run dist
         env:
@@ -36,3 +38,32 @@ jobs:
           path: LuongHAK_Offline/dist/*Setup*.exe
           if-no-files-found: error
           retention-days: 30
+  electron-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: LuongHAK_Offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies and Electron test driver
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright --no-audit --no-fund
+      - name: Run Electron with isolated synthetic data
+        run: npm run test:e2e 2>&1 | Tee-Object -FilePath electron-e2e.log
+        env:
+          E2E_SHOTS: tests/e2e/screenshots
+      - name: Upload Electron test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAK-LUONG-V10.4-Electron-E2E-${{ github.run_number }}
+          path: |
+            LuongHAK_Offline/electron-e2e.log
+            LuongHAK_Offline/tests/e2e/last-e2e-result.json
+            LuongHAK_Offline/tests/e2e/screenshots/*.png
+          retention-days: 14

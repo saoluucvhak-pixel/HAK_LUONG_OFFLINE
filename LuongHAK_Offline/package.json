@@ -7,11 +7,13 @@
   "scripts": {
     "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
     "test:e2e": "node tests/e2e/run-e2e.js",
+    "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
     "dist": "electron-builder --win nsis --x64"
   },
   "devDependencies": {
     "electron": "43.7.9",
-    "electron-builder": "26.15.3"
+    "electron-builder": "26.15.3",
+    "jsdom": "30.1.3"
   },
   "build": {
     "appId": "vn.hak.luong",
