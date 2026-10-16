@@ -609,3 +609,16 @@ td.ot-note{background:var(--th);color:var(--mut)}
 .hak-workspace .hak-child-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 @media(max-width:1100px) { .hak-workspace-grid { grid-template-columns:1fr; } .hak-workspace-master { border-right:0;border-bottom:1px solid var(--line); } .hak-workspace .ot-list { max-height:45vh; } }
 @media(max-width:600px) { .hak-workspace-hero { padding:18px; } .hak-workspace-hero h2 { font-size:19px; } .hak-workspace .hak-master-guide { margin:10px; } }
+
+
+/* Enterprise V10.4: navigational hierarchy and consistent application shell. */
+#side #nav .hak-nav-group { display:flex;align-items:center;gap:7px;width:100%;text-align:left;cursor:pointer;border:0;background:transparent;color:var(--sbMut);padding:13px 14px 6px;letter-spacing:.08em;font-size:10px;font-weight:750; }
+#side #nav .hak-nav-group:hover { color:var(--sbText); }
+#side #nav .hak-nav-group:focus-visible { outline:2px solid var(--champ);outline-offset:-2px; }
+#side #nav .hak-nav-group-count { margin-left:auto;font-size:10px;letter-spacing:0;opacity:.7;background:rgba(255,255,255,.09);padding:2px 6px;border-radius:20px; }
+#side #nav .hak-nav-chevron { width:12px;text-align:center;font-size:13px; }
+#side #nav .hak-nav-group.is-collapsed { padding-bottom:12px; }
+#content #top { gap:9px; }
+#content #main { min-width:0; }
+#content #main > .card { min-width:0; }
+@media (max-width:850px) { #content #top { flex-wrap:wrap; } #content #main { overflow-x:hidden; } }
