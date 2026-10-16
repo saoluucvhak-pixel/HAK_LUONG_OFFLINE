@@ -29,3 +29,15 @@ This is an initial evidence-based static review, not a completed penetration tes
 4. Payroll/tax/insurance reconciliation verified against controlled fixtures and independently reviewed.
 5. Restore, backup, permissions, formula and report export regression tests pass.
 6. Windows packaged EXE smoke test, offline mode and multi-user/multi-machine behavior tested.
+
+## Verified GitHub Actions result — 2026-10-16
+
+Run: https://github.com/saoluucvhak-pixel/LUONG_HAK/actions/runs/38902975214
+
+- Status: completed, success.
+- JavaScript syntax check: success.
+- Dependencies installed before tests: success.
+- Node test summary from job logs: **656 tests, 656 passed, 0 failed**.
+- Earlier run 38902649147: 650 passed, 6 failed because `tesseract.js` was missing; workflow installation step resolved the CI environment problem.
+
+**Important:** Passing CI does not fix the confirmed `store-load` full-data read exposure. The renderer's `app.js` initializes its database with `store.load()` at startup, so simply denying this IPC before login would break bootstrap and requires a staged redesign. `store-read` backup contents also lack explicit role checks and should be reviewed alongside `store-load`. No Windows EXE smoke test or external security audit has been completed.
