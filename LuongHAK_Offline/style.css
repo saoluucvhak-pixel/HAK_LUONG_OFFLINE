@@ -583,3 +583,29 @@ td.ot-note{background:var(--th);color:var(--mut)}
 .hak-child-actions { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
 @media(max-width:900px) { .hak-child-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:520px) { .hak-child-grid { grid-template-columns:1fr; } .hak-child-preview { padding:12px; } }
+
+
+/* V10.4 actual workspace structure — not just a palette switch. */
+.hak-workspace { padding:0; overflow:hidden; }
+.hak-workspace-hero { background:var(--hero);color:#fff; padding:23px 26px 20px; border-radius:10px 10px 0 0; }
+.hak-workspace-hero small { font-size:10px;letter-spacing:.14em;opacity:.75;font-weight:700; }
+.hak-workspace-hero h2 { color:inherit;margin:6px 0;font-size:24px;font-weight:750; }
+.hak-workspace-hero p { margin:0;opacity:.85;font-size:13px; }
+.hak-workspace-toolbar { padding:14px 18px; margin:0; border-bottom:1px solid var(--line); background:var(--card); }
+.hak-workspace .hak-master-guide { margin:14px 18px; }
+.hak-workspace-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(340px,1fr);gap:0; border-top:1px solid var(--line); min-height:390px; }
+.hak-workspace-master { min-width:0; border-right:1px solid var(--line); }
+.hak-workspace-detail { min-width:0; background:var(--bg); }
+.hak-pane-title { padding:13px 16px; display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line); }
+.hak-pane-title h3 { margin:0;font-size:14px; }
+.hak-pane-title span { font-size:11px;color:var(--mut); }
+.hak-workspace .ot-list { max-height:60vh; overflow:auto; }
+.hak-workspace .ot-list table { font-size:12px; }
+.hak-workspace .ot-list th { position:sticky;top:0;z-index:1; }
+.hak-workspace .ot-act { white-space:normal; min-width:150px; }
+.hak-workspace .ot-act button { margin:2px; }
+.hak-workspace .hak-pane-count { padding:10px 16px; }
+.hak-workspace .hak-child-preview { margin:12px; padding:14px;box-shadow:var(--shadow); }
+.hak-workspace .hak-child-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media(max-width:1100px) { .hak-workspace-grid { grid-template-columns:1fr; } .hak-workspace-master { border-right:0;border-bottom:1px solid var(--line); } .hak-workspace .ot-list { max-height:45vh; } }
+@media(max-width:600px) { .hak-workspace-hero { padding:18px; } .hak-workspace-hero h2 { font-size:19px; } .hak-workspace .hak-master-guide { margin:10px; } }
