@@ -82,7 +82,12 @@
       if (A.can("dm.edit") || A.can("formula.approve")) bar.appendChild(btn("🔗 Liên kết công thức cũ", "", linkDialog));
       bar.appendChild(btn("↻ Làm mới", "", function () { A.render(); }));
       w.appendChild(bar);
-      w.appendChild(h("div", { class: "hint", text: "Mỗi " + K.noun + " (bảng cha) quản lý các phiên bản công thức của riêng nó (bảng con). Mở chi tiết để xem/chỉnh thông tin, quản lý công thức, kiểm thử trên dữ liệu thật và xem lịch sử. Không sửa hàng loạt trên bảng này." }));
+      var guide = h("div", { class: "hint hak-master-guide", "data-hak-master-guide": type });
+      guide.appendChild(h("b", { text: "Quản lý cha – con · " + K.short }));
+      guide.appendChild(h("div", { text: "Bảng cha: danh sách mã " + K.noun + ". Bảng con: phiên bản công thức có hiệu lực, kiểm thử và lịch sử thay đổi. Chọn một mã rồi mở chi tiết để thao tác." }));
+      if (IS_OT) guide.appendChild(h("div", { text: "Địa điểm DQ/QC là thuộc tính chấm công, không phải mã TC. Tính riêng từng địa điểm rồi tổng hợp ở bảng lương; quy tắc tính mới chỉ áp dụng khi đã được phê duyệt và kiểm thử." }));
+      if (!IS_OT) guide.appendChild(h("div", { text: "Mỗi mã " + K.noun + " có thể có nhiều phiên bản công thức. Công thức có hiệu lực được xác định theo kỳ, không sửa trực tiếp dữ liệu kỳ đã chốt." }));
+      w.appendChild(guide);
       var box = h("div", { class: "tw ot-list" }); w.appendChild(box);
       function paint() {
         box.innerHTML = "";
