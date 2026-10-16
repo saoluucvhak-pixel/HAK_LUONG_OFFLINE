@@ -110,6 +110,43 @@
             h("td", { class: "t num", text: String(r.soPhienBan) }), act])));
         });
         box.appendChild(t);
+        // Inline master–detail inspector: read-only, shares the exact applied-formula resolver with the modal.
+        var preview = w.querySelector("[data-hak-child-preview]");
+        if (preview) {
+          preview.innerHTML = "";
+          var chosen = rs.filter(function (r) { return r.ma === S.selectedMa; })[0];
+          if (!chosen && rs.length) { chosen = rs[0]; S.selectedMa = chosen.ma; }
+          if (chosen) {
+            var ap = OM.applied(db(), chosen.ma, S.nam, S.thang);
+            var pHead = h("div", { class: "hak-child-head" });
+            pHead.appendChild(h("div", {}, [h("small", { text: "CHI TIẾT BẢNG CON · " + K.short }), h("h3", { text: chosen.ma + " — " + chosen.ten })]));
+            pHead.appendChild(btn("Mở hồ sơ", "pri", function () { openModal(chosen.ma, { tab: "ct" }); }));
+            preview.appendChild(pHead);
+            var grid = h("div", { class: "hak-child-grid" });
+            [["Kỳ xét", S.thang + "/" + S.nam], ["Phiên bản", ap.rec ? "v" + (ap.rec["Phiên bản"] || 1) : "Mặc định"], ["Nguồn áp dụng", chosen.apDung || ap.nguon], ["Số phiên bản", String(chosen.soPhienBan)]].forEach(function (item) {
+              grid.appendChild(h("div", { class: "hak-child-metric" }, [h("small", { text: item[0] }), h("b", { text: item[1] })]));
+            });
+            preview.appendChild(grid);
+            preview.appendChild(h("div", { class: "hak-child-expression" }, [h("small", { text: "BIỂU THỨC ĐANG ÁP DỤNG" }), h("code", { text: ap.bieuThuc || "Chưa có công thức hợp lệ" })]));
+            var actions = h("div", { class: "hak-child-actions" });
+            [["Thông tin", "info"], ["Phiên bản", "ct"], ["Kiểm thử", "test"], ["Lịch sử", "ls"]].forEach(function (it) {
+              actions.appendChild(btn(it[0], "", function () { openModal(chosen.ma, { tab: it[1] }); }));
+            });
+            preview.appendChild(actions);
+            if (IS_OT) preview.appendChild(h("div", { class: "hint", text: "DQ và QC là địa điểm làm việc. Bảng này quản lý công thức tăng ca; phần tính lương riêng theo địa điểm thuộc bộ máy bảng lương, chưa được thay đổi tại đây." }));
+          } else preview.appendChild(h("div", { class: "empty", text: "Chọn một mã trong danh sách để xem công thức và phiên bản." }));
+        }
+        Array.prototype.forEach.call(t.querySelectorAll("[data-ot-row]"), function (tr) {
+          var ma = tr.getAttribute("data-ot-row");
+          if (ma === S.selectedMa) tr.classList.add("hak-master-selected");
+          tr.addEventListener("click", function (e) {
+            if (e.target.closest && e.target.closest("button")) return;
+            S.selectedMa = ma; paint();
+          });
+          tr.setAttribute("tabindex", "0");
+          tr.setAttribute("aria-label", "Xem chi tiết " + ma);
+          tr.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); S.selectedMa = ma; paint(); } });
+        });
         if (!rs.length) box.appendChild(h("div", { class: "empty", text: OM.parentCodes(db()).length ? "Không có mã nào khớp bộ lọc." : "Chưa có " + K.noun + " nào — bấm “＋ Thêm " + K.noun + "”." }));
         var cnt = w.querySelector("[data-ot-count]"); if (cnt) cnt.textContent = rs.length + " / " + OM.parentCodes(db()).length + " mã";
       }
@@ -117,6 +154,7 @@
       sTr.addEventListener("change", function () { S.fTrang = sTr.value; paint(); });
       sCT.addEventListener("change", function () { S.fCT = sCT.value; paint(); });
       w.appendChild(h("div", { class: "hint", "data-ot-count": "1" }));
+      w.appendChild(h("section", { class: "hak-child-preview", "data-hak-child-preview": "1", "aria-label": "Bảng con công thức đang áp dụng" }));
       paint();
       return w;
     }
