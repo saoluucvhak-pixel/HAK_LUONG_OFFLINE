@@ -132,7 +132,8 @@ test("V8: mọi ipcMain.handle trừ allowlist đều đi qua guarded/guardedW (
   assert.match(src, /ipcMain\.handle = \(ch, fn\) => _handle\(ch,[^;]*guard\.trusted\(e\)/);
   const open = [];
   src.split("\n").forEach((ln) => { const m = ln.match(/ipcMain\.handle\("([^"]+)",\s*(.*)$/); if (m && !/^guarded(W)?\(/.test(m[2])) open.push(m[1]); });
-  assert.deepEqual(open.sort(), ["ocr-selftest"]);
+  assert.deepEqual(open.sort(), [], "Mọi IPC handle phải được bảo vệ bởi guarded/guardedW");
+  assert.match(src, /ipcMain\.handle\("ocr-selftest",\s*guarded\("input\.edit"/, "OCR selftest yêu cầu quyền input.edit");
   // các lệnh nhạy cảm phải đòi đúng quyền
   const need = { "fb-create": "backup.restore", "rs-commit": "backup.restore", "rs-stage": "backup.restore", "ocrlib-approve": "input.edit", "ocrlib-set-status": "ocr.library", "ocrlib-relabel": "ocr.library", "ocrlib-image": "input.view", "report-pdf": "export", "paths-move": "backup.restore" };
   Object.keys(need).forEach((ch) => { const re = new RegExp('ipcMain\\.handle\\("' + ch + '",\\s*guarded(W)?\\("' + need[ch].replace(".", "\\.") + '"'); assert.match(src, re, ch); });
