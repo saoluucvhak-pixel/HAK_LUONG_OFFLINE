@@ -513,3 +513,19 @@ td.ot-note{background:var(--th);color:var(--mut)}
 .fld input.rt,.ot-ro.rt{text-align:right}
 .fgrid .fld.span2{grid-column:span 2}
 @media (max-width:900px){.fgrid .fld.span2{grid-column:1/-1}}
+
+
+/* HAK Enterprise V10.4: refined density, restrained navy/teal, existing themes respected. */
+.ot-master { --r:10px; }
+.ot-master .bar { gap:8px; }
+.ot-master .ot-list { border:1px solid var(--line); border-radius:10px; overflow:auto; }
+.ot-master .ot-list table { border-collapse:separate; border-spacing:0; }
+.ot-master .ot-list th { position:sticky; top:0; z-index:1; background:var(--th); }
+.ot-master .ot-list td { border-bottom:1px solid var(--line2); }
+.ot-master .ot-list tr:hover td { background:var(--hover); }
+.ot-dlg { border:1px solid var(--line); box-shadow:0 18px 48px rgba(8,23,39,.16); }
+.ot-dlg .ot-tabs { border-bottom:1px solid var(--line); }
+.ot-dlg .ot-info .fld label { font-weight:600; color:var(--mut); }
+.ot-dlg [data-ot-formula-explain] { background:var(--hover); color:var(--ink); }
+[data-theme="dark"] .ot-dlg { box-shadow:0 18px 48px rgba(0,0,0,.45); }
+@media (max-width:1000px) { .ot-master .bar { flex-wrap:wrap; } .ot-master .ot-list { max-width:100%; } }
