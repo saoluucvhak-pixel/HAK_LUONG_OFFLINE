@@ -208,9 +208,11 @@
   function curTheme() { try { return localStorage.getItem(KEY + "_theme") === "dark" ? "dark" : "light"; } catch (e) { return "light"; } }
   function applyTheme(t) { document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light"); }
   function toggleTheme() { var t = curTheme() === "dark" ? "light" : "dark"; try { localStorage.setItem(KEY + "_theme", t); } catch (e) { /* vẫn đổi cho phiên này */ } applyTheme(t); render(); }
-  function curSkin() { try { return localStorage.getItem(KEY + "_skin") === "classic" ? "classic" : "luxe"; } catch (e) { return "luxe"; } }
-  function applySkin(k) { document.documentElement.setAttribute("data-skin", k === "classic" ? "classic" : "luxe"); }
-  function toggleSkin() { var k = curSkin() === "luxe" ? "classic" : "luxe"; try { localStorage.setItem(KEY + "_skin", k); } catch (e) { /* vẫn đổi cho phiên này */ } applySkin(k); render(); }
+  var HAK_SKINS = [["luxe", "Luxury V10.3"], ["classic", "Xanh ngọc"], ["neutral", "Trung tính"], ["champagne", "Vàng champagne"]];
+  function curSkin() { try { var k = localStorage.getItem(KEY + "_skin"); return HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"; } catch (e) { return "luxe"; } }
+  function applySkin(k) { document.documentElement.setAttribute("data-skin", HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"); }
+  function setSkin(k) { if (!HAK_SKINS.some(function (v) { return v[0] === k; })) return; try { localStorage.setItem(KEY + "_skin", k); } catch (e) {} applySkin(k); render(); }
+  function toggleSkin() { var i = HAK_SKINS.findIndex(function (v) { return v[0] === curSkin(); }); setSkin(HAK_SKINS[(i + 1) % HAK_SKINS.length][0]); }
   applySkin(curSkin());
   applyTheme(curTheme());
   // ---------- Phân trang + tìm kiếm (PERF-03: 1.000 NV mở lưới chấm công 6,9 s, gõ 4 ký tự 19,9 s khi vẽ toàn bộ) ----------
@@ -4959,7 +4961,10 @@
   function sideFoot(ver) {
     var f = $("#sidefoot"); f.innerHTML = "";
     f.appendChild(h("button", { class: "themebtn", type: "button", on: { click: toggleTheme } }, [curTheme() === "dark" ? "🏖 Giao diện sáng" : "🌙 Giao diện tối"]));
-    f.appendChild(h("button", { class: "themebtn", type: "button", title: "Đổi kiểu: Sang trọng (navy + vàng champagne) hoặc Cổ điển (xanh ngọc)", on: { click: toggleSkin } }, [curSkin() === "luxe" ? "◇ Kiểu cổ điển" : "◆ Kiểu sang trọng"]));
+    var skinSelect = h("select", { class: "themebtn hak-skin-select", "aria-label": "Chọn phong cách giao diện", title: "Bộ giao diện HAK Enterprise V10.4" });
+    HAK_SKINS.forEach(function (v) { var o = h("option", { value: v[0], text: v[1] }); if (curSkin() === v[0]) o.selected = true; skinSelect.appendChild(o); });
+    skinSelect.addEventListener("change", function () { setSkin(skinSelect.value); });
+    f.appendChild(skinSelect);
     f.appendChild(h("div", { class: "ver", text: ver }));
   }
   function fold(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase(); }
