@@ -178,9 +178,12 @@
       M.info = infoFromRow(M.row, ma);
       mount();
     }
+    var previousFocus = null;
     function tryClose() {
       if (M && M.dirty && !confirm("Có thay đổi CHƯA LƯU trong hồ sơ này. Đóng và bỏ thay đổi?")) return false;
-      var m = A.$("#modal"); m.className = "hide"; m.innerHTML = ""; m.onclick = null; document.removeEventListener("keydown", onKey, true); M = null; A.render(); return true;
+      var m = A.$("#modal"); m.className = "hide"; m.innerHTML = ""; m.onclick = null; document.removeEventListener("keydown", onKey, true); M = null; A.render();
+      if (previousFocus && previousFocus.isConnected && previousFocus.focus) previousFocus.focus();
+      previousFocus = null; return true;
     }
     function onKey(e) {
       if (!M) return;
@@ -194,11 +197,14 @@
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
     function mount() {
+      previousFocus = document.activeElement;
       var m = A.$("#modal"); m.innerHTML = ""; m.className = "";
       m.onclick = function (e) { if (e.target === m) tryClose(); };
       document.removeEventListener("keydown", onKey, true); document.addEventListener("keydown", onKey, true);
       var d = h("div", { class: "dlg wide ot-dlg hak-detail-drawer", "data-ot-modal": M.ma || "(mới)", role: "dialog", "aria-modal": "true", "aria-label": K.title + " — chi tiết và phiên bản" });
       m.appendChild(d); draw();
+      var focusTarget = d.querySelector("button, input, select, textarea, [tabindex]");
+      if (focusTarget && focusTarget.focus) focusTarget.focus();
     }
     function draw() {
       var d = A.$("#modal .ot-dlg"); if (!d) return; d.innerHTML = "";
