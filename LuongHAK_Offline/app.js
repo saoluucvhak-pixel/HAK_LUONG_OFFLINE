@@ -4342,7 +4342,7 @@
 
   // ---------- Trang chủ ----------
   function tabHome() {
-    var w = h("div"), go = function (tab, extra) { return function () { st.tab = tab; if (extra) extra(); saveUi(); render(); }; };
+    var w = h("div", { class: "hak-dashboard" }), go = function (tab, extra) { return function () { st.tab = tab; if (extra) extra(); saveUi(); render(); }; };
     var chot = kyChot(kyStr()), ky = "tháng " + st.thang + "/" + st.nam;
     var sp = tabAllowed("luong") ? HRM.staffForPayroll(db, st.nam, st.thang) : null;
     var iss = INT.check(db).filter(function (i) { return i.level === "Critical" || i.level === "High"; });
@@ -4365,6 +4365,12 @@
         h("p", { text: "Nhập chấm công, sản lượng, thưởng / trừ, tạm ứng của tháng rồi bấm Tính lương. Lương, BHXH, thuế TNCN và thực lĩnh được tính tự động theo hồ sơ và danh mục — chạy hoàn toàn offline trên máy này." }),
         h("div", { class: "hbtns" }, hb)]),
       dl]));
+    // Workspace overview: display only values already calculated by the current engine.
+    var metrics = h("section", { class: "hak-dashboard-metrics", "aria-label": "Tổng quan kỳ lương" });
+    [["NHÂN SỰ", String((db.nhanvien || []).filter(function (x) { return x["Trạng thái"] !== "Đã nghỉ việc"; }).length), "Nhân viên đang làm việc"], ["KỲ ĐANG XEM", st.thang + "/" + st.nam, chot ? "Đã chốt" : "Chưa chốt"], ["CẦN XỬ LÝ", String(iss.length + het.length + (sp ? sp.warn.length : 0)), "Cảnh báo dữ liệu và hồ sơ"], ["THỰC LĨNH", !canSeePay() ? HRM.PAY_HIDDEN : tl == null ? "Chưa tính" : fmt(tl), "Số liệu hiện có · không tính lại"]].forEach(function (v) {
+      metrics.appendChild(h("div", { class: "hak-dashboard-metric" }, [h("small", { text: v[0] }), h("strong", { text: v[1] }), h("span", { text: v[2] })]));
+    });
+    w.appendChild(metrics);
     // Các bước
     var steps = [
       ["backup", "Nạp danh mục chuẩn HAK", "Phòng ban, chức vụ, mã lương, phụ cấp, BH, thuế", countOf("dm_baohiem") > 0],
