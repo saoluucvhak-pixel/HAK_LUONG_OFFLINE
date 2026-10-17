@@ -39,3 +39,14 @@ K=0,8 => vệ sinh còn 1.200.000, lệch mục tiêu -300.000 (không được 
 D=26, Ke=1 => L_E tham khảo 666.667, cần xác minh loại ngày và đối chiếu với tiền OT đã có.
 
 **Tính năng app:** menu KPI Bridge có mô phỏng nhập B,M,D,K,V,F,N,Ke. Hàm nằm trong `core/kpi-time-structure.js`, độc lập `engine.js`, không chuyển kết quả sang kỳ lương. Chỉ sử dụng cho kiểm thử và tìm biến liên kết. 
+
+## Bổ sung mức A/B/C/D theo ngày hưởng (bản dự thảo)
+Chế độ `BY_DAY` (ưu tiên): định mức `A=1, B=0,90, C=0,70, D=0` — mức cấu hình dự thảo, không bắt buộc cho mọi doanh nghiệp. Chế độ `MONTH` dùng một mức cho tất cả ngày hưởng đã xác minh. `MANUAL` giữ tương thích với hệ số K trực tiếp trước đây.
+
+Với V là mức tiền vệ sinh tháng được xác nhận, N là công chuẩn được duyệt, và D_m là ngày thực hiện hợp lệ được chấm mức m:
+
+`VE_SINH = ROUND(V/N × (D_A×K_A + D_B×K_B + D_C×K_C + D_D×K_D))`.
+
+Quy tắc: `SUM(D_m) ≤ MIN(ngày đủ điều kiện, công hưởng, công chuẩn)`; các ngày chưa xếp mức KHÔNG tự mặc định được mức A. Mức phải có hồ sơ chứng nhận và hiệu lực theo nhân viên/bộ phận. Nếu số ngày vượt chuẩn, lập bảng công/OT riêng để tránh trùng thanh toán.
+
+Ví dụ V=2.400.000đ, N=24, D_A=18, D_B=4, D_C=2, D_D=0: ngày quy đổi = 23, tiền = 2.300.000đ. Bản mô phỏng trong app có nút tính mức, chưa ghi vào payroll, chưa cho phép sử dụng chính thức khi chưa được duyệt.
