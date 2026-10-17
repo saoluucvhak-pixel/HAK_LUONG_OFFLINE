@@ -5159,7 +5159,7 @@
     else if (PAY_SCREENS[st.tab]) m.appendChild(tabPayReport(PAY_SCREENS[st.tab]));
     else if (OPS_SCREENS[st.tab]) m.appendChild(tabOpsReport(OPS_SCREENS[st.tab]));
     else if (st.tab === "slips") m.appendChild(tabSlips());
-    else if (st.tab === "kpi") { var pane = h("div", { class: "hak-dashboard" }); m.appendChild(pane); window.HAKKPI.ui.mount(pane, { db: db, can: can, toast: toast, txn: txn, audit: audit, period: kyStr, closed: function(k) { return !!kyChot(k); } }); }
+    else if (st.tab === "kpi") { var pane = h("div", { class: "hak-dashboard hak-kpi-panel" }); m.appendChild(pane); window.HAKKPI.ui.mount(pane, { db: db, can: can, toast: toast, txn: txn, audit: audit, period: kyStr, closed: function(k) { return !!kyChot(k); } }); }
     else if (st.tab === "ocr") m.appendChild(tabOCR());
     else if (st.tab === "ocrlib") m.appendChild(tabOcrLib());
     else if (st.tab === "backup") m.appendChild(tabSaoLuu());
