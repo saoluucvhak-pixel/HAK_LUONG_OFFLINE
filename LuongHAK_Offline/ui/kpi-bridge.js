@@ -17,7 +17,7 @@
         if(idx>=0)db.kpi_assignments[idx]=e;else db.kpi_assignments.push(e);
         ctx.audit("KPI_ASSIGN_DRAFT",e.key+" | "+role);return true;});
     }
-    function keyFor(id,metric){return periodKey+"|"+id+"|"+metric;}
+    function keyFor(id,metric){return periodKey+"|"+companyOf()+"|"+id+"|"+metric;}
     function getEntry(id,metric){return (db.kpi_evidence||[]).find(function(x){return x.key===keyFor(id,metric);})||null;}
     function storeEntry(e){if(!ctx.can("dm.edit")){ctx.toast("Cần quyền sửa danh mục để lưu dự thảo KPI");return false;}
       if(ctx.closed(period)){ctx.toast("Kỳ đã khóa; không thể sửa KPI");return false;}
