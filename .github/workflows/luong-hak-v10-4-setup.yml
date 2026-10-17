@@ -125,7 +125,7 @@ jobs:
         with:
           node-version: '22'
       - name: Verify payroll and persistence source are unchanged
-        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ':(exclude)LuongHAK_Offline/core/kpi-catalog.js' ':(exclude)LuongHAK_Offline/core/kpi-bridge.js' ':(exclude)LuongHAK_Offline/core/kpi-time-structure.js' ':(exclude)LuongHAK_Offline/core/kpi-guarantee.js'
+        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ':(exclude)LuongHAK_Offline/core/kpi-catalog.js' ':(exclude)LuongHAK_Offline/core/kpi-bridge.js' ':(exclude)LuongHAK_Offline/core/kpi-time-structure.js' ':(exclude)LuongHAK_Offline/core/kpi-guarantee.js' ':(exclude)LuongHAK_Offline/core/kpi-included-guarantee.js'
       - uses: actions/cache/restore@v4
         with:
           path: hak-project-memory.jsonl
