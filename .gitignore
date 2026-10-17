@@ -1,1 +1,8 @@
 tools/recon/*.json
+__pycache__/
+*.pyc
+hak-*-results.json
+hak-project-memory.jsonl
+hak-skill-proposals.json
+HAK_CODE_QUALITY_TEST/dashboard/reports/
+LuongHAK_Offline/tests/e2e/workspace-shots/

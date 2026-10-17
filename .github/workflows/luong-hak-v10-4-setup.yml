@@ -7,6 +7,11 @@ on:
     paths:
       - 'LuongHAK_Offline/**'
       - '.github/workflows/luong-hak-v10-4-setup.yml'
+      - 'HAK_CODE_QUALITY_TEST/**'
+      - 'HAK_AI_SKILLS/**'
+      - 'HAK_ACCOUNTING_REPORT_STANDARD/**'
+      - 'HAK_SMART_FILTER/**'
+      - 'design-system/**'
 permissions:
   contents: read
 jobs:
@@ -67,3 +72,85 @@ jobs:
             LuongHAK_Offline/tests/e2e/last-e2e-result.json
             LuongHAK_Offline/tests/e2e/screenshots/*.png
           retention-days: 14
+  workspace-visual:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: LuongHAK_Offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 4576259a2f7d079b91a915abeeec54cdd4e82d64
+          path: .comparison/v103
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install visual test dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright --no-audit --no-fund
+      - name: Capture V10.3 reference with identical synthetic data
+        run: npm run test:workspace
+        env:
+          APP_UNDER_TEST: ${{ github.workspace }}/.comparison/v103/LuongHAK_Offline
+          VISUAL_BASELINE: '1'
+          VISUAL_OUT: ${{ github.workspace }}/visual-evidence/before-v103
+      - name: Verify V10.4 layouts and all themes
+        if: success() || failure()
+        run: npm run test:workspace
+        env:
+          VISUAL_OUT: ${{ github.workspace }}/visual-evidence/after-v104
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HAK-V10.3-V10.4-Visual-${{ github.run_number }}
+          path: visual-evidence/
+          retention-days: 30
+  inherited-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify payroll and persistence source are unchanged
+        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js
+      - uses: actions/cache/restore@v4
+        with:
+          path: hak-project-memory.jsonl
+          key: hak-observer-v104-${{ github.sha }}
+          restore-keys: hak-observer-v104-
+      - name: Execute inherited quality gate and library tests
+        run: python HAK_CODE_QUALITY_TEST/quality_gate.py --config HAK_CODE_QUALITY_TEST/config/luong-hak.json --root . --out hak-quality-results.json
+      - name: Record static security findings for review
+        continue-on-error: true
+        run: python HAK_CODE_QUALITY_TEST/security_audit.py --root LuongHAK_Offline --out hak-security-results.json
+      - name: Analyze dependencies with inherited analyzer
+        run: python HAK_CODE_QUALITY_TEST/architecture_analyzer.py --root LuongHAK_Offline --changed app.js --changed ui/formula-master.js --out hak-architecture-results.json
+      - name: Update sanitized Observer memory
+        run: python HAK_CODE_QUALITY_TEST/ci_observer.py --quality hak-quality-results.json --security hak-security-results.json --architecture hak-architecture-results.json --project LUONG_HAK --branch "$GITHUB_REF_NAME" --commit "$GITHUB_SHA" --memory hak-project-memory.jsonl --out hak-skill-proposals.json
+      - uses: actions/cache/save@v4
+        with:
+          path: hak-project-memory.jsonl
+          key: hak-observer-v104-${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HAK-Inherited-Quality-${{ github.run_number }}
+          path: |
+            hak-quality-results.json
+            hak-security-results.json
+            hak-architecture-results.json
+            hak-project-memory.jsonl
+            hak-skill-proposals.json
+          retention-days: 30
