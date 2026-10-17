@@ -97,7 +97,7 @@
   }
   // Chỉ TẠO bảng còn thiếu; bảng có nhưng sai kiểu đã bị chặn ở bước kiểm tra cấu trúc (không bao giờ thay bằng bảng rỗng)
   function ensureTables() {
-    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "ocr_ten", "chungtu_lienket", "hdld_tailieu", "ttluong", "kpi_evidence"]).forEach(function (k) {
+    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "ocr_ten", "chungtu_lienket", "hdld_tailieu", "ttluong", "kpi_evidence", "kpi_assignments"]).forEach(function (k) {
       if (db[k] === undefined) db[k] = [];
       else if (!Array.isArray(db[k])) throw new Error("Bảng " + k + " sai cấu trúc — không tự thay thế");
     });
@@ -5159,7 +5159,7 @@
     else if (PAY_SCREENS[st.tab]) m.appendChild(tabPayReport(PAY_SCREENS[st.tab]));
     else if (OPS_SCREENS[st.tab]) m.appendChild(tabOpsReport(OPS_SCREENS[st.tab]));
     else if (st.tab === "slips") m.appendChild(tabSlips());
-    else if (st.tab === "kpi") { var pane = h("div", { class: "hak-dashboard hak-kpi-panel" }); m.appendChild(pane); window.HAKKPI.ui.mount(pane, { db: db, can: can, toast: toast, txn: txn, audit: audit, period: kyStr, closed: function(k) { return !!kyChot(k); } }); }
+    else if (st.tab === "kpi") { var pane = h("div", { class: "hak-dashboard hak-kpi-panel" }); m.appendChild(pane); window.HAKKPI.ui.mount(pane, { db: db, can: can, toast: toast, txn: txn, audit: audit, confirm: function(text) { return confirm(text); }, period: kyStr, closed: function(k) { return !!kyChot(k); } }); }
     else if (st.tab === "ocr") m.appendChild(tabOCR());
     else if (st.tab === "ocrlib") m.appendChild(tabOcrLib());
     else if (st.tab === "backup") m.appendChild(tabSaoLuu());
