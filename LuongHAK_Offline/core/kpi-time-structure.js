@@ -58,15 +58,15 @@
   }
   function compute(input) {
     input = input || {};
-    var base = number(input.insuranceBase), target = number(input.monthlyTarget);
+    var base = number(input.baseMonthly), target = number(input.monthlyTarget);
     var days = number(input.paidDays), std = number(input.standardDays);
     var k = number(input.careCoefficient), ke = number(input.extraCoefficient);
     var care = number(input.careMonthly), other = number(input.otherMonthly);
     var warnings = [], errors = [];
     var category = String(input.category || "");
     if (!Object.prototype.hasOwnProperty.call(CATEGORIES, category)) errors.push("Phải chọn đúng loại công việc vệ sinh/bảo dưỡng");
-    if (base === null || base < 0 || target === null || target < 0) errors.push("Thiếu mức lương BHXH tham chiếu hoặc mức lương tháng mục tiêu");
-    if (base !== null && target !== null && target < base) errors.push("Mức mục tiêu thấp hơn mức BHXH tham chiếu: cần rà soát HĐLĐ, không tự tính phần chênh âm");
+    if (base === null || base < 0 || target === null || target < 0) errors.push("Thiếu mức lương thời gian hợp đồng hoặc mức lương tháng mục tiêu");
+    if (base !== null && target !== null && target < base) errors.push("Mức bảo đảm thấp hơn lương hợp đồng: cần rà soát quyền hưởng");
     if (std === null || std <= 0 || std > 31) errors.push("Công chuẩn phải được xác nhận trong khoảng 1–31");
     if (days === null || days < 0 || days > 31) errors.push("Ngày công phải trong khoảng 0–31 và có bảng chấm công");
     if (k === null || k < 0 || k > 2) errors.push("Hệ số vệ sinh/bảo dưỡng chỉ nhận 0–2 cho mô phỏng");
@@ -91,7 +91,7 @@
     if (extraDays > 0) warnings.push("Công vượt chuẩn không tự động là tăng ca: phải phân loại ngày/giờ và kiểm tra khoản TC đã trả để tránh cộng hai lần");
     if (!input.policyApproved) warnings.push("Quy chế vệ sinh/bảo dưỡng chưa được phê duyệt");
     if (!input.evidenceReviewed) warnings.push("Chưa có xác nhận công việc và chứng từ vệ sinh/bảo dưỡng");
-    if (!input.contractVerified) warnings.push("Mức lương BHXH và tháng mục tiêu chưa được đối chiếu hồ sơ HĐLĐ");
+    if (!input.contractVerified) warnings.push("Lương theo hợp đồng và tháng mục tiêu chưa đối chiếu hồ sơ");
     var levelMode=String(input.careLevelMode||"MANUAL");
     var levelResult=null;
     if(levelMode!=="MANUAL"&&levelMode!=="MONTH"&&levelMode!=="BY_DAY")
@@ -107,8 +107,8 @@
     var basePart = round(base*regularRatio);
     var carePart = levelResult?levelResult.amount:round(allowance*careRatio*k);
     var otherPart = round(extraFixed*regularRatio);
-    var extraPart = round(extraDays*(target/std)*ke);
-    var total = basePart+carePart+otherPart+extraPart;
+    var extraPart = 0; // Not overtime and not wage: no synthetic over-standard cash credit
+    var total = basePart+carePart+otherPart;
     var denom=allowance*careRatio;
     // A diagnostic sensitivity / implied coefficient, NEVER an approval instruction.
     var implied = denom > 0 ? (target - basePart - otherPart - extraPart)/denom : null;
@@ -116,12 +116,12 @@
     if (errors.length) return { ok:false,status:"INVALID",errors:errors,warnings:warnings,mode:"COMPARE_ONLY",unallocatedMonthly:unallocated };
     return {
       ok:true, status:"SIMULATION_ONLY", mode:"COMPARE_ONLY", category:category, categoryName:CATEGORIES[category],
-      inputs:{insuranceBase:base,monthlyTarget:target,standardDays:std,paidDays:days,careEligibleDays:eligibleDays,careCoefficient:k,extraCoefficient:ke,careMonthly:care,otherMonthly:other},
+      inputs:{baseMonthly:base,monthlyTarget:target,standardDays:std,paidDays:days,careEligibleDays:eligibleDays,careCoefficient:k,extraCoefficient:ke,careMonthly:care,otherMonthly:other},
       days:{regular:regularDays,extra:extraDays,careEligible:eligibleDays,regularRatio:regularRatio,careRatio:careRatio},
-      components:{baseTime:basePart,careMaintenance:carePart,otherFixed:otherPart,overStandardPreview:extraPart},
+      components:{baseTime:basePart,careMaintenance:carePart,otherFixed:otherPart,overStandardPreview:0},
       careLevels:levelResult,
       comparison:{targetMonthly:target,monthlyGap:round(gap),suggestedCareCeiling:round(Math.max(0,gap)),unallocatedMonthly:unallocated,totalSimulated:total,differenceFromTarget:round(total-target)},
-      links:{perRegularDayAtFullCare:marginalRegular,perExtraDayAtFactor:target/std*ke,perCareCoefficientUnit:allowance*careRatio,impliedCareCoefficientForTarget:implied},
+      links:{perRegularDayAtFullCare:marginalRegular,perExtraDayAtFactor:0,perCareCoefficientUnit:allowance*careRatio,impliedCareCoefficientForTarget:implied},
       issues:warnings,errors:[],payrollWriteAllowed:false
     };
   }
