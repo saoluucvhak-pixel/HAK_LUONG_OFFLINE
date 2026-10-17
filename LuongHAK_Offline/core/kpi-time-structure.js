@@ -18,6 +18,43 @@
     var n = Number(v); return Number.isFinite(n) ? n : null;
   }
   function round(n) { return Math.round(n); }
+  var CARE_LEVELS = Object.freeze({ A:1, B:0.90, C:0.70, D:0 });
+  function careByLevel(options) {
+    options=options||{};
+    var errors=[], issues=[], mode=String(options.mode||""), rates=options.rates||CARE_LEVELS;
+    var monthly=number(options.monthlyAmount), std=number(options.standardDays), days=number(options.paidDays);
+    if(mode!=="BY_DAY" && mode!=="MONTH") errors.push("Chọn cách xếp mức theo ngày hoặc theo tháng");
+    if(monthly===null||monthly<0) errors.push("Thiếu mức vệ sinh/bảo dưỡng tháng được duyệt");
+    if(std===null||std<=0||std>31||days===null||days<0||days>31) errors.push("Công chuẩn hoặc ngày hưởng không hợp lệ");
+    var keys=["A","B","C","D"], kRate={};
+    keys.forEach(function(key){var k=number(rates[key]);if(k===null||k<0||k>1)errors.push("Hệ số mức "+key+" phải từ 0 đến 1");else kRate[key]=k;});
+    var eligible=options.eligibleDays===undefined||options.eligibleDays===null||options.eligibleDays===""?
+      (std===null||days===null?null:Math.min(days,std)):number(options.eligibleDays);
+    if(eligible===null||eligible<0||(std!==null&&days!==null&&eligible>Math.min(days,std)+1e-9))
+      errors.push("Ngày đủ điều kiện hưởng vệ sinh không được vượt MIN(công hưởng, công chuẩn)");
+    var perLevel={}, credited=0, graded=0;
+    if(mode==="MONTH"){
+      var level=String(options.level||"");
+      if(keys.indexOf(level)<0)errors.push("Mức cả tháng phải là A, B, C hoặc D");
+      else if(eligible!==null) {credited=eligible*kRate[level];graded=eligible;perLevel[level]=eligible;}
+    } else if(mode==="BY_DAY"){
+      var counts=options.daysByLevel||{};
+      keys.forEach(function(key){
+        var n=number(counts[key]);if(n===null||n<0)errors.push("Ngày mức "+key+" thiếu hoặc âm");
+        else {perLevel[key]=n;graded+=n;credited+=n*kRate[key];}
+      });
+      if(eligible!==null&&graded>eligible+1e-9)errors.push("Tổng ngày A/B/C/D vượt ngày đủ điều kiện hưởng; không cộng vượt công chuẩn");
+      if(eligible!==null&&graded<eligible-1e-9)issues.push("Còn ngày hưởng chưa được xếp mức: không tự tính mức A");
+    }
+    if(errors.length)return {ok:false,status:"INVALID",errors:errors,mode:"COMPARE_ONLY"};
+    var amount=round(monthly*credited/std);
+    return {ok:true,status:"SIMULATION_ONLY",mode:mode,amount:amount,
+      gradedDays:graded,eligibleDays:eligible,pendingDays:Math.max(0,eligible-graded),
+      weightedDays:credited,averageCoefficient:graded>0?credited/graded:0,
+      monthlyRate:monthly,standardDays:std,rates:kRate,daysByLevel:perLevel,
+      amountPerAdditionalDay:Object.fromEntries(keys.map(function(key){return [key,monthly*kRate[key]/std];})),
+      issues:issues,payrollWriteAllowed:false};
+  }
   function compute(input) {
     input = input || {};
     var base = number(input.insuranceBase), target = number(input.monthlyTarget);
@@ -54,25 +91,38 @@
     if (!input.policyApproved) warnings.push("Quy chế vệ sinh/bảo dưỡng chưa được phê duyệt");
     if (!input.evidenceReviewed) warnings.push("Chưa có xác nhận công việc và chứng từ vệ sinh/bảo dưỡng");
     if (!input.contractVerified) warnings.push("Mức lương BHXH và tháng mục tiêu chưa được đối chiếu hồ sơ HĐLĐ");
+    var levelMode=String(input.careLevelMode||"MANUAL");
+    var levelResult=null;
+    if(levelMode!=="MANUAL"&&levelMode!=="MONTH"&&levelMode!=="BY_DAY")
+      return {ok:false,status:"INVALID",errors:["Cách xếp mức hưởng vệ sinh không hợp lệ"],warnings:warnings,mode:"COMPARE_ONLY"};
+    if(levelMode!=="MANUAL"){
+      if(care===null)return {ok:false,status:"INVALID",errors:["Xếp mức A/B/C/D yêu cầu nhập mức vệ sinh tháng"],warnings:warnings,mode:"COMPARE_ONLY"};
+      levelResult=careByLevel({mode:levelMode,monthlyAmount:care,standardDays:std,
+        paidDays:days,eligibleDays:input.careEligibleDays,level:input.careLevel,
+        daysByLevel:input.careLevelDays,rates:input.careLevelRates});
+      if(!levelResult.ok)return {ok:false,status:"INVALID",errors:levelResult.errors,warnings:warnings,mode:"COMPARE_ONLY"};
+      warnings=warnings.concat(levelResult.issues);
+    }
     var basePart = round(base*regularRatio);
-    var carePart = round(allowance*careRatio*k);
+    var carePart = levelResult?levelResult.amount:round(allowance*careRatio*k);
     var otherPart = round(extraFixed*regularRatio);
     var extraPart = round(extraDays*(target/std)*ke);
     var total = basePart+carePart+otherPart+extraPart;
     var denom=allowance*careRatio;
     // A diagnostic sensitivity / implied coefficient, NEVER an approval instruction.
     var implied = denom > 0 ? (target - basePart - otherPart - extraPart)/denom : null;
-    var marginalRegular = (base+extraFixed+allowance*k)/std;
+    var marginalRegular = (base+extraFixed+allowance*(levelResult?levelResult.averageCoefficient:k))/std;
     if (errors.length) return { ok:false,status:"INVALID",errors:errors,warnings:warnings,mode:"COMPARE_ONLY",unallocatedMonthly:unallocated };
     return {
       ok:true, status:"SIMULATION_ONLY", mode:"COMPARE_ONLY", category:category, categoryName:CATEGORIES[category],
       inputs:{insuranceBase:base,monthlyTarget:target,standardDays:std,paidDays:days,careEligibleDays:eligibleDays,careCoefficient:k,extraCoefficient:ke,careMonthly:care,otherMonthly:other},
       days:{regular:regularDays,extra:extraDays,careEligible:eligibleDays,regularRatio:regularRatio,careRatio:careRatio},
       components:{baseTime:basePart,careMaintenance:carePart,otherFixed:otherPart,overStandardPreview:extraPart},
+      careLevels:levelResult,
       comparison:{targetMonthly:target,monthlyGap:round(gap),suggestedCareCeiling:round(Math.max(0,gap)),unallocatedMonthly:unallocated,totalSimulated:total,differenceFromTarget:round(total-target)},
       links:{perRegularDayAtFullCare:marginalRegular,perExtraDayAtFactor:target/std*ke,perCareCoefficientUnit:allowance*careRatio,impliedCareCoefficientForTarget:implied},
       issues:warnings,errors:[],payrollWriteAllowed:false
     };
   }
-  return Object.freeze({CATEGORIES:CATEGORIES,compute:compute});
+  return Object.freeze({CATEGORIES:CATEGORIES,CARE_LEVELS:CARE_LEVELS,careByLevel:careByLevel,compute:compute});
 });
