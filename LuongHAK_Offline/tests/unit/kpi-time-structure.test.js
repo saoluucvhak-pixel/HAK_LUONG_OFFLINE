@@ -1,0 +1,10 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict");
+const m=require("../../core/kpi-time-structure.js");
+function p(extra){return Object.assign({category:"CG_BD_VS_XE",insuranceBase:6000000,monthlyTarget:8000000,paidDays:24,standardDays:24,careCoefficient:1,extraCoefficient:1,careMonthly:1500000,otherMonthly:500000,policyApproved:false,evidenceReviewed:false,contractVerified:false},extra||{});}
+test("24 days and factor one reconcile approved structural allocations in preview",()=>{let r=m.compute(p());assert.equal(r.ok,true);assert.deepEqual(r.components,{baseTime:6000000,careMaintenance:1500000,otherFixed:500000,overStandardPreview:0});assert.equal(r.comparison.differenceFromTarget,0);assert.equal(r.payrollWriteAllowed,false);});
+test("26 days separate base cap and two excess days, without auto overtime status",()=>{let r=m.compute(p({paidDays:26}));assert.equal(r.days.extra,2);assert.equal(r.components.overStandardPreview,666667);assert.ok(r.issues.some(s=>s.includes("không tự động là tăng ca")));});
+test("factor changes only care component, not insurance reference",()=>{let r=m.compute(p({careCoefficient:0.8}));assert.equal(r.components.careMaintenance,1200000);assert.equal(r.components.baseTime,6000000);});
+test("negative residual cannot masquerade as hygiene allowance",()=>{let r=m.compute(p({careMonthly:2500000}));assert.equal(r.ok,false);assert.ok(r.errors.some(s=>s.includes("vượt chênh lệch")));});
+test("unknown category, missing salaries, zero standard, invalid factors are rejected",()=>{for(let x of [{category:"X"},{insuranceBase:""},{monthlyTarget:""},{standardDays:0},{paidDays:-1},{careCoefficient:-1},{extraCoefficient:7}])assert.equal(m.compute(p(x)).ok,false,JSON.stringify(x));});
+test("unallocated salary difference is shown, not silently assigned to KPI or hygiene",()=>{let r=m.compute(p({careMonthly:800000,otherMonthly:100000}));assert.equal(r.comparison.unallocatedMonthly,1100000);assert.ok(r.issues.some(s=>s.includes("chưa phân loại")));});
