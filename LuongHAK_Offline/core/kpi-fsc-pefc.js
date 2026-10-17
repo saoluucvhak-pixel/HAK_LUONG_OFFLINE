@@ -14,6 +14,11 @@ if(!String(o.unit||"").trim())e.push("Phải khai báo đơn vị mức 100,200 
 if(e.length)return {ok:false,errors:e,payrollWriteAllowed:false};
 var salaryDays=Math.min(worked,std),days=Math.min(Math.max(0,worked-std),scheduled-std),outsideScheduleDays=Math.max(0,worked-scheduled);
 var ratio=ok/done,score=Math.min(120,100*ratio/target),equivalent=days*rate;
-return {ok:true,ratio:ratio,score:score,calendarDays:calendar,scheduledDays:scheduled,workedDays:worked,salaryDays:salaryDays,fscDays:days,dayDifference:days,outsideScheduleDays:outsideScheduleDays,unit:String(o.unit),equivalent:equivalent,mode:"COMPARE_ONLY",payrollWriteAllowed:false,warnings:["24 công lương + 2 công FSC trong lịch 26/30 chỉ là cách phân bổ nội bộ, không bỏ nghĩa vụ lương ngày làm bình thường và không tạo ra giờ tăng ca.","KPI FSC phải có chứng từ và duyệt riêng; nếu đã nằm trong mức lương tháng bảo đảm thì không tự cộng thêm ngoài mức đó."]};
+var qualityCoefficient=Math.min(1,ratio/target);
+var fund=n(o.fscFundVnd),rateVnd=n(o.ratePerDayVnd);
+var monetaryReady=o.unit==="VND"&&fund!==null&&fund>=0&&rateVnd!==null&&rateVnd>=0&&o.evidenceReviewed===true&&o.fundApproved===true;
+var singleFscPay=monetaryReady?Math.round(Math.min(fund,days*rateVnd*qualityCoefficient)):null;
+return {ok:true,ratio:ratio,score:score,calendarDays:calendar,scheduledDays:scheduled,workedDays:worked,salaryDays:salaryDays,fscDays:days,dayDifference:days,outsideScheduleDays:outsideScheduleDays,unit:String(o.unit),equivalent:equivalent,qualityCoefficient:qualityCoefficient,
+singleFscPayVnd:singleFscPay,fundRemainingVnd:singleFscPay===null?null:fund-singleFscPay,monetaryReady:monetaryReady,mode:"COMPARE_ONLY",payrollWriteAllowed:false,warnings:["24 công lương + 2 công FSC trong lịch 26/30 chỉ là cách phân bổ nội bộ, không bỏ nghĩa vụ lương ngày làm bình thường và không tạo ra giờ tăng ca.","Điểm hồ sơ chỉ xác định hệ số chất lượng; quỹ FSC được giới hạn và chỉ tạo MỘT khoản phân bổ nội bộ trong KPI tháng. Chưa duyệt thì không tính tiền."]};
 }
 return Object.freeze({evaluate:evaluate});});
