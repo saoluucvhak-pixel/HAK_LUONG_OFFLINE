@@ -11,7 +11,8 @@
     CN_VS: "Công nhân – vệ sinh, chuyên cần (theo công việc được giao)",
     TX_VS_XE: "Tài xế – vệ sinh, kiểm tra xe",
     CK_VS_TB: "Cơ khí – vệ sinh, bảo dưỡng thiết bị",
-    CG_BD_VS_XE: "Cơ giới – bảo dưỡng, vệ sinh xe, máy"
+    CG_BD_VS_XE: "Cơ giới – bảo dưỡng, vệ sinh xe, máy",
+    TK_VS_KHO: "Thủ kho – vệ sinh kho, bãi, khu vực bảo quản và sắp xếp vật tư"
   });
   function number(v) {
     if (v === "" || v == null || typeof v === "boolean") return null;
