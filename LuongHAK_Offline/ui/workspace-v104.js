@@ -84,7 +84,7 @@
     const metrics = workspace.querySelector('.hak-catalog-metrics');
     const rows = [...workspace.querySelectorAll('[data-ot-row]')];
     const active = rows.filter(row => row.textContent.includes('Đang hiệu lực')).length;
-    const versions = rows.reduce((sum, row) => { const cells = [...row.children]; return sum + (Number(cells[cells.length - 2]?.textContent) || 0); }, 0);
+    const versions = rows.reduce((sum, row) => { const cells = [...row.children]; return sum + (Number((cells[cells.length - 2] && cells[cells.length - 2].textContent)) || 0); }, 0);
     const values = [['▤', 'Mã đang hiển thị', rows.length], ['✓', 'Đang hiệu lực', active], ['◷', 'Phiên bản công thức', versions], ['⇄', 'Không gian quản lý', 'Cha – con']];
     const signature = JSON.stringify(values);
     if (metrics && metrics.dataset.signature !== signature) {
