@@ -1,14 +1,13 @@
 // HAK KPI Bridge — Offline draft tracking screen, no payroll writes.
 (function(root){ "use strict";
   function mount(el, ctx) {
-    var cat=root.HAKKPI.catalog, core=root.HAKKPI.bridge, db=ctx.db, doc=el.ownerDocument, period=ctx.period(), employee=null, roleId="", entries={}, list=[], selectedMetric="";
+    var cat=root.HAKKPI.catalog, core=root.HAKKPI.bridge, db=ctx.db, doc=el.ownerDocument, period=ctx.period(), employee=null, roleId="", selectedMetric="";
     if (!cat || !core) {el.textContent="Thiếu module KPI, vui lòng cài lại ứng dụng.";return;}
     var periodKey="KPI|"+period;
     function make(tag,cls,text){var e=doc.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
     function row(parent,label,elem){var wrap=make("label","kpi-field");wrap.append(make("span","",label),elem);parent.append(wrap);return elem;}
     function input(type,value){var e=make("input");e.type=type;e.value=value||"";e.className="i";return e;}
     function button(label,fn){var e=make("button","b",label);e.type="button";e.onclick=fn;return e;}
-    function findEmp(id){return (db.nhanvien||[]).find(function(x){return String(x["Mã NV"])===id;});}
     function keyFor(id,metric){return periodKey+"|"+id+"|"+metric;}
     function getEntry(id,metric){return (db.kpi_evidence||[]).find(function(x){return x.key===keyFor(id,metric);})||null;}
     function storeEntry(e){if(!ctx.can("dm.edit")){ctx.toast("Cần quyền sửa danh mục để lưu dự thảo KPI");return false;}
@@ -21,11 +20,11 @@
       el.replaceChildren();
       var title=make("div","hak-catalog-heading");title.append(make("h2","","KPI Bridge – Theo dõi & đối chiếu"));title.append(make("small","","Thử nghiệm · Chưa ban hành · Không cộng vào bảng lương"));el.append(title);
       var banner=make("div","hint","Dữ liệu mẫu 26 vai trò / 104 chỉ tiêu. Quy chế CHƯA hiệu lực: tất cả kết quả là dự thảo và không được ghi sang bảng lương.");el.append(banner);
-      var toolbar=make("div","bar"), staffSel=make("select","i");staffSel.append(new Option("Chọn nhân viên…",""));
-      (db.nhanvien||[]).forEach(function(e){var id=String(e["Mã NV"]||"");if(id)staffSel.append(new Option(id+" – "+String(e["Họ và tên"]||""),id));});
+      var toolbar=make("div","bar"), staffSel=make("select","i");staffSel.append(new root.Option("Chọn nhân viên…",""));
+      (db.nhanvien||[]).forEach(function(e){var id=String(e["Mã NV"]||"");if(id)staffSel.append(new root.Option(id+" – "+String(e["Họ và tên"]||""),id));});
       staffSel.value=employee||"";staffSel.onchange=function(){employee=staffSel.value;selectedMetric="";render();};row(toolbar,"Nhân viên",staffSel);
-      var roles=make("select","i");roles.append(new Option("Chọn vai trò…",""));
-      cat.roles.forEach(function(r){roles.append(new Option(r.id+" – "+r.name+" ("+r.mode+")",r.id));});
+      var roles=make("select","i");roles.append(new root.Option("Chọn vai trò…",""));
+      cat.roles.forEach(function(r){roles.append(new root.Option(r.id+" – "+r.name+" ("+r.mode+")",r.id));});
       roles.value=roleId;roles.onchange=function(){roleId=roles.value;selectedMetric="";render();};row(toolbar,"Vai trò KPI",roles);
       el.append(toolbar);
       if(!employee||!roleId){el.append(make("div","card","Chọn nhân viên và vai trò để xem 4 KPI của chức danh. Chưa có dữ liệu nào được ghi khi chỉ chọn."));return;}
