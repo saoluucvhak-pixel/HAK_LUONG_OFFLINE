@@ -23,5 +23,5 @@ rV=MIN(DV,N)/N; rP=MIN(DP,N)/N. Các kết quả suy ngược dùng để kiểm
 Ví dụ M=8.000.000, C=6.000.000, V0=1.200.000, P0=800.000, F0=0, N=D=DV=DP=24, KV=0,9, KP=0,75:
 PRE=6.000.000+1.080.000+600.000=7.680.000; TOPUP=320.000; TOTAL=8.000.000.
 
-Phụ lục này thay thế phần “KPI cộng ngoài mức bảo đảm” của docs/KPI_GUARANTEED_MONTHLY_INCOME_2026.md trong phạm vi nhóm nhân viên người dùng đã chốt. Không dùng phiên bản cũ để lập khoản KPI cộng thêm.
+Phương án cộng KPI ngoài mức bảo đảm cùng mã nguồn và tài liệu đã bị xóa khỏi nhánh. Duy nhất phương án FIXED_INCLUDES_KPI được giữ để mô phỏng.
 Mô phỏng: core/kpi-included-guarantee.js. Giao diện: menu KPI Bridge. Payroll Engine gốc không thay đổi, các kỳ đã chốt không bị tác động.
