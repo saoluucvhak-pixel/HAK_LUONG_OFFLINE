@@ -159,9 +159,14 @@
             preview.appendChild(actions);
             var expression = preview.querySelector(".hak-child-expression");
             [["info", "Thông tin"], ["ct", "Công thức"]].forEach(function (item) {
-              var tab = btn(item[1], "", function () { S.inspectorTab = item[0]; paint(); });
+              var tab = btn(item[1], "", function () { S.inspectorTab = item[0]; paint(); var focus = preview.querySelector('.hak-inspector-tabs [aria-selected="true"]'); if (focus) focus.focus({ preventScroll: true }); });
               var selected = (S.inspectorTab || "info") === item[0];
-              tab.setAttribute("role", "tab"); tab.setAttribute("aria-selected", String(selected));
+              tab.setAttribute("role", "tab"); tab.setAttribute("aria-selected", String(selected)); tab.tabIndex = selected ? 0 : -1;
+              tab.addEventListener("keydown", function (e) {
+                if (["ArrowLeft", "ArrowRight", "Home", "End"].indexOf(e.key) < 0) return;
+                e.preventDefault(); S.inspectorTab = e.key === "Home" ? "info" : e.key === "End" ? "ct" : (item[0] === "info" ? "ct" : "info");
+                paint(); var focus = preview.querySelector('.hak-inspector-tabs [aria-selected="true"]'); if (focus) focus.focus({ preventScroll: true });
+              });
               paneTabs.appendChild(tab);
             });
             [["test", "Kiểm thử"], ["ls", "Lịch sử"]].forEach(function (item) {

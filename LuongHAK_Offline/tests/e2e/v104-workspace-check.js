@@ -91,6 +91,8 @@ async function fits(selector, name) {
           check(width + ': ' + slug + ' information fields', await w.locator('.hak-record-field').count() >= 7);
           await w.getByRole('tab', { name: 'Công thức', exact: true }).click();
           check(width + ': ' + slug + ' formula tab', await w.locator('.hak-child-expression').isVisible());
+          await w.keyboard.press('ArrowLeft');
+          check(width + ': ' + slug + ' inspector keyboard navigation', await w.getByRole('tab', { name: 'Thông tin', exact: true }).getAttribute('aria-selected') === 'true' && await w.getByRole('tab', { name: 'Thông tin', exact: true }).evaluate(el => el === document.activeElement));
           await w.getByRole('tab', { name: 'Thông tin', exact: true }).click();
           await shot(width + '-catalog-' + slug);
           await w.locator('.hak-record-edit').click();
