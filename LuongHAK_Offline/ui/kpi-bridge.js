@@ -92,6 +92,18 @@
            gOutput.append(make("p","",item[0]+": "+item[1].toLocaleString("vi-VN")+" đ"));
          });resultG.issues.forEach(function(s){gOutput.append(make("p","","⚠ "+s));});
       }));guarantee.append(gOutput);el.append(guarantee);
+      var incBox=make("div","card");incBox.append(make("h3","","Phương án đã chốt: Lương cố định bao gồm KPI"));
+      incBox.append(make("p","hint","Lương cơ cấu C+V+P+F=M; hệ số không làm giảm mức bảo đảm. KPI không cộng ngoài tổng sau bù. Suy ngược cần tổng trước bù và đúng một hệ số đã biết."));
+      var incFields=[["Thu nhập tháng bảo đảm M","guaranteedMonthly","8000000"],["Lương thời gian hợp đồng C","baseMonthly","6000000"],["Vệ sinh mục tiêu V","hygieneTarget","1200000"],["KPI mục tiêu P (nằm trong M)","kpiTarget","800000"],["Khoản khác F (nằm trong M)","otherInsideTarget","0"],["Công chuẩn N","standardDays","24"],["Công hưởng D","paidDays","24"],["Ngày vệ sinh DV","hygieneDays","24"],["Ngày KPI DP","kpiDays","24"],["Hệ số vệ sinh KV","hygieneFactor","0.9"],["Hệ số KPI KP","kpiFactor","0.75"],["Tỷ lệ quyền hưởng bảo đảm H","guaranteeEntitlementRatio","1"]];
+      var incValues={},incPanel=make("div","bar");incFields.forEach(function(f){var control=input("number",f[2]);control.step="any";incValues[f[1]]=control;row(incPanel,f[0],control);});
+      incBox.append(incPanel);var incOutput=make("div","hint");
+      incBox.append(button("Tính cơ cấu có KPI trong lương",function(){
+        var inputArgs={};incFields.forEach(function(f){inputArgs[f[1]]=incValues[f[1]].value;});
+        var z=root.HAKKPI.included.calc(inputArgs);incOutput.replaceChildren();
+        if(!z.ok){incOutput.textContent=z.errors.join("; ");return;}
+        [["Lương thời gian",z.components.baseTime],["Vệ sinh thực đạt",z.components.hygieneEarned],["KPI thực đạt (nằm trong M)",z.components.kpiEarned],["Tổng trước bù",z.components.beforeTopup],["Bù bảo đảm",z.components.guaranteeTopup],["Thu nhập sau bù (KPI đã bao gồm)",z.components.afterTopup],["Phần vượt cần đối chiếu",z.components.excessBeforeTopup]].forEach(function(a){incOutput.append(make("p","",a[0]+": "+a[1].toLocaleString("vi-VN")+"đ"));});
+        z.warnings.forEach(function(s){incOutput.append(make("p","","⚠ "+s));});
+      }));incBox.append(incOutput);el.append(incBox);
       if(!employee||!roleId){el.append(make("div","card","Chọn nhân viên và vai trò để xem 4 KPI của chức danh. Chưa có dữ liệu nào được ghi khi chỉ chọn."));return;}
       var role=cat.roles.find(function(x){return x.id===roleId;}),metrics=cat.indicators.filter(function(x){return x.roleId===roleId;});
       var table=make("table","kpi-table");var head=make("tr");
