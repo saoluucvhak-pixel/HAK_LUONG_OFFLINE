@@ -37,7 +37,7 @@ Khi N=24,D=24,K=1 và B+V+F=M: L_preview=M. Khi D>24 cần tách công ngày th�
 ## Ví dụ không gắn với lao động cụ thể
 B=6.000.000, M=8.000.000, V=1.500.000, F=500.000, N=24, D=24, K=1 => mô phỏng 6.000.000 + 1.500.000 + 500.000 = 8.000.000.
 K=0,8 => vệ sinh còn 1.200.000, lệch mục tiêu -300.000 (không được tự động giảm lương nếu khoản cố định được bảo đảm).
-D=26, Ke=1 => L_E tham khảo 666.667, cần xác minh loại ngày và đối chiếu với tiền OT đã có.
+D=26, phân bổ nội bộ 24 công TG + 2 công FSC (nếu được duyệt cho KT/XNK/TRAM_CAN) KHÔNG tự sinh tiền OT. Chỉ xem OT khi có chứng cứ thực tế.
 
 **Tính năng app:** menu KPI Bridge có mô phỏng nhập B,M,D,K,V,F,N,Ke. Hàm nằm trong `core/kpi-time-structure.js`, độc lập `engine.js`, không chuyển kết quả sang kỳ lương. Chỉ sử dụng cho kiểm thử và tìm biến liên kết. 
 
