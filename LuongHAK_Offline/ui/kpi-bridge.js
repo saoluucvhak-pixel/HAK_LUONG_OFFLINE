@@ -76,6 +76,22 @@
         }
         z.issues.forEach(function(s){out.append(make("p","", "⚠ "+s));});
       }));preview.append(out);el.append(preview);
+      var guarantee=make("div","card");guarantee.append(make("h3","","Bảo đảm thu nhập tháng + KPI ngoài bảo đảm"));
+      guarantee.append(make("p","hint","Bù bảo đảm không phụ thuộc hệ số vệ sinh hay KPI. Nhập riêng lương hợp đồng, lương bảo đảm và quỹ thưởng; không dùng mức BHXH thay lương hợp đồng."));
+      var gFields=[["Lương bảo đảm tháng","guaranteeMonthly","8000000"],["Lương thời gian theo hợp đồng","contractualBaseMonthly","6000000"],["Tỷ lệ quyền hưởng bảo đảm","entitledRatio","1"],["Công hưởng trong kỳ","paidDays","24"],["Công chuẩn","standardDays","24"],["Vệ sinh/bảo dưỡng đã tính","careEarned","1050000"],["Khoản khác nằm trong bảo đảm (mức tháng)","otherMonthly","500000"],["KPI mục tiêu ngoài bảo đảm","kpiTarget","1200000"],["Hệ số KPI đã đánh giá","kpiCoefficient","0.95"],["Công được hưởng KPI","kpiEligibleDays","24"]];
+      var gInputs={},gPanel=make("div","bar");gFields.forEach(function(item){var e=input("number",item[2]);e.step="any";gInputs[item[1]]=e;row(gPanel,item[0],e);});guarantee.append(gPanel);
+      var gOutput=make("div","hint");guarantee.append(button("Tính mức bù bảo đảm + KPI mô phỏng",function(){
+        var x={contractVerified:false,guaranteeApproved:false,kpiApproved:false,careReviewed:false};
+        gFields.forEach(function(item){x[item[1]]=gInputs[item[1]].value;});
+        var resultG=root.HAKKPI.guarantee.calc(x);gOutput.replaceChildren();
+        if(!resultG.ok){gOutput.textContent=resultG.errors.join("; ");return;}
+        [["Lương thời gian",resultG.components.contractBaseTime],["Tiền vệ sinh/bảo dưỡng",resultG.components.careMaintenance],
+         ["Khoản khác trong bảo đảm",resultG.components.otherInsideGuarantee],["Bù bảo đảm",resultG.components.guaranteeTopup],
+         ["Tổng trước KPI",resultG.components.protectedAfterTopup],["Thưởng KPI mô phỏng",resultG.components.kpiPreview],
+         ["Tổng bao gồm KPI",resultG.comparison.totalPreviewWithKpi]].forEach(function(item){
+           gOutput.append(make("p","",item[0]+": "+item[1].toLocaleString("vi-VN")+" đ"));
+         });resultG.issues.forEach(function(s){gOutput.append(make("p","","⚠ "+s));});
+      }));guarantee.append(gOutput);el.append(guarantee);
       if(!employee||!roleId){el.append(make("div","card","Chọn nhân viên và vai trò để xem 4 KPI của chức danh. Chưa có dữ liệu nào được ghi khi chỉ chọn."));return;}
       var role=cat.roles.find(function(x){return x.id===roleId;}),metrics=cat.indicators.filter(function(x){return x.roleId===roleId;});
       var table=make("table","kpi-table");var head=make("tr");
