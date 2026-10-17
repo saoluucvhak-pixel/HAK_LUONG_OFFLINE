@@ -1,4 +1,7 @@
 # HAK KPI BRIDGE 2026 — QUY TẮC DUY NHẤT / BẢNG GIẢI QUYẾT MÂU THUẪN
+
+> **QUY TẮC MỚI ƯU TIÊN (17/10/2026):** Công vượt công chuẩn riêng của bộ phận là dữ liệu cần đối chiếu **tăng ca thực tế**, không bao giờ tự được phân bổ thành công KPI FSC. Trạm cân 26 công; XNK/KTT/TGĐ/quản lý 22 công; văn phòng nghỉ Chủ nhật và thứ Bảy nửa ngày (công chuẩn theo lịch). FSC chỉ chấm chất lượng hồ sơ và quỹ nội bộ đã bảo đảm. Xem `KPI_ROLE_SCHEDULE_AND_OVERTIME_2026.md`. Nội dung cũ trái nguyên tắc này đã hết giá trị.
+
 **Trạng thái:** DỰ THẢO THỬ NGHIỆM; không thay đổi lương chính thức hay các kỳ khóa. Dùng đúng mô hình FIXED_INCLUDES_KPI. Không dùng KPI cộng ngoài bảo đảm.
 
 ## Quy tắc tính tiền duy nhất
@@ -9,11 +12,11 @@
 - G = mức bảo đảm được hưởng theo hợp đồng/quy chế, không biến động vì hệ số KPI/vệ sinh; `TOPUP=MAX(0,G - C_thuc - V_thuc - P_other_pay - P_FSC_pay - F_thuc)`.
 - Chưa xác nhận mức công FSC `100/200` là VND hoặc điểm và chưa duyệt quỹ: KHÔNG tạo P_FSC_pay. Quy đổi điểm chỉ cho phân tích; bảng lương chưa được thay đổi.
 
-## Công chuẩn, công FSC, công tăng ca
-- `N_lich` là số ngày làm việc bình thường của lịch nhân viên (ví dụ 26 trong tháng 30 ngày), `N_phanbo_TG` là mốc phân bổ lương TG (ví dụ 24), `D` là công thực tế.
-- `D_FSC = MIN(MAX(0,D-N_phanbo_TG), MAX(0,N_lich-N_phanbo_TG))`; ví dụ 26 công => 24 TG + 2 FSC; không biến 2 công hợp lệ thành giờ OT.
-- Payroll Engine hiện hành có công chuẩn theo DM_LUONG, `Công chuẩn 2`, TC1–TC6; chưa thay engine. Bắt buộc giải xung đột theo từng mã trước khi kích hoạt.
-- Bất kỳ ngày/giờ OT chính thức phải có xác nhận OT thực tế và trả ngoài mức bảo đảm đúng pháp luật. Số công phân bổ FSC không thay thế quyền lợi lương ngày làm bình thường.
+## Công chuẩn, KPI FSC, tăng ca
+- Văn phòng: theo lịch nghỉ Chủ nhật và làm nửa ngày thứ Bảy; chuẩn tính theo năm/tháng thực tế.
+- Trạm cân: 26 công; XNK, KTT, TGĐ, quản lý: 22 công; các bộ phận khác theo lịch/mã lương riêng.
+- Công vượt chuẩn là dữ liệu để đối chiếu tăng ca, KHÔNG tự trở thành công FSC hoặc tiền OT nếu chưa có nhật ký giờ làm.
+- KPI FSC là chất lượng hồ sơ và đơn vị hồ sơ; một khoản tiền trong KPI đã gồm trong M.
 
 ## Nhiệm vụ vệ sinh/bảo dưỡng và trùng KPI
 - CN_VS, TX_VS_XE, CK_VS_TB, CG_BD_VS_XE, TK_VS_KHO: đánh giá A/B/C/D theo ngày/nhiệm vụ thực hiện có minh chứng và cấp duyệt.
