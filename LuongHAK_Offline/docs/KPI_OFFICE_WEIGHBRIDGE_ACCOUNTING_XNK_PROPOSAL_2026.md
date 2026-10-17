@@ -1,4 +1,7 @@
 # HAK KPI Bridge — ĐỀ XUẤT KPI KHỐI VĂN PHÒNG (DỰ THẢO V2)
+
+> **QUY TẮC MỚI ƯU TIÊN (17/10/2026):** Công vượt công chuẩn riêng của bộ phận là dữ liệu cần đối chiếu **tăng ca thực tế**, không bao giờ tự được phân bổ thành công KPI FSC. Trạm cân 26 công; XNK/KTT/TGĐ/quản lý 22 công; văn phòng nghỉ Chủ nhật và thứ Bảy nửa ngày (công chuẩn theo lịch). FSC chỉ chấm chất lượng hồ sơ và quỹ nội bộ đã bảo đảm. Xem `KPI_ROLE_SCHEDULE_AND_OVERTIME_2026.md`. Nội dung cũ trái nguyên tắc này đã hết giá trị.
+
 **Trạng thái:** DỰ THẢO GÓP Ý, danh mục 107 KPI/26 vai trò đã cập nhật trong core/kpi-catalog.js và KHÔNG kích hoạt ghi sang bảng lương. Tương thích phương án lương tháng cố định ĐÃ BAO GỒM KPI (KPI_FIXED_INCLUDES_HYGIENE_AND_KPI_2026.md).
 
 ## Nguyên tắc
