@@ -38,7 +38,7 @@
       var e = entries[m.id] || {};
       var isNa = e.status === "NA_APPROVED" && String(e.exceptionReason||"").trim() && String(e.approvedBy||"").trim() && opts.naPolicyApproved === true;
       var result = isNa ? {ok:true,score:null,na:true} : scoreMetric(m,e);
-      if (result.ok && !result.na) {total += result.score * m.weight; activeWeight += m.weight;}
+      if (result.ok) { if(!result.na) {total += result.score * m.weight; activeWeight += m.weight;} }
       else { ready = false; issues.push(m.id + ": " + result.reason); }
       if (!isNa && !String(e.evidence || "").trim()) { ready = false; issues.push(m.id + ": thiếu chứng từ/bằng chứng"); }
       if (!isNa && e.status !== "APPROVED") { ready = false; issues.push(m.id + ": chưa được phê duyệt"); }
