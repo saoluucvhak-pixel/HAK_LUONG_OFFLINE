@@ -212,7 +212,6 @@
   function curSkin() { try { var k = localStorage.getItem(KEY + "_skin"); return HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"; } catch (e) { return "luxe"; } }
   function applySkin(k) { document.documentElement.setAttribute("data-skin", HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"); }
   function setSkin(k) { if (!HAK_SKINS.some(function (v) { return v[0] === k; })) return; try { localStorage.setItem(KEY + "_skin", k); } catch (e) {} applySkin(k); render(); }
-  function toggleSkin() { var i = HAK_SKINS.findIndex(function (v) { return v[0] === curSkin(); }); setSkin(HAK_SKINS[(i + 1) % HAK_SKINS.length][0]); }
   applySkin(curSkin());
   applyTheme(curTheme());
   // ---------- Phân trang + tìm kiếm (PERF-03: 1.000 NV mở lưới chấm công 6,9 s, gõ 4 ký tự 19,9 s khi vẽ toàn bộ) ----------
