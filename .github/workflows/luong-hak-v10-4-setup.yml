@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/luong-hak-v10-4-enterprise-ui
+      - feature/hak-kpi-bridge-governance-tracking
     paths:
       - 'LuongHAK_Offline/**'
       - '.github/workflows/luong-hak-v10-4-setup.yml'
