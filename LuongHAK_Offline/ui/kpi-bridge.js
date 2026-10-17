@@ -89,6 +89,21 @@
         z.warnings.forEach(function(s){incOutput.append(make("p","","⚠ "+s));});
       }));incBox.append(incOutput);el.append(incBox);
       if(!employee||!roleId){el.append(make("div","card","Chọn nhân viên và vai trò để xem 4 KPI của chức danh. Chưa có dữ liệu nào được ghi khi chỉ chọn."));return;}
+      if(["KT","XNK","TRAM_CAN"].indexOf(roleId)>=0){
+        var fsBox=make("div","card");fsBox.append(make("h3","","Kiểm soát hồ sơ gỗ keo FSC/PEFC"));
+        fsBox.append(make("p","hint","Mô phỏng chất lượng hồ sơ và ngày công chênh. Hệ số 100/200 có đơn vị riêng; không tự tạo giờ tăng ca hoặc tiền KPI."));
+        var fsInputs={},fsPanel=make("div","bar");
+        [["Tổng hồ sơ thuộc trách nhiệm","checked","100"],["Hồ sơ đạt sau xác minh","compliant","98"],["Mục tiêu tỷ lệ đạt (0–1)","target","0.98"],["Ngày công chênh được xác minh","extraDays","1"],["Mức quy đổi mỗi ngày","ratePerDay","100"],["Đơn vị (vd: điểm, đồng, nghìn đồng)","unit","điểm"]].forEach(function(f){var inp=input(f[1]==="unit"?"text":"number",f[2]);inp.step="any";fsInputs[f[1]]=inp;row(fsPanel,f[0],inp);});
+        fsBox.append(fsPanel);var fsOutput=make("div","hint");
+        fsBox.append(button("Tính tỷ lệ FSC/PEFC và công quy đổi",function(){
+          var vals={};Object.keys(fsInputs).forEach(function(k){vals[k]=fsInputs[k].value;});
+          var z=root.HAKKPI.forestDossier.evaluate(vals);fsOutput.replaceChildren();
+          if(!z.ok){fsOutput.textContent=z.errors.join("; ");return;}
+          fsOutput.append(make("p","","Tỷ lệ hồ sơ đạt: "+(z.ratio*100).toFixed(2)+"% · Điểm KPI chỉ tiêu: "+z.score.toFixed(2)));
+          fsOutput.append(make("p","","Ngày chênh × mức mỗi ngày: "+z.dayDifference+" × "+vals.ratePerDay+" = "+z.equivalent+" "+z.unit));
+          z.warnings.forEach(function(note){fsOutput.append(make("p","","⚠ "+note));});
+        }));fsBox.append(fsOutput);el.append(fsBox);
+      }
       var role=cat.roles.find(function(x){return x.id===roleId;}),metrics=cat.indicators.filter(function(x){return x.roleId===roleId;});
       var table=make("table","kpi-table");var head=make("tr");
       ["Chỉ tiêu KPI","Trọng số","Mục tiêu","Kết quả","Trạng thái"].forEach(function(s){head.append(make("th","",s));});table.append(head);
