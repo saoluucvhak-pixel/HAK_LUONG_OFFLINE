@@ -93,7 +93,7 @@
         var fsBox=make("div","card");fsBox.append(make("h3","","Kiểm soát hồ sơ gỗ keo FSC/PEFC"));
         fsBox.append(make("p","hint","Mô phỏng chất lượng hồ sơ và ngày công chênh. Hệ số 100/200 có đơn vị riêng; không tự tạo giờ tăng ca hoặc tiền KPI."));
         var fsInputs={},fsPanel=make("div","bar");
-        [["Tổng hồ sơ thuộc trách nhiệm","checked","100"],["Hồ sơ đạt sau xác minh","compliant","98"],["Mục tiêu tỷ lệ đạt (0–1)","target","0.98"],["Ngày công chênh được xác minh","extraDays","1"],["Mức quy đổi mỗi ngày","ratePerDay","100"],["Đơn vị (vd: điểm, đồng, nghìn đồng)","unit","điểm"]].forEach(function(f){var inp=input(f[1]==="unit"?"text":"number",f[2]);inp.step="any";fsInputs[f[1]]=inp;row(fsPanel,f[0],inp);});
+        [["Tổng hồ sơ thuộc trách nhiệm","checked","100"],["Hồ sơ đạt sau xác minh","compliant","98"],["Mục tiêu tỷ lệ đạt (0–1)","target","0.98"],["Ngày công chênh được xác minh","extraDays","1"],["Công chuẩn của kỳ","standardDays","24"],["Mức quy đổi mỗi ngày","ratePerDay","100"],["Đơn vị (vd: điểm, đồng, nghìn đồng)","unit","điểm"]].forEach(function(f){var inp=input(f[1]==="unit"?"text":"number",f[2]);inp.step="any";fsInputs[f[1]]=inp;row(fsPanel,f[0],inp);});
         fsBox.append(fsPanel);var fsOutput=make("div","hint");
         fsBox.append(button("Tính tỷ lệ FSC/PEFC và công quy đổi",function(){
           var vals={};Object.keys(fsInputs).forEach(function(k){vals[k]=fsInputs[k].value;});
