@@ -132,6 +132,20 @@
             pHead.appendChild(h("div", {}, [h("small", { text: "CHI TIẾT BẢNG CON · " + K.short }), h("h3", { text: chosen.ma + " — " + chosen.ten })]));
             pHead.appendChild(btn("Mở hồ sơ", "pri", function () { openModal(chosen.ma, { tab: "ct" }); }));
             preview.appendChild(pHead);
+            var infoGrid = h("div", { class: "hak-record-fields" });
+            [[K.code, chosen.ma], [K.name, chosen.ten], ["Trạng thái", chosen.trangThai], ["Công thức", chosen.loaiCongThuc || chosen.ma], ["Hiệu lực từ", fdate(chosen.tu) || "—"], ["Hiệu lực đến", fdate(chosen.den) || "Không giới hạn"]].forEach(function (item) {
+              infoGrid.appendChild(h("div", { class: "hak-record-field" }, [h("small", { text: item[0] }), h("div", { text: item[1] })]));
+            });
+            var paneTabs = h("div", { class: "hak-inspector-tabs", role: "tablist", "aria-label": "Chi tiết " + K.short });
+            preview.appendChild(paneTabs);
+            preview.appendChild(infoGrid);
+            K.fields.forEach(function (fd) {
+              var value = chosen.base && chosen.base[fd.col];
+              infoGrid.appendChild(h("div", { class: "hak-record-field" }, [h("small", { text: fd.label }), h("div", { text: value == null || value === "" ? "—" : String(value) })]));
+            });
+            var editInfo = null;
+            if (A.can("dm.edit")) { editInfo = btn("Chỉnh sửa thông tin", "pri hak-record-edit", function () { openModal(chosen.ma, { tab: "info", edit: true }); }); preview.appendChild(editInfo); }
+
             var grid = h("div", { class: "hak-child-grid" });
             [["Kỳ xét", S.thang + "/" + S.nam], ["Phiên bản", ap.rec ? "v" + (ap.rec["Phiên bản"] || 1) : "Mặc định"], ["Nguồn áp dụng", chosen.apDung || ap.nguon], ["Số phiên bản", String(chosen.soPhienBan)]].forEach(function (item) {
               grid.appendChild(h("div", { class: "hak-child-metric" }, [h("small", { text: item[0] }), h("b", { text: item[1] })]));
@@ -143,6 +157,20 @@
               actions.appendChild(btn(it[0], "", function () { openModal(chosen.ma, { tab: it[1] }); }));
             });
             preview.appendChild(actions);
+            var expression = preview.querySelector(".hak-child-expression");
+            [["info", "Thông tin"], ["ct", "Công thức"]].forEach(function (item) {
+              var tab = btn(item[1], "", function () { S.inspectorTab = item[0]; paint(); });
+              var selected = (S.inspectorTab || "info") === item[0];
+              tab.setAttribute("role", "tab"); tab.setAttribute("aria-selected", String(selected));
+              paneTabs.appendChild(tab);
+            });
+            [["test", "Kiểm thử"], ["ls", "Lịch sử"]].forEach(function (item) {
+              paneTabs.appendChild(btn(item[1] + " ↗", "", function () { openModal(chosen.ma, { tab: item[0] }); }));
+            });
+            var showInfo = (S.inspectorTab || "info") === "info";
+            infoGrid.hidden = !showInfo; if (editInfo) editInfo.hidden = !showInfo;
+            grid.hidden = showInfo; expression.hidden = showInfo; actions.hidden = showInfo;
+
             if (IS_OT) preview.appendChild(h("div", { class: "hint", text: "DQ và QC là địa điểm làm việc. Bảng này quản lý công thức tăng ca; phần tính lương riêng theo địa điểm thuộc bộ máy bảng lương, chưa được thay đổi tại đây." }));
           } else preview.appendChild(h("div", { class: "empty", text: "Chọn một mã trong danh sách để xem công thức và phiên bản." }));
         }

@@ -1,7 +1,7 @@
 // Presentation adapter for the inherited app. No payroll state or storage bridge is accessed.
 (function () {
   'use strict';
-  const VERSION = 'V10.4 · v2.0.0-alpha.27';
+  const VERSION = 'V10.4 · v2.0.0-alpha.28';
   const NAV_KEY = 'luonghak_db_v1_nav_collapsed';
   const main = document.querySelector('#main'), nav = document.querySelector('#nav');
   if (!main || !nav) return;
@@ -65,13 +65,29 @@
       const button = make('button', 'b ghost', 'Xem đầy đủ cột'); button.type = 'button'; button.dataset.otDensity = '1'; button.setAttribute('aria-pressed', 'false');
       button.addEventListener('click', () => { const compact = workspace.classList.toggle('is-compact'); button.textContent = compact ? 'Xem đầy đủ cột' : 'Thu gọn cột'; button.setAttribute('aria-pressed', String(!compact)); });
       workspace.querySelector('.hak-workspace-toolbar').append(button);
+      const hero = workspace.querySelector('.hak-workspace-hero');
+      const actions = make('div', 'hak-catalog-actions');
+      for (const action of workspace.querySelectorAll('.hak-workspace-toolbar > button:not([data-ot-density])')) actions.append(action);
+      hero.append(actions);
+      const metrics = make('div', 'hak-catalog-metrics');
+      hero.after(metrics);
     }
     const table = workspace.querySelector('[data-ot-table]');
     if (table && !table.dataset.workspaceReady) {
       table.dataset.workspaceReady = '1';
       const heads = [...table.querySelectorAll('th')];
-      const keep = new Set([0, 1, heads.length - 1, heads.findIndex(th => th.textContent.trim() === 'Trạng thái')]);
+      const keep = new Set(heads.map((th, i) => /Công thức đang áp dụng|Số phiên bản/.test(th.textContent) ? -1 : i));
       for (const row of table.querySelectorAll('tr')) [...row.children].forEach((cell, i) => cell.classList.toggle('hak-col-extra', !keep.has(i)));
+    }
+    const metrics = workspace.querySelector('.hak-catalog-metrics');
+    const rows = [...workspace.querySelectorAll('[data-ot-row]')];
+    const active = rows.filter(row => row.textContent.includes('Đang hiệu lực')).length;
+    const versions = rows.reduce((sum, row) => { const cells = [...row.children]; return sum + (Number(cells[cells.length - 2]?.textContent) || 0); }, 0);
+    const values = [['▤', 'Mã đang hiển thị', rows.length], ['✓', 'Đang hiệu lực', active], ['◷', 'Phiên bản công thức', versions], ['⇄', 'Không gian quản lý', 'Cha – con']];
+    const signature = JSON.stringify(values);
+    if (metrics && metrics.dataset.signature !== signature) {
+      metrics.dataset.signature = signature; metrics.replaceChildren();
+      values.forEach(([icon, label, value], i) => { const card = make('div', 'hak-catalog-metric tone-' + i), copy = make('div'); copy.append(make('small', '', label), make('strong', '', String(value))); card.append(make('span', 'hak-metric-icon', icon), copy); metrics.append(card); });
     }
   }
   function returnFocus() {
@@ -85,6 +101,14 @@
   }
   function enhance() {
     scheduled = false; navigation(); dashboard(); masterDetail(); returnFocus();
+    const top = document.querySelector('#top');
+    if (top?.querySelector('.srch') && !top.querySelector('.hak-skin-select')) {
+      const skins = document.querySelector('#sidefoot .hak-skin-select');
+      if (skins) top.insertBefore(skins, top.querySelector('.who'));
+    }
+    const search = top?.querySelector('.srch');
+    if (search && !search.dataset.referenceReady) { search.dataset.referenceReady = '1'; search.firstChild.textContent = '⌕ Tìm nhân viên, mã tăng ca, công thức… '; }
+
     const version = document.querySelector('#sidefoot .ver');
     if (version && !version.textContent.startsWith(VERSION)) version.textContent = version.textContent.replace(/^V10\.4 · v[\w.-]+/, VERSION);
     const palette = document.querySelector('.hak-skin-select option[value="luxe"]');

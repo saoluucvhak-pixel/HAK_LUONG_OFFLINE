@@ -17,3 +17,8 @@ test('V10.4 preserves existing palette preferences and keeps luxe as the default
     assert.equal(writes, 0, 'rendering must not overwrite an existing preference');
   }
 });
+
+test('V10.4 catalogue layout is shared with the reusable design branch source', () => {
+  const read = p => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+  assert.equal(read(path.join(app, 'ui/workspace-v104.css')), read(path.join(app, '../design-system/hak-workspace-layout.css')));
+});

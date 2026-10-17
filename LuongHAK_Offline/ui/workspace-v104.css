@@ -52,3 +52,40 @@ main{padding:22px 26px}#top{background:var(--card);padding:11px 26px}
 @media(max-width:1200px){.hak-dashboard .qcards{grid-template-columns:repeat(2,minmax(0,1fr))}.hak-workspace.is-compact .hak-workspace-grid{grid-template-columns:1fr}.hak-workspace .ot-list{max-height:40vh}}
 @media(max-width:900px){.hak-workflow .flow{grid-template-columns:repeat(2,minmax(0,1fr))}.hak-period-state{display:none}.hak-page-heading h1{font-size:21px}main{padding:16px}.hak-catalog-layout{grid-template-columns:1fr}.hak-catalog-side{position:static;max-height:none}.hak-catalog-side .bar{flex-direction:row;flex-wrap:wrap}.hak-catalog-side .bar button{width:auto}}
 @media(max-width:600px){.hak-workflow .flow{grid-template-columns:1fr}.hak-dashboard .qcards{grid-template-columns:1fr}.hak-section-heading{align-items:flex-start;flex-direction:column}.hak-period-overview h2{font-size:20px}.hak-dashboard .hak-period-overview{padding:18px}}
+/* Reference layout: compact catalogue with persistent master and detail panes. */
+@media(min-width:1000px){
+ #side{width:190px}.brand{padding:14px 12px}.brand .logo{font-size:29px}
+ #nav button{min-height:32px;padding:6px 10px;font-size:11px}
+ main{padding:14px 16px}#top{padding:8px 16px;min-height:52px}
+ .hak-workspace.is-compact .hak-workspace-grid{grid-template-columns:minmax(0,1.75fr) minmax(300px,1fr)}
+ .hak-workspace-master{border-right:1px solid var(--line)}
+ .hak-workspace .ot-list{max-height:52vh}
+}
+.hak-workspace .hak-workspace-hero{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;background:var(--card);color:var(--ink)}
+.hak-workspace-hero small,.hak-workspace-hero p{display:none}
+.hak-workspace-hero h2{font-size:22px;margin:0}
+.hak-catalog-actions{display:flex;gap:6px;flex-wrap:wrap}.hak-catalog-actions button{font-size:11px;padding:7px 10px}
+.hak-catalog-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 14px 14px}
+.hak-catalog-metric{display:flex;gap:10px;align-items:center;border:1px solid var(--line);background:var(--card);border-radius:7px;padding:11px;min-width:0}
+.hak-catalog-metric small{display:block;font-size:10px;color:var(--mut)}.hak-catalog-metric strong{display:block;font-size:21px;line-height:1.3}
+.hak-metric-icon{display:grid;place-items:center;background:var(--brand);color:var(--card);width:34px;height:36px;border-radius:6px;font-size:21px;flex-shrink:0}
+.tone-1 .hak-metric-icon{background:#21884a;color:white}.tone-2 .hak-metric-icon{background:#8270de;color:white}.tone-3 .hak-metric-icon{background:#268eab;color:white}
+.hak-workspace .hak-master-guide{margin:0 14px 8px}.hak-master-guide summary{padding:5px 8px;font-size:10px}
+.hak-workspace .hak-workspace-toolbar{padding:8px 12px;gap:6px}.hak-workspace-toolbar input{min-width:150px!important;flex:1}.hak-workspace-toolbar select{max-width:155px}
+.hak-workspace.is-compact .ot-list td,.hak-workspace.is-compact .ot-list th{padding:8px 6px;font-size:10px;overflow-wrap:normal}
+.hak-workspace.is-compact .ot-act{min-width:74px}.hak-workspace.is-compact .ot-act button{font-size:9px;padding:3px 5px;min-height:24px;margin:1px}
+.hak-workspace .hak-child-preview{margin:0;padding:12px;border:0;border-top:2px solid var(--brand);border-radius:0;background:var(--card)}
+.hak-child-head{align-items:start}.hak-child-head h3{font-size:14px}.hak-child-head small{font-size:9px}
+.hak-record-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.hak-record-field small{display:block;font-size:10px;color:var(--mut);margin-bottom:4px}.hak-record-field>div{border:1px solid var(--line);background:var(--bg);padding:8px;border-radius:5px;font-size:11px;min-height:32px;overflow-wrap:anywhere}
+.hak-record-edit{width:100%;margin-bottom:12px}.hak-child-metric{padding:8px}.hak-child-metric b{font-size:12px}.hak-child-expression{margin-top:10px;padding:10px}.hak-child-actions{display:flex;gap:4px;flex-wrap:wrap}.hak-child-actions button{font-size:10px;padding:6px 8px}
+@media(max-width:999px){.hak-catalog-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.hak-workspace.is-compact .hak-workspace-grid{grid-template-columns:1fr}.hak-workspace-hero{flex-wrap:wrap}}
+#top .srch{flex:1;max-width:420px;justify-content:space-between;text-align:left;color:var(--mut);background:var(--field);border:1px solid var(--line)}
+#top .hak-skin-select{width:150px;max-width:160px;font-size:11px;padding:7px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+#top h2{font-size:13px;max-width:160px}#top .who{font-size:11px}
+@media(max-width:1100px){#top .srch{max-width:240px;font-size:10px}#top .hak-skin-select{width:110px}}
+.hak-inspector-tabs{display:flex;border-bottom:1px solid var(--line);gap:3px;margin:10px 0}
+.hak-inspector-tabs button{font-size:10px;border:0;border-radius:0;background:transparent;padding:8px 6px;color:var(--mut)}
+.hak-inspector-tabs [aria-selected=true]{color:var(--brand);border-bottom:2px solid var(--brand);font-weight:700}
+.hak-child-preview [hidden]{display:none!important}
+@media(min-width:1000px){#modal .hak-detail-drawer{width:460px;border-radius:10px 0 0 10px}#modal .hak-detail-drawer>.bd{padding:12px 16px}#modal .hak-detail-drawer>header{padding:12px 16px}#modal .hak-detail-drawer h3{font-size:15px}#modal .hak-detail-drawer .ot-tabs{gap:3px;padding:8px 10px 0!important}#modal .hak-detail-drawer .ot-tabs button{font-size:10px;padding:7px 6px}.ot-dlg .fgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ot-dlg label{font-size:10px}.ot-dlg .hint{font-size:10px}.ot-dlg input,.ot-dlg select,.ot-dlg textarea{font-size:12px;min-width:0}.ot-dlg .fld{min-width:0}}

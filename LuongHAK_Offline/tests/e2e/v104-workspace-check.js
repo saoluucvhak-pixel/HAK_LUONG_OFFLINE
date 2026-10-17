@@ -77,12 +77,34 @@ async function fits(selector, name) {
         await w.waitForFunction(() => document.activeElement.hasAttribute('data-ot-row'));
         check(width + ': closing detail restores focus to parent', await w.evaluate(() => document.activeElement.hasAttribute('data-ot-row')));
       }
+      if (!baseline) {
+        for (const [label, slug] of [['Tăng ca', 'overtime'], ['Phụ cấp', 'allowance'], ['Hỗ trợ', 'support']]) {
+          await nav('dm'); await w.locator('#main button', { hasText: label }).first().click();
+          await w.waitForSelector('[data-ot-table]');
+          check(width + ': ' + slug + ' summary metrics', await w.locator('.hak-catalog-metric').count() === 4);
+          check(width + ': ' + slug + ' parent and inspector side by side', await w.locator('.hak-workspace-grid').evaluate(el => { const [a, b] = el.children; return b.getBoundingClientRect().left >= a.getBoundingClientRect().right - 2; }));
+          const rows = w.locator('[data-ot-row]');
+          if (await rows.count() > 1) {
+            const code = await rows.nth(1).getAttribute('data-ot-row'); await rows.nth(1).click();
+            check(width + ': ' + slug + ' selected parent drives detail', (await w.locator('.hak-child-head h3').innerText()).startsWith(code + ' —'));
+          }
+          check(width + ': ' + slug + ' information fields', await w.locator('.hak-record-field').count() >= 7);
+          await w.getByRole('tab', { name: 'Công thức', exact: true }).click();
+          check(width + ': ' + slug + ' formula tab', await w.locator('.hak-child-expression').isVisible());
+          await w.getByRole('tab', { name: 'Thông tin', exact: true }).click();
+          await shot(width + '-catalog-' + slug);
+          await w.locator('.hak-record-edit').click();
+          check(width + ': ' + slug + ' editor uses existing save flow', await w.locator('[data-ot-save-info]').isVisible());
+          await w.keyboard.press('Escape');
+        }
+      }
       await nav('nhansu'); await w.locator('[data-sf-adv]').click();
       await fits('[data-sf-drawer]', width + ': advanced filter fits viewport'); await shot(width + '-04-smart-filter'); await w.keyboard.press('Escape');
       if (!baseline) {
         for (const skin of ['luxe', 'classic', 'neutral', 'champagne']) {
           await w.selectOption('[aria-label="Chọn phong cách giao diện"]', skin);
-          await nav('home');
+          await nav('dm'); await w.locator('#main button', { hasText: 'Tăng ca' }).first().click();
+          await shot(width + '-05-' + skin + '-light');
           await w.locator('#sidefoot .themebtn').first().click();
           await shot(width + '-05-' + skin + '-dark');
           check(width + ': ' + skin + ' dark mode', await w.evaluate(() => document.documentElement.dataset.theme === 'dark'));
