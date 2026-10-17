@@ -88,20 +88,32 @@
         [["Lương thời gian",z.components.baseTime],["Vệ sinh thực đạt",z.components.hygieneEarned],["KPI thực đạt (nằm trong M)",z.components.kpiEarned],["Tổng trước bù",z.components.beforeTopup],["Bù bảo đảm",z.components.guaranteeTopup],["Thu nhập sau bù (KPI đã bao gồm)",z.components.afterTopup],["Phần vượt cần đối chiếu",z.components.excessBeforeTopup]].forEach(function(a){incOutput.append(make("p","",a[0]+": "+a[1].toLocaleString("vi-VN")+"đ"));});
         z.warnings.forEach(function(s){incOutput.append(make("p","","⚠ "+s));});
       }));incBox.append(incOutput);el.append(incBox);
+      var ws=make("div","card");ws.append(make("h3","","Công chuẩn theo nhóm và đối chiếu tăng ca"));
+      ws.append(make("p","hint","Văn phòng: Chủ nhật nghỉ, thứ Bảy 0,5 công; trạm cân: 26; XNK/KTT/TGĐ/quản lý: 22 công. Công vượt chuẩn chỉ là chỉ báo để kiểm tra giờ làm thêm."));
+      var sch=root.HAKKPI.workSchedule,sp=make("select","i");
+      Object.keys(sch.PROFILES).forEach(function(key){sp.append(new root.Option(key,key));});
+      sp.value=sch.ROLE_DEFAULTS[roleId]||"CUSTOM";
+      var wsD=input("number","26"),wsC=input("number","24"),wsOut=make("div","hint"),wsPanel=make("div","bar");
+      row(wsPanel,"Nhóm lịch công",sp);row(wsPanel,"Công thực tế",wsD);row(wsPanel,"Công chuẩn riêng (chỉ dùng CUSTOM)",wsC);
+      ws.append(wsPanel);ws.append(button("Đối chiếu công chuẩn và công tăng ca",function(){
+        var z=sch.standard({period:period,roleId:roleId,profile:sp.value,workedDays:wsD.value,customStandardDays:wsC.value});
+        wsOut.replaceChildren();if(!z.ok){wsOut.textContent=z.errors.join("; ");return;}
+        wsOut.append(make("p","","Công chuẩn "+z.standardDays+" · Công trong chuẩn "+z.ordinaryAllocationDays+" · Công vượt cần kiểm tra "+z.candidateExcessDays));
+        z.warnings.forEach(function(t){wsOut.append(make("p","","⚠ "+t));});
+      }));ws.append(wsOut);el.append(ws);
       if(!employee||!roleId){el.append(make("div","card","Chọn nhân viên và vai trò để xem KPI của chức danh. Chưa có dữ liệu nào được ghi khi chỉ chọn."));return;}
       if(["KT","XNK","TRAM_CAN"].indexOf(roleId)>=0){
         var fsBox=make("div","card");fsBox.append(make("h3","","Kiểm soát hồ sơ gỗ keo FSC/PEFC"));
-        fsBox.append(make("p","hint","Mô phỏng chất lượng hồ sơ và ngày công chênh. Hệ số 100/200 có đơn vị riêng; không tự tạo giờ tăng ca hoặc tiền KPI."));
+        fsBox.append(make("p","hint","Điểm hồ sơ tạo hệ số chất lượng trên quỹ KPI FSC; công vượt chuẩn tính tăng ca riêng, không chuyển thành KPI FSC."));
         var fsInputs={},fsPanel=make("div","bar");
-        [["Tổng hồ sơ thuộc trách nhiệm","checked","100"],["Hồ sơ đạt sau xác minh","compliant","98"],["Mục tiêu tỷ lệ đạt (0–1)","target","0.98"],["Ngày lịch trong tháng","calendarDays","30"],["Công làm việc theo lịch","scheduledDays","26"],["Công thực tế","workedDays","26"],["Mốc công tính lương thời gian","salaryDays","24"],["Mức quy đổi mỗi ngày","ratePerDay","100"],["Đơn vị (điểm/VND)","unit","điểm"],["Quỹ FSC trong KPI tháng (VND)","fscFundVnd","200000"],["Đơn giá FSC/công khi được duyệt (VND)","ratePerDayVnd","100000"]].forEach(function(f){var inp=input(f[1]==="unit"?"text":"number",f[2]);inp.step="any";fsInputs[f[1]]=inp;row(fsPanel,f[0],inp);});
+        [["Tổng hồ sơ thuộc trách nhiệm","checked","100"],["Hồ sơ đạt sau xác minh","compliant","98"],["Mục tiêu tỷ lệ đạt (0–1)","target","0.98"],["Đơn vị hồ sơ FSC đã phân công","assignedFscUnits","100"],["Quỹ FSC trong KPI tháng (VND)","fscFundVnd","200000"],["Đơn giá/hồ sơ FSC nếu được duyệt (VND)","fscUnitRateVnd","2000"],["Đơn vị tiền (chưa phê duyệt)","unit","VND"]].forEach(function(f){var inp=input(f[1]==="unit"?"text":"number",f[2]);inp.step="any";fsInputs[f[1]]=inp;row(fsPanel,f[0],inp);});
         fsBox.append(fsPanel);var fsOutput=make("div","hint");
         fsBox.append(button("Tính tỷ lệ FSC/PEFC và công quy đổi",function(){
           var vals={evidenceReviewed:false,fundApproved:false};Object.keys(fsInputs).forEach(function(k){vals[k]=fsInputs[k].value;});
           var z=root.HAKKPI.forestDossier.evaluate(vals);fsOutput.replaceChildren();
           if(!z.ok){fsOutput.textContent=z.errors.join("; ");return;}
           fsOutput.append(make("p","","Tỷ lệ hồ sơ đạt: "+(z.ratio*100).toFixed(2)+"% · Điểm KPI chỉ tiêu: "+z.score.toFixed(2)));
-          fsOutput.append(make("p","","Phân bổ công: "+z.salaryDays+" công lương + "+z.fscDays+" công KPI FSC; công ngoài lịch: "+z.outsideScheduleDays));
-          fsOutput.append(make("p","","Công FSC × mức mỗi công: "+z.fscDays+" × "+vals.ratePerDay+" = "+z.equivalent+" "+z.unit));
+          fsOutput.append(make("p","","Số bộ hồ sơ FSC được giao: "+z.assignedFscUnits+"; giờ/công vượt chuẩn theo lịch không đưa vào KPI FSC."));
           fsOutput.append(make("p","","Hệ số chất lượng FSC: "+z.qualityCoefficient.toFixed(4)+" · Tiền FSC chưa phê duyệt: không ghi vào lương."));
           z.warnings.forEach(function(note){fsOutput.append(make("p","","⚠ "+note));});
         }));fsBox.append(fsOutput);el.append(fsBox);
