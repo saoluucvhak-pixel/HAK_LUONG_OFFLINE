@@ -12,7 +12,7 @@
   function validRole(role, indicators) {
     if (!role || !role.id || !Array.isArray(indicators)) return false;
     var a = indicators.filter(function(x) { return x.roleId === role.id; });
-    return a.length === 4 && new Set(a.map(function(x) { return x.id; })).size === 4
+    return a.length === (role.weights || []).length && a.length >= 4 && new Set(a.map(function(x) { return x.id; })).size === a.length
       && a.every(function(x) { return finite(x.weight) > 0 && finite(x.target) > 0 && x.direction === "CÀNG CAO CÀNG TỐT"; })
       && Math.abs(weightTotal(a) - 100) < 1e-7;
   }
@@ -32,7 +32,7 @@
     opts = opts || {}; entries = entries || {};
     var issues = [], detail = [], ready = true;
     var ms = (catalogIndicators || []).filter(function(x) { return role && x.roleId === role.id; }).sort(function(a,b){ return a.order-b.order; });
-    if (!validRole(role, ms)) issues.push("Vai trò cần đúng 4 KPI có mục tiêu, hướng đo và tổng trọng số 100%");
+    if (!validRole(role, ms)) issues.push("Vai trò cần đủ KPI có mục tiêu, hướng đo và tổng trọng số 100%");
     var total = 0;
     ms.forEach(function(m) {
       var e = entries[m.id] || {};
@@ -47,9 +47,9 @@
     if (!opts.assignmentAccepted) { ready = false; issues.push("Chưa xác nhận giao KPI cho cá nhân"); }
     if (role && role.mode !== "KPI_TIME") { ready = false; issues.push("Vai trò chỉ theo dõi hoặc tính theo quyết định kỳ riêng; không tự động trả KPI tháng"); }
     if (issues.length) ready = false;
-    return { ok: ready, status: ready ? "APPROVED" : "DRAFT", score: ms.length===4 && detail.every(function(x){return x.score!==null;}) ? Math.round(total*10000)/10000 : null,
+    return { ok: ready, status: ready ? "APPROVED" : "DRAFT", score: ms.length>0 && detail.every(function(x){return x.score!==null;}) ? Math.round(total*10000)/10000 : null,
       coefficient: ready ? coefficient(total) : null,
-      previewCoefficient: ms.length===4 && detail.every(function(x){return x.score!==null;}) ? coefficient(total):null,
+      previewCoefficient: ms.length>0 && detail.every(function(x){return x.score!==null;}) ? coefficient(total):null,
       details: detail, issues: issues };
   }
   function timeKpi(params) {
