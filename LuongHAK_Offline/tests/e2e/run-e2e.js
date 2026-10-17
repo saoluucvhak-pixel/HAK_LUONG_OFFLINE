@@ -184,7 +184,7 @@ async function launch(dataDir, opt) {
     ok("Bộ lọc V9.4: tìm không dấu 'van phong' ra 'Văn phòng'; Áp dụng trả đúng giá trị đã chọn", shown.length === 1 && /Văn phòng/.test(shown[0]) && JSON.stringify(await w.evaluate(() => window.__ap)) === '["Văn phòng"]', shown.join(",") + " → " + JSON.stringify(await w.evaluate(() => window.__ap)));
     await fbtn.click(); await w.locator("[data-fpop] button:has-text('Chọn tất cả')").click(); await w.locator("[data-fpop] button:has-text('Áp dụng')").click();
     ok("Bộ lọc V9.4: chọn hết = không lọc (trả mảng rỗng)", JSON.stringify(await w.evaluate(() => window.__ap)) === "[]");
-    await fbtn.click(); await w.mouse.click(600, 100);
+    await fbtn.click(); await w.locator("#top h2").click();
     ok("Bộ lọc V9.4: bấm ra ngoài đóng popover", (await pops()) === 0);
     await w.evaluate(() => document.getElementById("fp-host").remove());
     ok("Bộ lọc V9.4: thao tác liên tiếp không sinh lỗi JavaScript", errs.length === errs0, errs.slice(errs0).join(" | "));
