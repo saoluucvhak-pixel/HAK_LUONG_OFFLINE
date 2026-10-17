@@ -1,3 +1,4 @@
+/* global document, innerWidth, innerHeight */
 // Presentation adapter for the inherited app. No payroll state or storage bridge is accessed.
 (function () {
   'use strict';
@@ -104,11 +105,11 @@
   function enhance() {
     scheduled = false; navigation(); dashboard(); masterDetail(); returnFocus();
     const top = document.querySelector('#top');
-    if (top?.querySelector('.srch') && !top.querySelector('.hak-skin-select')) {
+    if (top && top.querySelector('.srch') && !top.querySelector('.hak-skin-select')) {
       const skins = document.querySelector('#sidefoot .hak-skin-select');
       if (skins) top.insertBefore(skins, top.querySelector('.who'));
     }
-    const search = top?.querySelector('.srch');
+    const search = top && top.querySelector('.srch');
     if (search && !search.dataset.referenceReady) { search.dataset.referenceReady = '1'; search.replaceChildren(make('span', '', '⌕ Tìm nhân viên, mã tăng ca, công thức…'), make('kbd', '', 'Ctrl K')); }
 
     const version = document.querySelector('#sidefoot .ver');
