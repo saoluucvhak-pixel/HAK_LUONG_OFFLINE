@@ -76,22 +76,6 @@
         }
         z.issues.forEach(function(s){out.append(make("p","", "⚠ "+s));});
       }));preview.append(out);el.append(preview);
-      var guarantee=make("div","card");guarantee.append(make("h3","","Bảo đảm thu nhập tháng + KPI ngoài bảo đảm"));
-      guarantee.append(make("p","hint","Bù bảo đảm không phụ thuộc hệ số vệ sinh hay KPI. Nhập riêng lương hợp đồng, lương bảo đảm và quỹ thưởng; không dùng mức BHXH thay lương hợp đồng."));
-      var gFields=[["Lương bảo đảm tháng","guaranteeMonthly","8000000"],["Lương thời gian theo hợp đồng","contractualBaseMonthly","6000000"],["Tỷ lệ quyền hưởng bảo đảm","entitledRatio","1"],["Công hưởng trong kỳ","paidDays","24"],["Công chuẩn","standardDays","24"],["Vệ sinh/bảo dưỡng đã tính","careEarned","1050000"],["Khoản khác nằm trong bảo đảm (mức tháng)","otherMonthly","500000"],["KPI mục tiêu ngoài bảo đảm","kpiTarget","1200000"],["Hệ số KPI đã đánh giá","kpiCoefficient","0.95"],["Công được hưởng KPI","kpiEligibleDays","24"]];
-      var gInputs={},gPanel=make("div","bar");gFields.forEach(function(item){var e=input("number",item[2]);e.step="any";gInputs[item[1]]=e;row(gPanel,item[0],e);});guarantee.append(gPanel);
-      var gOutput=make("div","hint");guarantee.append(button("Tính mức bù bảo đảm + KPI mô phỏng",function(){
-        var x={contractVerified:false,guaranteeApproved:false,kpiApproved:false,careReviewed:false};
-        gFields.forEach(function(item){x[item[1]]=gInputs[item[1]].value;});
-        var resultG=root.HAKKPI.guarantee.calc(x);gOutput.replaceChildren();
-        if(!resultG.ok){gOutput.textContent=resultG.errors.join("; ");return;}
-        [["Lương thời gian",resultG.components.contractBaseTime],["Tiền vệ sinh/bảo dưỡng",resultG.components.careMaintenance],
-         ["Khoản khác trong bảo đảm",resultG.components.otherInsideGuarantee],["Bù bảo đảm",resultG.components.guaranteeTopup],
-         ["Tổng trước KPI",resultG.components.protectedAfterTopup],["Thưởng KPI mô phỏng",resultG.components.kpiPreview],
-         ["Tổng bao gồm KPI",resultG.comparison.totalPreviewWithKpi]].forEach(function(item){
-           gOutput.append(make("p","",item[0]+": "+item[1].toLocaleString("vi-VN")+" đ"));
-         });resultG.issues.forEach(function(s){gOutput.append(make("p","","⚠ "+s));});
-      }));guarantee.append(gOutput);el.append(guarantee);
       var incBox=make("div","card");incBox.append(make("h3","","Phương án đã chốt: Lương cố định bao gồm KPI"));
       incBox.append(make("p","hint","Lương cơ cấu C+V+P+F=M; hệ số không làm giảm mức bảo đảm. KPI không cộng ngoài tổng sau bù. Suy ngược cần tổng trước bù và đúng một hệ số đã biết."));
       var incFields=[["Thu nhập tháng bảo đảm M","guaranteedMonthly","8000000"],["Lương thời gian hợp đồng C","baseMonthly","6000000"],["Vệ sinh mục tiêu V","hygieneTarget","1200000"],["KPI mục tiêu P (nằm trong M)","kpiTarget","800000"],["Khoản khác F (nằm trong M)","otherInsideTarget","0"],["Công chuẩn N","standardDays","24"],["Công hưởng D","paidDays","24"],["Ngày vệ sinh DV","hygieneDays","24"],["Ngày KPI DP","kpiDays","24"],["Hệ số vệ sinh KV","hygieneFactor","0.9"],["Hệ số KPI KP","kpiFactor","0.75"],["Tỷ lệ quyền hưởng bảo đảm H","guaranteeEntitlementRatio","1"]];
