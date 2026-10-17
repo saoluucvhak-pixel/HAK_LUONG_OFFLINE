@@ -71,6 +71,8 @@
       hero.append(actions);
       const metrics = make('div', 'hak-catalog-metrics');
       hero.after(metrics);
+      workspace.querySelector('.hak-workspace-master').prepend(workspace.querySelector('.hak-workspace-toolbar'));
+      hero.querySelector('div').append(make('div', 'hak-catalog-breadcrumb', 'Tiền lương  ›  Danh mục  ›  ' + hero.querySelector('h2').textContent));
     }
     const table = workspace.querySelector('[data-ot-table]');
     if (table && !table.dataset.workspaceReady) {
@@ -107,7 +109,7 @@
       if (skins) top.insertBefore(skins, top.querySelector('.who'));
     }
     const search = top?.querySelector('.srch');
-    if (search && !search.dataset.referenceReady) { search.dataset.referenceReady = '1'; search.firstChild.textContent = '⌕ Tìm nhân viên, mã tăng ca, công thức… '; }
+    if (search && !search.dataset.referenceReady) { search.dataset.referenceReady = '1'; search.replaceChildren(make('span', '', '⌕ Tìm nhân viên, mã tăng ca, công thức…'), make('kbd', '', 'Ctrl K')); }
 
     const version = document.querySelector('#sidefoot .ver');
     if (version && !version.textContent.startsWith(VERSION)) version.textContent = version.textContent.replace(/^V10\.4 · v[\w.-]+/, VERSION);
