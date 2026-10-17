@@ -558,11 +558,14 @@ async function launch(dataDir, opt) {
   {
     const dbNow = () => w.evaluate(() => window.hakStore.load()).then((t) => JSON.parse(t.text));
     await w.click("#nav button[data-k=home]");
+    const th0 = await w.evaluate(() => document.documentElement.getAttribute("data-theme"));
     await w.click('#top button[aria-label="Đổi giao diện sáng / tối"]');
+    await w.waitForFunction((expected) => document.documentElement.getAttribute("data-theme") === expected, th0 === "dark" ? "light" : "dark");
     const th1 = await w.evaluate(() => document.documentElement.getAttribute("data-theme"));
     await w.click('#top button[aria-label="Đổi giao diện sáng / tối"]');
+    await w.waitForFunction((expected) => document.documentElement.getAttribute("data-theme") === expected, th0);
     const th2 = await w.evaluate(() => document.documentElement.getAttribute("data-theme"));
-    ok("UI: nút sáng / tối đổi giao diện (tối → sáng)", th1 === "dark" && th2 === "light", th1 + " → " + th2);
+    ok("UI: nút sáng / tối đổi và khôi phục đúng trạng thái ban đầu", th1 === (th0 === "dark" ? "light" : "dark") && th2 === th0, th0 + " → " + th1 + " → " + th2);
     await w.keyboard.press("Control+k"); await w.waitForSelector(".cmdk input"); await w.fill(".cmdk input", "e2e nhan"); await w.press(".cmdk input", "Enter"); await w.waitForTimeout(300);
     ok("UI: Ctrl+K gõ không dấu tìm nhân viên → Enter mở hồ sơ", (await w.locator("#top h2").innerText()) === "Hồ sơ nhân viên" && /E2E Nhân Viên/.test(await w.locator("#main").innerText()));
     await w.click('.subtabs button:has-text("Nhân thân")'); await w.waitForSelector("[data-npt-master]");
