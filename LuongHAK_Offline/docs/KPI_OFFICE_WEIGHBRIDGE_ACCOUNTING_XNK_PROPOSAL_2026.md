@@ -1,5 +1,5 @@
 # HAK KPI Bridge — ĐỀ XUẤT KPI KHỐI VĂN PHÒNG (DỰ THẢO V2)
-**Trạng thái:** DỰ THẢO GÓP Ý, không tự thay thế DM_KPI_104/26 vai trò trong core/kpi-catalog.js và KHÔNG kích hoạt ghi sang bảng lương. Tương thích phương án lương tháng cố định ĐÃ BAO GỒM KPI (KPI_FIXED_INCLUDES_HYGIENE_AND_KPI_2026.md).
+**Trạng thái:** DỰ THẢO GÓP Ý, danh mục 107 KPI/26 vai trò đã cập nhật trong core/kpi-catalog.js và KHÔNG kích hoạt ghi sang bảng lương. Tương thích phương án lương tháng cố định ĐÃ BAO GỒM KPI (KPI_FIXED_INCLUDES_HYGIENE_AND_KPI_2026.md).
 
 ## Nguyên tắc
 Mức thu nhập tháng được bảo đảm G = lương thời gian theo HĐLĐ C + quỹ KPI tháng P + khoản vệ sinh được duyệt V + các khoản khác thuộc G là F tại mốc chuẩn. G không tự bằng mức đóng BHXH. Nhóm văn phòng chỉ có V khi được giao nhiệm vụ vệ sinh/bảo dưỡng thực tế và được duyệt, không tự cấp V theo chức danh. Kết quả KPI tháng được tính riêng, phần thiếu so với G được thể hiện tại dòng “Bù bảo đảm thu nhập”, không tự cấn trừ tăng ca hoặc làm giảm G. Nhân viên được đánh giá theo việc trong phạm vi kiểm soát, không theo doanh thu hay sản lượng không được giao.
