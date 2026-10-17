@@ -84,5 +84,6 @@
   }
   const observer = new MutationObserver(() => { if (!scheduled) { scheduled = true; requestAnimationFrame(enhance); } });
   observer.observe(document.querySelector('#app'), { childList: true, subtree: true });
+  observer.observe(document.querySelector('#modal'), { childList: true, subtree: true });
   enhance();
 })();

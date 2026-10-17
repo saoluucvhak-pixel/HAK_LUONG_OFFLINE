@@ -24,6 +24,7 @@ async function launch() {
 async function nav(key) { await w.click('#nav button[data-k=' + key + ']'); }
 async function shot(name) { await w.evaluate(() => document.fonts.ready); await w.screenshot({ path: path.join(OUT, name + '.png') }); }
 async function fits(selector, name) {
+  await w.locator(selector).evaluate(async el => { await Promise.all(el.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))); });
   const detail = await w.locator(selector).evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight }; });
   check(name, detail.left >= -1 && detail.right <= detail.width + 1 && detail.top >= -1 && detail.bottom <= detail.height + 1, detail);
 }
@@ -44,7 +45,10 @@ async function fits(selector, name) {
     const business = () => JSON.stringify(JSON.parse(fs.readFileSync(file, 'utf8')), (key, value) => ['auditlog', 'settings', 'cauhinh', 'updatedAt'].includes(key) ? undefined : value);
     const before = business();
     for (const [width, height] of [[1366, 768], [1920, 1080]]) {
-      await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(...size), [width, height]);
+      await app.evaluate(({ BrowserWindow }, size) => { const win = BrowserWindow.getAllWindows()[0]; win.unmaximize(); win.setContentSize(...size); }, [width, height]);
+      await w.setViewportSize({ width, height });
+      await w.waitForFunction(([width, height]) => innerWidth === width && innerHeight === height, [width, height]);
+      check(width + ': actual renderer viewport matches requested size', await w.evaluate(([width, height]) => innerWidth === width && innerHeight === height, [width, height]));
       await nav('home');
       await shot(width + '-01-dashboard');
       check(width + ': page has no horizontal overflow', await w.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
