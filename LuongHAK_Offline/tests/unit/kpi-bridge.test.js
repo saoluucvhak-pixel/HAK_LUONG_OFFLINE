@@ -2,8 +2,8 @@
 const test=require("node:test"),assert=require("node:assert/strict");
 const catalog=require("../../core/kpi-catalog.js");
 const kpi=require("../../core/kpi-bridge.js");
-test("26 roles, 104 metrics, 4 unique metrics and 100% per role",()=>{
- assert.equal(catalog.roles.length,26);assert.equal(catalog.indicators.length,104);
+test("26 roles, 107 metrics, 4 or 5 distinct metrics and 100% per role",()=>{
+ assert.equal(catalog.roles.length,26);assert.equal(catalog.indicators.length,107);
  for(const role of catalog.roles) assert.equal(kpi.validRole(role,catalog.indicators),true,role.id);
 });
 test("No KPI money before policy and approval",()=>{
@@ -40,3 +40,6 @@ test("Bridge diff cannot invent residual KPI, rejects incomplete simulation",()=
  assert.equal(kpi.bridgeDiff(1000,[{name:"Lương chức danh",amount:800},{name:"Khoản riêng",amount:100}]).difference,-100);
  assert.equal(kpi.bridgeDiff(1000,[{name:"KPI",amount:""}]).ok,false);
 });
+
+test("FSC PEFC metric requires approval per role: 5 indicators not 4",()=>{for(const id of ["KT","XNK","TRAM_CAN"]){const role=catalog.roles.find(r=>r.id===id),metrics=catalog.indicators.filter(m=>m.roleId===id);assert.equal(metrics.length,5);assert.equal(metrics.reduce((s,m)=>s+m.weight,0),100);assert.ok(metrics.some(m=>m.name.includes("FSC/PEFC")));const rows={};metrics.forEach(m=>rows[m.id]={actual:m.target,evidence:"DOC",status:"APPROVED"});delete rows[id+"-5"];const v=kpi.evaluate(role,catalog.indicators,rows,{policyActive:true,assignmentAccepted:true});assert.equal(v.ok,false);assert.equal(v.coefficient,null);}}
+);
