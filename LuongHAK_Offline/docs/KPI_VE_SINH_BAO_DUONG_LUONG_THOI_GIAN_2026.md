@@ -7,6 +7,7 @@
 - `TX_VS_XE`: tài xế — vệ sinh/kiểm tra xe được giao.
 - `CK_VS_TB`: cơ khí — vệ sinh, bảo dưỡng thiết bị.
 - `CG_BD_VS_XE`: cơ giới — bảo dưỡng và vệ sinh xe, máy.
+- `TK_VS_KHO`: thủ kho — vệ sinh khu vực kho, bãi, sắp xếp/bảo quản vật tư và kiểm tra 5S theo phân công. Hưởng theo ngày và A/B/C/D có nhật ký thực hiện; không thay thế KPI riêng về nhập–xuất–tồn và độ chính xác kiểm kê.
 Mỗi mã phải có CompanyID, EmployeeID, công việc, mức duyệt, kỳ hiệu lực, bằng chứng hoàn thành, người phê duyệt. Tách tiền KPI khỏi khoản nhiệm vụ có thật; không gọi một phần lương cố định bằng tên vệ sinh chỉ để thay đổi nghĩa vụ BHXH.
 
 ## Biến và hàm mô phỏng
