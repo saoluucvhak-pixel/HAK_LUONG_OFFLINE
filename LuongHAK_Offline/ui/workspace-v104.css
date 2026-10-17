@@ -38,8 +38,10 @@ main{padding:22px 26px}#top{background:var(--card);padding:11px 26px}
 .hak-workspace.is-compact .ot-act{min-width:95px}
 .hak-workspace.is-compact .ot-act button{font-size:10px;padding:5px 7px;min-height:29px}
 .hak-workspace.is-compact .hak-workspace-grid{grid-template-columns:minmax(0,1.25fr) minmax(280px,1fr)}
-.hak-workspace .hak-workspace-hero{padding:20px}.hak-workspace-hero h2{font-size:21px}
-.hak-workspace .hak-master-guide{font-size:11px;padding:10px 12px}
+.hak-workspace .hak-workspace-hero{padding:14px 20px}.hak-workspace-hero h2{font-size:21px}
+.hak-workspace .hak-master-guide{font-size:11px;padding:0;margin:9px 12px}
+.hak-master-guide summary{padding:9px 12px;cursor:pointer;font-weight:600;color:var(--ink)}
+.hak-guide-content{padding:0 12px 12px;line-height:1.6}
 .hak-workspace .hak-workspace-toolbar{gap:7px;padding:12px}
 .hak-workspace-toolbar select,.hak-workspace-toolbar input,.hak-workspace-toolbar button{font-size:11px}
 .hak-workspace .hak-child-preview{border-top:3px solid var(--brand);box-shadow:none}

@@ -56,6 +56,12 @@
     const workspace = main.querySelector('[data-ot-master]'); if (!workspace) return;
     if (!workspace.dataset.workspaceReady) {
       workspace.dataset.workspaceReady = '1'; workspace.classList.add('is-compact');
+      const guide = workspace.querySelector('.hak-master-guide');
+      if (guide) {
+        const details = make('details'), summary = make('summary', '', 'Hướng dẫn cha–con và quy tắc kỳ lương');
+        const content = make('div', 'hak-guide-content'); content.append(...guide.childNodes);
+        details.append(summary, content); guide.replaceChildren(details);
+      }
       const button = make('button', 'b ghost', 'Xem đầy đủ cột'); button.type = 'button'; button.dataset.otDensity = '1'; button.setAttribute('aria-pressed', 'false');
       button.addEventListener('click', () => { const compact = workspace.classList.toggle('is-compact'); button.textContent = compact ? 'Xem đầy đủ cột' : 'Thu gọn cột'; button.setAttribute('aria-pressed', String(!compact)); });
       workspace.querySelector('.hak-workspace-toolbar').append(button);

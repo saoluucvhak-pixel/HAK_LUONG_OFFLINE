@@ -66,6 +66,7 @@ async function fits(selector, name) {
       await w.waitForSelector('[data-ot-table]'); await shot(width + '-02-master-detail');
       if (!baseline) {
         check(width + ': compact list has no internal horizontal overflow', await w.locator('.ot-list').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
+        check(width + ': parent list starts above the fold', await w.locator('.ot-list').evaluate(el => el.getBoundingClientRect().top < innerHeight * 0.65));
         const density = w.locator('[data-ot-density]');
         await density.click(); check(width + ': full columns available on demand', await density.getAttribute('aria-pressed') === 'true'); await density.click();
       }
