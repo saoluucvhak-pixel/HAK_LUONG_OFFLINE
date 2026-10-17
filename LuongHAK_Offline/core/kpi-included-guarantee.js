@@ -45,9 +45,19 @@
     if (!args.kpiApproved) warnings.push("KPI và hệ số K_P chưa duyệt; kết quả chỉ là mô phỏng");
     if (!args.hygieneReviewed) warnings.push("K_V và số ngày vệ sinh phải có bảng chấm/biên bản xác nhận");
     if (H!==null && H<1) warnings.push("Giảm tỷ lệ quyền hưởng bảo đảm chỉ theo căn cứ HĐLĐ/nghỉ không lương, không suy từ KPI hay vệ sinh");
+    if (args.fscPayVnd != null) {
+      var fscPay=number(args.fscPayVnd),fscFund=number(args.fscFundVnd);
+      if(fscPay===null||fscPay<0||fscFund===null||fscFund<0||fscFund>P||fscPay>fscFund)errors.push("FSC phải nằm trong quỹ KPI tháng, không được phát sinh thêm ngoài quỹ");
+      if(!args.fscApproved)errors.push("Tiền FSC chưa duyệt: chặn phân bổ vào quỹ KPI");
+    }
     if (errors.length) return {ok:false,mode:"COMPARE_ONLY",status:"INVALID",errors:errors,warnings:warnings,payrollWriteAllowed:false};
     var rD=Math.min(D,N)/N, rV=Math.min(DV,N)/N, rP=Math.min(DP,N)/N;
     var base=round(C*rD),other=round(F*rD),hygiene=round(V*rV*KV),kpi=round(P*rP*KP);
+    var fscIncluded=number(args.fscPayVnd);
+    if(fscIncluded!==null){
+      var fscBudget=number(args.fscFundVnd);
+      kpi=round((P-fscBudget)*rP*KP)+round(fscIncluded);
+    }
     var preTopup=base+other+hygiene+kpi;
     var floor=round(M*H),topup=Math.max(0,floor-preTopup),total=preTopup+topup;
     var excess=Math.max(0,preTopup-floor);
@@ -56,7 +66,7 @@
       ok:true,mode:"FIXED_INCLUDES_KPI",status:"SIMULATION_ONLY",payrollWriteAllowed:false,
       allocation:{baseMonthly:C,hygieneMonthly:V,kpiMonthly:P,otherMonthly:F,monthlyTotal:M,allocationDifference:round(C+V+P+F-M)},
       ratios:{regular:rD,hygiene:rV,kpi:rP,guaranteeEntitlement:H},
-      components:{baseTime:base,otherInside:other,hygieneEarned:hygiene,kpiEarned:kpi,
+      components:{baseTime:base,otherInside:other,hygieneEarned:hygiene,kpiEarned:kpi,kpiFscInside:fscIncluded===null?0:round(fscIncluded),
         beforeTopup:preTopup,guaranteeFloor:floor,guaranteeTopup:topup,afterTopup:total,
         excessBeforeTopup:excess},
       sensitivity:{perHygieneFactor:V*rV,perKpiFactor:P*rP,
