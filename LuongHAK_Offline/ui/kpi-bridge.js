@@ -41,10 +41,10 @@
         assignBar.append(button("Giao vai trò KPI (dự thảo)",function(){if(saveAssignment(employee,roleId)){ctx.toast("Đã giao KPI dự thảo");render();}}));el.append(assignBar);
       }
       var preview=make("div","card");preview.append(make("h3","","Mô phỏng lương thời gian · Vệ sinh / Bảo dưỡng"));
-      preview.append(make("p","hint","Tách B (BHXH tham chiếu), M (mục tiêu tháng), D (ngày công), K (hệ số vệ sinh); khoản vượt 24 chỉ là mô phỏng, không mặc nhiên là tăng ca. Không ghi vào bảng lương."));
+      preview.append(make("p","hint","Tách C (lương thời gian hợp đồng), M (mục tiêu tháng), D (ngày công), K (hệ số vệ sinh); khoản vượt 24 chỉ là mô phỏng, không mặc nhiên là tăng ca. Không ghi vào bảng lương."));
       var sim=root.HAKKPI.timeStructure, catSel=make("select","i");
       Object.keys(sim.CATEGORIES).forEach(function(key){catSel.append(new root.Option(sim.CATEGORIES[key],key));});
-      var config=[["B – Mức lương BHXH tham chiếu","insuranceBase","6000000"],["M – Thu nhập tháng mục tiêu","monthlyTarget","8000000"],["D – Công hưởng hợp lệ","paidDays","24"],["Công chuẩn","standardDays","24"],["K – Hệ số vệ sinh/bảo dưỡng","careCoefficient","1"],["Hệ số công vượt chuẩn","extraCoefficient","1"],["Mức vệ sinh tháng được duyệt","careMonthly","1500000"],["Các khoản cố định khác","otherMonthly","500000"]];
+      var config=[["C – Lương thời gian theo hợp đồng","baseMonthly","6000000"],["M – Thu nhập tháng mục tiêu","monthlyTarget","8000000"],["D – Công hưởng hợp lệ","paidDays","24"],["Công chuẩn","standardDays","24"],["K – Hệ số vệ sinh/bảo dưỡng","careCoefficient","1"],["Hệ số công vượt chuẩn","extraCoefficient","1"],["Mức vệ sinh tháng được duyệt","careMonthly","1500000"],["Các khoản cố định khác","otherMonthly","500000"]];
       var pvValues={}, panel=make("div","bar");row(panel,"Loại công việc",catSel);
       config.forEach(function(it){var e=input("number",it[2]);e.step="any";pvValues[it[1]]=e;row(panel,it[0],e);});
       var gradeMode=make("select","i");
@@ -67,7 +67,7 @@
         args.careLevelDays={};Object.keys(gradeDays).forEach(function(key){args.careLevelDays[key]=gradeDays[key].value;});
         var z=sim.compute(args);out.replaceChildren();
         if(!z.ok){out.textContent="Dữ liệu không hợp lệ: "+z.errors.join("; ");return;}
-        var labels=[["Lương theo mức BH tham chiếu (mô phỏng)",z.components.baseTime],["Vệ sinh / bảo dưỡng",z.components.careMaintenance],["Khoản cố định khác",z.components.otherFixed],["Công vượt chuẩn – chỉ báo kiểm tra",z.components.overStandardPreview],["Tổng mô phỏng",z.comparison.totalSimulated],["Lệch với thu nhập mục tiêu",z.comparison.differenceFromTarget],["Phần mục tiêu chưa phân loại",z.comparison.unallocatedMonthly],["Biến thiên mỗi 1 công trong chuẩn",z.links.perRegularDayAtFullCare],["Biến thiên mỗi 1 đơn vị hệ số K",z.links.perCareCoefficientUnit]];
+        var labels=[["Lương thời gian hợp đồng (mô phỏng)",z.components.baseTime],["Vệ sinh / bảo dưỡng",z.components.careMaintenance],["Khoản cố định khác",z.components.otherFixed],["Công vượt chuẩn – không tự tính tiền",z.components.overStandardPreview],["Tổng mô phỏng",z.comparison.totalSimulated],["Lệch với thu nhập mục tiêu",z.comparison.differenceFromTarget],["Phần mục tiêu chưa phân loại",z.comparison.unallocatedMonthly],["Biến thiên mỗi 1 công trong chuẩn",z.links.perRegularDayAtFullCare],["Biến thiên mỗi 1 đơn vị hệ số K",z.links.perCareCoefficientUnit]];
         labels.forEach(function(it){out.append(make("p","",it[0]+": "+Math.round(it[1]).toLocaleString("vi-VN")+" đ"));});
         if(z.careLevels){
           out.append(make("p","","Ngày quy đổi theo K: "+z.careLevels.weightedDays.toLocaleString("vi-VN")+
