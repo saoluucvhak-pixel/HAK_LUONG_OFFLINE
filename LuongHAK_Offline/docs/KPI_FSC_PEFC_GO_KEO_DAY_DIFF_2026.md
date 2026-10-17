@@ -1,5 +1,8 @@
 # HAK KPI Bridge — Tiêu chí hồ sơ nhập gỗ keo FSC/PEFC (DỰ THẢO)
 
+> **QUY TẮC MỚI ƯU TIÊN (17/10/2026):** Công vượt công chuẩn riêng của bộ phận là dữ liệu cần đối chiếu **tăng ca thực tế**, không bao giờ tự được phân bổ thành công KPI FSC. Trạm cân 26 công; XNK/KTT/TGĐ/quản lý 22 công; văn phòng nghỉ Chủ nhật và thứ Bảy nửa ngày (công chuẩn theo lịch). FSC chỉ chấm chất lượng hồ sơ và quỹ nội bộ đã bảo đảm. Xem `KPI_ROLE_SCHEDULE_AND_OVERTIME_2026.md`. Nội dung cũ trái nguyên tắc này đã hết giá trị.
+
+
 ## Phạm vi
 Thêm tiêu chí hồ sơ nhập gỗ keo cho 3 vai trò `KT`, `XNK`, `TRAM_CAN`. Mỗi vai trò tăng từ 4 lên 5 chỉ tiêu nhưng tổng trọng số vẫn 100%: [30,25,15,10,20]. Bộ 26 vai trò nâng tổng 104 lên 107 chỉ tiêu. Không thay đổi Payroll Engine và kỳ lương đã chốt.
 
@@ -10,16 +13,12 @@ Thêm tiêu chí hồ sơ nhập gỗ keo cho 3 vai trò `KT`, `XNK`, `TRAM_CAN`
 - Không tự xác nhận hàng hóa là FSC/PEFC-certified chỉ vì có ghi nhận nguồn gốc hoặc ký hiệu. Chuẩn FSC/PEFC/CoC cụ thể cần kiểm tra theo chính sách khách hàng, phạm vi chứng chỉ và tài liệu có hiệu lực.
 - KPI_doc = hồ sơ đạt các bước xác minh thuộc trách nhiệm / hồ sơ phải kiểm. Tạm đề xuất target >= 98%, có chứng từ và trạng thái duyệt, nhân sự được quyền khiếu nại. Không phát sinh hồ sơ: N/A cần duyệt, không mặc định 100%.
 
-## Phân bổ theo lịch 30 ngày, 26 công, trong đó 24 công lương + 2 công KPI FSC
-Mục đích là phân loại ngày công nội bộ, **không thay thế quyền lợi lương bình thường hoặc tự sinh tăng ca**.
-- N_lich = số ngày theo lịch làm việc (ví dụ 26); N_luong = công phân bổ vào lương thời gian (ví dụ 24); D = số công thực tế hợp lệ.
-- Công lương = MIN(D, N_luong).
-- Công KPI FSC = MIN(MAX(0,D-N_luong), MAX(0,N_lich-N_luong)).
-- Công ngoài lịch = MAX(0,D-N_lich); đối chiếu ca/ngày nghỉ và OT thực tế riêng.
-- Giá trị quy đổi FSC = Công KPI FSC × mức mỗi công có đơn vị và phê duyệt. Mức 100 hoặc 200 chưa được xác nhận là điểm hay nghìn đồng; không tự chuyển thành tiền lương.
-- Ví dụ tháng 30 ngày, lịch 26 công, thực làm 26: 24 công lương, 2 công FSC. Làm 25: 24 + 1; làm 24: 24 + 0.
-- HAK đã xác định thu nhập tháng **bảo đảm bao gồm KPI**: nếu quy đổi FSC thành tiền đã nằm trong quỹ KPI thì chỉ phân bổ lại cấu phần; không cộng trùng vào tổng thu nhập cam kết.
-- Việc phân bổ 2 công FSC không được làm mất lương bắt buộc của ngày làm việc bình thường theo HĐLĐ/pháp luật.
+## KPI FSC và công tăng ca được tính độc lập
+Tiêu chí FSC chỉ dùng số bộ hồ sơ được giao và tỷ lệ hồ sơ được xác minh đạt mục tiêu.
+`K_FSC = MIN(1, (Hồ sơ đạt / Hồ sơ kiểm) / tỷ lệ mục tiêu)`.
+`FSC_PAY = MIN(Quỹ FSC đã duyệt, số đơn vị hồ sơ FSC đã duyệt × mức VND/đơn vị × K_FSC)`.
+FSC_PAY đã nằm trong quỹ KPI tháng và chỉ được phân bổ 1 lần. Không dùng công thứ 25–26 để sinh FSC_PAY.
+Công tăng ca phải căn cứ giờ/ca thực tế và loại ngày; công vượt chuẩn chỉ là chỉ báo cần kiểm tra.
 
 ## Quy trình
 (1) đối chiếu lô hàng và số phiếu; (2) kiểm tra chứng chỉ và claim theo từng hệ thống FSC/PEFC; (3) xác nhận chất lượng chứng từ; (4) chấm KPI 5 chỉ tiêu; (5) thẩm định số ngày công chênh; (6) duyệt KPI và đối chiếu mức lương bảo đảm. Hệ số KPI từ hồ sơ FSC/PEFC không thay mức lương đóng BHXH; không tự làm giảm cam kết G.
