@@ -33,21 +33,24 @@
     var issues = [], detail = [], ready = true;
     var ms = (catalogIndicators || []).filter(function(x) { return role && x.roleId === role.id; }).sort(function(a,b){ return a.order-b.order; });
     if (!validRole(role, ms)) issues.push("Vai trò cần đủ KPI có mục tiêu, hướng đo và tổng trọng số 100%");
-    var total = 0;
+    var total = 0, activeWeight = 0;
     ms.forEach(function(m) {
       var e = entries[m.id] || {};
-      var result = scoreMetric(m,e);
-      if (result.ok) total += result.score * m.weight / 100;
+      var isNa = e.status === "NA_APPROVED" && String(e.exceptionReason||"").trim() && String(e.approvedBy||"").trim() && opts.naPolicyApproved === true;
+      var result = isNa ? {ok:true,score:null,na:true} : scoreMetric(m,e);
+      if (result.ok && !result.na) {total += result.score * m.weight; activeWeight += m.weight;}
       else { ready = false; issues.push(m.id + ": " + result.reason); }
-      if (!String(e.evidence || "").trim()) { ready = false; issues.push(m.id + ": thiếu chứng từ/bằng chứng"); }
-      if (e.status !== "APPROVED") { ready = false; issues.push(m.id + ": chưa được phê duyệt"); }
-      detail.push({ id:m.id, name:m.name, weight:m.weight, target:m.target, actual:result.actual, score:result.ok ? result.score:null, evidence:String(e.evidence||""), status:e.status||"DRAFT" });
+      if (!isNa && !String(e.evidence || "").trim()) { ready = false; issues.push(m.id + ": thiếu chứng từ/bằng chứng"); }
+      if (!isNa && e.status !== "APPROVED") { ready = false; issues.push(m.id + ": chưa được phê duyệt"); }
+      detail.push({ id:m.id, name:m.name, weight:m.weight, target:m.target, actual:result.actual, score:result.ok ? result.score:null,na:isNa, evidence:String(e.evidence||""), status:e.status||"DRAFT" });
     });
+    if (activeWeight <= 0) {ready=false;issues.push("Không còn chỉ tiêu có thể tính sau N/A");}
+    if (activeWeight > 0) total /= activeWeight;
     if (!opts.policyActive) { ready = false; issues.push("Quy chế chưa ban hành/hiệu lực"); }
     if (!opts.assignmentAccepted) { ready = false; issues.push("Chưa xác nhận giao KPI cho cá nhân"); }
     if (role && role.mode !== "KPI_TIME") { ready = false; issues.push("Vai trò chỉ theo dõi hoặc tính theo quyết định kỳ riêng; không tự động trả KPI tháng"); }
     if (issues.length) ready = false;
-    return { ok: ready, status: ready ? "APPROVED" : "DRAFT", score: ms.length>0 && detail.every(function(x){return x.score!==null;}) ? Math.round(total*10000)/10000 : null,
+    return { ok: ready, status: ready ? "APPROVED" : "DRAFT", score: ms.length>0 && detail.every(function(x){return x.score!==null || x.na;}) ? Math.round(total*10000)/10000 : null,
       coefficient: ready ? coefficient(total) : null,
       previewCoefficient: ms.length>0 && detail.every(function(x){return x.score!==null;}) ? coefficient(total):null,
       details: detail, issues: issues };
