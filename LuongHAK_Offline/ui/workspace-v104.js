@@ -81,8 +81,11 @@
     scheduled = false; navigation(); dashboard(); masterDetail(); returnFocus();
     const version = document.querySelector('#sidefoot .ver');
     if (version && !version.textContent.startsWith(VERSION)) version.textContent = version.textContent.replace(/^V10\.4 · v[\w.-]+/, VERSION);
+    const palette = document.querySelector('.hak-skin-select option[value="luxe"]');
+    if (palette && palette.textContent !== 'Luxury · HAK Enterprise') palette.textContent = 'Luxury · HAK Enterprise';
   }
-  const observer = new MutationObserver(() => { if (!scheduled) { scheduled = true; requestAnimationFrame(enhance); } });
+  // Finish presentation changes before the next input event, avoiding a one-frame layout race.
+  const observer = new MutationObserver(() => { if (!scheduled) { scheduled = true; queueMicrotask(enhance); } });
   observer.observe(document.querySelector('#app'), { childList: true, subtree: true });
   observer.observe(document.querySelector('#modal'), { childList: true, subtree: true });
   enhance();
