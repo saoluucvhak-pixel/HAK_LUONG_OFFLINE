@@ -15,6 +15,18 @@ for (const sample of fixture.samples) {
   assert.equal(Number(result.text), sample.logits.indexOf(Math.max(...sample.logits)));
 }
 console.log('PASS packaged offline handwriting CNN: model and runtime present; 100 ONNX reference cases match');
+for (const digit of [0, 1]) {
+  const choose = label => fixture.samples.find(s => s.label === label && recognizer.recognize({ w: 28, h: 28, data: Uint8Array.from(Buffer.from(s.pixels, 'base64'), x => 255 - x) }).status === 'CANDIDATE');
+  const w = 76, h = 40, data = new Uint8Array(w * h).fill(255);
+  for (const [sample, offset] of [[choose(digit), 2], [choose(5), 44]]) {
+    const pixels = Buffer.from(sample.pixels, 'base64');
+    for (let y = 0; y < 28; y++) for (let x = 0; x < 28; x++) data[(y + 3) * w + x + offset] = 255 - pixels[y * 28 + x];
+  }
+  for (let y = 25; y < 29; y++) for (let x = 35; x < 37; x++) data[y * w + x] = 0;
+  const result = recognizer.recognize({ w, h, data });
+  assert.equal(result.text, digit + ',5'); assert.equal(result.status, 'CANDIDATE'); assert.equal(result.verified, false);
+}
+console.log('PASS packaged separated decimal proposals: 0,5 and 1,5 remain unverified');
 // Exercise the real packaged Electron process too, including its unpacked-resource paths.
 const os = require('node:os'), child = require('node:child_process');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'hak-cnn-packaged-'));

@@ -18,7 +18,7 @@ const fmt = (v) => (v === 0 ? "" : String(v).replace(".", ","));
 const norm = (s) => String(s == null ? "" : s).trim().replace(/\./g, ",").replace(/^0$/, "");
 
 async function launch(dir) {
-  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: dir, HAK_NO_SHELL: "1" }) });
+  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: dir, HAK_DOWNLOAD_DIR: path.join(dir, 'downloads'), HAK_NO_SHELL: "1" }) });
   const w = await app.firstWindow(); const errs = [];
   w.on("pageerror", (e) => errs.push(e.message)); w.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
   w.on("dialog", (d) => d.accept(d.type() === "prompt" ? "" : undefined));
@@ -86,10 +86,46 @@ function score(rows, truth) { // truth: [[ten, [30 giá trị]]]
     fs.mkdirSync(process.env.OCR_EVAL_SHOTS, { recursive: true });
     await w.screenshot({ path: path.join(process.env.OCR_EVAL_SHOTS, "handwriting-cnn-review.png") });
   }
+  const decimals = await readFile(w, ["../handwriting/mnist-decimals.png"], "so");
+  const offeredDecimals = await w.locator('[data-handwriting-candidate="0,5"], [data-handwriting-candidate="1,5"]').count();
+  const nextReview = w.locator('[data-ocr-review] button:has-text("Ô cần kiểm tra tiếp theo")');
+  await nextReview.click();
+  const sourceVisible = await w.locator('[data-ocr-review] canvas').evaluate(c => c.width > 10 && c.height > 10);
+  const focusedDay = await w.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-day'));
+  let decimalChoice = false, changedDecimal = null;
+  if (offeredDecimals) {
+    const b = w.locator('[data-handwriting-candidate="0,5"], [data-handwriting-candidate="1,5"]').first();
+    const value = await b.getAttribute('data-handwriting-candidate');
+    const originalInput = b.locator('xpath=..').locator('input[data-day]');
+    changedDecimal = { day: Number(await originalInput.getAttribute('data-day')), read: await originalInput.inputValue(), row: await originalInput.evaluate(e => Array.from(e.closest('tbody').children).indexOf(e.closest('tr')) + 1) };
+    await b.click();
+    decimalChoice = await b.locator('xpath=..').locator('input[data-day]').inputValue() === value;
+  }
+  await w.locator('button:has-text("Xuất phiếu nghiệm thu OCR")').click();
+  const downloadDir = path.join(DIR, 'downloads'); let exportedFile;
+  for (let i = 0; i < 50 && !exportedFile; i++) {
+    await w.waitForTimeout(100);
+    if (fs.existsSync(downloadDir)) exportedFile = fs.readdirSync(downloadDir).find(n => /^ocr-acceptance-private-.*\.json$/.test(n));
+  }
+  if (!exportedFile) throw Error('Acceptance worksheet was not saved to isolated export directory');
+  const exported = JSON.parse(fs.readFileSync(path.join(downloadDir, exportedFile), 'utf8'));
+  const exportedCell = changedDecimal && exported.pages[0].cells.find(c => c.row === 'row-' + changedDecimal.row && c.day === changedDecimal.day);
+  const acceptanceExport = exported.kind === 'unclassified' && exported.pages.length === 1 && exported.pages[0].cells.length === 60 && exported.pages[0].cells.every(c => c.expected === null && c.aligned === null) && !!exportedCell && exportedCell.read === changedDecimal.read && !JSON.stringify(exported).includes('E2E Nhân Viên');
+  report.decimalReview = { pageRead: decimals.ok, rows: decimals.rows.length, offeredDecimals, sourceVisible, focusedDay, decimalChoice, acceptanceExport,
+    unchangedAttendance: attendanceBefore === JSON.stringify(JSON.parse(fs.readFileSync(fb, 'utf8')).chamcong),
+    note: 'Composited public MNIST digits and computer-drawn separators; not private real handwriting acceptance.' };
+  report.decimalReview.passed = decimals.ok && decimals.rows.length === 2 && offeredDecimals > 0 && sourceVisible && !!focusedDay && decimalChoice && acceptanceExport && report.decimalReview.unchangedAttendance;
+  console.log((report.decimalReview.passed ? 'PASS ' : 'FAIL ') + 'Decimal handwriting review: ' + JSON.stringify(report.decimalReview));
+  if (process.env.OCR_EVAL_SHOTS) {
+    await w.locator('#dlcard .t button').click().catch(() => {});
+    await w.waitForTimeout(5000);
+    await w.locator('[data-ocr-review]').evaluate(e => e.scrollIntoView({ block: 'start' }));
+    await w.screenshot({ path: path.join(process.env.OCR_EVAL_SHOTS, 'handwriting-decimal-review.png') });
+  }
   await app.close();
   report.errorsJS = errs.slice(0, 5);
   report.tongKet = { cases: report.cases.length, dat: report.cases.filter((c) => c.dat).length, jsErrors: errs.length };
   fs.writeFileSync(path.resolve(APP, process.env.OCR_EVAL_REPORT || "docs/V10_1_OCR_CHECK.json"), JSON.stringify(report, null, 1));
   console.log("\nOCR: " + report.tongKet.dat + "/" + report.tongKet.cases + " ca đạt ngưỡng · selfTest: " + selfTest + " · lỗi JS: " + errs.length);
-  process.exit(report.tongKet.dat === report.tongKet.cases && report.handwritingReview.passed && !errs.length ? 0 : 1);
+  process.exit(report.tongKet.dat === report.tongKet.cases && report.handwritingReview.passed && report.decimalReview.passed && !errs.length ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(2); });

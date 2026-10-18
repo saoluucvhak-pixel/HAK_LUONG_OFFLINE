@@ -136,7 +136,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: saoluucvhak-pixel/HAK_OCR_ENGINE
-          ref: e1b578f08322f496f6ae5ea13581b1ccd5227112
+          ref: 3c582c5815edace4ad77653fc17fe5a64b50c644
           path: .comparison/shared-ocr
       - name: Verify pinned common OCR source parity
         run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr

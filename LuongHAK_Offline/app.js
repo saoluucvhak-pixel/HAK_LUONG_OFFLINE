@@ -4228,6 +4228,23 @@
     }
     if (OCRS.pages.length) {
       bar.appendChild(btn("⬇ Xuất Excel", "", function () { ocrExport(OCRS.pages); }, "Mỗi trang 1 sheet: tên, nhân viên, ngày 1…31, tổng"));
+      bar.appendChild(btn("Xuất phiếu nghiệm thu OCR", "ghost", function () {
+        var stamp = Date.now().toString(36), pages = OCRS.pages.filter(function (p) { return p.res && p.lines && p.lines.length; }).map(function (p, pi) {
+          var cells = [];
+          p.lines.forEach(function (L, li) { p.days.forEach(function (d) {
+            var c = L.src.cells && L.src.cells[d], candidate = c && c.handwriting;
+            var raw = String(L.orig && L.orig[d] != null ? L.orig[d] : L.vals[d]);
+            var entry = { row: "row-" + (li + 1), day: d, expected: null, read: raw, aligned: null,
+              needsReview: raw === "?" || ocrNum(raw) > 3 || !!(c && (c.conf < 60 || c.unsure || c.src === "nét")) || !!(candidate && (candidate.offered || candidate.status === "NEEDS_REVIEW" || candidate.status === "UNSUPPORTED")) };
+            if (candidate && candidate.status === "CANDIDATE" && (!p.mode || p.mode === "so")) entry.suggestion = candidate.text;
+            cells.push(entry);
+          }); });
+          return { id: stamp + "-page-" + (pi + 1), group: "SET_DOCUMENT_WRITER_GROUP", split: "test", quality: "SET_clear_OR_hard", cells: cells };
+        });
+        if (!pages.length) { toast("Chưa có trang nào đọc xong"); return; }
+        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.31", pages: pages }, null, 2));
+        toast("Đã xuất phiếu không chứa tên hoặc ảnh. Người kiểm tra cần điền đáp án, xác nhận người/ngày và phân nhóm tài liệu trước khi đánh giá; giữ file riêng, không đưa lên repo.");
+      }, "Xuất kết quả OCR ban đầu theo dòng/ngày, không chứa tên hoặc ảnh; đáp án và bố cục để trống cho người nghiệm thu"));
       bar.appendChild(btn("✔ Đưa vào Chấm công / Suất cơm…", "pri", function () { ocrApply(OCRS.pages); }, "Qua màn hình xem trước như nhập Excel"));
       if (!OCRS.reading) bar.appendChild(btn("Xóa danh sách", "ghost", function () { if (confirm("Xóa các trang đã đọc khỏi màn hình này? (Dữ liệu đã ghi vào Chấm công không bị ảnh hưởng)")) { OCRS.pages = []; OCRS.more = []; OCRS.sel = 0; render(); } }));
     }
@@ -4280,14 +4297,25 @@
     pc.appendChild(meta);
     if (!pg.lines || !pg.lines.length) return w;
     // ảnh gốc (đã xoay) + ô đang chọn
-    var prevBox = h("div", { class: "ocrprev" }), zoom = canvasOf(10, 10), zcap = h("div", { class: "hint", text: "Bấm vào 1 ô để xem ảnh gốc của ô đó" });
+    var reviewInputs = [], reviewIndex = -1;
+    var prevBox = h("div", { class: "ocrprev", "data-ocr-review": "1", role: "region", "aria-label": "Đối chiếu ô chấm công" }), zoom = canvasOf(10, 10), zcap = h("div", { class: "hint", "aria-live": "polite", text: "Bấm vào 1 ô để xem ảnh gốc của ô đó" });
+    var reviewBar = h("div", { class: "bar" }), reviewCount = h("span", { class: "hint" });
+    function nextReview() {
+      if (!reviewInputs.length) return;
+      reviewIndex = (reviewIndex + 1) % reviewInputs.length;
+      reviewInputs[reviewIndex].focus();
+      reviewInputs[reviewIndex].scrollIntoView({ block: "nearest", inline: "center" });
+      reviewCount.textContent = "Ô cần đối chiếu " + (reviewIndex + 1) + "/" + reviewInputs.length + " · xem ảnh rồi sửa nếu cần";
+    }
+    reviewBar.appendChild(btn("Ô cần kiểm tra tiếp theo", "ghost", nextReview, "Chuyển đến ô chưa đọc được, độ tin cậy thấp hoặc có gợi ý chữ tay; không tự xác nhận ô"));
+    reviewBar.appendChild(reviewCount); prevBox.appendChild(reviewBar);
     prevBox.appendChild(zoom); prevBox.appendChild(zcap);
     var showCell = function (cell, label) {
       if (!cell || !pg.view) { zcap.textContent = label + " — không có ảnh ô"; return; }
       var pad = 6, x0 = Math.max(0, cell.x0 - pad), y0 = Math.max(0, cell.y0 - pad), cw = Math.min(pg.view.width, cell.x1 + pad) - x0, ch = Math.min(pg.view.height, cell.y1 + pad) - y0, sc0 = Math.min(6, 120 / Math.max(1, ch));
       zoom.width = Math.round(cw * sc0); zoom.height = Math.round(ch * sc0);
       var zx = zoom.getContext("2d"); zx.imageSmoothingEnabled = true; zx.drawImage(pg.view, x0, y0, cw, ch, 0, 0, zoom.width, zoom.height);
-      zcap.textContent = label + " · OCR: \"" + (cell.text || "") + "\" · tin cậy " + (cell.conf || 0) + (cell.src === "nét" ? " · nhận theo nét (số 1 viết tay)" : "") + (cell.valSrc ? " · tính: " + cell.valSrc : "") + (cell.libStatus === "AUTO" ? " · thư viện mẫu tự nhận (" + Math.round(cell.libScore * 100) + "%)" + (cell.libFrom != null ? ", OCR đọc: " + cell.libFrom : "") : cell.libStatus === "SUG" ? " · thư viện gợi ý: " + cell.libLabel + " (" + Math.round(cell.libScore * 100) + "%)" : "") + (cell.unsure ? " · không chắc — xem lại" : "");
+      zcap.textContent = label + " · OCR: \"" + (cell.text || "") + "\" · tin cậy " + (cell.conf || 0) + (cell.handwriting && cell.handwriting.text ? " · gợi ý chữ tay: " + cell.handwriting.text + " (chưa xác nhận)" : "") + (cell.src === "nét" ? " · nhận theo nét (số 1 viết tay)" : "") + (cell.valSrc ? " · tính: " + cell.valSrc : "") + (cell.libStatus === "AUTO" ? " · thư viện mẫu tự nhận (" + Math.round(cell.libScore * 100) + "%)" + (cell.libFrom != null ? ", OCR đọc: " + cell.libFrom : "") : cell.libStatus === "SUG" ? " · thư viện gợi ý: " + cell.libLabel + " (" + Math.round(cell.libScore * 100) + "%)" : "") + (cell.unsure ? " · không chắc — xem lại" : "");
     };
     var tw = h("div", { class: "tw ocrgrid" }), t = h("table"), hr = h("tr");
     ["Tên trên giấy", "Nhân viên", "Loại"].concat(pg.days.map(String), ["Tổng tính", "Tổng giấy"]).forEach(function (x) { hr.appendChild(h("th", { text: x })); });
@@ -4327,8 +4355,10 @@
         inp.addEventListener("blur", function () { var lr = ocrLearn(); if (lr && cell && inp._viewed && !inp._changed && String(L.vals[d]).trim() && String(L.vals[d]) === String(L.orig ? L.orig[d] : "")) lr.onViewedUnchanged({ res: pg.res, cell: cell, pg: pg, ma: L.ma, value: L.vals[d] }); inp._viewed = false; });
         inp.addEventListener("change", function () { var prevV = L.vals[d]; inp._changed = true; if (prevV !== inp.value.trim()) { (pg.undo = pg.undo || []).push({ L: L, d: d, prev: prevV, cell: cell, inp: inp }); } L.vals[d] = inp.value.trim(); var lr = ocrLearn(); if (lr) lr.onEdit({ res: pg.res, cell: cell, ref: ocrRef(L, li, d), pg: pg, ma: L.ma, before: prevV, after: L.vals[d], ocrValue: L.orig ? L.orig[d] : prevV }).then(function (r) { ocrMark(inp, ocrRef(L, li, d)); if (r && r.ok === false) toast("⚠ Chưa lưu được mẫu học từ ô vừa sửa — " + (r.durable ? "đã giữ lại trên đĩa, sẽ thử lại" : "CHỈ giữ tạm trong bộ nhớ, hãy bấm Thử lại trước khi đóng") + " (" + (r.error || "") + ")"); else if (r && r.missingSource) toast("Ô này không có ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu học"); }); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
         var contents = [inp], candidate = cell && cell.handwriting;
-        if ((!pg.mode || pg.mode === "so") && candidate && candidate.offered && candidate.status === "CANDIDATE" && ocrNum(L.vals[d]) !== Number(candidate.text)) {
+        if (inp.classList.contains("low") || inp.classList.contains("bad") || (candidate && (candidate.offered || candidate.status === "NEEDS_REVIEW" || candidate.status === "UNSUPPORTED"))) reviewInputs.push(inp);
+        if ((!pg.mode || pg.mode === "so") && candidate && candidate.offered && candidate.status === "CANDIDATE" && ocrNum(L.vals[d]) !== ocrNum(candidate.text)) {
           var useCandidate = btn("✎ " + candidate.text, "ghost", function () {
+            showCell(cell, (L.name || "Dòng " + (li + 1)) + " · ngày " + d);
             inp.value = candidate.text; inp.dispatchEvent(new window.Event("change"));
             useCandidate.disabled = true; useCandidate.textContent = "Đã chọn " + candidate.text;
           }, "Gợi ý chữ số viết tay CNN: " + candidate.text + ". " + candidate.warning + " Điểm mô hình không phải xác nhận độ chính xác.");
@@ -4344,7 +4374,7 @@
       tbody.appendChild(tr);
     });
     t.appendChild(tbody); tw.appendChild(t);
-    if ((!pg.mode || pg.mode === "so") && pg.res && pg.res.cells && pg.res.cells.some(function (c) { return c.handwriting && c.handwriting.model; })) pc.appendChild(h("div", { class: "hint", "data-handwriting-model": "1", text: "Mô hình chữ số viết tay CNN đã chạy offline. Nút ✎ dưới ô là gợi ý một chữ số 0–9; chỉ khi bạn chọn thì giá trị ô mới đổi. Chưa hỗ trợ tên tiếng Việt hoặc chuỗi số dính nét." }));
+    if ((!pg.mode || pg.mode === "so") && pg.res && pg.res.cells && pg.res.cells.some(function (c) { return c.handwriting && c.handwriting.model; })) pc.appendChild(h("div", { class: "hint", "data-handwriting-model": "1", text: "Nhận dạng chữ số viết tay chạy offline. Nút ✎ gợi ý chữ số đơn hoặc số thập phân có dấu phân cách và các chữ số tách rời. Chỉ khi bạn chọn thì giá trị ô mới đổi. Chưa hỗ trợ tên tiếng Việt hoặc chữ số dính nét; cần đối chiếu ảnh gốc." }));
     if (C.ocrRules) { // kiểm tra nghiệp vụ (V7): kỳ, ngày trong tháng, mã NV, trùng dòng, ô không phải số — lỗi cấu trúc thì KHÔNG học mẫu từ trang này
       var maSet = {}; list.forEach(function (n) { maSet[n.ma] = 1; });
       var chk = C.ocrRules.check({ ky: pg.ky, mode: pg.mode, days: pg.days, lines: pg.lines.map(function (L) { return { name: L.name, ma: L.ma, kind: L.kind, vals: L.vals, src: L.src }; }) }, { maSet: maSet, sumOf: function (L) { return lineSum(L, pg.days).sum; } });
@@ -4353,8 +4383,9 @@
       if (chk.issues.length) pc.appendChild(h("div", { class: chk.errors ? "warn" : "hint", "data-ocr-rules": "1", html: "<b>Kiểm tra nghiệp vụ · HAK OCR Engine:</b> " + chk.errors + " lỗi, " + chk.warns + " cảnh báo" + (chk.layoutSuspect ? " — <b>nghi lỗi bố cục: trang này không được dùng để học mẫu</b>" : "") + "<br>" + chk.issues.slice(0, 8).map(function (i) { return esc(i.msg); }).join("<br>") + (chk.issues.length > 8 ? "<br>… và " + (chk.issues.length - 8) + " mục nữa" : "") }));
     }
     pc.appendChild(h("div", { class: "legend", html: "<span><i class='low'>1</i>OCR không chắc / nhận theo nét</span><span><i class='bad'>?</i>không đọc được — nhập lại</span><span><i class='mm'>&nbsp;</i>dòng lệch tổng trên giấy</span><span><i class='nm'>&nbsp;</i>chưa chọn nhân viên</span>" }));
-    pc.appendChild(tw);
+    reviewCount.textContent = reviewInputs.length + " ô cần đối chiếu · không tự xác nhận";
     pc.appendChild(prevBox);
+    pc.appendChild(tw);
     return w;
   }
 

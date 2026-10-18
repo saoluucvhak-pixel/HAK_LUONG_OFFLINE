@@ -11,3 +11,5 @@ Dataset metadata/license: https://github.com/keras-team/keras/blob/master/keras/
 No employee handwriting, attendance records, payroll or other private data is included.
 
 `mnist-timesheet.png` combines these public digits with a computer-drawn grid and artificial test names. It is an adapted test fixture under the same CC BY-SA 3.0 attribution, not a company document. `make-timesheet.py` reproduces it.
+
+`mnist-decimals.png` combines public MNIST glyphs with computer-drawn separators and a generated grid. `make-decimals.py` reproduces it. This composited fixture is not evidence of real handwritten decimal recognition accuracy; the same attribution/license applies.

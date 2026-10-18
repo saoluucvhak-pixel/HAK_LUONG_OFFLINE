@@ -6,3 +6,7 @@ hak-project-memory.jsonl
 hak-skill-proposals.json
 HAK_CODE_QUALITY_TEST/dashboard/reports/
 LuongHAK_Offline/tests/e2e/workspace-shots/
+ocr-private/
+ocr-acceptance-private*.json
+LuongHAK_Offline/tests/e2e/shared-ocr-eval.json
+LuongHAK_Offline/tests/e2e/screenshots/
