@@ -4,7 +4,7 @@
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const Z = require("./zip");
-const FORMAT = "HAK-FULLBACKUP", VERSION = 1;
+const FORMAT = "HAK-FULLBACKUP", VERSION = 2;
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 const stampOf = (d) => { const p = (n) => String(n).padStart(2, "0"); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()); };
 
@@ -27,6 +27,13 @@ function create(o) {
   if (typeof o.dataText !== "string" || !o.dataText.trim()) return failed("Chưa có dữ liệu để sao lưu");
   let parsed; try { parsed = JSON.parse(o.dataText); } catch (e) { return failed("Dữ liệu hiện tại không đọc được (JSON lỗi) — không đóng gói"); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return failed("Dữ liệu hiện tại không đúng cấu trúc — không đóng gói");
+  const yearFiles=[];
+  try{for(const ref of parsed._yearArchives||[]){
+    const Y=require('./year-archive');if(!o.yearArchiveDir||!Y.validFile(ref.file))throw Error('Thiếu kho hồ sơ năm');
+    const abs=path.join(o.yearArchiveDir,ref.file);if(fs.lstatSync(abs).isSymbolicLink())throw Error('Hồ sơ năm là liên kết');
+    const bytes=fs.readFileSync(abs);if(sha(bytes)!==ref.sha256)throw Error('Hồ sơ năm sai SHA256');if(Y.decode(bytes).year!==ref.year)throw Error('Năm hồ sơ không khớp');
+    yearFiles.push({abs,path:'year_archives/'+ref.file,sha256:ref.sha256,size:bytes.length});
+  }}catch(e){return failed('Không thể sao lưu đầy đủ hồ sơ năm: '+e.message);}
   if (!o.destDir) return failed("Chưa chọn thư mục sao lưu");
   try {
     fs.mkdirSync(o.destDir, { recursive: true });
@@ -47,7 +54,7 @@ function create(o) {
     ocrFiles = o.ocrLib.files();
   }
   if (missing.length && !o.allowPartial) return failed("Không thể tạo Full Backup đầy đủ: " + missing.length + " thành phần thiếu/hỏng (" + missing.slice(0, 5).map((x) => x.kind + " " + x.id + " — " + x.problem).join("; ") + (missing.length > 5 ? "; …" : "") + "). Sửa nguồn trước, hoặc chọn 'Sao lưu một phần' để tạo gói PARTIAL (không tính là Full Backup).", { missing });
-  let need = Buffer.byteLength(o.dataText); okDocs.forEach((m) => { need += Number(m.size) || 0; }); ocrFiles.forEach((f) => { try { need += fs.statSync(f.abs).size; } catch (e) { /* file biến mất — sẽ báo khi đóng gói */ } });
+  let need = Buffer.byteLength(o.dataText)+yearFiles.reduce((s,f)=>s+f.size,0); okDocs.forEach((m) => { need += Number(m.size) || 0; }); ocrFiles.forEach((f) => { try { need += fs.statSync(f.abs).size; } catch (e) { /* file biến mất — sẽ báo khi đóng gói */ } });
   const free = freeBytes(o.destDir, o.statfs);
   if (free != null && free < need * 1.1 + SAFE_MARGIN) return failed("Không đủ dung lượng trống: cần khoảng " + Math.ceil(need * 1.1 / 1048576) + " MB, còn " + Math.floor(free / 1048576) + " MB", { needBytes: need, freeBytes: free });
   if (cancelled()) return { ok: false, status: ST.CANCELLED };
@@ -63,6 +70,8 @@ function create(o) {
     w = Z.createWriter(tmp, { now });
     const db = Buffer.from(o.dataText, "utf8"); w.addBuffer("data.json", db);
     manifest.data = { path: "data.json", size: db.length, sha256: sha(db) };
+    manifest.version=yearFiles.length?2:1;
+    if(yearFiles.length){manifest.yearArchives=yearFiles.map(f=>({path:f.path,sha256:f.sha256,size:f.size}));for(const f of yearFiles)w.addFile(f.path,f.abs);}
     let k = 0;
     for (const m of okDocs) {
       if (cancelled()) { abortTmp(); return { ok: false, status: ST.CANCELLED }; }
@@ -129,6 +138,11 @@ function inspect(file, vault) {
       try { if (zip.sha256Of(e) !== f.sha256) throw new Error("sai SHA-256"); } catch (x) { res.problems.push("Thư viện mẫu OCR " + f.path + ": " + x.message); }
     });
     res.ocrSamples = m.ocrLibrary ? m.ocrLibrary.samples : 0;
+    try{
+      const refs=JSON.parse(res.dataText||'{}')._yearArchives||[], files=m.yearArchives||[];
+      if(files.length!==refs.length)throw Error('Danh sách hồ sơ năm không đầy đủ');
+      for(const ref of refs){const Y=require('./year-archive');if(!Y.validFile(ref.file))throw Error('Tên hồ sơ năm không hợp lệ');const f=files.find(x=>x.path==='year_archives/'+ref.file&&x.sha256===ref.sha256);if(!f||!zip.byName[f.path])throw Error('Thiếu hồ sơ năm');const b=zip.readBuffer(zip.byName[f.path]);if(sha(b)!==f.sha256||b.length!==f.size)throw Error('Hồ sơ năm sai SHA256');if(Y.decode(b).year!==ref.year)throw Error('Năm hồ sơ không khớp');}
+    }catch(e){res.problems.push('Kho hồ sơ năm: '+e.message);}
     res.ok = res.problems.length === 0 && !!res.dataText;
     return res;
   } finally { zip.close(); }

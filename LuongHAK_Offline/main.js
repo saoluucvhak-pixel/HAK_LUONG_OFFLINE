@@ -78,6 +78,15 @@ function registerIpc() {
   ipcMain.on("store-load", (e) => { e.returnValue = storage.load(); });
   // V9.2: main so với bản đang lưu, tìm bảng thay đổi và kiểm quyền THEO PHIÊN ĐĂNG NHẬP CỦA MAIN (không tin renderer); chốt kỳ được tính lại để chặn lỗi
   let wpol = null;
+  const years = require("./main/year-archive").createYearArchive({storage,dir:app.getPath("userData")});
+  const yearCall = fn => { try{return fn();}catch(err){return {ok:false,error:String(err.message||err)};} };
+  ipcMain.handle("year-list",guarded("backup.restore",async()=>yearCall(()=>({...years.list(),token:years.token()}))));
+  ipcMain.handle("year-release",guarded("backup.restore",async()=>years.release()));
+  ipcMain.handle("year-preview",guarded("system.admin",async(e,year)=>yearCall(()=>years.preview(year))));
+  ipcMain.handle("year-archive",guardedW("system.admin",async(e,year,token)=>yearCall(()=>{const r=years.archive(year,token,guard.userOf(e));wpol=null;return r;})));
+  ipcMain.handle("year-table",guarded("backup.restore",async(e,year,kind,period,page)=>yearCall(()=>years.table(year,kind,period,page))));
+  ipcMain.handle("year-export",guarded("export",async(e,year,kind,period,format,page)=>{const denied=guard.deny(e,"backup.restore");if(denied)return {ok:false,error:denied};try{return await require('./main/year-archive-export').exportYear({years,exportsDir,year,kind,period,format,page,renderPdf:p=>pdfSvc.renderPdf({BrowserWindow},p)});}catch(err){return {ok:false,error:String(err.message||err)};}}));
+  ipcMain.handle("year-restore",guardedW("system.admin",async(e,year,reason,token)=>yearCall(()=>{const r=years.restore(year,reason,token,guard.userOf(e));wpol=null;return r;})));
   const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, sigOf: fileSig(storage.dataFile), gate: payGate }));
   ipcMain.on("store-save", (e, text) => {
     try {
@@ -85,6 +94,7 @@ function registerIpc() {
       const rcv = guard.recoveryFor(e);
       const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv });
       if (!v.ok) { if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n"); e.returnValue = v.error; return; }
+      if(storage.hasDataFile()) years.checkWrite(text,!!(restorer&&restorer.busy()));
       const r = storage.save(text);
       if (r === true) { policy().commit(); if (rcv && !who) guard.recoveryDone(e); }
       if (c && c.touch) c.touch();
@@ -199,7 +209,7 @@ function registerIpc() {
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
       const sp = spCur(), sender = e.sender;
-      fbJob = require("./main/fullbackup-worker").run({ dataText: ld.text, docsDir: sp.docs, ocrDir: sp.ocrLib, spoolDir: path.join(app.getPath("userData"), "ocr-spool"), destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
+      fbJob = require("./main/fullbackup-worker").run({ dataText: ld.text, yearArchiveDir:years.root, docsDir: sp.docs, ocrDir: sp.ocrLib, spoolDir: path.join(app.getPath("userData"), "ocr-spool"), destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
         restoreConfig: { note: "đường dẫn thư mục là của máy gốc; khi khôi phục sang máy khác dùng thư mục mặc định hoặc chọn lại", customPaths: Object.keys(storage.readSettings()).filter((k) => /Dir$/.test(k)) } },
       (m) => { try { if (!sender.isDestroyed()) sender.send("fb-progress", m); } catch (x) { /* cửa sổ đã đóng */ } });
       const r = await fbJob.promise; fbJob = null;

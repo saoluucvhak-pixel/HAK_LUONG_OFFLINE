@@ -9,8 +9,8 @@
   var V = (typeof module !== "undefined" && module.exports) ? require("./validate.js") : root.HAKCore.validate;
   var CLS = (typeof module !== "undefined" && module.exports) ? require("./payroll-close.js") : root.HAKCore.close;
 
-  var SUPPORTED_SCHEMA = 2;
-  var SYSTEM_TABLES = ["congty", "kyluong", "kyluong_lichsu", "auditlog", "nhansu", "nguoidung", "baomat", "chungtu"];
+  var SUPPORTED_SCHEMA = 3;
+  var SYSTEM_TABLES = ["congty", "kyluong", "kyluong_lichsu", "auditlog", "nhansu", "nguoidung", "baomat", "chungtu", "_yearArchives"];
   var SCALAR_KEYS = { schemaVersion: "number" };
   var MONTHLY = ["chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom"];
 
@@ -32,6 +32,14 @@
     if (db.schemaVersion != null) {
       if (typeof db.schemaVersion !== "number" || !isFinite(db.schemaVersion)) res.fatal.push("schemaVersion không hợp lệ: " + JSON.stringify(db.schemaVersion));
       else if (db.schemaVersion > SUPPORTED_SCHEMA) res.fatal.push("File dữ liệu của phiên bản MỚI HƠN (cấu trúc " + db.schemaVersion + ", bản này hỗ trợ tới " + SUPPORTED_SCHEMA + "). Hãy cài bản mới — mở bằng bản cũ có thể làm hỏng dữ liệu.");
+    }
+    if(db._yearArchives!==undefined){
+      var archiveYears={};
+      if(!(db.schemaVersion>=3)||!Array.isArray(db._yearArchives))res.fatal.push('Kho hồ sơ năm sai cấu trúc hoặc thiếu phiên bản dữ liệu mới');
+      else db._yearArchives.forEach(function(r){
+        if(!r||!Number.isInteger(r.year)||typeof r.active!=='boolean'||!new RegExp('^year-'+r.year+'-[a-f0-9]{32}\\.json$').test(r.file)||!/^[a-f0-9]{64}$/.test(r.sha256))res.fatal.push('Tham chiếu hồ sơ năm không hợp lệ');
+        else if(r.active){if(archiveYears[r.year])res.fatal.push('Trùng hồ sơ năm đang hiệu lực');archiveYears[r.year]=1;}
+      });
     }
     Object.keys(db).forEach(function (k) {
       var v = db[k];

@@ -83,7 +83,7 @@ test("U-SCH-01 lỗi cấu trúc nguy hiểm → fatal (không mở để tránh
   assert.equal(SCH.validate([], T).ok, false);
   assert.equal(SCH.validate(null, T).ok, false);
   assert.match(SCH.validate({ nhanvien: { NV001: {} } }, T).fatal[0], /phải là danh sách/);
-  assert.match(SCH.validate({ schemaVersion: 3, nhanvien: [] }, T).fatal[0], /MỚI HƠN/);
+  assert.match(SCH.validate({ schemaVersion: SCH.SUPPORTED_SCHEMA + 1, nhanvien: [] }, T).fatal[0], /MỚI HƠN/);
   assert.match(SCH.validate({ schemaVersion: "2" }, T).fatal[0], /schemaVersion/);
   assert.equal(SCH.validate({ schemaVersion: 2, nhanvien: [] }, T).ok, true);
 });

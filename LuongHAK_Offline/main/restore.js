@@ -56,8 +56,9 @@ function createRestorer(o) {
       const want = [{ p: "manifest.json", sha: null }, { p: m.data.path, sha: m.data.sha256 }];
       (m.documents || []).forEach((d) => { want.push({ p: d.path, sha: d.sha256 }); want.push({ p: "documents/" + d.id + ".json", sha: null }); });
       ((m.ocrLibrary && m.ocrLibrary.files) || []).forEach((f) => want.push({ p: f.path, sha: f.sha256 }));
+      (m.yearArchives||[]).forEach(f=>want.push({p:f.path,sha:f.sha256}));
       for (const w of want) {
-        if (!OK_PATH.test(w.p)) return fail("STAGING", "Tên mục không nằm trong danh sách cho phép: " + w.p);
+        if (!OK_PATH.test(w.p)&&!/^year_archives\/year-\d{4}-[a-f0-9]{32}\.json$/.test(w.p)) return fail("STAGING", "Tên mục không nằm trong danh sách cho phép: " + w.p);
         const e = zip.byName[w.p]; if (!e) return fail("STAGING", "Thiếu mục " + w.p);
         const dest = path.join(stageDir, ...w.p.split("/")); if (!path.resolve(dest).startsWith(path.resolve(stageDir) + path.sep)) return fail("STAGING", "Đường dẫn thoát khỏi thư mục tạm: " + w.p);
         fs.mkdirSync(path.dirname(dest), { recursive: true }); zip.extractTo(e, dest);
@@ -104,6 +105,17 @@ function createRestorer(o) {
       j.newImages = ((s.manifest.ocrLibrary && s.manifest.ocrLibrary.files) || []).filter((f) => /\.png$/.test(f.path)).map((f) => path.basename(f.path, ".png")).filter((h) => !lib.readImage(h));
       setJournal(j);
       const rd = FB.dirReader(s.dir), d = FB.importDocumentsFrom(rd, vault, { restoreId: rid });
+      // Immutable year files are added before data.json references them. On rollback,
+      // unreferenced files are retained safely; an existing file is never overwritten.
+      const yr=path.join(o.userData,'year-archives');
+      if((s.manifest.yearArchives||[]).length){fs.mkdirSync(yr,{recursive:true});if(fs.lstatSync(yr).isSymbolicLink())throw Error('Kho năm là liên kết');}
+      for(const f of s.manifest.yearArchives||[]){
+        const target=path.join(yr,path.basename(f.path)),bytes=rd.buf(f.path);
+        if(sha(bytes)!==f.sha256)throw Error('Hồ sơ năm sai SHA256');
+        if(fs.existsSync(target)){if(shaFile(target)!==f.sha256)throw Error('Hồ sơ năm trùng tên khác nội dung');}
+        else{let fd;try{fd=fs.openSync(target,'wx');fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);}finally{if(fd!==undefined)fs.closeSync(fd);}}
+        if(shaFile(target)!==f.sha256)throw Error('Ghi hồ sơ năm không khớp');
+      }
       if (d.failed.length) throw new Error("Không nhập được chứng từ: " + d.failed.slice(0, 3).join("; "));
       const oc = s.manifest.ocrLibrary ? FB.importOcrLibraryFrom(rd, lib) : null;
       j.state = "ASSETS_DONE"; setJournal(j);

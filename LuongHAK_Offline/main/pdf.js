@@ -17,7 +17,8 @@ function validate(payload) {
 /** @param electron { BrowserWindow }  @param payload { html, landscape, footer } @returns Promise<Buffer> */
 async function renderPdf(electron, payload) {
   const err = validate(payload); if (err) throw new Error(err);
-  const win = new electron.BrowserWindow({ show: false, webPreferences: { sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false, webSecurity: true } });
+  // Network restrictions for the print document must never affect the main app's session.
+  const win = new electron.BrowserWindow({ show: false, webPreferences: { partition: 'hak-pdf-' + require('crypto').randomUUID(), sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false, webSecurity: true } });
   try {
     win.webContents.on("will-navigate", (e) => e.preventDefault());
     win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));

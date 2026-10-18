@@ -10,7 +10,7 @@ function runDirect(o, shouldCancel, onProgress) {
   try {
     const vault = o.docsDir ? createVault(o.docsDir) : null;
     const ocrLib = o.ocrDir ? createStore(o.ocrDir, { spoolDir: o.spoolDir }) : null;
-    return fb.create({ dataText: o.dataText, vault, ocrLib, destDir: o.destDir, appVersion: o.appVersion, user: o.user, allowPartial: o.allowPartial, restoreConfig: o.restoreConfig, shouldCancel, onProgress });
+    return fb.create({ dataText: o.dataText, yearArchiveDir:o.yearArchiveDir, vault, ocrLib, destDir: o.destDir, appVersion: o.appVersion, user: o.user, allowPartial: o.allowPartial, restoreConfig: o.restoreConfig, shouldCancel, onProgress });
   } catch (e) { return { ok: false, status: "FAILED", error: String((e && e.message) || e) }; }
 }
 if (!isMainThread && workerData && workerData.__fbWorker) {

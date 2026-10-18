@@ -10,3 +10,4 @@ ocr-private/
 ocr-acceptance-private*.json
 LuongHAK_Offline/tests/e2e/shared-ocr-eval.json
 LuongHAK_Offline/tests/e2e/screenshots/
+LuongHAK_Offline/tests/e2e/year-archive-result.json

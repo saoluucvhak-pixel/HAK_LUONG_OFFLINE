@@ -1,4 +1,11 @@
 const { contextBridge, ipcRenderer } = require("electron");
+contextBridge.exposeInMainWorld("hakYears",{
+  list:()=>ipcRenderer.invoke("year-list"),release:()=>ipcRenderer.invoke("year-release"),preview:year=>ipcRenderer.invoke("year-preview",year),
+  archive:(year,token)=>ipcRenderer.invoke("year-archive",year,token),
+  table:(year,kind,period,page)=>ipcRenderer.invoke("year-table",year,kind,period,page),
+  export:(year,kind,period,format,page)=>ipcRenderer.invoke("year-export",year,kind,period,format,page),
+  restore:(year,reason,token)=>ipcRenderer.invoke("year-restore",year,reason,token)
+});
 // Cầu nối tối thiểu giữa giao diện và tiến trình chính: chỉ các thao tác lưu trữ dữ liệu của app.
 contextBridge.exposeInMainWorld("hakStore", {
   load: () => ipcRenderer.sendSync("store-load"),          // { ok, text } | { ok:false, error, backups }

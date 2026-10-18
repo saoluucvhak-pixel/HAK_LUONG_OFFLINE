@@ -89,7 +89,7 @@
     if (schemaReport.fatal.length) { loadError = { error: "Cấu trúc dữ liệu không an toàn để mở:\n- " + schemaReport.fatal.join("\n- "), backups: store && store.listBackups ? store.listBackups() : [], schema: schemaReport }; readOnly = true; }
   }
   // Sao lưu TRƯỚC NÂNG CẤP: chụp nguyên trạng file dữ liệu của bản cũ trước khi chuyển đổi (1 lần cho mỗi lần nâng schema)
-  if (!readOnly && store && store.backup && db && Object.keys(db).length && db.schemaVersion !== 2) { try { store.backup("truoc-nang-cap"); } catch (e) { /* không chặn mở app */ } }
+  if (!readOnly && store && store.backup && db && Object.keys(db).length && (!db.schemaVersion || db.schemaVersion < 2)) { try { store.backup("truoc-nang-cap"); } catch (e) { /* không chặn mở app */ } }
   var migMsg = [];
   if (!readOnly) {
     try { migMsg = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); }
@@ -101,7 +101,7 @@
       if (db[k] === undefined) db[k] = [];
       else if (!Array.isArray(db[k])) throw new Error("Bảng " + k + " sai cấu trúc — không tự thay thế");
     });
-    db.schemaVersion = 2;
+    db.schemaVersion = Math.max(2,db.schemaVersion||2);
   }
   if (!readOnly) {
     // Không để lỗi cấu trúc thoát ra làm sập cả app khi khởi động → chuyển sang chế độ chỉ xem / khôi phục (như bước chuyển đổi ở trên)
@@ -259,6 +259,7 @@
   }
   function tenNV(ma) { for (var i = 0; i < db.nhanvien.length; i++) if (db.nhanvien[i]["Mã NV"] === ma) return db.nhanvien[i]["Họ và tên"] || ""; return ""; }
   function download(name, mime, content) {
+    if(/^LuongHAK_backup_.*\.json$/.test(name)&&(db._yearArchives||[]).length){alert("Dữ liệu có kho hồ sơ năm. Hãy dùng Full Backup để mang theo cả hồ sơ năm và chứng từ khi đổi máy.");return;}
     var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([content], { type: mime })); a.download = name;
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }
@@ -4242,7 +4243,7 @@
           return { id: stamp + "-page-" + (pi + 1), group: "SET_DOCUMENT_WRITER_GROUP", split: "test", quality: "SET_clear_OR_hard", cells: cells };
         });
         if (!pages.length) { toast("Chưa có trang nào đọc xong"); return; }
-        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.32", pages: pages }, null, 2));
+        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.33", pages: pages }, null, 2));
         toast("Đã xuất phiếu không chứa tên hoặc ảnh. Người kiểm tra cần điền đáp án, xác nhận người/ngày và phân nhóm tài liệu trước khi đánh giá; giữ file riêng, không đưa lên repo.");
       }, "Xuất kết quả OCR ban đầu theo dòng/ngày, không chứa tên hoặc ảnh; đáp án và bố cục để trống cho người nghiệm thu"));
       bar.appendChild(btn("✔ Đưa vào Chấm công / Suất cơm…", "pri", function () { ocrApply(OCRS.pages); }, "Qua màn hình xem trước như nhập Excel"));
@@ -4501,11 +4502,59 @@
       if (!backupOrBlock("truoc-gan-ma-cong-ty", "gán Mã công ty")) return;
       var r = CMP.apply(db); audit("Gán Mã công ty", p.companyId + " · " + JSON.stringify(r.changed)); save(); render(); toast("Đã gán Mã công ty cho " + p.total + " dòng");
     }, "Migration có kiểm tra: chỉ chạy khi xác định được duy nhất một công ty"));
-    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: db.auditlog }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); saveNow(); st.kq = null; render(); } }));
+    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: db.auditlog }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); saveNow(); st.kq = null; render(); } }));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: "Hiện có — " + Object.keys(ALL).map(function (k) { return ALL[k].ten + ": " + countOf(k); }).join(" · ") }));
-    var w = h("div"); w.appendChild(cardCongTy()); if (can("system.admin")) w.appendChild(cardUsers()); w.appendChild(c); w.appendChild(cardSchedule()); w.appendChild(cardStorage()); w.appendChild(cardFull()); w.appendChild(cardOffsite()); w.appendChild(cardBackups()); w.appendChild(cardIntegrity()); w.appendChild(cardAudit());
+    var w = h("div"); w.appendChild(cardCongTy()); if (can("system.admin")) w.appendChild(cardUsers()); w.appendChild(c); w.appendChild(cardYearArchive()); w.appendChild(cardSchedule()); w.appendChild(cardStorage()); w.appendChild(cardFull()); w.appendChild(cardOffsite()); w.appendChild(cardBackups()); w.appendChild(cardIntegrity()); w.appendChild(cardAudit());
     return w;
+  }
+  function cardYearArchive(){
+    var card=h("section",{class:"card","data-year-archive":"1"},[h("h3",{text:"Kho hồ sơ theo năm"}),h("div",{class:"hint",text:"Chuyển năm cũ đã chốt ra khỏi dữ liệu đang làm để giảm dung lượng phải tải. Hồ sơ chỉ mở khi chọn năm, ở chế độ chỉ xem. Chứng từ gốc giữ nguyên trong kho; dùng Full Backup khi đổi máy."})]);
+    if(!window.hakYears||!can("backup.restore"))return card;
+    var body=h("div");card.appendChild(body);
+    function clean(){if(dirty){saveNow();if(dirty){alert("Chưa lưu được dữ liệu đang làm; hãy xử lý lỗi lưu trước.");return false;}}return true;}
+    function show(result){if(!result||!result.ok){alert(result&&result.error||"Không đọc được kho năm");return false;}return true;}
+    window.hakYears.list().then(function(info){
+      if(!show(info))return;
+      body.appendChild(h("div",{class:"hint",text:"Dữ liệu đang làm: "+Math.round(info.activeBytes/1024)+" KB · "+info.years.length+" năm trong kho"}));
+      var year=h("select",{"aria-label":"Năm cần lưu trữ"});info.candidates.forEach(function(y){year.appendChild(h("option",{value:String(y),text:String(y)}));});
+      var controls=h("div",{class:"bar"},[year]);
+      if(can("system.admin"))controls.appendChild(btn("Kiểm tra trước khi chuyển","",function(){
+        if(!clean())return;
+        window.hakYears.preview(Number(year.value)).then(function(p){if(!show(p))return;
+          var details=Object.keys(p.counts).map(function(t){return t+": "+p.counts[t];}).join("\n");
+          if(!confirm("Chuyển hồ sơ năm "+p.year+" vào kho chỉ xem?\nKỳ: "+p.periods.join(", ")+"\n"+details+"\nDữ liệu đang làm dự kiến: "+Math.round(p.beforeBytes/1024)+" → "+Math.round(p.afterBytes/1024)+" KB.\nApp sẽ sao lưu và kiểm tra hồ sơ trước khi chuyển. Tiếp tục?"))return;
+          window.hakYears.archive(p.year,p.token).then(function(r){if(show(r)){alert("Đã lưu trữ năm "+p.year+". Dữ liệu đang làm còn "+Math.round(r.afterBytes/1024)+" KB. App sẽ tải lại.");location.reload();}});
+        });
+      }));
+      if(info.candidates.length)body.appendChild(controls);
+      info.years.forEach(function(ref){
+        var row=h("div",{class:"bar"},[h("b",{text:"Hồ sơ "+ref.year})]);
+        row.appendChild(btn("Mở hồ sơ năm","",function(){openYear(ref.year);}));
+        if(can("system.admin"))row.appendChild(btn("Đưa về vùng đang làm","ghost",function(){
+          if(!clean())return;
+          askText("Đưa hồ sơ về vùng đang làm","Lý do đưa hồ sơ năm "+ref.year+" về vùng đang làm? Các kỳ vẫn giữ trạng thái đã chốt.",{required:true},function(reason){
+            if(!reason||!reason.trim())return;
+            window.hakYears.list().then(function(fresh){if(!show(fresh))return;if(!confirm("Đưa toàn bộ hồ sơ năm "+ref.year+" về dữ liệu đang làm? Hệ thống sẽ sao lưu trước và không ghi đè khi có dữ liệu trùng."))return;window.hakYears.restore(ref.year,reason,fresh.token).then(function(r){if(show(r))location.reload();});});
+          });
+        }));body.appendChild(row);
+      });
+    }).catch(function(e){body.appendChild(h("div",{class:"warn",text:e.message}));});
+    function openYear(y){
+      var panel=h("div",{"data-year-view":"1"}),title=h("h4",{text:"Hồ sơ "+y+" · Chỉ xem"});panel.appendChild(title);
+      var kind=h("select",{"aria-label":"Loại hồ sơ năm"}),period=h("select",{"aria-label":"Kỳ hồ sơ năm"}),page=0,rowsBox=h("div"),status=h("span",{class:"hint"});
+      [["kyluong","Kỳ lương đã chốt"],["bangluong","Bảng lương đã chốt"],["chamcong","Chấm công"],["sanluong","Sản lượng"],["bandam","Bàn dầm"],["psluong","Phát sinh lương"],["ungluong","Tạm ứng"],["tiencom","Suất cơm"],["kyluong_lichsu","Lịch sử chốt"]].forEach(function(x){kind.appendChild(h("option",{value:x[0],text:x[1]}));});
+      function fill(r){rowsBox.replaceChildren();var cols=[];r.rows.forEach(function(row){Object.keys(row).forEach(function(k){if(k!=="_id"&&typeof row[k]!=="object"&&cols.indexOf(k)<0)cols.push(k);});});var t=h("table"),head=h("tr");cols.forEach(function(k){head.appendChild(h("th",{text:k}));});t.appendChild(h("thead",{},[head]));var tb=h("tbody");r.rows.forEach(function(row){var tr=h("tr");cols.forEach(function(k){tr.appendChild(h("td",{text:row[k]==null?"":String(row[k])}));});tb.appendChild(tr);});t.appendChild(tb);rowsBox.appendChild(h("div",{class:"tw"},[t]));status.textContent="Trang "+(page+1)+" · "+r.total+" dòng · 50 dòng/trang";}
+      function load(){if(kind.value==="bangluong"&&!period.value&&period.options.length>1)period.selectedIndex=1;window.hakYears.table(y,kind.value,period.value,page).then(function(r){if(show(r))fill(r);});}
+      kind.addEventListener("change",function(){page=0;load();});period.addEventListener("change",function(){page=0;load();});
+      var tools=h("div",{class:"bar"},[kind,period,btn("Trước","ghost",function(){if(page){page--;load();}}),btn("Sau","ghost",function(){page++;load();}),status]);
+      if(can("export"))tools.appendChild(btn("Xuất Excel hồ sơ","",function(){window.hakYears.export(y,kind.value,period.value,"xlsx",page).then(function(r){if(show(r))toast("Đã lưu Excel hồ sơ: "+r.name);});}));
+      if(can("export"))tools.appendChild(btn("In trang đang xem","ghost",function(){window.hakYears.export(y,kind.value,period.value,"pdf",page).then(function(r){if(show(r))toast("Đã lưu bản in: "+r.name);});}));
+      tools.appendChild(btn("Đóng hồ sơ năm","ghost",function(){panel.remove();window.hakYears.release();}));
+      panel.appendChild(tools);panel.appendChild(rowsBox);body.appendChild(panel);
+      window.hakYears.table(y,"kyluong","",0).then(function(r){if(!show(r))return;period.appendChild(h("option",{value:"",text:"Cả năm"}));r.periods.forEach(function(ky){period.appendChild(h("option",{value:ky,text:ky}));});fill(r);});
+    }
+    return card;
   }
   // ---------- Khôi phục / sao lưu / kiểm tra dữ liệu ----------
   function summarize(o) { return "Nhân viên: " + ((o.nhanvien || []).length) + " · Chấm công: " + ((o.chamcong || []).length) + " dòng · Kỳ đã chốt: " + ((o.kyluong || []).length); }
@@ -5211,6 +5260,7 @@
     top.appendChild(h("button", { class: "topbtn", type: "button", on: { click: function () { logout(); } } }, ["Đăng xuất"]));
     top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi giao diện sáng / tối", "aria-label": "Đổi giao diện sáng / tối", on: { click: toggleTheme } }, [curTheme() === "dark" ? "🏖" : "🌙"]));
     var m = $("#main"); m.innerHTML = ""; refreshNVList();
+    if((db._yearArchives||[]).some(function(r){return r.active&&r.year===Number(st.nam);})&&st.tab!=="backup")m.appendChild(h("div",{class:"warn","data-archived-year-notice":"1"},[document.createTextNode("Hồ sơ năm "+st.nam+" đã nằm trong kho riêng. Dữ liệu năm này không được tải vào vùng đang làm. "),btn("Mở kho hồ sơ năm","",function(){st.tab="backup";saveUi();render();})]));
     if (st.tab === "home") m.appendChild(tabHome());
     else if (st.tab === "luong") m.appendChild(tabLuong());
     else if (st.tab === "bangtinh") m.appendChild(tabBangTinhNoiBo());
