@@ -9,6 +9,8 @@
 //  - (2.0-α13) Bản "sau-chot-<kỳ>" (tạo khi chốt kỳ) KHÔNG BAO GIỜ bị dọn.
 //  - (2.0-α13) Thư mục sao lưu THỨ HAI (USB / NAS / thư mục Drive đồng bộ): mỗi bản sao lưu được chép sang, đọc lại kiểm SHA-256;
 //    thư mục không truy cập được → sao lưu trên máy vẫn bình thường, lỗi được ghi lại để app nhắc người dùng.
+//  - (V10.4) Bản THEO NĂM "nam-<YYYY>": tự tạo ở lần lưu đầu tiên của mỗi năm (= số liệu ngay trước khi sang năm mới), hoặc tạo tay
+//    cho năm bất kỳ; KHÔNG BAO GIỜ bị dọn, được chép sang thư mục sao lưu thứ hai như mọi bản khác.
 //  - (2.0-α17) LỊCH SAO LƯU (settings.json của máy): định kỳ mỗi N giờ khi app đang mở ("dinh-ky"), khi đóng app ("khi-dong"),
 //    số ngày giữ bản đầu ngày. Chỉ sao lưu khi dữ liệu ĐÃ ĐỔI so với bản sao lưu mới nhất (không tạo bản trùng).
 "use strict";
@@ -22,7 +24,7 @@ const SCHEDULE_HOURS = [0, 1, 2, 4, 8];          // 0 = tắt sao lưu định k
 const KEEP_DAILY = [30, 60, 90, 180, 365];
 const SCHEDULE_DEFAULT = { everyHours: 2, onClose: true, keepDaily: 60 };
 const MIRROR_SUB = "TinhLuongHAK-SaoLuu"; // thư mục con tạo trong thư mục người dùng chọn
-const isPermanent = (tag) => /^sau-chot/.test(tag); // bản sau chốt kỳ: giữ vĩnh viễn
+const isPermanent = (tag) => /^(sau-chot|nam-\d{4}$)/.test(tag); // bản sau chốt kỳ và bản theo năm: giữ vĩnh viễn
 
 function pad(n, w) { return String(n).padStart(w || 2, "0"); }
 function stamp(d) { d = d || new Date(); return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "-" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + "-" + pad(d.getMilliseconds(), 3); }
@@ -98,6 +100,7 @@ function createStorage(dir, opts) {
       const st = fs.statSync(path.join(backupDir, f));
       const m = f.match(/^([a-z0-9-]+?)_/i);
       const o = { name: f, tag: m ? m[1] : "", size: st.size, mtime: st.mtime.toISOString(), created: createdOf(f, st) };
+      o.year = (m && /^nam-(\d{4})$/.exec(m[1]) || [])[1] || o.created.slice(0, 4);
       if (opt && opt.verify) o.status = verifyBackup(f).status;
       return o;
     }).sort((a, b) => (a.created < b.created ? 1 : a.created > b.created ? -1 : (a.name < b.name ? 1 : -1)));
@@ -157,6 +160,24 @@ function createStorage(dir, opts) {
     victims.forEach((f) => { if (!lastGood || f.name !== lastGood.name) removeBackup(f.name); });
   }
   /** Ghi 1 bản sao lưu với tên duy nhất + file kiểm tra SHA-256. */
+  /** Bản sao lưu THEO NĂM: tag "nam-<năm>". Có tên cố định theo ngày nên gọi lại trong cùng ngày không tạo trùng. */
+  let yearChecked = null;
+  function yearBackups(year) { return list().filter((b) => b.tag === "nam-" + year); }
+  function ensureYearBackup() {
+    const y = String(now().getFullYear());
+    if (yearChecked === y) return null;
+    try {
+      if (yearBackups(y).length) { yearChecked = y; return null; }
+      const f = backup("nam-" + y, "nam-" + y + "_" + today(now()) + ".json");
+      if (f) yearChecked = y;
+      return f;
+    } catch (e) { return null; } // không chặn việc lưu dữ liệu
+  }
+  function backupYear(year) {
+    const y = parseInt(year, 10);
+    if (!(y >= 2000 && y <= 2100)) return null;
+    return backup("nam-" + y);
+  }
   function writeBackup(tag, text, fixedName) {
     ensure();
     let file = fixedName, tries = 0;
@@ -261,6 +282,7 @@ function createStorage(dir, opts) {
         // Bản sao lưu ĐẦU NGÀY: giữ trạng thái trước mọi thay đổi trong ngày, không bị ghi đè trong ngày
         const daily = "daily_" + today(now()) + ".json";
         if (!exists(path.join(backupDir, daily))) backup("daily", daily);
+        ensureYearBackup();
         // Dữ liệu giảm đột ngột > 50% (xóa nhầm hàng loạt) → sao lưu bản trước đó
         const oldSize = fs.statSync(dataFile).size;
         if (oldSize > 2048 && buf.length < oldSize * 0.5) backup("truoc-giam-du-lieu");
@@ -294,7 +316,7 @@ function createStorage(dir, opts) {
   // "sao lưu thất bại" (backup() trả null vì ghi lỗi) — dùng ở nút "Tạo bản sao lưu ngay" để
   // không báo nhầm "chưa có dữ liệu" khi thực ra là lỗi đĩa/quyền ghi.
   function hasDataFile() { return exists(dataFile); }
-  return { dataFile, backupDir, load, save, backup, list, readBackup, verifyBackup, verifyAll, quarantineCorrupt, info: () => ({ dataFile, backupDir }),
+  return { dataFile, backupDir, load, save, backup, backupYear, yearBackups, list, readBackup, verifyBackup, verifyAll, quarantineCorrupt, info: () => ({ dataFile, backupDir }),
     setMirror, syncMirror, noteExternal, backupStatus, readSettings, writeSettings,
     getSchedule, setSchedule, tickSchedule, backupOnClose, changedSinceBackup, hasDataFile };
 }
