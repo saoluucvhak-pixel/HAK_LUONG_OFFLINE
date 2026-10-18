@@ -102,3 +102,9 @@ main{padding:22px 26px}#top{background:var(--card);padding:11px 26px}
 .brand{gap:7px;padding:13px 10px}.brand .logo{width:55px;height:30px;border-radius:0;background:none!important;box-shadow:none!important;color:var(--champL)!important;font-size:24px;letter-spacing:.4px}.brand b{font-size:10px!important;text-transform:none!important;font-family:inherit!important;letter-spacing:0!important}.brand small{font-size:9px}
 [data-skin=luxe] #top h2,[data-skin=luxe] .hak-detail-drawer h3{font-family:inherit}
 [data-skin=luxe] .hak-catalog-actions .pri,[data-skin=luxe] .hak-record-edit,[data-skin=luxe] .hak-detail-drawer footer .pri{background:linear-gradient(180deg,var(--champL),var(--champ));color:#241b09;border-color:var(--champ);box-shadow:0 2px 5px #0001}
+
+/* Wider navigation: keep Vietnamese menu labels on one line. */
+@media(min-width:1000px){#side{width:280px;min-width:280px;flex-shrink:0}}
+#side #nav button{white-space:nowrap;gap:10px}
+#side #nav button>span{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+#side #nav .ic,#side #nav .n,#side #nav .hak-nav-group-count,#side #nav .hak-nav-chevron{flex-shrink:0}
