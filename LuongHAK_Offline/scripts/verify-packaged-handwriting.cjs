@@ -15,3 +15,18 @@ for (const sample of fixture.samples) {
   assert.equal(Number(result.text), sample.logits.indexOf(Math.max(...sample.logits)));
 }
 console.log('PASS packaged offline handwriting CNN: model and runtime present; 100 ONNX reference cases match');
+// Exercise the real packaged Electron process too, including its unpacked-resource paths.
+const os = require('node:os'), child = require('node:child_process');
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'hak-cnn-packaged-'));
+const reportPath = path.join(temp, 'ocr-selftest.json');
+const executable = path.resolve(path.dirname(archive), '..', 'Tinh Luong HAK.exe');
+const run = child.spawnSync(executable, [], {
+  env: { ...process.env, HAK_OCR_SELFTEST: reportPath, HAK_USER_DATA: temp, HAK_NO_SHELL: '1' },
+  windowsHide: true, timeout: 120000, encoding: 'utf8',
+});
+assert.equal(run.status, 0, 'packaged OCR self-test failed: ' + (run.error || run.stderr || ''));
+const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+assert.equal(report.packaged, true);
+assert.equal(report.handwriting && report.handwriting.model, model.id, 'packaged OCR service could not load the bundled CNN');
+assert.notEqual(report.handwriting.status, 'UNAVAILABLE');
+console.log('PASS frozen Electron OCR service loads the offline CNN from its installed resource layout');
