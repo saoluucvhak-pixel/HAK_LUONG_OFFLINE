@@ -4283,7 +4283,7 @@
       tb.appendChild(btn("Đọc lại", "ghost", function () { readQueue({ pg: pg, rot: pg.stopped && !pg.res ? undefined : pg.rot || 0 }); }));
     }
     pc.appendChild(tb);
-    var lbox = h("div", { class: "bar", "data-ocr-learn-status": "1" }); ocrStatusFill(lbox); pc.appendChild(lbox);
+    var lbox = h("div", { class: "bar", "data-ocr-learn-status": "1" }); if(pg.res && pg.res.documentReview) lbox.appendChild(h("div",{class:"hint",text:"Trường biểu mẫu chỉ dùng trong phiếu đối chiếu; không tự học vào thư viện ô công."})); else ocrStatusFill(lbox); pc.appendChild(lbox);
     if (pg.err) { pc.appendChild(h("div", { class: "warn", text: "Lỗi khi đọc: " + pg.err })); return w; }
     if (!pg.res) { pc.appendChild(h("div", { class: "hint", text: pg.stopped ? "Trang này chưa đọc (đã bấm Dừng đọc). Bấm Đọc lại khi cần." : "Đang chờ đọc…" })); return w; }
     var T = pg.res.table;
