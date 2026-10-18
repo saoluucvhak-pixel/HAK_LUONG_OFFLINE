@@ -4243,7 +4243,7 @@
           return { id: stamp + "-page-" + (pi + 1), group: "SET_DOCUMENT_WRITER_GROUP", split: "test", quality: "SET_clear_OR_hard", cells: cells };
         });
         if (!pages.length) { toast("Chưa có trang nào đọc xong"); return; }
-        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.33", pages: pages }, null, 2));
+        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.34", pages: pages }, null, 2));
         toast("Đã xuất phiếu không chứa tên hoặc ảnh. Người kiểm tra cần điền đáp án, xác nhận người/ngày và phân nhóm tài liệu trước khi đánh giá; giữ file riêng, không đưa lên repo.");
       }, "Xuất kết quả OCR ban đầu theo dòng/ngày, không chứa tên hoặc ảnh; đáp án và bố cục để trống cho người nghiệm thu"));
       bar.appendChild(btn("✔ Đưa vào Chấm công / Suất cơm…", "pri", function () { ocrApply(OCRS.pages); }, "Qua màn hình xem trước như nhập Excel"));
@@ -4513,7 +4513,8 @@
     if(!window.hakYears||!can("backup.restore"))return card;
     var body=h("div");card.appendChild(body);
     function clean(){if(dirty){saveNow();if(dirty){alert("Chưa lưu được dữ liệu đang làm; hãy xử lý lỗi lưu trước.");return false;}}return true;}
-    function show(result){if(!result||!result.ok){alert(result&&result.error||"Không đọc được kho năm");return false;}return true;}
+    function waiting(text){body.setAttribute("aria-busy","true");toast(text);}
+    function show(result){body.removeAttribute("aria-busy");if(!result||!result.ok){alert(result&&result.error||"Không đọc được kho năm");return false;}return true;}
     window.hakYears.list().then(function(info){
       if(!show(info))return;
       body.appendChild(h("div",{class:"hint",text:"Dữ liệu đang làm: "+Math.round(info.activeBytes/1024)+" KB · "+info.years.length+" năm trong kho"}));
@@ -4521,9 +4522,11 @@
       var controls=h("div",{class:"bar"},[year]);
       if(can("system.admin"))controls.appendChild(btn("Kiểm tra trước khi chuyển","",function(){
         if(!clean())return;
+        waiting("Đang kiểm tra hồ sơ năm ở nền…");
         window.hakYears.preview(Number(year.value)).then(function(p){if(!show(p))return;
           var details=Object.keys(p.counts).map(function(t){return t+": "+p.counts[t];}).join("\n");
           if(!confirm("Chuyển hồ sơ năm "+p.year+" vào kho chỉ xem?\nKỳ: "+p.periods.join(", ")+"\n"+details+"\nDữ liệu đang làm dự kiến: "+Math.round(p.beforeBytes/1024)+" → "+Math.round(p.afterBytes/1024)+" KB.\nApp sẽ sao lưu và kiểm tra hồ sơ trước khi chuyển. Tiếp tục?"))return;
+          waiting("Đang sao lưu, kiểm tra và chuyển hồ sơ năm… Vui lòng giữ ứng dụng mở.");
           window.hakYears.archive(p.year,p.token).then(function(r){if(show(r)){alert("Đã lưu trữ năm "+p.year+". Dữ liệu đang làm còn "+Math.round(r.afterBytes/1024)+" KB. App sẽ tải lại.");location.reload();}});
         });
       }));
@@ -4545,7 +4548,7 @@
       var kind=h("select",{"aria-label":"Loại hồ sơ năm"}),period=h("select",{"aria-label":"Kỳ hồ sơ năm"}),page=0,rowsBox=h("div"),status=h("span",{class:"hint"});
       [["kyluong","Kỳ lương đã chốt"],["bangluong","Bảng lương đã chốt"],["chamcong","Chấm công"],["sanluong","Sản lượng"],["bandam","Bàn dầm"],["psluong","Phát sinh lương"],["ungluong","Tạm ứng"],["tiencom","Suất cơm"],["kyluong_lichsu","Lịch sử chốt"]].forEach(function(x){kind.appendChild(h("option",{value:x[0],text:x[1]}));});
       function fill(r){rowsBox.replaceChildren();var cols=[];r.rows.forEach(function(row){Object.keys(row).forEach(function(k){if(k!=="_id"&&typeof row[k]!=="object"&&cols.indexOf(k)<0)cols.push(k);});});var t=h("table"),head=h("tr");cols.forEach(function(k){head.appendChild(h("th",{text:k}));});t.appendChild(h("thead",{},[head]));var tb=h("tbody");r.rows.forEach(function(row){var tr=h("tr");cols.forEach(function(k){tr.appendChild(h("td",{text:row[k]==null?"":String(row[k])}));});tb.appendChild(tr);});t.appendChild(tb);rowsBox.appendChild(h("div",{class:"tw"},[t]));status.textContent="Trang "+(page+1)+" · "+r.total+" dòng · 50 dòng/trang";}
-      function load(){if(kind.value==="bangluong"&&!period.value&&period.options.length>1)period.selectedIndex=1;window.hakYears.table(y,kind.value,period.value,page).then(function(r){if(show(r))fill(r);});}
+      function load(){waiting("Đang mở trang hồ sơ năm…");if(kind.value==="bangluong"&&!period.value&&period.options.length>1)period.selectedIndex=1;window.hakYears.table(y,kind.value,period.value,page).then(function(r){if(show(r))fill(r);});}
       kind.addEventListener("change",function(){page=0;load();});period.addEventListener("change",function(){page=0;load();});
       var tools=h("div",{class:"bar"},[kind,period,btn("Trước","ghost",function(){if(page){page--;load();}}),btn("Sau","ghost",function(){page++;load();}),status]);
       if(can("export"))tools.appendChild(btn("Xuất Excel hồ sơ","",function(){window.hakYears.export(y,kind.value,period.value,"xlsx",page).then(function(r){if(show(r))toast("Đã lưu Excel hồ sơ: "+r.name);});}));
@@ -4700,7 +4703,7 @@
   }
   function cardFull() {
     var c = h("div", { class: "card", "data-fullbackup": "1" });
-    c.appendChild(h("h3", { text: "📦 Full Backup (dữ liệu + chứng từ gốc)" }));
+    c.appendChild(h("h3", { text: "📦 Full Backup (dữ liệu + chứng từ gốc + kho năm)" }));
     if (!window.hakFull) { c.appendChild(h("div", { class: "hint", text: "Chỉ có trong bản cài (.exe)." })); return c; }
     c.appendChild(h("div", { class: "hint", text: "Một file .zip chứa toàn bộ dữ liệu lương, mọi chứng từ gốc (ảnh/PDF) và bảng kê SHA-256. Dùng khi đổi máy / cài lại Windows. Gói được kiểm tra lại ngay sau khi tạo; khi khôi phục, gói bị hỏng hoặc bị sửa sẽ bị từ chối trước khi ghi bất cứ thứ gì." }));
     if (st.fbMsg) c.appendChild(h("div", { class: st.fbMsg.bad ? "warn" : "ok", "data-fb-msg": "1", text: st.fbMsg.text }));
@@ -4724,7 +4727,7 @@
         }).then(function (r) {
           if (!r || (!r.ok && r.status !== "PARTIAL")) { st.fbMsg = { bad: true, text: "⚠ " + (r && r.status === "CANCELLED" ? "Đã hủy sao lưu." : "KHÔNG tạo được Full Backup: " + ((r && r.error) || "lỗi không rõ")) }; }
           else if (r.status === "PARTIAL") { audit("Tạo gói sao lưu MỘT PHẦN", r.name + " · thiếu " + r.missing.length + " thành phần"); save(); st.fbMsg = { bad: true, text: "⚠ Đã tạo gói MỘT PHẦN " + r.name + " — KHÔNG phải Full Backup. Thiếu: " + r.missing.map(function (x) { return x.kind + " " + x.id; }).join(", ") }; }
-          else { audit("Tạo Full Backup", r.name + " · " + r.docs + " chứng từ · SHA-256 " + r.sha256.slice(0, 12) + "…"); save(); st.fbMsg = { text: "✓ Full Backup ĐẦY ĐỦ " + (r.encrypted ? "🔒 (ĐÃ MÃ HÓA) " : "") + r.name + " (" + Math.round(r.size / 1024) + " KB, " + r.docs + " chứng từ, " + (r.ocrSamples || 0) + " mẫu OCR) trong thư mục xuất file" + (r.mirrored ? " và chép sang " + r.mirrored : "") + (r.warnings.length ? " — ⚠ " + r.warnings.join("; ") : "") + ". SHA-256: " + r.sha256 }; }
+          else { audit("Tạo Full Backup", r.name + " · " + r.docs + " chứng từ · SHA-256 " + r.sha256.slice(0, 12) + "…"); save(); st.fbMsg = { text: "✓ Full Backup ĐẦY ĐỦ " + (r.encrypted ? "🔒 (ĐÃ MÃ HÓA) " : "") + r.name + " (" + Math.round(r.size / 1024) + " KB, " + r.docs + " chứng từ, " + (r.ocrSamples || 0) + " mẫu OCR, " + (r.yearArchives || 0) + " gói hồ sơ năm) trong thư mục xuất file" + (r.mirrored ? " và chép sang " + r.mirrored : "") + (r.warnings.length ? " — ⚠ " + r.warnings.join("; ") : "") + ". SHA-256: " + r.sha256 }; }
           render();
         }, function (e) { st.fbMsg = { bad: true, text: "⚠ " + e.message }; render(); }).then(function () { st.fbBusy = false; if (offProg) offProg(); render(); });
         });
@@ -5183,6 +5186,7 @@
     try { var r = store.authState(); if (r && !r.ok) { session = null; toast("Phiên đăng nhập đã hết hiệu lực hoặc quyền đã bị thu hồi — đăng nhập lại"); } } catch (e) { /* lần vẽ sau thử lại */ }
   }
   function render() {
+    if(st.tab !== "backup" && window.hakYears) window.hakYears.release().catch(function(){});
     if (window.HAKUI && window.HAKUI.filter) window.HAKUI.filter.close();
     syncSession();
     try { renderInner(); }

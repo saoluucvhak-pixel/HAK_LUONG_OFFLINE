@@ -12,7 +12,7 @@
     type = type || "OVERTIME";
     var OM = FM.forType(type), K = OM.KIND, IS_OT = type === "OVERTIME";
     var h = A.h, btn = A.btn, esc = A.esc, fmt = A.fmt, T = K.table, TC = "dm_congthuc", TT = OM.TEST_TABLE;
-    var S = { q: "", fTrang: "", fCT: "", nam: null, thang: null }; // bộ lọc danh sách (không lưu dữ liệu)
+    var S = { page: 0, q: "", fTrang: "", fCT: "", nam: null, thang: null }; // bộ lọc danh sách (không lưu dữ liệu)
     var M = null; // trạng thái modal đang mở
     var tag = function (txt, cls) { return h("span", { class: "tag " + (cls || "off"), text: txt }); };
     var ky = function () { return S.nam + "-" + ("0" + S.thang).slice(-2); };
@@ -96,14 +96,16 @@
       var box = h("div", { class: "tw ot-list" }); masterPane.appendChild(box);
       workspace.appendChild(masterPane);
       var detailPane = h("aside", { class: "hak-workspace-detail", "aria-label": "Chi tiết mã con" });
-      detailPane.appendChild(h("div", { class: "hak-pane-title" }, [h("h3", { text: "Công thức & phiên bản" }), h("span", { text: "BẢNG CON" })]));
+      detailPane.appendChild(h("div", { class: "hak-pane-title" }, [h("h3", { text: "Công thức & phiên bản · Xem nhanh" }), h("span", { text: "BẢNG CON" })]));
       workspace.appendChild(detailPane);
       w.appendChild(workspace);
       function paint() {
         box.innerHTML = "";
         var rs = rows(), t = h("table", { "data-ot-table": "1" });
+        S.page = Math.min(S.page, Math.max(0, Math.ceil(rs.length / 50) - 1));
+        var visible = rs.slice(S.page * 50, S.page * 50 + 50);
         t.appendChild(h("tr", {}, [{ label: K.code }, { label: K.name.replace(" (nội dung)", "") }].concat(K.listCols, [{ label: "Mã công thức" }, { label: "Trạng thái" }, { label: "Hiệu lực" }, { label: "Công thức đang áp dụng" }, { label: "Số phiên bản" }, { label: "Thao tác" }]).map(function (c) { return h("th", c.tip ? { text: c.label + " ⓘ", title: c.tip, style: "cursor:help" } : { text: c.label }); })));
-        rs.forEach(function (r) {
+        visible.forEach(function (r) {
           var act = h("td", { class: "t ot-act" });
           act.appendChild(btn("Xem chi tiết", "pri", function () { openModal(r.ma, { tab: "info" }); }));
           if (A.can("dm.edit")) act.appendChild(btn("Chỉnh sửa", "", function () { openModal(r.ma, { tab: "info", edit: true }); }));
@@ -120,6 +122,13 @@
             h("td", { class: "t num", text: String(r.soPhienBan) }), act])));
         });
         box.appendChild(t);
+        if(rs.length > 50) {
+          box.appendChild(h("div", {class:"bar", "data-catalog-pages":"1"}, [
+            btn("Trang trước", "", function(){if(S.page>0){S.page--;paint();}}),
+            h("span", {text:"Trang " + (S.page+1) + "/" + Math.ceil(rs.length/50) + " · " + rs.length + " mã · 50 mã/trang"}),
+            btn("Trang sau", "", function(){if((S.page+1)*50<rs.length){S.page++;paint();}})
+          ]));
+        }
         // Inline master–detail inspector: read-only, shares the exact applied-formula resolver with the modal.
         var preview = w.querySelector("[data-hak-child-preview]");
         if (preview) {
@@ -129,7 +138,7 @@
           if (chosen) {
             var ap = OM.applied(db(), chosen.ma, S.nam, S.thang);
             var pHead = h("div", { class: "hak-child-head" });
-            pHead.appendChild(h("div", {}, [h("small", { text: "CHI TIẾT BẢNG CON · " + K.short }), h("h3", { text: chosen.ma + " — " + chosen.ten })]));
+            pHead.appendChild(h("div", {}, [h("small", { text: "CHỈ XEM · CHI TIẾT BẢNG CON · " + K.short }), h("h3", { text: chosen.ma + " — " + chosen.ten })]));
             pHead.appendChild(btn("Mở hồ sơ", "pri", function () { openModal(chosen.ma, { tab: "ct" }); }));
             preview.appendChild(pHead);
             var infoGrid = h("div", { class: "hak-record-fields" });
@@ -193,9 +202,9 @@
         if (!rs.length) box.appendChild(h("div", { class: "empty", text: OM.parentCodes(db()).length ? "Không có mã nào khớp bộ lọc." : "Chưa có " + K.noun + " nào — bấm “＋ Thêm " + K.noun + "”." }));
         var cnt = w.querySelector("[data-ot-count]"); if (cnt) cnt.textContent = rs.length + " / " + OM.parentCodes(db()).length + " mã";
       }
-      inq.addEventListener("input", function () { S.q = inq.value; paint(); });
-      sTr.addEventListener("change", function () { S.fTrang = sTr.value; paint(); });
-      sCT.addEventListener("change", function () { S.fCT = sCT.value; paint(); });
+      inq.addEventListener("input", function () { S.q = inq.value; S.page=0; paint(); });
+      sTr.addEventListener("change", function () { S.fTrang = sTr.value; S.page=0; paint(); });
+      sCT.addEventListener("change", function () { S.fCT = sCT.value; S.page=0; paint(); });
       masterPane.appendChild(h("div", { class: "hint hak-pane-count", "data-ot-count": "1" }));
       detailPane.appendChild(h("section", { class: "hak-child-preview", "data-hak-child-preview": "1", "aria-label": "Bảng con công thức đang áp dụng" }));
       paint();

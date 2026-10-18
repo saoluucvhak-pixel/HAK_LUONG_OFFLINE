@@ -42,6 +42,7 @@ const guard = createGuard(__dirname, {
 
 // Dữ liệu: %APPDATA%\Tinh Luong HAK\data.json — sao lưu trong thư mục backups (xem main/storage.js).
 // Gỡ cài đặt KHÔNG xóa thư mục này (electron-builder: deleteAppDataOnUninstall mặc định false).
+let yearBusy = false;
 let fbJob = null; // Full Backup đang chạy (worker)
 let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, restorer = null;
 const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname })); // nạp Tesseract khi dùng lần đầu
@@ -64,9 +65,9 @@ function registerIpc() {
   ipcMain.on = (ch, fn) => _on(ch, (e, ...a) => { if (!guard.trusted(e)) { e.returnValue = null; return; } return fn(e, ...a); });
   // Mọi lệnh bất đồng bộ (ipcMain.handle) cũng phải đúng nguồn (lớp dưới guarded: thêm đăng nhập + quyền)
   const _handle = ipcMain.handle.bind(ipcMain);
-  ipcMain.handle = (ch, fn) => _handle(ch, (e, ...a) => (guard.trusted(e) ? fn(e, ...a) : { ok: false, error: "Nguồn lệnh không hợp lệ" }));
+  ipcMain.handle = (ch, fn) => _handle(ch, (e, ...a) => (yearBusy && ch.startsWith("rs-") ? {ok:false,error:"Đang xử lý hồ sơ năm, chờ hoàn tất trước khi khôi phục"} : guard.trusted(e) ? fn(e, ...a) : { ok: false, error: "Nguồn lệnh không hợp lệ" }));
   // Lệnh nhạy cảm: kiểm nguồn + đăng nhập + quyền trước khi chạy
-  const wl = (fn) => async (e, ...a) => (fbJob ? { ok: false, error: "Đang sao lưu Full Backup — chờ sao lưu xong (hoặc bấm Hủy) rồi thử lại" } : restorer && restorer.busy() ? { ok: false, error: "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" } : fn(e, ...a)); // khóa ghi trong lúc COMMIT khôi phục
+  const wl = (fn) => async (e, ...a) => (yearBusy ? {ok:false,error:"Đang xử lý hồ sơ năm — vui lòng chờ hoàn tất"} : fbJob ? { ok: false, error: "Đang sao lưu Full Backup — chờ sao lưu xong (hoặc bấm Hủy) rồi thử lại" } : restorer && restorer.busy() ? { ok: false, error: "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" } : fn(e, ...a)); // khóa ghi trong lúc COMMIT khôi phục
   const guardedW = (perm, fn) => guarded(perm, wl(fn)); // lệnh GHI: bị chặn trong lúc COMMIT khôi phục
   const guarded = (perm, fn) => async (e, ...a) => { const d = guard.deny(e, perm); return d ? { ok: false, error: d, problems: [d] } : fn(e, ...a); };
   // V9: phiên do TIẾN TRÌNH CHÍNH tạo sau khi tự kiểm mật khẩu với tài khoản trên đĩa; renderer không gửi được danh sách quyền
@@ -79,17 +80,24 @@ function registerIpc() {
   // V9.2: main so với bản đang lưu, tìm bảng thay đổi và kiểm quyền THEO PHIÊN ĐĂNG NHẬP CỦA MAIN (không tin renderer); chốt kỳ được tính lại để chặn lỗi
   let wpol = null;
   const years = require("./main/year-archive").createYearArchive({storage,dir:app.getPath("userData")});
+  const yearWorker = async (method,args) => {
+    if(yearBusy||fbJob||(restorer&&restorer.busy()))return {ok:false,error:"Đang có thao tác dữ liệu khác; vui lòng chờ"};
+    yearBusy=true;
+    try{return await require('./main/year-archive-worker').run(app.getPath('userData'),method,args);}
+    finally{yearBusy=false;years.release();wpol=null;}
+  };
   const yearCall = fn => { try{return fn();}catch(err){return {ok:false,error:String(err.message||err)};} };
   ipcMain.handle("year-list",guarded("backup.restore",async()=>yearCall(()=>({...years.list(),token:years.token()}))));
   ipcMain.handle("year-release",guarded("backup.restore",async()=>years.release()));
-  ipcMain.handle("year-preview",guarded("system.admin",async(e,year)=>yearCall(()=>years.preview(year))));
-  ipcMain.handle("year-archive",guardedW("system.admin",async(e,year,token)=>yearCall(()=>{const r=years.archive(year,token,guard.userOf(e));wpol=null;return r;})));
-  ipcMain.handle("year-table",guarded("backup.restore",async(e,year,kind,period,page)=>yearCall(()=>years.table(year,kind,period,page))));
+  ipcMain.handle("year-preview",guarded("system.admin",async(e,year)=>yearWorker("preview",[year])));
+  ipcMain.handle("year-archive",guardedW("system.admin",async(e,year,token)=>yearWorker("archive",[year,token,guard.userOf(e)])));
+  ipcMain.handle("year-table",guarded("backup.restore",async(e,year,kind,period,page)=>yearWorker("table",[year,kind,period,page])));
   ipcMain.handle("year-export",guarded("export",async(e,year,kind,period,format,page)=>{const denied=guard.deny(e,"backup.restore");if(denied)return {ok:false,error:denied};try{return await require('./main/year-archive-export').exportYear({years,exportsDir,year,kind,period,format,page,renderPdf:p=>pdfSvc.renderPdf({BrowserWindow},p)});}catch(err){return {ok:false,error:String(err.message||err)};}}));
-  ipcMain.handle("year-restore",guardedW("system.admin",async(e,year,reason,token)=>yearCall(()=>{const r=years.restore(year,reason,token,guard.userOf(e));wpol=null;return r;})));
+  ipcMain.handle("year-restore",guardedW("system.admin",async(e,year,reason,token)=>yearWorker("restore",[year,reason,token,guard.userOf(e)])));
   const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, sigOf: fileSig(storage.dataFile), gate: payGate }));
   ipcMain.on("store-save", (e, text) => {
     try {
+      if(yearBusy){e.returnValue="Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại";return;}
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
       const rcv = guard.recoveryFor(e);
       const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv });
@@ -107,7 +115,7 @@ function registerIpc() {
   ipcMain.on("store-list", (e) => { try { e.returnValue = storage.list(); } catch (err) { e.returnValue = []; } });
   ipcMain.on("store-verify", (e) => { try { e.returnValue = storage.verifyAll(); } catch (err) { e.returnValue = []; } });
   ipcMain.on("store-read", (e, name) => { try { e.returnValue = storage.readBackup(name); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
-  ipcMain.on("store-quarantine", (e) => { try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
+  ipcMain.on("store-quarantine", (e) => { if(yearBusy){e.returnValue=null;return;} try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
   // Xuất PDF báo cáo: giao diện gửi HTML (đã escape) + TÊN file; đường dẫn lưu do tiến trình chính quyết (thư mục xuất, không ghi đè)
   ipcMain.handle("report-pdf", guarded("export", async (e, payload) => {
     try {
@@ -349,6 +357,7 @@ function createWindow() {
       if (!win.isDestroyed()) win.webContents.send("download-done", { ok, name: path.basename(f), dir: path.dirname(f), state, opened: ok && exportsDir.openAfter() });
     });
   });
+  win.on("close", e => {if(yearBusy)e.preventDefault();});
   win.loadFile(path.join(__dirname, "index.html"));
   win.maximize();
   return win;
@@ -380,8 +389,9 @@ app.whenReady().then(() => {
   registerIpc();
   createWindow();
   // Sao lưu định kỳ khi app đang mở (kiểm tra mỗi phút; chỉ sao lưu khi đến giờ VÀ dữ liệu đã đổi). HAK_SCHEDULE_TICK_MS: kiểm thử tự động
-  require("timers").setInterval(() => { storage.tickSchedule(); }, Number(process.env.HAK_SCHEDULE_TICK_MS) || 60000).unref();
+  require("timers").setInterval(() => { if(!yearBusy)storage.tickSchedule(); }, Number(process.env.HAK_SCHEDULE_TICK_MS) || 60000).unref();
 });
+app.on("before-quit", e => {if(yearBusy)e.preventDefault();});
 app.on("window-all-closed", () => app.quit());
 // Lịch sao lưu (α17): cửa sổ đã đóng (giao diện đã lưu lần cuối ở beforeunload) → sao lưu "khi-dong" nếu dữ liệu đã đổi.
 // will-quit chạy cả khi bấm ✕ lẫn khi app.quit() (tắt máy / cài bản mới).

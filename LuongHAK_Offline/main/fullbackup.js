@@ -106,7 +106,7 @@ function create(o) {
   const whole = crypto.createHash("sha256"), fd = fs.openSync(dest, "r"), buf = Buffer.alloc(1 << 20); let r0;
   try { while ((r0 = fs.readSync(fd, buf, 0, buf.length, null)) > 0) whole.update(buf.subarray(0, r0)); } finally { fs.closeSync(fd); }
   const hex = whole.digest("hex"); fs.writeFileSync(dest + ".sha256", hex + "  " + name + "\n");
-  return { ok: !partial, status: partial ? ST.PARTIAL : ST.SUCCESS, partial, file: dest, name, size: fs.statSync(dest).size, sha256: hex, docs: manifest.documents.length, ocrSamples: manifest.ocrLibrary ? manifest.ocrLibrary.samples : 0, missing, warnings };
+  return { ok: !partial, status: partial ? ST.PARTIAL : ST.SUCCESS, partial, file: dest, name, size: fs.statSync(dest).size, sha256: hex, docs: manifest.documents.length, yearArchives: yearFiles.length, ocrSamples: manifest.ocrLibrary ? manifest.ocrLibrary.samples : 0, missing, warnings };
 }
 
 /** Kiểm tra gói KHÔNG ghi gì lên đĩa. @param vault (tuỳ chọn) để phân loại chứng từ new/same/conflict.

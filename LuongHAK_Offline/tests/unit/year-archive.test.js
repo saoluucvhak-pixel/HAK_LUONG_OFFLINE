@@ -66,3 +66,14 @@ test('year archive: Full Backup restores year files on another machine before ac
 test('year archive: schema 3 protects archived data from older versions; ordinary schema 2 remains compatible',()=>{
  const s=setup();assert.equal(current(s).schemaVersion,2);move(s);assert.equal(current(s).schemaVersion,3);
 });
+
+test('year worker: stale mutation blocked, verified archive and restore preserve saved payroll',async()=>{
+ const s=setup(),run=(method,args)=>require('../../main/year-archive-worker').run(s.dir,method,args);
+ const p=await run('preview',[2023]);assert.equal(p.ok,true);
+ const stale=await run('archive',[2023,'stale','tester']);assert.equal(stale.ok,false);assert.equal(current(s).chamcong.length,2);
+ assert.equal((await run('archive',[2023,p.token,'tester'])).ok,true);
+ const rows=await run('table',[2023,'bangluong','2023-01',0]);assert.equal(rows.rows[0]['Thực lĩnh'],123);
+ assert.equal((await run('restore',[2023,'test restore',s.years.token(),'tester'])).ok,true);
+ assert.deepEqual(current(s).kyluong,s.db.kyluong);
+ assert.equal((await run('unsupported',[])).ok,false);
+});
