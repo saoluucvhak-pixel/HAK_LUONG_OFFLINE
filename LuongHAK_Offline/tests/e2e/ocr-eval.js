@@ -24,7 +24,7 @@ async function launch(dir) {
   w.on("dialog", (d) => d.accept(d.type() === "prompt" ? "" : undefined));
   await w.waitForSelector("#main > *");
   const t = await w.locator("#top h2").innerText();
-  if (/Thiết lập/.test(t)) { for (const [k, v] of [["u", ADMIN.u], ["n", ADMIN.n], ["p", ADMIN.p], ["p2", ADMIN.p]]) await w.fill("#main input[data-f=" + k + "]", v); await w.click("#main button.big"); await w.waitForSelector("[data-recovery]"); await w.click(".dlg footer button.pri"); await w.waitForSelector("#nav button[data-k=home]"); }
+  if (/Thiết lập/.test(t)) { for (const [k, v] of [["cty", "Công ty OCR giả lập"], ["ma", "OCRTEST"], ["u", ADMIN.u], ["n", ADMIN.n], ["p", ADMIN.p], ["p2", ADMIN.p]]) await w.fill("#main input[data-f=" + k + "]", v); await w.click("#main button.big"); await w.waitForSelector("[data-recovery]"); await w.click(".dlg footer button.pri"); await w.waitForSelector("#nav button[data-k=home]"); }
   else if (/Đăng nhập/.test(t)) { await w.fill("#main input[data-f=u]", ADMIN.u); await w.fill("#main input[data-f=p]", ADMIN.p); await w.click("#main button.big"); await w.waitForSelector("#nav button[data-k=home]"); }
   return { app, w, errs };
 }
@@ -69,7 +69,7 @@ function score(rows, truth) { // truth: [[ten, [30 giá trị]]]
   await app.close();
   report.errorsJS = errs.slice(0, 5);
   report.tongKet = { cases: report.cases.length, dat: report.cases.filter((c) => c.dat).length, jsErrors: errs.length };
-  fs.writeFileSync(path.join(APP, "docs", "V10_1_OCR_CHECK.json"), JSON.stringify(report, null, 1));
+  fs.writeFileSync(path.resolve(APP, process.env.OCR_EVAL_REPORT || "docs/V10_1_OCR_CHECK.json"), JSON.stringify(report, null, 1));
   console.log("\nOCR: " + report.tongKet.dat + "/" + report.tongKet.cases + " ca đạt ngưỡng · selfTest: " + selfTest + " · lỗi JS: " + errs.length);
   process.exit(report.tongKet.dat === report.tongKet.cases && !errs.length ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(2); });

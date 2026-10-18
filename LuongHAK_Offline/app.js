@@ -3998,13 +3998,19 @@
       // ai đọc "st" (toàn cục) ở đây, nhưng là cái bẫy cho người sửa code sau.
       .then(function () { var wasStop = OCRS.stop; OCRS.reading = false; OCRS.stop = false; render(); if (wasStop) toast("Đã dừng đọc — trang đã đọc xong vẫn giữ nguyên"); });
   }
-  function ocrNum(v) { var s0 = String(v == null ? "" : v).trim(); if (!s0) return null; var n = +s0.replace(",", "."); return isFinite(n) ? n : NaN; }
+  function ocrNum(v) { if (C.ocrRules && C.ocrRules.number) return C.ocrRules.number(v); var s0 = String(v == null ? "" : v).trim(); if (!s0) return null; var n = +s0.replace(",", "."); return isFinite(n) ? n : NaN; }
   function lineSum(L, days) { var s0 = 0, bad = 0; days.forEach(function (d) { var n = ocrNum(L.vals[d]); if (n == null) return; if (isNaN(n)) bad++; else s0 += n; }); return { sum: Math.round(s0 * 100) / 100, bad: bad }; }
   /** Dòng dữ liệu sẵn sàng ghi: { chamcong: [...], tiencom: [...], skip: [...] } */
   function ocrRows(pages) {
-    var cc = [], tc = [], skip = [], mcc = [], mtc = [];
+    var cc = [], tc = [], skip = [], review = [], mcc = [], mtc = [];
+    var maSet = {}; db.nhanvien.forEach(function (nv) { maSet[nv["Mã NV"]] = 1; });
     pages.forEach(function (pg) {
-      (pg.lines || []).forEach(function (L) {
+      var check = C.ocrRules.check({ ky: pg.ky || kyStr(), mode: pg.mode, days: pg.days, lines: pg.lines }, { maSet: maSet, sumOf: function (line) { return lineSum(line, pg.days).sum; } });
+      if (check.layoutSuspect) { skip.push(pg.name + ": " + check.issues.filter(function (i) { return i.struct; }).map(function (i) { return i.msg; }).join("; ")); return; }
+      check.issues.filter(function (i) { return i.level === "WARN" && i.code !== "CHUA_CHON_NV"; }).forEach(function (i) { review.push(pg.name + ": " + i.msg); });
+      (pg.lines || []).forEach(function (L, lineIndex) {
+        var blocked = check.issues.filter(function (i) { return i.level === "ERROR" && i.line === lineIndex; });
+        if (blocked.length) { skip.push(pg.name + ": " + blocked.map(function (i) { return i.msg; }).join("; ")); return; }
         if (!L.kind) return;
         if (!L.ma) { skip.push(pg.name + ": " + (L.name || "(không tên)") + " — chưa chọn nhân viên"); return; }
         var bad = pg.days.filter(function (d) { var n = ocrNum(L.vals[d]); return n !== null && (isNaN(n) || n < 0); });
@@ -4030,7 +4036,7 @@
         }
       });
     });
-    return { chamcong: cc, tiencom: tc, skip: skip, meta: { chamcong: mcc, tiencom: mtc } };
+    return { chamcong: cc, tiencom: tc, skip: skip, review: review, meta: { chamcong: mcc, tiencom: mtc } };
   }
   /** Sự kiện "chuỗi tên trên giấy ↔ Mã NV" của 1 dòng OCR (chỉ ghi vào bộ nhớ khi dòng đã được nhập thật). */
   function nameEventOf(pg, L, ky) {
@@ -4055,6 +4061,7 @@
     if (!need("input.edit", "ghi chấm công / suất cơm")) return;
     var rr = ocrRows(pages);
     if (!rr.chamcong.length && !rr.tiencom.length) { alert("Chưa có dòng nào ghi được." + (rr.skip.length ? "\n\n" + rr.skip.join("\n") : "")); return; }
+    if (rr.review.length && !confirm("HAK OCR Engine — cần đối chiếu trước khi ghi:\n" + rr.review.slice(0, 20).join("\n") + (rr.review.length > 20 ? "\n… và " + (rr.review.length - 20) + " cảnh báo khác" : "") + "\n\nBạn đã đối chiếu với chứng từ và muốn mở bảng xem trước?")) return;
     var lrChk = ocrLearn(); if (lrChk && lrChk.pending() && !confirm("⚠ Còn " + lrChk.pending() + " mẫu học từ các ô đã sửa CHƯA ghi vào thư viện OCR (lỗi: " + lrChk.lastError() + ").\nChấm công vẫn ghi được, nhưng những mẫu này chưa được tính là đã học và sẽ không được duyệt.\n\nVẫn tiếp tục ghi chấm công?")) return;
     if (rr.skip.length && !confirm("Các dòng sau CHƯA ghi được (sửa xong bấm lại):\n" + rr.skip.join("\n") + "\n\nVẫn ghi các dòng còn lại?")) return;
     importPreview(function (mode) {
@@ -4332,7 +4339,7 @@
       var chk = C.ocrRules.check({ ky: pg.ky, mode: pg.mode, days: pg.days, lines: pg.lines.map(function (L) { return { name: L.name, ma: L.ma, kind: L.kind, vals: L.vals, src: L.src }; }) }, { maSet: maSet, sumOf: function (L) { return lineSum(L, pg.days).sum; } });
       pg.layoutSuspect = !!(chk.layoutSuspect || pg.layoutStatus === "MISMATCH" || (pg.res && pg.res.table && !pg.res.table.layout));
       if (pg.layoutStatus === "MISMATCH") pc.appendChild(h("div", { class: "warn", "data-ocr-layout": "1" }, [document.createTextNode("Bố cục bảng " + pg.layoutInfo + " — thư viện mẫu không tự nhận ô và KHÔNG học từ trang này. "), btn("Đây là bố cục mới — lưu", "ghost", function () { window.hakOcrLib.layoutSave(pg.layoutSig, "", session ? session.tenDangNhap : "").then(function (r) { if (r && r.ok) { pg.layoutStatus = "MATCH"; pg.layoutId = r.id; pg.layoutSuspect = false; toast("Đã lưu bố cục mới"); OLS.loaded = false; render(); } }); })]));
-      if (chk.issues.length) pc.appendChild(h("div", { class: chk.errors ? "warn" : "hint", "data-ocr-rules": "1", html: "<b>Kiểm tra nghiệp vụ:</b> " + chk.errors + " lỗi, " + chk.warns + " cảnh báo" + (chk.layoutSuspect ? " — <b>nghi lỗi bố cục: trang này không được dùng để học mẫu</b>" : "") + "<br>" + chk.issues.slice(0, 8).map(function (i) { return esc(i.msg); }).join("<br>") + (chk.issues.length > 8 ? "<br>… và " + (chk.issues.length - 8) + " mục nữa" : "") }));
+      if (chk.issues.length) pc.appendChild(h("div", { class: chk.errors ? "warn" : "hint", "data-ocr-rules": "1", html: "<b>Kiểm tra nghiệp vụ · HAK OCR Engine:</b> " + chk.errors + " lỗi, " + chk.warns + " cảnh báo" + (chk.layoutSuspect ? " — <b>nghi lỗi bố cục: trang này không được dùng để học mẫu</b>" : "") + "<br>" + chk.issues.slice(0, 8).map(function (i) { return esc(i.msg); }).join("<br>") + (chk.issues.length > 8 ? "<br>… và " + (chk.issues.length - 8) + " mục nữa" : "") }));
     }
     pc.appendChild(h("div", { class: "legend", html: "<span><i class='low'>1</i>OCR không chắc / nhận theo nét</span><span><i class='bad'>?</i>không đọc được — nhập lại</span><span><i class='mm'>&nbsp;</i>dòng lệch tổng trên giấy</span><span><i class='nm'>&nbsp;</i>chưa chọn nhân viên</span>" }));
     pc.appendChild(tw);

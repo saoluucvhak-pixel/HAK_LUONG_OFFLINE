@@ -1,6 +1,6 @@
 {
   "name": "luong-hak",
-  "version": "2.0.0-alpha.28",
+  "version": "2.0.0-alpha.29",
   "description": "Tính lương HAK - chạy offline",
   "main": "main.js",
   "author": "HAK",
@@ -9,7 +9,8 @@
     "test:e2e": "node tests/e2e/run-e2e.js",
     "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
     "test:workspace": "node tests/e2e/v104-workspace-check.js",
-    "dist": "electron-builder --win nsis --x64"
+    "dist": "electron-builder --win nsis --x64",
+    "test:ocr-eval": "node tests/e2e/ocr-eval.js"
   },
   "devDependencies": {
     "electron": "43.7.9",

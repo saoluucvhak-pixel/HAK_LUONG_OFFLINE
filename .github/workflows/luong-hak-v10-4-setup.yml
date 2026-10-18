@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/luong-hak-v10-4-enterprise-ui
+      - feature/luong-v104-shared-ocr
     paths:
       - 'LuongHAK_Offline/**'
       - '.github/workflows/luong-hak-v10-4-setup.yml'
@@ -62,6 +63,10 @@ jobs:
         run: npm run test:e2e 2>&1 | Tee-Object -FilePath electron-e2e.log
         env:
           E2E_SHOTS: tests/e2e/screenshots
+      - name: Measure shared OCR per-cell accuracy on synthetic images and PDFs
+        run: npm run test:ocr-eval
+        env:
+          OCR_EVAL_REPORT: tests/e2e/shared-ocr-eval.json
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -70,6 +75,7 @@ jobs:
           path: |
             LuongHAK_Offline/electron-e2e.log
             LuongHAK_Offline/tests/e2e/last-e2e-result.json
+            LuongHAK_Offline/tests/e2e/shared-ocr-eval.json
             LuongHAK_Offline/tests/e2e/screenshots/*.png
           retention-days: 14
   workspace-visual:
@@ -123,8 +129,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/checkout@v4
+        with:
+          repository: saoluucvhak-pixel/HAK_OCR_ENGINE
+          ref: f7221abf93d2470a2b523afde06237d837c3ca4c
+          path: .comparison/shared-ocr
+      - name: Verify pinned common OCR source parity
+        run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr
       - name: Verify payroll and persistence source are unchanged
-        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js
+        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js"
       - uses: actions/cache/restore@v4
         with:
           path: hak-project-memory.jsonl
