@@ -1,0 +1,13 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict"),m=require("../../core/kpi-included-guarantee.js");
+const base={guaranteedMonthly:8000000,baseMonthly:6000000,hygieneTarget:1200000,kpiTarget:800000,otherInsideTarget:0,standardDays:24,paidDays:24,hygieneDays:24,kpiDays:24,hygieneFactor:0.9,kpiFactor:0.75,guaranteeEntitlementRatio:1};
+test("included KPI is never added twice and topup protects 8m",()=>{let x=m.calc(base);assert.equal(x.ok,true);assert.equal(x.components.hygieneEarned,1080000);assert.equal(x.components.kpiEarned,600000);assert.equal(x.components.beforeTopup,7680000);assert.equal(x.components.guaranteeTopup,320000);assert.equal(x.components.afterTopup,8000000);assert.equal(x.payrollWriteAllowed,false);});
+test("when both factors zero protected amount remains unchanged",()=>{let x=m.calc({...base,hygieneFactor:0,kpiFactor:0});assert.equal(x.components.afterTopup,8000000);assert.equal(x.components.guaranteeTopup,2000000);});
+test("allocation must equal guaranteed monthly target",()=>{assert.equal(m.calc({...base,kpiTarget:700000}).ok,false);});
+test("days cannot exceed paid days, ratio cannot exceed one",()=>{assert.equal(m.calc({...base,kpiDays:25}).ok,false);assert.equal(m.calc({...base,guaranteeEntitlementRatio:1.2}).ok,false);});
+test("infer hygiene factor with independently confirmed KPI and pretopup evidence",()=>{let x=m.infer({...base,observedBeforeTopup:7680000,knownKpiFactor:0.75});assert.equal(x.ok,true);assert.equal(x.factor,"K_V");assert.equal(x.value,0.9);});
+test("infer KPI factor if hygiene independently known",()=>{let x=m.infer({...base,observedBeforeTopup:7680000,knownHygieneFactor:0.9});assert.equal(x.ok,true);assert.equal(x.factor,"K_P");assert.equal(x.value,0.75);});
+test("final guaranteed income and two unknown factors do not identify a unique solution",()=>{assert.equal(m.infer({...base,observedBeforeTopup:""}).ok,false);assert.equal(m.infer({...base,observedBeforeTopup:7680000}).ok,false);});
+
+test("FSC included exactly once in existing KPI fund, never outside guaranteed salary",()=>{const x=m.calc({...base,fscFundVnd:200000,fscPayVnd:180000,fscApproved:true});assert.equal(x.ok,true);assert.equal(x.components.kpiFscInside,180000);assert.equal(x.components.kpiEarned,630000);assert.equal(x.components.afterTopup,8000000);});
+test("FSC amount exceeding KPI reserve or pending approval cannot be paid",()=>{assert.equal(m.calc({...base,fscFundVnd:200000,fscPayVnd:300000,fscApproved:true}).ok,false);assert.equal(m.calc({...base,fscFundVnd:200000,fscPayVnd:180000,fscApproved:false}).ok,false);});
