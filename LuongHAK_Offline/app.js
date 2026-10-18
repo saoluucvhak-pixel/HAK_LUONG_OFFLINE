@@ -4731,7 +4731,7 @@
     var c = h("div", { class: "card" });
     c.appendChild(h("h3", { text: "🗂 Các bản sao lưu tự động trên máy" }));
     if (!store || !store.listBackups) { c.appendChild(h("div", { class: "hint", text: "Chỉ có trong bản cài (.exe). Bản chạy trình duyệt: dùng 'Sao lưu ra file'." })); return c; }
-    c.appendChild(h("div", { class: "hint", text: "daily = đầu mỗi ngày (giữ theo Lịch sao lưu) · startup = mỗi lần mở app (giữ 10) · dinh-ky = định kỳ (giữ 48) · khi-dong = khi đóng app (giữ 10) · truoc-… = tự sao lưu trước thao tác lớn (nhập Excel, mở chốt, khôi phục, xóa) · sau-chot-… = ngay sau khi chốt kỳ (giữ VĨNH VIỄN)." }));
+    c.appendChild(h("div", { class: "hint", text: "daily = đầu mỗi ngày (giữ theo Lịch sao lưu) · startup = mỗi lần mở app (giữ 10) · dinh-ky = định kỳ (giữ 48) · khi-dong = khi đóng app (giữ 10) · nam-YYYY = bản theo năm (giữ vĩnh viễn) · truoc-… = tự sao lưu trước thao tác lớn (nhập Excel, mở chốt, khôi phục, xóa) · sau-chot-… = ngay sau khi chốt kỳ (giữ VĨNH VIỄN)." }));
     var STATUS = { ok: "✓ Nguyên vẹn (SHA-256)", unverified: "Bản cũ — chưa có mã kiểm tra", mismatch: "✕ HỎNG / bị sửa", invalid: "✕ Không đọc được" };
     c.appendChild(h("div", { class: "bar" }, [btn("💾 Tạo bản sao lưu ngay", "pri", function () {
       if (!need("backup.restore", "tạo bản sao lưu")) return;
@@ -4742,7 +4742,17 @@
       render();
     }),
       store.verifyBackups ? btn("🩺 Kiểm tra tất cả bản sao lưu", "", function () { st.bkVerify = true; render(); }) : null]));
-    var list = (st.bkVerify && store.verifyBackups ? store.verifyBackups() : store.listBackups()).slice(0, 40);
+    // Sao lưu THEO NĂM: bản "nam-<năm>" giữ vĩnh viễn (tự tạo ở lần lưu đầu tiên của mỗi năm; tạo tay cho năm đang chọn)
+    var all = (st.bkVerify && store.verifyBackups ? store.verifyBackups() : store.listBackups()), nowY = new Date().getFullYear();
+    var years = []; all.forEach(function (b) { if (b.year && years.indexOf(b.year) < 0) years.push(b.year); }); if (years.indexOf(String(nowY)) < 0) years.push(String(nowY)); years.sort().reverse();
+    var ySel = h("select", {}, years.map(function (y) { return h("option", { value: y, text: "Năm " + y }); })); ySel.value = st.bkYear || String(nowY);
+    ySel.addEventListener("change", function () { st.bkYear = ySel.value; render(); });
+    c.appendChild(h("div", { class: "bar" }, [ySel, btn("📅 Sao lưu năm " + ySel.value + " (giữ vĩnh viễn)", "", function () {
+      if (!need("backup.restore", "tạo bản sao lưu theo năm")) return;
+      var n = backupNow("nam-" + ySel.value);
+      toast(n ? "Đã tạo " + n : "⚠ KHÔNG tạo được bản sao lưu theo năm — kiểm tra dung lượng đĩa / quyền ghi"); render();
+    }), btn("Xem tất cả năm", "", function () { st.bkYear = ""; render(); })]));
+    var list = (st.bkYear ? all.filter(function (b) { return b.year === st.bkYear; }) : all).slice(0, 40);
     if (st.bkVerify) { var nb = list.filter(function (b) { return b.status === "mismatch" || b.status === "invalid"; }).length; c.appendChild(h("div", { class: nb ? "warn" : "ok", text: nb ? "⚠ " + nb + " bản sao lưu bị hỏng — không dùng để khôi phục." : "Đã kiểm tra " + list.length + " bản sao lưu gần nhất: đọc được, đủ điều kiện khôi phục." })); }
     if (!list.length) { c.appendChild(h("div", { class: "empty", text: "Chưa có bản sao lưu." })); return c; }
     var t = h("table"), tr = h("tr"); ["Tên file", "Loại", "Thời điểm", "Dung lượng", "Tình trạng", ""].forEach(function (x) { tr.appendChild(h("th", { text: x })); }); t.appendChild(h("thead", {}, [tr]));
