@@ -3916,7 +3916,7 @@
   function titleName(title) { var t = (title || []).filter(function (x) { return /lịch|lich/i.test(C.tsparse.fold(x)); })[0] || ""; return t.replace(/^.*?(lịch làm|lich lam)\s*/i, "").trim(); }
   // Tự học từ chỉnh sửa (V7): mỗi ô OCR người dùng sửa tự ghi 1 mẫu "chờ duyệt"; duyệt khi ghi bảng vào Chấm công
   var OCRL = null;
-  function ocrLearn() { if (!OCRL && window.hakOcrLib && C.ocrLearn) OCRL = C.ocrLearn.createService({ api: window.hakOcrLib, user: function () { return session ? session.tenDangNhap : currentUser(); }, cfg: function () { return { saveConfirmed: !!congTy()["OCR lưu mẫu xác nhận"] }; }, ocrVersion: "tsocr-v7" }); if (OCRL && !OCRL._restored) { OCRL._restored = true; OCRL.restoreQueue().then(function (r) { if (r && r.restored) { toast("⚠ Có " + r.restored + " mẫu học từ lần trước chưa ghi vào thư viện — đã nạp lại, bấm \"Thử lại\" ở màn OCR"); } }); } return OCRL; }
+  function ocrLearn() { if (!OCRL && window.hakOcrLib && C.ocrLearn) OCRL = C.ocrLearn.createService({ api: window.hakOcrLib, user: function () { return session ? session.tenDangNhap : currentUser(); }, cfg: function () { return { saveConfirmed: !!congTy()["OCR lưu mẫu xác nhận"] }; }, ocrVersion: "tsocr-v10.4+mnist-cnn-v1" }); if (OCRL && !OCRL._restored) { OCRL._restored = true; OCRL.restoreQueue().then(function (r) { if (r && r.restored) { toast("⚠ Có " + r.restored + " mẫu học từ lần trước chưa ghi vào thư viện — đã nạp lại, bấm \"Thử lại\" ở màn OCR"); } }); } return OCRL; }
   // ---- Trạng thái lưu mẫu OCR hiển thị cho người dùng (V9.4) ----
   var OCR_ST = { saved: ["lrn-saved", "Đã ghi mẫu — chờ xác minh (PENDING_VERIFICATION)"], missing: ["lrn-miss", "Thiếu ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu"], queued: ["lrn-q", "Chưa ghi được — đang giữ để thử lại"], error: ["lrn-err", "Lỗi lưu mẫu — hãy bấm Thử lại"] };
   /** Khóa ổn định của ô: dòng chưa ghép NV vẫn có khóa riêng theo vị trí dòng (không trùng nhau). */
@@ -4326,7 +4326,17 @@
         inp.addEventListener("focus", function () { inp._viewed = true; inp._changed = false; showCell(cell, (L.name || "Dòng " + (li + 1)) + " · ngày " + d); });
         inp.addEventListener("blur", function () { var lr = ocrLearn(); if (lr && cell && inp._viewed && !inp._changed && String(L.vals[d]).trim() && String(L.vals[d]) === String(L.orig ? L.orig[d] : "")) lr.onViewedUnchanged({ res: pg.res, cell: cell, pg: pg, ma: L.ma, value: L.vals[d] }); inp._viewed = false; });
         inp.addEventListener("change", function () { var prevV = L.vals[d]; inp._changed = true; if (prevV !== inp.value.trim()) { (pg.undo = pg.undo || []).push({ L: L, d: d, prev: prevV, cell: cell, inp: inp }); } L.vals[d] = inp.value.trim(); var lr = ocrLearn(); if (lr) lr.onEdit({ res: pg.res, cell: cell, ref: ocrRef(L, li, d), pg: pg, ma: L.ma, before: prevV, after: L.vals[d], ocrValue: L.orig ? L.orig[d] : prevV }).then(function (r) { ocrMark(inp, ocrRef(L, li, d)); if (r && r.ok === false) toast("⚠ Chưa lưu được mẫu học từ ô vừa sửa — " + (r.durable ? "đã giữ lại trên đĩa, sẽ thử lại" : "CHỈ giữ tạm trong bộ nhớ, hãy bấm Thử lại trước khi đóng") + " (" + (r.error || "") + ")"); else if (r && r.missingSource) toast("Ô này không có ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu học"); }); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
-        tr.appendChild(h("td", { class: "oc" }, [inp]));
+        var contents = [inp], candidate = cell && cell.handwriting;
+        if (candidate && candidate.offered && candidate.status === "CANDIDATE" && ocrNum(L.vals[d]) !== Number(candidate.text)) {
+          var useCandidate = btn("✎ " + candidate.text, "ghost", function () {
+            inp.value = candidate.text; inp.dispatchEvent(new window.Event("change"));
+            useCandidate.disabled = true; useCandidate.textContent = "Đã chọn " + candidate.text;
+          }, "Gợi ý chữ số viết tay CNN: " + candidate.text + ". " + candidate.warning + " Điểm mô hình không phải xác nhận độ chính xác.");
+          useCandidate.setAttribute("data-handwriting-candidate", candidate.text);
+          useCandidate.setAttribute("aria-label", "Dùng gợi ý chữ tay " + candidate.text + " cho ngày " + d);
+          contents.push(useCandidate);
+        }
+        tr.appendChild(h("td", { class: "oc" }, contents));
       });
       tr.appendChild(sumTd); tr.appendChild(totTd); upd();
       tr.appendChild(h("td", {}, [btn("✕ Bỏ dòng", "ghost", function () { if (!confirm("Bỏ dòng \"" + (L.name || "(không tên)") + "\" khỏi trang này? (Chỉ bỏ khỏi màn hình, không ảnh hưởng ảnh gốc và chưa ghi vào Chấm công.)")) return; pg.lines.splice(li, 1); render(); }, "Bỏ dòng này khỏi trang OCR (không ghi vào Chấm công)")]));
@@ -4334,6 +4344,7 @@
       tbody.appendChild(tr);
     });
     t.appendChild(tbody); tw.appendChild(t);
+    if (pg.res && pg.res.cells && pg.res.cells.some(function (c) { return c.handwriting && c.handwriting.model; })) pc.appendChild(h("div", { class: "hint", "data-handwriting-model": "1", text: "Mô hình chữ số viết tay CNN đã chạy offline. Nút ✎ dưới ô là gợi ý một chữ số 0–9; chỉ khi bạn chọn thì giá trị ô mới đổi. Chưa hỗ trợ tên tiếng Việt hoặc chuỗi số dính nét." }));
     if (C.ocrRules) { // kiểm tra nghiệp vụ (V7): kỳ, ngày trong tháng, mã NV, trùng dòng, ô không phải số — lỗi cấu trúc thì KHÔNG học mẫu từ trang này
       var maSet = {}; list.forEach(function (n) { maSet[n.ma] = 1; });
       var chk = C.ocrRules.check({ ky: pg.ky, mode: pg.mode, days: pg.days, lines: pg.lines.map(function (L) { return { name: L.name, ma: L.ma, kind: L.kind, vals: L.vals, src: L.src }; }) }, { maSet: maSet, sumOf: function (L) { return lineSum(L, pg.days).sum; } });

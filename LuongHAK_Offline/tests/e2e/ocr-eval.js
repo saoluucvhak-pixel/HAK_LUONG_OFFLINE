@@ -66,10 +66,29 @@ function score(rows, truth) { // truth: [[ten, [30 giá trị]]]
   await run("Bảng in — PDF scan", ["bang-cham-cong-mau.pdf"], null, PEOPLE, THRESH.printed);
   await run("Bảng in — trang PDF do pdf.js vẽ", ["bang-cham-cong-mau-pdfjs.png"], null, PEOPLE, THRESH.printed);
   await run("Bảng tay dấu x (2 khối ngày, mỗi người 1 cột)", ["cham-cong-tay-x-mau.png"], "mark", Object.keys(MARKS).map((k) => [k, MARKS[k].map((v, i) => (k === "Trần Bình" && i === 8 ? 1 : v))]), THRESH.marks);
+  const attendanceBefore = JSON.stringify(JSON.parse(fs.readFileSync(fb, "utf8")).chamcong);
+  const handwritingPage = await readFile(w, ["../handwriting/mnist-timesheet.png"], "so");
+  const suggestions = w.locator("[data-handwriting-candidate]");
+  const suggestionCount = await suggestions.count();
+  let humanChoice = false;
+  if (suggestionCount) {
+    const button = suggestions.first(), input = button.locator("xpath=..").locator("input[data-day]");
+    const original = await input.inputValue(), candidate = await button.getAttribute("data-handwriting-candidate");
+    await button.click();
+    humanChoice = original !== candidate && await input.inputValue() === candidate && await button.isDisabled();
+  }
+  const unchangedAttendance = attendanceBefore === JSON.stringify(JSON.parse(fs.readFileSync(fb, "utf8")).chamcong);
+  report.handwritingReview = { pageRead: handwritingPage.ok, rows: handwritingPage.rows.length, modelVisible: await w.locator("[data-handwriting-model]").count() > 0, suggestions: suggestionCount, humanChoice, unchangedAttendance };
+  report.handwritingReview.passed = handwritingPage.ok && handwritingPage.rows.length === 3 && report.handwritingReview.modelVisible && suggestionCount > 0 && humanChoice && unchangedAttendance;
+  console.log((report.handwritingReview.passed ? "PASS " : "FAIL ") + "Handwritten CNN review: " + JSON.stringify(report.handwritingReview));
+  if (process.env.OCR_EVAL_SHOTS) {
+    fs.mkdirSync(process.env.OCR_EVAL_SHOTS, { recursive: true });
+    await w.screenshot({ path: path.join(process.env.OCR_EVAL_SHOTS, "handwriting-cnn-review.png") });
+  }
   await app.close();
   report.errorsJS = errs.slice(0, 5);
   report.tongKet = { cases: report.cases.length, dat: report.cases.filter((c) => c.dat).length, jsErrors: errs.length };
   fs.writeFileSync(path.resolve(APP, process.env.OCR_EVAL_REPORT || "docs/V10_1_OCR_CHECK.json"), JSON.stringify(report, null, 1));
   console.log("\nOCR: " + report.tongKet.dat + "/" + report.tongKet.cases + " ca đạt ngưỡng · selfTest: " + selfTest + " · lỗi JS: " + errs.length);
-  process.exit(report.tongKet.dat === report.tongKet.cases && !errs.length ? 0 : 1);
+  process.exit(report.tongKet.dat === report.tongKet.cases && report.handwritingReview.passed && !errs.length ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(2); });

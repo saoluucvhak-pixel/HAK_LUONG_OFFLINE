@@ -1,9 +1,36 @@
 {
   "repository": "saoluucvhak-pixel/HAK_OCR_ENGINE",
-  "commit": "f7221abf93d2470a2b523afde06237d837c3ca4c",
+  "commit": "eb9c42b5a1d7ff5fbbc4219b6f6a141b8a9197de",
   "upstreamPath": "js/core/ocr-learning/attendance-validation.js",
   "runtimePath": "core/ocr-learning/rules.js",
   "normalizedSha256": "442b7858eea6eb6915d4a1fb3bbc649df4f5769000bc92a5f633b93e0569a9a2",
   "archiveBaseCommit": "1a1e627edf0392197f7f010b54b77feb15d3aadf",
-  "archiveSha256": "0d8d08cec3651d0c5e13d344a5d2b79210754e592633a9f9b5fa075763c5d799"
+  "archiveSha256": "0d8d08cec3651d0c5e13d344a5d2b79210754e592633a9f9b5fa075763c5d799",
+  "modules": [
+    {
+      "upstreamPath": "js/core/ocr-learning/attendance-validation.js",
+      "runtimePath": "core/ocr-learning/rules.js",
+      "normalizedSha256": "442b7858eea6eb6915d4a1fb3bbc649df4f5769000bc92a5f633b93e0569a9a2"
+    },
+    {
+      "upstreamPath": "js/main/handwritten-digits.js",
+      "runtimePath": "main/handwritten-digits.js",
+      "normalizedSha256": "f1a2fa2a1a7b90cad4f321e6c4c17b35a56e4bd029058284a2a1a083d9b8874c"
+    },
+    {
+      "upstreamPath": "js/main/ocr-service.js",
+      "runtimePath": "main/ocr-service.js",
+      "normalizedSha256": "8144bc15d68a869c5c3387b9ee11dda4529189fa9e8fcdb2f5bdfc5bf12a1feb"
+    },
+    {
+      "upstreamPath": "js/core/timesheet-ocr.js",
+      "runtimePath": "core/timesheet-ocr.js",
+      "normalizedSha256": "ee9c0298708b5e0ab783412a36cfbe237a8c2315ce6564cbe7a38061397ea498"
+    },
+    {
+      "upstreamPath": "js/ocr/models/mnist-cnn.json",
+      "runtimePath": "ocr/models/mnist-cnn.json",
+      "normalizedSha256": "84f958b33843830eb087bbd18020e307495eb5601e64bc848cbfd300bcda4b3d"
+    }
+  ]
 }

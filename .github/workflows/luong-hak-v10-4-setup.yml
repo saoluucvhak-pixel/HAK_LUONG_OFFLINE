@@ -5,6 +5,7 @@ on:
     branches:
       - feature/luong-hak-v10-4-enterprise-ui
       - feature/luong-v104-shared-ocr
+      - feature/luong-v104-handwritten-cnn
     paths:
       - 'LuongHAK_Offline/**'
       - '.github/workflows/luong-hak-v10-4-setup.yml'
@@ -37,6 +38,8 @@ jobs:
         run: npm run dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify handwriting runtime and weights in packaged app
+        run: node scripts/verify-packaged-handwriting.cjs
       - name: Upload installer EXE
         uses: actions/upload-artifact@v4
         with:
@@ -67,6 +70,7 @@ jobs:
         run: npm run test:ocr-eval
         env:
           OCR_EVAL_REPORT: tests/e2e/shared-ocr-eval.json
+          OCR_EVAL_SHOTS: tests/e2e/screenshots
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -132,12 +136,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: saoluucvhak-pixel/HAK_OCR_ENGINE
-          ref: f7221abf93d2470a2b523afde06237d837c3ca4c
+          ref: eb9c42b5a1d7ff5fbbc4219b6f6a141b8a9197de
           path: .comparison/shared-ocr
       - name: Verify pinned common OCR source parity
         run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr
       - name: Verify payroll and persistence source are unchanged
-        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js"
+        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js"
       - uses: actions/cache/restore@v4
         with:
           path: hak-project-memory.jsonl

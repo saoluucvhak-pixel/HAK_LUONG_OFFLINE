@@ -35,7 +35,15 @@ function createOcrService(opts) {
   opts = opts || {};
   const T = opts.tesseract || require("tesseract.js");
   const langPath = unpacked(path.join(opts.appDir || path.join(__dirname, ".."), "ocr", "lang"));
-  let workers = null, queue = Promise.resolve();
+  let workers = null, queue = Promise.resolve(), handwriting = null;
+  const H = require("./handwritten-digits.js");
+  function handwritingCandidate(reading, item) {
+    const proxy = { recognize(crop) {
+      if (!handwriting) handwriting = H.create(require("../ocr/models/mnist-cnn.json"));
+      return handwriting.recognize(crop);
+    } };
+    return H.addCandidate(reading, item, proxy);
+  }
   const wopts = () => {
     const o = { langPath, cacheMethod: "none", gzip: true };
     try {
@@ -71,7 +79,8 @@ function createOcrService(opts) {
       if (it.mode === "ca" && !ws.ca) { ws.ca = await T.createWorker("eng", 1, wopts()); await ws.ca.setParameters({ tessedit_pageseg_mode: T.PSM.SINGLE_LINE, tessedit_char_whitelist: "0123456789+xX" }); } // lịch làm theo ca: "1+2", X
       if (it.mode === "block" && !ws.block) { ws.block = await T.createWorker("vie", 1, wopts()); await ws.block.setParameters({ tessedit_pageseg_mode: T.PSM.SINGLE_BLOCK }); } // nhãn 2 dòng ("Tổng / công")
       const r = await (it.mode === "digit" ? ws.digit : it.mode === "block" ? ws.block : it.mode === "ca" ? ws.ca : ws.text).recognize(encodeGrayPNG(data, it.w, it.h));
-      out.push({ text: String(r.data.text || "").replace(/\s+$/g, "").replace(/\n+/g, " ").trim(), conf: Math.round(r.data.confidence || 0) });
+      const reading = { text: String(r.data.text || "").replace(/\s+$/g, "").replace(/\n+/g, " ").trim(), conf: Math.round(r.data.confidence || 0) };
+      out.push(it.mode === "digit" ? handwritingCandidate(reading, it) : reading);
     }
     return out;
   }
@@ -85,7 +94,7 @@ function createOcrService(opts) {
       bar(14, 8, 18, 32); bar(10, 8, 16, 12);                                   // 1
       bar(26, 8, 40, 11); bar(37, 8, 40, 20); bar(26, 18, 40, 21); bar(26, 18, 29, 32); bar(26, 29, 42, 32); // 2
       const t0 = Date.now(), r = (await this.batch([{ w, h, data: g, mode: "digit" }]))[0];
-      return { ok: true, text: r.text, conf: r.conf, ms: Date.now() - t0, langPath };
+      return { ok: true, text: r.text, conf: r.conf, ms: Date.now() - t0, langPath, handwriting: r.handwriting };
     },
     async terminate() { if (workers) { const w = workers; workers = null; await w.text.terminate(); await w.digit.terminate(); if (w.page) await w.page.terminate(); if (w.block) await w.block.terminate(); if (w.ca) await w.ca.terminate(); } }
   };
