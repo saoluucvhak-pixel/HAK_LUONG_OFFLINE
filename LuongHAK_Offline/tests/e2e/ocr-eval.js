@@ -66,6 +66,7 @@ function score(rows, truth) { // truth: [[ten, [30 giá trị]]]
   await run("Bảng in — PDF scan", ["bang-cham-cong-mau.pdf"], null, PEOPLE, THRESH.printed);
   await run("Bảng in — trang PDF do pdf.js vẽ", ["bang-cham-cong-mau-pdfjs.png"], null, PEOPLE, THRESH.printed);
   await run("Bảng tay dấu x (2 khối ngày, mỗi người 1 cột)", ["cham-cong-tay-x-mau.png"], "mark", Object.keys(MARKS).map((k) => [k, MARKS[k].map((v, i) => (k === "Trần Bình" && i === 8 ? 1 : v))]), THRESH.marks);
+  const marksNoDigitSuggestions = await w.locator("[data-handwriting-candidate]").count() === 0;
   const attendanceBefore = JSON.stringify(JSON.parse(fs.readFileSync(fb, "utf8")).chamcong);
   const handwritingPage = await readFile(w, ["../handwriting/mnist-timesheet.png"], "so");
   const suggestions = w.locator("[data-handwriting-candidate]");
@@ -78,8 +79,8 @@ function score(rows, truth) { // truth: [[ten, [30 giá trị]]]
     humanChoice = original !== candidate && await input.inputValue() === candidate && await button.isDisabled();
   }
   const unchangedAttendance = attendanceBefore === JSON.stringify(JSON.parse(fs.readFileSync(fb, "utf8")).chamcong);
-  report.handwritingReview = { pageRead: handwritingPage.ok, rows: handwritingPage.rows.length, modelVisible: await w.locator("[data-handwriting-model]").count() > 0, suggestions: suggestionCount, humanChoice, unchangedAttendance };
-  report.handwritingReview.passed = handwritingPage.ok && handwritingPage.rows.length === 3 && report.handwritingReview.modelVisible && suggestionCount > 0 && humanChoice && unchangedAttendance;
+  report.handwritingReview = { pageRead: handwritingPage.ok, rows: handwritingPage.rows.length, modelVisible: await w.locator("[data-handwriting-model]").count() > 0, suggestions: suggestionCount, humanChoice, unchangedAttendance, marksNoDigitSuggestions };
+  report.handwritingReview.passed = handwritingPage.ok && handwritingPage.rows.length === 3 && report.handwritingReview.modelVisible && suggestionCount > 0 && humanChoice && unchangedAttendance && marksNoDigitSuggestions;
   console.log((report.handwritingReview.passed ? "PASS " : "FAIL ") + "Handwritten CNN review: " + JSON.stringify(report.handwritingReview));
   if (process.env.OCR_EVAL_SHOTS) {
     fs.mkdirSync(process.env.OCR_EVAL_SHOTS, { recursive: true });

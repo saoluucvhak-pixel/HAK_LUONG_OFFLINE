@@ -4327,7 +4327,7 @@
         inp.addEventListener("blur", function () { var lr = ocrLearn(); if (lr && cell && inp._viewed && !inp._changed && String(L.vals[d]).trim() && String(L.vals[d]) === String(L.orig ? L.orig[d] : "")) lr.onViewedUnchanged({ res: pg.res, cell: cell, pg: pg, ma: L.ma, value: L.vals[d] }); inp._viewed = false; });
         inp.addEventListener("change", function () { var prevV = L.vals[d]; inp._changed = true; if (prevV !== inp.value.trim()) { (pg.undo = pg.undo || []).push({ L: L, d: d, prev: prevV, cell: cell, inp: inp }); } L.vals[d] = inp.value.trim(); var lr = ocrLearn(); if (lr) lr.onEdit({ res: pg.res, cell: cell, ref: ocrRef(L, li, d), pg: pg, ma: L.ma, before: prevV, after: L.vals[d], ocrValue: L.orig ? L.orig[d] : prevV }).then(function (r) { ocrMark(inp, ocrRef(L, li, d)); if (r && r.ok === false) toast("⚠ Chưa lưu được mẫu học từ ô vừa sửa — " + (r.durable ? "đã giữ lại trên đĩa, sẽ thử lại" : "CHỈ giữ tạm trong bộ nhớ, hãy bấm Thử lại trước khi đóng") + " (" + (r.error || "") + ")"); else if (r && r.missingSource) toast("Ô này không có ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu học"); }); inp.classList.remove("low"); inp.classList.toggle("bad", isNaN(ocrNum(L.vals[d])) && ocrNum(L.vals[d]) !== null); upd(); });
         var contents = [inp], candidate = cell && cell.handwriting;
-        if (candidate && candidate.offered && candidate.status === "CANDIDATE" && ocrNum(L.vals[d]) !== Number(candidate.text)) {
+        if ((!pg.mode || pg.mode === "so") && candidate && candidate.offered && candidate.status === "CANDIDATE" && ocrNum(L.vals[d]) !== Number(candidate.text)) {
           var useCandidate = btn("✎ " + candidate.text, "ghost", function () {
             inp.value = candidate.text; inp.dispatchEvent(new window.Event("change"));
             useCandidate.disabled = true; useCandidate.textContent = "Đã chọn " + candidate.text;
@@ -4344,7 +4344,7 @@
       tbody.appendChild(tr);
     });
     t.appendChild(tbody); tw.appendChild(t);
-    if (pg.res && pg.res.cells && pg.res.cells.some(function (c) { return c.handwriting && c.handwriting.model; })) pc.appendChild(h("div", { class: "hint", "data-handwriting-model": "1", text: "Mô hình chữ số viết tay CNN đã chạy offline. Nút ✎ dưới ô là gợi ý một chữ số 0–9; chỉ khi bạn chọn thì giá trị ô mới đổi. Chưa hỗ trợ tên tiếng Việt hoặc chuỗi số dính nét." }));
+    if ((!pg.mode || pg.mode === "so") && pg.res && pg.res.cells && pg.res.cells.some(function (c) { return c.handwriting && c.handwriting.model; })) pc.appendChild(h("div", { class: "hint", "data-handwriting-model": "1", text: "Mô hình chữ số viết tay CNN đã chạy offline. Nút ✎ dưới ô là gợi ý một chữ số 0–9; chỉ khi bạn chọn thì giá trị ô mới đổi. Chưa hỗ trợ tên tiếng Việt hoặc chuỗi số dính nét." }));
     if (C.ocrRules) { // kiểm tra nghiệp vụ (V7): kỳ, ngày trong tháng, mã NV, trùng dòng, ô không phải số — lỗi cấu trúc thì KHÔNG học mẫu từ trang này
       var maSet = {}; list.forEach(function (n) { maSet[n.ma] = 1; });
       var chk = C.ocrRules.check({ ky: pg.ky, mode: pg.mode, days: pg.days, lines: pg.lines.map(function (L) { return { name: L.name, ma: L.ma, kind: L.kind, vals: L.vals, src: L.src }; }) }, { maSet: maSet, sumOf: function (L) { return lineSum(L, pg.days).sum; } });
