@@ -109,12 +109,16 @@ function score(rows, truth) { // truth: [[ten, [30 giá trị]]]
   }
   if (!exportedFile) throw Error('Acceptance worksheet was not saved to isolated export directory');
   const exported = JSON.parse(fs.readFileSync(path.join(downloadDir, exportedFile), 'utf8'));
+  const decimalCells = exported.pages[0].cells;
+  const expectedDecimal = c => c.row === 'row-1' ? '0,5' : '1,5';
+  const rawCorrect = decimalCells.filter(c => norm(c.read) === expectedDecimal(c)).length;
+  const proposalCorrect = decimalCells.filter(c => norm(c.suggestion) === expectedDecimal(c)).length;
   const exportedCell = changedDecimal && exported.pages[0].cells.find(c => c.row === 'row-' + changedDecimal.row && c.day === changedDecimal.day);
   const acceptanceExport = exported.kind === 'unclassified' && exported.pages.length === 1 && exported.pages[0].cells.length === 60 && exported.pages[0].cells.every(c => c.expected === null && c.aligned === null) && !!exportedCell && exportedCell.read === changedDecimal.read && !JSON.stringify(exported).includes('E2E Nhân Viên');
-  report.decimalReview = { pageRead: decimals.ok, rows: decimals.rows.length, offeredDecimals, sourceVisible, focusedDay, decimalChoice, acceptanceExport,
+  report.decimalReview = { pageRead: decimals.ok, rows: decimals.rows.length, cells: decimalCells.length, rawCorrect, proposalCorrect, offeredDecimals, sourceVisible, focusedDay, decimalChoice, acceptanceExport,
     unchangedAttendance: attendanceBefore === JSON.stringify(JSON.parse(fs.readFileSync(fb, 'utf8')).chamcong),
     note: 'Composited public MNIST digits and computer-drawn separators; not private real handwriting acceptance.' };
-  report.decimalReview.passed = decimals.ok && decimals.rows.length === 2 && offeredDecimals > 0 && sourceVisible && !!focusedDay && decimalChoice && acceptanceExport && report.decimalReview.unchangedAttendance;
+  report.decimalReview.passed = decimals.ok && decimals.rows.length === 2 && proposalCorrect === 60 && offeredDecimals > 0 && sourceVisible && !!focusedDay && decimalChoice && acceptanceExport && report.decimalReview.unchangedAttendance;
   console.log((report.decimalReview.passed ? 'PASS ' : 'FAIL ') + 'Decimal handwriting review: ' + JSON.stringify(report.decimalReview));
   if (process.env.OCR_EVAL_SHOTS) {
     await w.locator('#dlcard .t button').click().catch(() => {});
