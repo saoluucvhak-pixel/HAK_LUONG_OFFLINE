@@ -3,7 +3,9 @@ const fs = require('node:fs'), path = require('node:path'), vm = require('node:v
 const asar = require('@electron/asar');
 const archive = path.resolve(process.argv[2] || 'dist/win-unpacked/resources/app.asar');
 const code = asar.extractFile(archive, 'main/handwritten-digits.js').toString('utf8');
-const model = JSON.parse(asar.extractFile(archive, 'ocr/models/mnist-cnn.json').toString('utf8'));
+const outside = path.join(archive + '.unpacked', 'ocr', 'models', 'mnist-cnn.json');
+const modelBytes = fs.existsSync(outside) ? fs.readFileSync(outside) : asar.extractFile(archive, 'ocr/models/mnist-cnn.json');
+const model = JSON.parse(modelBytes.toString('utf8'));
 const context = { module: { exports: {} }, Buffer };
 vm.createContext(context); vm.runInContext(code, context);
 const recognizer = context.module.exports.create(model);

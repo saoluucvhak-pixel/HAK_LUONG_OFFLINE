@@ -1,6 +1,6 @@
 {
   "repository": "saoluucvhak-pixel/HAK_OCR_ENGINE",
-  "commit": "eb9c42b5a1d7ff5fbbc4219b6f6a141b8a9197de",
+  "commit": "e1b578f08322f496f6ae5ea13581b1ccd5227112",
   "upstreamPath": "js/core/ocr-learning/attendance-validation.js",
   "runtimePath": "core/ocr-learning/rules.js",
   "normalizedSha256": "442b7858eea6eb6915d4a1fb3bbc649df4f5769000bc92a5f633b93e0569a9a2",
@@ -20,7 +20,7 @@
     {
       "upstreamPath": "js/main/ocr-service.js",
       "runtimePath": "main/ocr-service.js",
-      "normalizedSha256": "8144bc15d68a869c5c3387b9ee11dda4529189fa9e8fcdb2f5bdfc5bf12a1feb"
+      "normalizedSha256": "5536d15a303d0704de01f7dee8ee299d6ccbd4b793815e9a666519ed6c1411a2"
     },
     {
       "upstreamPath": "js/core/timesheet-ocr.js",

@@ -1,6 +1,6 @@
 # V10.4 alpha.30 — mô hình chữ số viết tay offline
 
-Nguồn dùng chung: `HAK_OCR_ENGINE`, nhánh `feature/handwritten-digits-cnn`, commit `eb9c42b5a1d7ff5fbbc4219b6f6a141b8a9197de`. Trọng số CNN MNIST có sẵn từ ONNX model zoo được đóng kèm trong app, không tải model hoặc gửi ảnh đi khi chạy.
+Nguồn dùng chung: `HAK_OCR_ENGINE`, nhánh `feature/handwritten-digits-cnn`, commit `e1b578f08322f496f6ae5ea13581b1ccd5227112`. Trọng số CNN MNIST có sẵn từ ONNX model zoo được đóng kèm trong app, không tải model hoặc gửi ảnh đi khi chạy.
 
 Đây là mô hình nhận **một chữ số viết tay 0–9**. Chưa hỗ trợ họ tên/ghi chú tiếng Việt, chữ viết liền hoặc chuỗi số dính nét; không suy diễn dấu phẩy hay tự ghép `0,5`. Các ô như vậy tiếp tục dùng OCR và sửa/duyệt thủ công hiện có.
 
