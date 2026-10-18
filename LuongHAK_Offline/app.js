@@ -3968,7 +3968,7 @@
     return C.tsocr.analyze(gimg, { ocr: function (items) { return OCRS.stop ? Promise.reject(OCR_STOP) : window.hakOcr.batch(items); } }, { rotate: rot, cellMode: pg.mode || "so", onProgress: function (m) { pg.status = m; var el = $("#ocr-status"); if (el) el.textContent = m; } }).then(function (res) { return layoutCheck(res, pg).then(function () { return res; }); }).then(function (res) { var lr = ocrLearn(); return lr && pg.layoutStatus !== "MISMATCH" ? libEnrich(lr, res, pg).then(function () { return res; }, function () { return res; }) : res; }).then(function (res) { return finishPage(pg, res, t0); }, onErr).then(onDone);
   }
   function finishPage(pg, res, t0) {
-      pg.res = res; pg.rot = res.rot; pg.view = grayCanvas(res.g, res.w, res.h); pg.ms = Date.now() - t0; pg.runId = "RUN-" + t0.toString(36); pg.page = pg.trang || 1; pg.layoutSuspect = !res.table || !res.table.layout;
+      pg.formDraft = null; pg.res = res; pg.rot = res.rot; pg.view = grayCanvas(res.g, res.w, res.h); pg.ms = Date.now() - t0; pg.runId = "RUN-" + t0.toString(36); pg.page = pg.trang || 1; pg.layoutSuspect = !res.table || !res.table.layout;
       var T = res.table, list = nvChoices(), nm0 = T.layout === "B" ? titleName(res.title) : "";
       pg.lines = (T.lines || []).map(function (l) {
         var nm = l.name || nm0, sug = C.tsparse.matchName(nm, list), memo = C.ocrNameMemory && C.ocrNameMemory.suggest(db.ocr_ten || [], nm, list);
@@ -3983,7 +3983,7 @@
         return { src: l, name: nm, rawName: nm, ma: !nameDup && sug[0] && sug[0].score >= 0.6 ? sug[0].ma : "", maAuto: !nameDup && sug[0] && sug[0].score >= 0.6 ? sug[0].ma : "", nameDup: nameDup, memo: memo ? memo.why : "", sug: sug.slice(0, 5), kind: kind, vals: vals, orig: Object.assign({}, vals) };
       });
       pg.days = T.days.slice(); pg.ky = pg.ky || res.period || kyStr();
-      pg.status = T.layout ? "Đã đọc " + pg.lines.length + " dòng · " + Math.round(pg.ms / 1000) + " giây" : "Không dựng được bảng";
+      pg.status = !T.layout && res.documentReview && res.documentReview.kind !== "UNKNOWN" ? "Đã nhận diện biểu mẫu · " + res.documentReview.candidates.length + " trường chờ đối chiếu" : T.layout ? "Đã đọc " + pg.lines.length + " dòng · " + Math.round(pg.ms / 1000) + " giây" : "Không dựng được bảng";
       if (window.console && res.table.warnings && res.table.warnings.length) console.info("OCR:", res.table.warnings.join(" | "));
   }
   var OCR_STOP = { stop: true };
@@ -4243,7 +4243,7 @@
           return { id: stamp + "-page-" + (pi + 1), group: "SET_DOCUMENT_WRITER_GROUP", split: "test", quality: "SET_clear_OR_hard", cells: cells };
         });
         if (!pages.length) { toast("Chưa có trang nào đọc xong"); return; }
-        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.34", pages: pages }, null, 2));
+        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.35", pages: pages }, null, 2));
         toast("Đã xuất phiếu không chứa tên hoặc ảnh. Người kiểm tra cần điền đáp án, xác nhận người/ngày và phân nhóm tài liệu trước khi đánh giá; giữ file riêng, không đưa lên repo.");
       }, "Xuất kết quả OCR ban đầu theo dòng/ngày, không chứa tên hoặc ảnh; đáp án và bố cục để trống cho người nghiệm thu"));
       bar.appendChild(btn("✔ Đưa vào Chấm công / Suất cơm…", "pri", function () { ocrApply(OCRS.pages); }, "Qua màn hình xem trước như nhập Excel"));
@@ -4288,7 +4288,28 @@
     if (!pg.res) { pc.appendChild(h("div", { class: "hint", text: pg.stopped ? "Trang này chưa đọc (đã bấm Dừng đọc). Bấm Đọc lại khi cần." : "Đang chờ đọc…" })); return w; }
     var T = pg.res.table;
     (T.warnings || []).forEach(function (x) { pc.appendChild(h("div", { class: "warn", text: "⚠ " + x })); });
-    if (!T.layout) { pc.appendChild(h("div", { class: "hint", text: "Thử xoay ảnh (↺ / ↻) nếu ảnh nằm ngang, hoặc chụp lại rõ hơn. Trang không phải bảng chấm công (giấy tăng ca, xác nhận vân tay, sổ xe…) app không đọc tự động — nhập tay." })); }
+    if (!T.layout && pg.res.documentReview) {
+      var dr=pg.res.documentReview;
+      var titles={FINGERPRINT_EXCEPTION:"Giấy xác nhận vân tay",OVERTIME_SLIP:"Phiếu xác nhận tăng ca",OVERTIME_SUMMARY:"Danh sách tổng giờ tăng ca",UNKNOWN:"Chưa xác định loại hồ sơ"};
+      var review=h("section",{class:"card","data-document-review":"1"});
+      review.appendChild(h("h3",{text:(titles[dr.kind]||titles.UNKNOWN)+" · Chờ đối chiếu"}));
+      review.appendChild(h("div",{class:"warn",text:"Gợi ý OCR chưa được xác nhận. Đối chiếu ảnh gốc; không tự ghi vào chấm công, không tự tính giờ qua đêm và không xác nhận chữ ký."}));
+      if(!pg.formDraft)pg.formDraft=dr.candidates.map(function(c){return {field:c.field,value:c.value,source:c.source,confirmed:false};});
+      var rt=h("table");rt.appendChild(h("tr",{},["Trường","Gợi ý / giá trị đã sửa","Dòng nguồn OCR","Đã đối chiếu ảnh"].map(function(t){return h("th",{text:t});})));
+      pg.formDraft.forEach(function(c){
+        var value=h("input",{class:"i",value:c.value,"aria-label":"Giá trị "+c.field});
+        var checked=h("input",{type:"checkbox","aria-label":"Đã đối chiếu "+c.field});checked.checked=c.confirmed;
+        value.addEventListener("input",function(){c.value=value.value;c.confirmed=false;checked.checked=false;});checked.addEventListener("change",function(){c.confirmed=checked.checked;});
+        rt.appendChild(h("tr",{},[h("td",{text:({date:"Ngày",time:"Giờ",name:"Họ tên"})[c.field]||c.field}),h("td",{},[value]),h("td",{text:c.source}),h("td",{},[checked])]));
+      });review.appendChild(h("div",{class:"tw"},[rt]));
+      var addFields=h("div",{class:"bar"});
+      [["name","Thêm họ tên"],["date","Thêm ngày"],["time","Thêm giờ"]].forEach(function(item){addFields.appendChild(btn(item[1],"ghost",function(){pg.formDraft.push({field:item[0],value:"",source:"Người dùng bổ sung từ ảnh gốc",confirmed:false});render();}));});review.appendChild(addFields);
+      if(!pg.formDraft.length)review.appendChild(h("div",{class:"hint",text:"Chưa đọc được trường đáng tin để gợi ý. Xem chữ OCR bên dưới và nhập hồ sơ theo ảnh gốc; không coi đây là kết quả trống hợp lệ."}));
+      var raw=h("details",{},[h("summary",{text:"Xem toàn bộ chữ OCR để đối chiếu"}),h("pre",{text:dr.rawText,style:"white-space:pre-wrap;max-height:260px;overflow:auto"})]);review.appendChild(raw);
+      if(can("export"))review.appendChild(btn("Xuất phiếu đối chiếu JSON","",function(){download("HAK_OCR_DoiChieu_"+Date.now()+".json","application/json",JSON.stringify({kind:dr.kind,status:"REVIEW_ONLY",canAutoImport:false,source:pg.name,fields:pg.formDraft},null,2));}));
+      pc.appendChild(review);
+    } else if (!T.layout) { pc.appendChild(h("div", { class: "hint", text: "Thử xoay ảnh hoặc chụp lại rõ hơn; trang chưa dựng được bảng, không tự nhập dữ liệu." })); }
+
     var meta = h("div", { class: "bar" }), kyI = h("input", { class: "i", type: "month", value: pg.ky || kyStr(), "aria-label": "Kỳ của trang", style: "width:170px" });
     kyI.addEventListener("change", function () { pg.ky = kyI.value; });
     meta.appendChild(h("label", { text: "Kỳ " })); meta.appendChild(kyI);

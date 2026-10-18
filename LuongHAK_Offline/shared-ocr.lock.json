@@ -1,6 +1,6 @@
 {
   "repository": "saoluucvhak-pixel/HAK_OCR_ENGINE",
-  "commit": "33ec098ff5f9d5bbcd028e4677d7d4cc97c1dd5c",
+  "commit": "ebbe4ef7362cb58d082c8e718a2dc7d8f829cee5",
   "upstreamPath": "js/core/ocr-learning/attendance-validation.js",
   "runtimePath": "core/ocr-learning/rules.js",
   "normalizedSha256": "442b7858eea6eb6915d4a1fb3bbc649df4f5769000bc92a5f633b93e0569a9a2",
@@ -20,12 +20,12 @@
     {
       "upstreamPath": "js/main/ocr-service.js",
       "runtimePath": "main/ocr-service.js",
-      "normalizedSha256": "5536d15a303d0704de01f7dee8ee299d6ccbd4b793815e9a666519ed6c1411a2"
+      "normalizedSha256": "6ce013ad875b300677fc0abdc72bec6f09ea2624adf1ca5de9401ffbd38c9207"
     },
     {
       "upstreamPath": "js/core/timesheet-ocr.js",
       "runtimePath": "core/timesheet-ocr.js",
-      "normalizedSha256": "ee9c0298708b5e0ab783412a36cfbe237a8c2315ce6564cbe7a38061397ea498"
+      "normalizedSha256": "d633aa312c513e267a1f895036d651862ff0078d879ac0f068e774d62cbee744"
     },
     {
       "upstreamPath": "js/ocr/models/mnist-cnn.json",
@@ -40,7 +40,7 @@
     {
       "upstreamPath": "js/core/timesheet-parse.js",
       "runtimePath": "core/timesheet-parse.js",
-      "normalizedSha256": "590c110c2002aeba9f01077b90ee0d1f2717449f64c927d63aabe0eb5c02b72d"
+      "normalizedSha256": "993fa2306edbd737a6a0b7146340e15ab213cafa1556e3e600193fe84c552284"
     }
   ]
 }
