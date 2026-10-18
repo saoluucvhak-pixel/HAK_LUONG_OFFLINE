@@ -1,4 +1,4 @@
-# USER_GUIDE — Hướng dẫn sử dụng Nhân sự – Tiền lương HAK (bản offline cho Windows, v1.4.0)
+# USER_GUIDE — Hướng dẫn sử dụng Nhân sự – Tiền lương HAK (bản offline cho Windows, V10.4)
 
 Không cần internet, không cần Google Sheet. Cài bằng file `TinhLuongHAK-Setup-x.y.z.exe`.
 
@@ -217,3 +217,30 @@ Danh mục chuẩn chỉ là số liệu khởi đầu — kế toán kiểm tra
 
 ## Khi gặp lỗi
 Nếu một màn hình báo "Có lỗi khi hiển thị": dữ liệu không mất. Bấm *Về Trang chủ*. Nếu lỗi lặp lại, bấm *Sao lưu ra file* và gửi file kèm ảnh chụp màn hình cho người hỗ trợ.
+
+
+## V10.4 — Danh mục Tăng ca, Phụ cấp, Hỗ trợ
+
+Trong **Danh mục**, chọn nhóm cần làm. Bảng bên trái là **mã cha**, khung bên phải trình bày thông tin và **các phiên bản công thức con**. Một mã có thể có nhiều phiên bản theo thời gian; không tạo mã cha mới cho từng phiên bản.
+
+1. Tìm mã/tên, lọc trạng thái hoặc nguồn công thức, chọn **Kỳ xét**. Kỳ xét quyết định phiên bản được hiển thị là đang áp dụng.
+2. Chọn dòng để xem nhanh; **Xem chi tiết** hoặc **Mở hồ sơ** mở Side Drawer. Khung xem nhanh chỉ đọc.
+3. Tạo mã bằng **＋ Thêm** của nhóm, nhập mã/tên/ngày hiệu lực/các trường của nhóm rồi **Lưu thông tin**. Sửa mã có sẵn bằng **Chỉnh sửa** hoặc **Chỉnh sửa thông tin**.
+4. Trong hồ sơ, mở **Công thức**, tạo phiên bản và **Lưu nháp**. Kiểm tra mã cha liên kết, mã công thức, biểu thức, thời gian hiệu lực. Lưu thông tin mã cha không đồng nghĩa công thức mới đã được duyệt.
+5. Mở **Kiểm thử**, chọn kỳ, nhân viên và phiên bản. Biến lấy từ dữ liệu tính lương của kỳ; chạy thử không ghi lại bảng lương. Chỉ lưu ca kiểm thử khi chủ động chọn lưu.
+6. Thực hiện **Nháp → Gửi duyệt → Duyệt → Kích hoạt** theo quyền; người duyệt khác người lập. Kích hoạt/ngừng cần lý do. Bản đã gửi duyệt không sửa nội dung trực tiếp: sao chép thành phiên bản mới.
+7. Chọn lại đúng Kỳ xét, đối chiếu **Công thức đang áp dụng**, nguồn, số phiên bản; kiểm tra tại **Tính lương** trước khi chốt. Tab **Lịch sử** cho biết phiên bản, người và lý do thay đổi.
+
+### Điểm cần phân biệt giữa ba nhóm
+
+- **Tăng ca:** kiểm tra hệ số và loại công thức. Công quy đổi và tiền tăng ca là hai bước; tiền còn phụ thuộc loại lương/đơn giá của nhân viên. DQ/QC là thuộc tính địa điểm chấm công, không tạo mã TC riêng chỉ vì đổi địa điểm.
+- **Phụ cấp:** kiểm tra mức tiền, cách tính, đối tượng và hiệu lực của khoản theo trường hiển thị. Không mặc định mọi phụ cấp trả trọn tháng hoặc đều chia công.
+- **Hỗ trợ:** kiểm tra mức hỗ trợ, cách tính và đối tượng theo trường hiển thị; kiểm thử đúng dữ liệu công/suất cơm liên quan của nhân viên. Không tự áp dụng cách tính của phụ cấp cho mọi hỗ trợ.
+
+**Liên kết công thức cũ** phục vụ rà soát dữ liệu cũ: đọc danh sách dự kiến trước khi xác nhận. **Ngừng sử dụng** giữ lịch sử; **Xóa** chỉ được khi kiểm tra của ứng dụng cho phép. Không sửa trực tiếp số của kỳ đã chốt; muốn điều chỉnh phải qua quy trình mở chốt theo quyền. Nếu thiếu nút, kiểm tra quyền tài khoản và trạng thái phiên bản.
+
+## V10.4 — Kho hồ sơ năm và đổi máy
+
+Vào **Công ty & Sao lưu → Kho hồ sơ theo năm**. Chọn năm cũ đã chốt, bấm **Kiểm tra trước khi chuyển**, xem số dòng/kỳ/dung lượng rồi xác nhận. Kho chỉ đọc khi mở, hiển thị 50 dòng/trang, có Excel/PDF. Đưa về vùng đang làm cần lý do và vẫn giữ kỳ đã chốt.
+
+Dùng **Full Backup** khi đổi máy để mang theo dữ liệu, chứng từ và các gói năm. Sao lưu JSON riêng lẻ không đủ. Sau lần lưu trữ đầu tiên cần phiên bản hỗ trợ schema 3, không hạ phiên bản. Xem [hướng dẫn kho năm](V10_4_YEAR_ARCHIVE.md).
