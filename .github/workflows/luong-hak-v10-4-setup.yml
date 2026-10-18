@@ -136,12 +136,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: saoluucvhak-pixel/HAK_OCR_ENGINE
-          ref: 3c582c5815edace4ad77653fc17fe5a64b50c644
+          ref: 33ec098ff5f9d5bbcd028e4677d7d4cc97c1dd5c
           path: .comparison/shared-ocr
       - name: Verify pinned common OCR source parity
         run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr
       - name: Verify payroll and persistence source are unchanged
-        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js"
+        run: git diff --exit-code f35275f314be4cf00bd66f59d66a7d31b1fff458 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-parse.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js"
       - uses: actions/cache/restore@v4
         with:
           path: hak-project-memory.jsonl

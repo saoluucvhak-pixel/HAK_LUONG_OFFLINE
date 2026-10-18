@@ -37,6 +37,19 @@
     days = days.map(function (d, i) { return d && /[a-z]{2,}/.test(fold(ch[i].text)) ? null : d; });
     return { offset: best, hits: bn, days: days };
   }
+  // Serial numbers describe records, not calendar dates (overtime and confirmation forms).
+  function serialColumn(ch) {
+    return ch.slice(0, 2).some(function (c) { return /^(stt|s tt|tt|so thu tu)$/.test(fold(c.text)); });
+  }
+  function explicitDayHeaders(ch) {
+    var prev = 0, count = 0, days = [], invalid = false;
+    ch.forEach(function (c) {
+      var text = String(c.text || "").trim(), match = text.match(/^(\d{1,2})(?:[.,]0+)?$/), d = match ? +match[1] : null;
+      if (d != null && d >= 1 && d <= 31) { if (d <= prev) invalid = true; prev = d; count++; days.push(d); }
+      else days.push(null);
+    });
+    return !invalid && count >= 5 ? { hits: count, days: days, explicit: true } : null;
+  }
   function cellAt(col, y0, y1) {
     var best = null, bo = 0;
     col.forEach(function (c) { var o = overlap(c.y0, c.y1, y0, y1) / Math.max(1, y1 - y0); if (o > bo) { bo = o; best = c; } });
@@ -175,7 +188,16 @@
     var best = null;
     cells.forEach(function (c) {
       if (!c.left) { var ch = chain(c, "right"), s = daySeq(ch); if (s && (!best || s.hits > best.seq.hits)) best = { dir: "A", chain: ch, seq: s }; }
-      if (!c.up) { var cv = chain(c, "down"), s2 = daySeq(cv); if (s2 && (!best || s2.hits > best.seq.hits)) best = { dir: "B", chain: cv, seq: s2 }; }
+      if (!c.up) { var cv = chain(c, "down"), s2 = serialColumn(cv) ? null : daySeq(cv); if (s2 && (!best || s2.hits > best.seq.hits)) best = { dir: "B", chain: cv, seq: s2 }; }
+    });
+    // A printed attendance header may intentionally skip days. Use only explicit labels,
+    // and require a nearby name heading so numeric data rows cannot become a header.
+    cells.forEach(function (c) {
+      if (c.left) return;
+      var ch = chain(c, "right"), seq = explicitDayHeaders(ch); if (!seq) return;
+      var first = ch.filter(function (x, i) { return seq.days[i] != null; })[0];
+      var named = cells.some(function (x) { return /\bho.*\bten\b/.test(fold(x.text)) && x.x0 < first.x0 && x.y0 <= first.y1 && x.y1 >= first.y0 - medH * 2 && x.y1 <= first.y1 + medH * 0.5; });
+      if (named && (!best || seq.hits > best.seq.hits || best.seq.hits < (opt.minDays || 10))) best = { dir: "A", chain: ch, seq: seq, explicit: true };
     });
     if (!best || best.seq.hits < (opt.minDays || 10)) {
       // Dự phòng: không đọc được số ngày in ở tiêu đề (ảnh nhỏ / mờ) → dòng trên cùng có 28–31 ô hẹp liền nhau = ngày 1…N theo vị trí
@@ -192,7 +214,7 @@
         best = { dir: "A", chain: pos.chain, seq: { offset: 1 - start, hits: 0, days: pos.chain.map(function (x, i) { var d = i - start + 1; return d >= 1 && d <= n ? d : null; }) }, positional: true };
       }
     }
-    if (!best || (best.seq.hits < (opt.minDays || 10) && !best.positional)) return { layout: null, days: [], lines: [], warnings: ["Không nhận ra hàng / cột ngày (1…31) — kiểm tra ảnh có đúng bảng chấm công, đủ nét, đúng chiều"] };
+    if (!best || (best.seq.hits < (opt.minDays || 10) && !best.positional && !best.explicit)) return { layout: null, days: [], lines: [], warnings: ["Không nhận ra hàng / cột ngày (1…31) — kiểm tra ảnh có đúng bảng chấm công, đủ nét, đúng chiều"] };
     best.medW = medW; best.medH = medH;
     // Bảng dọc chia 2 nửa (ngày 1–15 | 16–31): tìm thêm cột ngày khác không chồng ngang, ghép theo nhãn cột (hoặc thứ tự cột)
     var extra = [];
@@ -200,7 +222,7 @@
       var used = [[best.chain[0].x0, best.chain[0].x1]];
       cells.forEach(function (c) {
         if (c.up) return;
-        var cv = chain(c, "down"), s3 = daySeq(cv);
+        var cv = chain(c, "down"), s3 = serialColumn(cv) ? null : daySeq(cv);
         if (!s3 || s3.hits < 8 || used.some(function (u) { return overlap(u[0], u[1], c.x0, c.x1) > 0; })) return;
         used.push([c.x0, c.x1]); extra.push({ dir: "B", chain: cv, seq: s3 });
       });

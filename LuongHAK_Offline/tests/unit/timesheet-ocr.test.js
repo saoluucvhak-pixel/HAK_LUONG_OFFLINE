@@ -84,6 +84,19 @@ test("U-OCR-05 không có bảng / không có hàng ngày → cảnh báo, khôn
   assert.strictEqual(T.layout, null); assert.ok(T.warnings.length);
 });
 
+test('U-OCR-REAL-01 serial-number confirmation forms are not daily attendance', () => {
+  const cells = grid(18, [50, 200, 100, 150, 150], (r, c) => r === 0 ? ['STT', 'Họ tên', 'Bộ phận', 'Tổng giờ tăng ca', 'Xác nhận'][c] : c === 0 ? String(r) : c === 3 && r === 1 ? '12,5' : '');
+  const result = TP.parse(cells);
+  assert.strictEqual(result.layout, null); assert.strictEqual(result.lines.length, 0);
+});
+test('U-OCR-REAL-02 explicitly nonconsecutive attendance days retain labels without inventing missing dates', () => {
+  const days = [5, 6, 7, 8, 9, 21, 22, 23, 24, 25, 26];
+  const cells = grid(3, [200].concat(days.map(() => 40), [70]), (r, c) => r === 0 ? c === 0 ? 'Họ tên' : c <= days.length ? String(days[c-1]) : 'Tổng công' : c === 0 ? 'Synthetic Person ' + r : c <= days.length ? '1' : '11');
+  const result = TP.parse(cells);
+  assert.strictEqual(result.layout, 'A'); assert.deepStrictEqual(result.days, days);
+  assert.strictEqual(result.lines[0].values[21], 1); assert.strictEqual(result.lines[0].values[10], undefined);
+});
+
 test("U-OCR-06 tìm ô theo đường kẻ trên ảnh vẽ sẵn (kể cả nghiêng nhẹ)", () => {
   const w = 620, h = 260, g = new Uint8Array(w * h).fill(255);
   const slope = 0.01; // nghiêng ~0,6°
