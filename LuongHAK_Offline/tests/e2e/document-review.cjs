@@ -17,9 +17,11 @@ let app;const checks=[];function check(name,v){assert.ok(v,name);checks.push({na
  await panel.locator('input.i').first().fill('Corrected synthetic value');check('editing revokes earlier confirmation',!(await box.isChecked()));
  await panel.locator('button:has-text("Thêm giờ")').click();check('missing fields can be added as unconfirmed drafts',await panel.locator('input.i').count()===4&&!await panel.locator('input[type=checkbox]').last().isChecked());
  check('form review has no attendance import action',!await panel.locator('button:has-text("Đưa vào")').count());
- await panel.locator('button:has-text("Xuất phiếu đối chiếu JSON")').click();await page.waitForTimeout(300);
+ await panel.locator('button:has-text("Xuất phiếu đối chiếu JSON")').click();
  const find=p=>fs.existsSync(p)?fs.readdirSync(p,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(path.join(p,e.name)):[path.join(p,e.name)]):[];
- const exported=find(path.join(dir,'downloads')).find(f=>/HAK_OCR_DoiChieu_.*\.json$/.test(f));assert.ok(exported);const draft=JSON.parse(fs.readFileSync(exported,'utf8'));
+ // tải file trong Electron là bất đồng bộ (will-download): chờ tới 30 s như run-e2e.js, không đợi cố định 300 ms
+ let exported;for(let i=0;i<100&&!exported;i++){await page.waitForTimeout(300);exported=find(path.join(dir,'downloads')).find(f=>/HAK_OCR_DoiChieu_.*\.json$/.test(f));}
+ assert.ok(exported,'phiếu đối chiếu JSON không được tải xuống trong 30 s');const draft=JSON.parse(fs.readFileSync(exported,'utf8'));
  check('export remains review only after edits',draft.status==='REVIEW_ONLY'&&draft.canAutoImport===false&&draft.fields[0].confirmed===false);
  const db=JSON.parse(fs.readFileSync(path.join(dir,'data.json'),'utf8'));check('no attendance is imported',(db.chamcong||[]).length===0);
  const shots=path.join(__dirname,'screenshots');fs.mkdirSync(shots,{recursive:true});await page.screenshot({path:path.join(shots,'document-review-synthetic.png')});
