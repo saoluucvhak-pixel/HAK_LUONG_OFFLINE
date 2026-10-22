@@ -1,0 +1,138 @@
+// ===== CORE / PAYROLL-CLOSE — chốt kỳ lương, phiên bản, mở chốt có lưu vết =====
+// Quy tắc:
+// - Mỗi kỳ chỉ có 1 bản chốt đang hiệu lực trong db.kyluong.
+// - Mở chốt KHÔNG xóa bản cũ: chuyển sang db.kyluong_lichsu kèm lý do, thời điểm, người mở.
+// - Chốt lại tạo phiên bản mới (version = số lần đã chốt + 1).
+// - Snapshot gồm kết quả + dữ liệu đầu vào của kỳ + danh mục tại thời điểm chốt + checksum để phát hiện bị sửa.
+(function (root) {
+  "use strict";
+  var V = (typeof module !== "undefined" && module.exports) ? require("./validate.js") : root.HAKCore.validate;
+  var MONTHLY = ["chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom"];
+  var DM = ["dm_luong", "dm_phucap", "dm_tangca", "dm_hotro", "dm_baohiem", "dm_tncn", "dm_bacthue", "dm_giamtru", "dm_phongban", "dm_chucvu", "dm_cc", "dm_congthuc", "congty"];
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  // FNV-1a 32-bit — đủ để phát hiện dữ liệu chốt bị sửa tay trong file (không phải chữ ký bảo mật)
+  function checksum(obj) {
+    var s = JSON.stringify(obj), h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0; }
+    return ("0000000" + h.toString(16)).slice(-8);
+  }
+  function totals(kq) {
+    var s = function (f) { return kq.bangluong.reduce(function (a, x) { return a + (+x[f] || 0); }, 0); };
+    return { soNV: kq.bangluong.length, tongThuNhap: s("Tổng thu nhập"), bhNLD: s("BH trừ NLĐ"), thue: s("Thuế TNCN"), tamUng: s("Tạm ứng"), thucLinh: s("Thực lĩnh") };
+  }
+  function current(db, ky) { return (db.kyluong || []).filter(function (k) { return k.ky === ky; })[0] || null; }
+  function history(db, ky) { return (db.kyluong_lichsu || []).filter(function (k) { return k.ky === ky; }); }
+
+  /** Dựng snapshot chốt kỳ. kq = kết quả tính lương; staff = danh sách nhân sự đã dùng để tính. */
+  function buildSnapshot(db, ky, kq, staff, meta) {
+    meta = meta || {};
+    var input = {};
+    MONTHLY.forEach(function (t) { input[t] = clone((db[t] || []).filter(function (r) { return V.rowPeriod(t, r) === ky; })); });
+    // α22: đơn nghỉ phủ kỳ (dùng để loại người nghỉ khỏi tổ khi chia sản lượng) — "Đến ngày" trống = chưa biết ngày về
+    var dau = ky + "-01", cuoi = ky + "-31";
+    ["nghiphep", "nghiom"].forEach(function (t) {
+      var rows = (db[t] || []).filter(function (r) { var tu = V.normDate(r["Từ ngày"]) || "", den = V.normDate(r["Đến ngày"]) || ""; return tu && tu <= cuoi && (!den || den >= dau); });
+      if (rows.length) input[t] = clone(rows);
+    });
+    var dm = {}; DM.forEach(function (t) { dm[t] = clone(db[t] || []); });
+    var result = clone({ bangluong: kq.bangluong, bhxh: kq.bhxh, tncn: kq.tncn, canhbao: kq.canhbao });
+    var inp = { staff: clone(staff || []), data: input, danhmuc: dm };
+    return {
+      ky: ky, version: history(db, ky).length + 1, ngayChot: meta.now || new Date().toISOString(), nguoiChot: meta.user || "", ghiChu: meta.note || "",
+      buTheoNgay: meta.buTheoNgay === "daihiep" || meta.buTheoNgay === "to" ? meta.buTheoNgay : !!meta.buTheoNgay, engineVersion: meta.engineVersion || "", quyChe: meta.quyChe || "", kq: result, totals: totals(kq), checksum: checksum(result),
+      input: inp, inputChecksum: checksum(inp)
+    };
+  }
+  /** Ghi bản chốt. Lỗi nếu kỳ đã có bản chốt hiệu lực (phải mở chốt trước). */
+  function close(db, snap) {
+    if (current(db, snap.ky)) throw new Error("Kỳ " + snap.ky + " đã chốt — phải mở chốt trước khi chốt lại");
+    db.kyluong = db.kyluong || [];
+    db.kyluong.push(snap);
+    db.kyluong.sort(function (a, b) { return a.ky < b.ky ? 1 : -1; });
+    return snap;
+  }
+  /** Gỡ bản chốt vừa ghi (dùng khi lưu file thất bại). */
+  function rollbackClose(db, snap) { db.kyluong = (db.kyluong || []).filter(function (k) { return k !== snap; }); }
+  /** Mở chốt: chuyển bản chốt sang lịch sử, bắt buộc có lý do. */
+  function reopen(db, ky, reason, meta) {
+    meta = meta || {};
+    if (!reason || !String(reason).trim()) throw new Error("Phải nhập lý do mở chốt");
+    var c = current(db, ky); if (!c) throw new Error("Kỳ " + ky + " chưa chốt");
+    db.kyluong = db.kyluong.filter(function (k) { return k !== c; });
+    var h = Object.assign({}, c, { moChot: { luc: meta.now || new Date().toISOString(), lyDo: String(reason).trim(), nguoi: meta.user || "" } });
+    if (!h.version) h.version = history(db, ky).length + 1;
+    db.kyluong_lichsu = db.kyluong_lichsu || [];
+    db.kyluong_lichsu.push(h);
+    return h;
+  }
+  /** Gỡ thao tác mở chốt (dùng khi lưu file thất bại). */
+  function rollbackReopen(db, h) {
+    db.kyluong_lichsu = (db.kyluong_lichsu || []).filter(function (k) { return k !== h; });
+    var c = Object.assign({}, h); delete c.moChot;
+    db.kyluong.push(c); db.kyluong.sort(function (a, b) { return a.ky < b.ky ? 1 : -1; });
+  }
+  /** Kiểm tra bản chốt còn nguyên vẹn (checksum khớp). Bản chốt cũ (≤ v1.3) không có checksum → "legacy". */
+  function verify(snap) {
+    if (!snap.checksum) return "legacy";
+    if (checksum(snap.kq) !== snap.checksum) return "modified";
+    // Bản chốt từ v1.4.0 (bản cài nhánh 2.0) còn có checksum dữ liệu đầu vào — sửa dữ liệu vào của kỳ đã chốt cũng bị phát hiện
+    if (snap.inputChecksum && snap.input && checksum(snap.input) !== snap.inputChecksum) return "modified";
+    return "ok";
+  }
+  /** So sánh 2 kết quả theo từng nhân viên (dùng cho đối chiếu & báo cáo trước/sau điều chỉnh). */
+  function diff(kqA, kqB, field) {
+    field = field || "Thực lĩnh";
+    var a = {}, b = {}, rows = [];
+    kqA.bangluong.forEach(function (x) { a[x["Mã NV"]] = x; }); kqB.bangluong.forEach(function (x) { b[x["Mã NV"]] = x; });
+    Object.keys(a).concat(Object.keys(b).filter(function (k) { return !a[k]; })).forEach(function (k) {
+      var v1 = a[k] ? +a[k][field] || 0 : 0, v2 = b[k] ? +b[k][field] || 0 : 0;
+      if (v1 !== v2) rows.push({ "Mã NV": k, "Họ và tên": (a[k] || b[k])["Họ và tên"], "Trước": v1, "Sau": v2, "Chênh lệch": v2 - v1, "Ghi chú": !a[k] ? "Mới" : (!b[k] ? "Không còn" : "") });
+    });
+    return rows;
+  }
+  // P0: chỉ tiêu đối chiếu TỪNG NHÂN VIÊN trước khi chốt — không chỉ "Thực lĩnh"/tổng (2 người đổi lương ngược
+  // dấu nhau làm tổng & số NV y nguyên nhưng bảng lương thực tế đã khác người/khác số, xem OFFLINE_AUDIT_REPORT.md #P0-1)
+  var DIFF_FIELDS = ["Phòng ban", "Chức vụ", "Lương thỏa thuận", "Công chuẩn", "Tổng công", "Công CN", "Công tăng ca",
+    "Lương thời gian", "Lương phụ", "Sản lượng (tấn)", "Lương sản lượng", "Lương bù SL", "Số xe bơm dăm", "Lương bơm dăm",
+    "Tiền tăng ca", "Phụ cấp", "Phụ cấp công tác", "Lương hỗ trợ", "Ngày cơm", "Tiền cơm", "Thưởng", "Thu nhập khác",
+    "Tổng thu nhập", "BH trừ NLĐ", "Truy thu BH", "Thuế TNCN", "Trừ khác", "Tạm ứng", "Thực lĩnh"];
+  var DIFF_TEXT_FIELDS = { "Phòng ban": 1, "Chức vụ": 1 };
+  function diffEqual(v1, v2, field) {
+    if (DIFF_TEXT_FIELDS[field]) return String(v1 || "") === String(v2 || "");
+    return Math.abs((+v1 || 0) - (+v2 || 0)) < 1e-6;
+  }
+  /**
+   * So sánh CHI TIẾT từng chỉ tiêu của TỪNG nhân viên giữa 2 kết quả tính lương — dùng để chặn chốt nhầm
+   * khi dữ liệu đầu vào đã đổi nhưng tổng thực lĩnh/số NV (vô tình) không đổi.
+   * Trả về 1 dòng cho mỗi (nhân viên, chỉ tiêu) có chênh lệch: { "Mã NV", "Họ và tên", "Chỉ tiêu",
+   * "Giá trị đang xem", "Giá trị tính lại", "Chênh lệch" }. Nhân viên mới/không còn → 1 dòng duy nhất.
+   */
+  function diffDetailed(kqA, kqB, fields) {
+    fields = fields || DIFF_FIELDS;
+    var a = {}, b = {}, rows = [];
+    (kqA.bangluong || []).forEach(function (x) { a[x["Mã NV"]] = x; });
+    (kqB.bangluong || []).forEach(function (x) { b[x["Mã NV"]] = x; });
+    Object.keys(a).concat(Object.keys(b).filter(function (k) { return !a[k]; })).forEach(function (k) {
+      var ra = a[k], rb = b[k];
+      if (!ra || !rb) {
+        rows.push({ "Mã NV": k, "Họ và tên": (ra || rb)["Họ và tên"], "Chỉ tiêu": "(toàn bộ)",
+          "Giá trị đang xem": ra ? "Có trong bảng" : "", "Giá trị tính lại": rb ? "Có trong bảng" : "Không còn trong bảng", "Chênh lệch": "" });
+        return;
+      }
+      fields.forEach(function (f) {
+        var v1 = ra[f], v2 = rb[f];
+        if (diffEqual(v1, v2, f)) return;
+        rows.push({ "Mã NV": k, "Họ và tên": ra["Họ và tên"], "Chỉ tiêu": f,
+          "Giá trị đang xem": v1 == null ? "" : v1, "Giá trị tính lại": v2 == null ? "" : v2,
+          "Chênh lệch": DIFF_TEXT_FIELDS[f] ? "" : Math.round(((+v2 || 0) - (+v1 || 0)) * 1000) / 1000 });
+      });
+    });
+    return rows;
+  }
+
+  var api = { buildSnapshot: buildSnapshot, close: close, rollbackClose: rollbackClose, reopen: reopen, rollbackReopen: rollbackReopen,
+    verify: verify, diff: diff, diffDetailed: diffDetailed, checksum: checksum, totals: totals, current: current, history: history };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else { root.HAKCore = root.HAKCore || {}; root.HAKCore.close = api; }
+})(typeof window !== "undefined" ? window : this);

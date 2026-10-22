@@ -1,0 +1,210 @@
+// ===== CORE / INTEGRITY — chuẩn hóa dữ liệu đã lưu + kiểm tra toàn vẹn =====
+(function (root) {
+  "use strict";
+  var V = (typeof module !== "undefined" && module.exports) ? require("./validate.js") : root.HAKCore.validate;
+  var MONTHLY = ["chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom"];
+  var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
+
+  /**
+   * Chuẩn hóa dữ liệu đã lưu (an toàn, chạy lại nhiều lần không đổi kết quả):
+   * - tiền dạng chuỗi VN "500.000" / "1.500.000" → "500000" / "1500000"
+   * - kỳ chấm công "2026-9" / "09/2026" → "2026-09"
+   * - ngày "15/09/2026" → "2026-09-15"
+   * - CCCD 11 số / SĐT 9 số (mất số 0 do Excel) → bù số 0
+   * Không đụng tới kỳ lương đã chốt (db.kyluong) — đó là snapshot bất biến.
+   */
+  function normalizeDataset(db) {
+    var changed = { money: 0, ky: 0, date: 0, id: 0 };
+    Object.keys(db).forEach(function (t) {
+      if (!Array.isArray(db[t]) || t === "kyluong" || t === "kyluong_lichsu" || t === "nhansu_cu" || t === "auditlog" || t === "nguoidung" || t === "baomat" || t === "chungtu") return;
+      db[t].forEach(function (r) {
+        if (!r || typeof r !== "object") return;
+        Object.keys(r).forEach(function (c) {
+          var v = r[c]; if (v === "" || v == null || c === "_id") return;
+          if (c === "Kỳ") { var k = V.normKy(v); if (k && k !== v) { r[c] = k; changed.ky++; } return; }
+          if (V.isMoneyCol(c) && typeof v === "string") { var m = V.parseMoney(v); if (!isNaN(m) && String(m) !== v) { r[c] = String(m); changed.money++; } return; }
+          if (V.isDateCol(c) && typeof v === "string") { if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return; /* dấu thời gian (vd. "Ngày lập" của công thức) — giữ nguyên giờ, không cắt thành ngày */ var d = V.normDate(v); if (d && d !== v) { r[c] = d; changed.date++; } return; }
+          if (V.isIdCol(c)) { var x = V.normId(c, v); if (x !== v) { r[c] = x; changed.id++; } }
+        });
+      });
+    });
+    var msg = [];
+    if (changed.money) msg.push(changed.money + " ô số tiền nhập dạng \"500.000\" đã được chuẩn hóa (trước đây có thể bị hiểu sai thành 500)");
+    if (changed.ky) msg.push(changed.ky + " kỳ chấm công đã chuẩn hóa về dạng YYYY-MM");
+    if (changed.date) msg.push(changed.date + " ô ngày đã chuẩn hóa về dạng YYYY-MM-DD");
+    if (changed.id) msg.push(changed.id + " mã định danh (CCCD/SĐT) bị mất số 0 đầu đã được bù lại");
+    return { changed: changed, messages: msg };
+  }
+
+  /** Kiểm tra toàn vẹn. Trả mảng { level: "Critical|High|Medium|Low", area, msg }. */
+  function check(db) {
+    var out = [], push = function (level, area, msg) { out.push({ level: level, area: area, msg: msg }); };
+    var nv = db.nhanvien || [], emp = {}, cntMa = {};
+    nv.forEach(function (n) { cntMa[n["Mã NV"]] = (cntMa[n["Mã NV"]] || 0) + 1; emp[n["Mã NV"]] = n; });
+    Object.keys(cntMa).forEach(function (k) { if (cntMa[k] > 1) push("Critical", "Nhân sự", "Mã NV " + k + " bị trùng " + cntMa[k] + " lần"); });
+    // CCCD trùng giữa các nhân viên
+    var cccd = {};
+    nv.forEach(function (n) { if (n["Số CCCD"]) (cccd[n["Số CCCD"]] = cccd[n["Số CCCD"]] || {})[n["Mã NV"]] = 1; });
+    (db.canhan || []).forEach(function (r) { if (r["Số CCCD"]) (cccd[r["Số CCCD"]] = cccd[r["Số CCCD"]] || {})[r["Mã NV"]] = 1; });
+    Object.keys(cccd).forEach(function (k) { var m = Object.keys(cccd[k]); if (m.length > 1) push("High", "Nhân sự", "Số CCCD " + k + " dùng cho nhiều nhân viên: " + m.join(", ")); });
+    // Phụ lục lương nghi bị lỗi lưu tiền (bản 1.1–1.3)
+    (db.chitiethd || []).forEach(function (r) {
+      ["Lương thỏa thuận", "Lương cơ bản"].forEach(function (c) {
+        var v = V.parseMoney(r[c]);
+        if (r[c] !== "" && r[c] != null && v > 0 && v < 1000) push("High", "Hợp đồng", r["Mã NV"] + " / " + r["Số HĐLĐ"] + " (hiệu lực " + (r["Hiệu lực từ"] || "?") + "): " + c + " = " + r[c] + " — quá nhỏ, có thể bị lỗi lưu số tiền của bản cũ. Hãy kiểm tra và nhập lại.");
+      });
+    });
+    // Nhân viên đã nghỉ nhưng hợp đồng chưa chấm dứt
+    nv.forEach(function (n) {
+      if (n["Trạng thái"] !== "Đã nghỉ việc") return;
+      var open = (db.hopdong || []).filter(function (h) { return h["Mã NV"] === n["Mã NV"] && !h["Ngày chấm dứt"]; });
+      if (open.length) push("Medium", "Hợp đồng", n["Mã NV"] + " có trạng thái 'Đã nghỉ việc' nhưng hợp đồng " + open.map(function (h) { return h["Số HĐLĐ"]; }).join(", ") + " chưa có Ngày chấm dứt → vẫn được tính lương");
+    });
+    // Dữ liệu phát sinh: ngày/kỳ sai, mã NV không tồn tại, trùng
+    MONTHLY.forEach(function (t) {
+      var badDate = 0, badRef = {}, seen = {}, dup = 0;
+      (db[t] || []).forEach(function (r) {
+        if (V.rowPeriod(t, r) === null) badDate++;
+        if (r["Mã NV"] && !emp[r["Mã NV"]]) badRef[r["Mã NV"]] = 1;
+        var k = t === "chamcong" ? ccKey(r) :
+          (t === "sanluong" || t === "bandam") && r["Phiếu cân"] ? [r["Phiếu cân"], r["Mã NV"] || ""].join("|") : null;
+        if (k) { if (seen[k]) dup++; seen[k] = 1; }
+      });
+      if (badDate) push("High", t, badDate + " dòng có ngày/kỳ không đọc được → bị BỎ QUA khi tính lương");
+      if (Object.keys(badRef).length) push("High", t, "Mã NV không có trong Nhân sự: " + Object.keys(badRef).slice(0, 15).join(", "));
+      if (dup && t !== "chamcong") push("High", t, dup + " dòng trùng khóa (Phiếu cân + Mã NV) → bị CỘNG 2 LẦN khi tính lương");
+    });
+    // Chấm công: nhiều dòng cùng Kỳ + Mã NV + Hình thức công
+    var g = ccGroups(db.chamcong || []);
+    Object.keys(g).forEach(function (k) {
+      var rows = g[k]; if (rows.length < 2) return;
+      var acc = rows[0], over = [], dup = [];
+      for (var j = 1; j < rows.length; j++) { var m = mergeRows(acc, rows[j]); over = over.concat(m.conflicts); dup = dup.concat(m.dupDays); acc = m.row; }
+      var r0 = rows[0], lab = r0["Mã NV"] + " kỳ " + r0["Kỳ"] + " hình thức " + String(r0["Hình thức công"] || "BT").toUpperCase();
+      if (over.length) push("High", "chamcong", lab + ": " + rows.length + " dòng, cùng ngày nhưng KHÁC số công (" + over.slice(0, 5).join(", ") + ") → đang bị CỘNG DỒN. Kiểm tra và sửa tay.");
+      else if (dup.length) push("High", "chamcong", lab + ": ngày " + dup.slice(0, 8).join(", ") + " nhập trùng (cùng số công) → đang bị CỘNG 2 LẦN. Bấm 'Gộp dòng chấm công trùng' để tính 1 lần (nên gộp).");
+      else push("Medium", "chamcong", lab + ": " + rows.length + " dòng không trùng ngày → tính đúng, nên gộp thành 1 dòng (nút 'Gộp dòng chấm công trùng') để nhập Excel cập nhật được.");
+    });
+    // Q-20: thưởng / trừ / tạm ứng — cùng Số chứng từ + Mã NV ở nhiều dòng = đang cộng nhiều lần; không có số chứng từ mà giống hệt nhau = có thể trùng
+    [["psluong", ["Thưởng", "Thu nhập khác", "Trừ khác"]], ["ungluong", ["Tạm ứng"]]].forEach(function (tc) {
+      var t = tc[0], byCt = {}, bySame = {};
+      (db[t] || []).forEach(function (r) {
+        if (!r || !r["Mã NV"]) return;
+        var ct = String(r["Số chứng từ"] || "").trim();
+        if (ct) { var k = ct + " · " + r["Mã NV"]; byCt[k] = (byCt[k] || 0) + 1; }
+        else { var k2 = [r["Mã NV"], r["Ngày hạch toán"]].concat(tc[1].map(function (c) { return String(r[c] || ""); })).join(" · "); bySame[k2] = (bySame[k2] || 0) + 1; }
+      });
+      var dupCt = Object.keys(byCt).filter(function (k) { return byCt[k] > 1; });
+      // Một UNC / phiếu chi theo bảng kê có thể trả nhiều khoản cho cùng một người (hoặc nhập nhiều dòng) → chỉ CẢNH BÁO để đối chiếu, KHÔNG chặn chốt kỳ.
+      if (dupCt.length) push("Medium", t, dupCt.length + " số chứng từ có nhiều dòng cho cùng nhân viên (VD " + dupCt.slice(0, 5).join("; ") + ") — các dòng đều được cộng vào lương. Nếu 1 UNC chi nhiều khoản cho người đó thì đúng; nếu nhập trùng thì xóa dòng thừa.");
+      var same = Object.keys(bySame).filter(function (k) { return bySame[k] > 1; });
+      if (same.length) push("Medium", t, same.length + " nhóm dòng giống hệt nhau (cùng NV, ngày, số tiền) và chưa có Số chứng từ — kiểm tra có nhập trùng không, nên ghi Số chứng từ (VD " + same.slice(0, 3).join("; ") + ")");
+    });
+    // Một phiếu cân chia cho nhiều người: cảnh báo để đối chiếu tổng
+    ["sanluong", "bandam"].forEach(function (t) {
+      var by = {};
+      (db[t] || []).forEach(function (r) { if (r["Phiếu cân"]) (by[r["Phiếu cân"]] = by[r["Phiếu cân"]] || []).push(r); });
+      var multi = Object.keys(by).filter(function (k) { return by[k].length > 1; });
+      if (multi.length) push("Medium", t, multi.length + " phiếu cân được chia cho nhiều dòng (VD " + multi.slice(0, 5).join(", ") + ") — kiểm tra tổng KL các dòng không vượt KL gốc của phiếu");
+    });
+    // Danh mục: 2 dòng cùng mã + CÙNG "Hiệu lực từ" → hieuLuc() (engine.js) không biết dòng nào đúng,
+    // tự chọn 1 dòng mà không báo (Master Prompt mục 4.5: "Nếu có nhiều dòng chồng lấn hiệu lực, phải
+    // báo LỖI: Trùng quy chế — không được tự động lấy dòng đầu tiên"). Chỉ bắt TRÙNG THẬT (cùng ngày
+    // hiệu lực) — nhiều dòng cùng mã nhưng Hiệu lực từ KHÁC NHAU là bình thường (tăng lương/đổi mức).
+    var DM_KEY = {
+      dm_luong: "Mã lương", dm_phucap: "Mã phụ cấp", dm_tangca: "Mã tăng ca", dm_hotro: "Mã hỗ trợ",
+      dm_baohiem: "Mã bảo hiểm", dm_tncn: "Mã thuế TNCN", dm_giamtru: "Mã giảm trừ",
+      dm_phongban: "Mã phòng ban", dm_chucvu: "Mã chức vụ"
+    };
+    Object.keys(DM_KEY).forEach(function (t) {
+      var keyCol = DM_KEY[t], seen = {};
+      (db[t] || []).forEach(function (r) {
+        var k = r[keyCol]; if (k === "" || k == null) return;
+        var tu = V.normDate(r["Hiệu lực từ"]) || "";
+        var gk = k + "|" + tu;
+        seen[gk] = (seen[gk] || 0) + 1;
+      });
+      Object.keys(seen).forEach(function (gk) {
+        if (seen[gk] < 2) return;
+        var p = gk.split("|");
+        push("High", t, "Mã " + p[0] + " có " + seen[gk] + " dòng cùng 'Hiệu lực từ'" + (p[1] ? " (" + p[1] + ")" : " (trống)") + " — không rõ dòng nào đúng, app đang tự chọn 1 dòng mà không báo. Hãy xóa dòng thừa hoặc sửa lại Hiệu lực từ.");
+      });
+    });
+    // dm_bacthue: khóa gồm Bậc + Mã thuế TNCN (PV-7c — Mã thuế TNCN trống = áp dụng chung cho mọi mã)
+    (function () {
+      var seen = {};
+      (db.dm_bacthue || []).forEach(function (r) {
+        var bac = r["Bậc"]; if (bac === "" || bac == null) return;
+        var tu = V.normDate(r["Hiệu lực từ"]) || "";
+        var gk = (r["Mã thuế TNCN"] || "") + "|" + bac + "|" + tu;
+        seen[gk] = (seen[gk] || 0) + 1;
+      });
+      Object.keys(seen).forEach(function (gk) {
+        if (seen[gk] < 2) return;
+        var p = gk.split("|");
+        push("High", "dm_bacthue", "Bậc " + p[1] + (p[0] ? " (mã thuế " + p[0] + ")" : "") + " có " + seen[gk] + " dòng cùng 'Hiệu lực từ'" + (p[2] ? " (" + p[2] + ")" : " (trống)") + " — không rõ dòng nào đúng, app đang tự chọn 1 dòng mà không báo. Hãy xóa dòng thừa hoặc sửa lại Hiệu lực từ.");
+      });
+    })();
+    // Ô công bất thường
+    (db.chamcong || []).forEach(function (r) {
+      DAYS.forEach(function (d) {
+        var v = r[d]; if (v === "" || v == null) return;
+        var dc = V.dayCell(d, v, r["Kỳ"]), lab = r["Mã NV"] + " kỳ " + r["Kỳ"] + " (" + (r["Hình thức công"] || "BT") + ")";
+        if (dc.error) push("High", "chamcong", lab + ": " + dc.error + (+d > V.daysInKy(r["Kỳ"]) ? " — bảng lương hiện VẪN CỘNG ô này (Q-21), hãy xóa ô" : " — số công tính ra có thể sai, hãy sửa ô"));
+        else if (dc.warn) push("Medium", "chamcong", lab + ": " + dc.warn);
+      });
+    });
+    var order = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+    // V9.2: người phụ thuộc (CCCD/MST/ngày cấp/kỳ giảm trừ, đăng ký trùng/chồng kỳ) + cấu hình thuế TNCN (biểu thuế cha–con)
+    var DEPM = (typeof module !== "undefined" && module.exports) ? require("./dependents.js") : root.HAKCore.dep;
+    DEPM.check(db, new Date().toISOString().slice(0, 10)).forEach(function (x) { out.push(x); });
+    var TCM = (typeof module !== "undefined" && module.exports) ? require("./tax-config.js") : (root.HAKCore && root.HAKCore.taxcfg);
+    if (TCM) TCM.check(db).forEach(function (x) { out.push(x); });
+    return out.sort(function (a, b) { return order[a.level] - order[b.level]; });
+  }
+
+  function ccKey(r) { return [V.normKy(r["Kỳ"]) || String(r["Kỳ"] || ""), String(r["Mã NV"] || "").trim(), String(r["Hình thức công"] || "BT").trim().toUpperCase() || "BT"].join("|"); }
+  function ccGroups(list) { var g = {}; list.forEach(function (r) { if (r && r["Mã NV"]) (g[ccKey(r)] = g[ccKey(r)] || []).push(r); }); return g; }
+  var sameCell = V.sameCell; // so sánh ô dùng chung với core/importer.js (core/validate.js)
+  // Q-12: cùng ngày + cùng hình thức = nhập trùng → cùng giá trị tính 1 lần (dupDays); khác giá trị → xung đột
+  function mergeRows(a, b) {
+    var out = Object.assign({}, a), conflicts = [], dupDays = [];
+    DAYS.forEach(function (d) {
+      var x = out[d], y = b[d];
+      if (y === "" || y == null) return;
+      if (x === "" || x == null) out[d] = y;
+      else if (sameCell(x, y)) dupDays.push(d);
+      else conflicts.push(d + ": " + x + "/" + y);
+    });
+    Object.keys(b).forEach(function (c) { if (DAYS.indexOf(c) < 0 && (out[c] === "" || out[c] == null)) out[c] = b[c]; });
+    return { row: out, conflicts: conflicts, dupDays: dupDays };
+  }
+  /**
+   * Gộp các dòng chấm công cùng Kỳ + Mã NV + Hình thức công thành 1 dòng.
+   * Ngày nhập trùng cùng số công → tính 1 lần (Q-12: nhập trùng) — đếm vào dupDays.
+   * Nhóm có ngày trùng nhưng KHÁC số công, hoặc thuộc kỳ đã chốt → giữ nguyên, báo lại.
+   * Trả { groups, removed, dupDays, skipped: [{key, reason}] }.
+   */
+  function mergeChamCong(db, lockedPeriods) {
+    var locked = lockedPeriods || {}, g = ccGroups(db.chamcong || []), res = { groups: 0, removed: 0, dupDays: 0, skipped: [] }, drop = [];
+    Object.keys(g).forEach(function (k) {
+      var rows = g[k]; if (rows.length < 2) return;
+      var ky = V.normKy(rows[0]["Kỳ"]);
+      if (ky && locked[ky]) { res.skipped.push({ key: k, reason: "kỳ " + ky + " đã chốt" }); return; }
+      var acc = rows[0], over = [], dup = 0;
+      for (var j = 1; j < rows.length; j++) { var m = mergeRows(acc, rows[j]); over = over.concat(m.conflicts); dup += m.dupDays.length; acc = m.row; }
+      if (over.length) { res.skipped.push({ key: k, reason: "cùng ngày khác số công " + over.slice(0, 5).join(", ") }); return; }
+      res.dupDays += dup;
+      Object.keys(acc).forEach(function (c) { rows[0][c] = acc[c]; });
+      rows[0]["Hình thức công"] = String(rows[0]["Hình thức công"] || "BT").trim().toUpperCase() || "BT";
+      for (var i = 1; i < rows.length; i++) drop.push(rows[i]);
+      res.groups++; res.removed += rows.length - 1;
+    });
+    if (drop.length) db.chamcong = db.chamcong.filter(function (r) { return drop.indexOf(r) < 0; });
+    return res;
+  }
+
+  var api = { normalizeDataset: normalizeDataset, check: check, mergeChamCong: mergeChamCong, ccKey: ccKey };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else { root.HAKCore = root.HAKCore || {}; root.HAKCore.integrity = api; }
+})(typeof window !== "undefined" ? window : this);

@@ -1,0 +1,62 @@
+{
+  "repository": "saoluucvhak-pixel/HAK_LUONG_OFFLINE",
+  "date": "2026-10-22",
+  "canonicalApp": "LuongHAK_Offline",
+  "branches": [
+    {
+      "branch": "design/hak-enterprise-v10-4",
+      "commit": "3a67c89a56a5daab29c3b362f199fdeee85858c2",
+      "treatment": "integrated-history"
+    },
+    {
+      "branch": "dev",
+      "commit": "f3583fdd61c796ea711628a6d4439319046d1f43",
+      "treatment": "legacy-reference-not-shipped"
+    },
+    {
+      "branch": "feature/hak-kpi-bridge-governance-tracking",
+      "commit": "ae722806fa294d55266e74cf6a5838ea753a5c44",
+      "treatment": "experimental-not-connected-to-payroll"
+    },
+    {
+      "branch": "feature/luong-hak-v10-4-enterprise-ui",
+      "commit": "f93ffc42a24a8ec30b24493178368471d310c63f",
+      "treatment": "integrated-history"
+    },
+    {
+      "branch": "feature/luong-v104-handwritten-cnn",
+      "commit": "c389ef4ffcfd13a4f867cb070db2069314617dc7",
+      "treatment": "integrated-history"
+    },
+    {
+      "branch": "feature/luong-v104-shared-ocr",
+      "commit": "6f0f61d6f1b5681eb4f815cae2f4171f4b000ba2",
+      "treatment": "integrated-history"
+    },
+    {
+      "branch": "feature/luong-v104-year-archive",
+      "commit": "f93ffc42a24a8ec30b24493178368471d310c63f",
+      "treatment": "integrated-history"
+    },
+    {
+      "branch": "feature/ocr-page-rectify",
+      "commit": "c7c64e872093342f348db204b9a799a8a46c593d",
+      "treatment": "integrated-history"
+    },
+    {
+      "branch": "fix/payroll-engine-bugs-1-4",
+      "commit": "d325c367856328eb3fe95ff09e16c84d80012aea",
+      "treatment": "legacy-reference-not-shipped"
+    },
+    {
+      "branch": "fix/payroll-hardening",
+      "commit": "f5beea4d76825fc584bcea506368a637c0065dff",
+      "treatment": "legacy-reference-not-shipped"
+    },
+    {
+      "branch": "main",
+      "commit": "f1f0ffb95b6e14af15ef1f97ec3644f9dfb9351c",
+      "treatment": "integrated-history"
+    }
+  ]
+}

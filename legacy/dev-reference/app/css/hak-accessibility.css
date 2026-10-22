@@ -1,0 +1,22 @@
+/* Adapter for HAK Enterprise component tokens; existing light/dark themes stay intact. */
+:root { --bg: var(--page-bg); --card: var(--card-bg); --ink: var(--bs-body-color); --line: var(--card-border); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+#page-report .card, .modal-body { min-width: 0; }
+#repFilterSummary { overflow-wrap: anywhere; }
+@media (max-width: 576px) { .modal-dialog { margin: .5rem; } .modal-body .d-flex { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* HAK UI Designer audit: header wrapping, scrollable dialogs, theme contrast. */
+.topbar { flex-wrap: wrap; }
+.topbar > * { min-width: 0; }
+.topbar .btn { flex-shrink: 0; }
+.topbar #pageTitle { flex: 1 1 130px; }
+.hak-download-history { max-height: 45vh; overflow: auto; overscroll-behavior: contain; }
+.hak-download-notice { position:fixed; bottom:20px; right:20px; z-index:1090; width:440px; max-width:calc(100vw - 32px); max-height:calc(100dvh - 40px); overflow:auto; overflow-wrap:anywhere; }
+.hak-download-notice > .btn-close { align-self:flex-end; }
+[data-bs-theme="dark"] .btn-outline-primary { --bs-btn-hover-color:#14283f; --bs-btn-active-color:#14283f; }
+[data-bs-theme="dark"] .btn-close { filter:var(--bs-btn-close-filter, invert(1) grayscale(100%) brightness(200%)); }
+@media (max-width:576px) { .hak-download-notice { right:16px; bottom:16px; } .topbar #pageTitle { flex-basis:90px; } }
+@media print { .hak-download-notice { display:none!important; } }

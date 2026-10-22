@@ -1,0 +1,56 @@
+{
+  "repository": "saoluucvhak-pixel/HAK_OCR_ENGINE",
+  "commit": "577851d2c913e0f632fa9b2e84ff1587445abd6d",
+  "upstreamPath": "js/core/ocr-learning/attendance-validation.js",
+  "runtimePath": "core/ocr-learning/rules.js",
+  "normalizedSha256": "442b7858eea6eb6915d4a1fb3bbc649df4f5769000bc92a5f633b93e0569a9a2",
+  "archiveBaseCommit": "1a1e627edf0392197f7f010b54b77feb15d3aadf",
+  "archiveSha256": "0d8d08cec3651d0c5e13d344a5d2b79210754e592633a9f9b5fa075763c5d799",
+  "modules": [
+    {
+      "upstreamPath": "js/core/ocr-learning/attendance-validation.js",
+      "runtimePath": "core/ocr-learning/rules.js",
+      "normalizedSha256": "442b7858eea6eb6915d4a1fb3bbc649df4f5769000bc92a5f633b93e0569a9a2"
+    },
+    {
+      "upstreamPath": "js/main/handwritten-digits.js",
+      "runtimePath": "main/handwritten-digits.js",
+      "normalizedSha256": "926413d29bcbbc8a34b7c9d58863f22d06b4ad0166709bded5e433478df37827"
+    },
+    {
+      "upstreamPath": "js/main/ocr-service.js",
+      "runtimePath": "main/ocr-service.js",
+      "normalizedSha256": "6ce013ad875b300677fc0abdc72bec6f09ea2624adf1ca5de9401ffbd38c9207"
+    },
+    {
+      "upstreamPath": "js/core/timesheet-ocr.js",
+      "runtimePath": "core/timesheet-ocr.js",
+      "normalizedSha256": "1a4b2b74ca7adc8d030fca2b69fa66084d155dbf5cb7e07cba69f3d3b79e5800"
+    },
+    {
+      "upstreamPath": "js/ocr/models/mnist-cnn.json",
+      "runtimePath": "ocr/models/mnist-cnn.json",
+      "normalizedSha256": "84f958b33843830eb087bbd18020e307495eb5601e64bc848cbfd300bcda4b3d"
+    },
+    {
+      "upstreamPath": "js/scripts/ocr-acceptance.cjs",
+      "runtimePath": "scripts/ocr-acceptance.cjs",
+      "normalizedSha256": "99bd309e8d6b84bfa48e6cd2db9d4e853295ea6dbd01fe3081c4a7364a979ef1"
+    },
+    {
+      "upstreamPath": "js/core/timesheet-parse.js",
+      "runtimePath": "core/timesheet-parse.js",
+      "normalizedSha256": "a31f2591a7d35a4a3e5970bfe2b962808512f49bac91c5760aaa2a3073b6a24a"
+    },
+    {
+      "upstreamPath": "js/core/table-grid.js",
+      "runtimePath": "core/table-grid.js",
+      "normalizedSha256": "56a7143e7d9d24c339e9e3261cd68db8b9b9c95e6e8616ffc99faea2c6046707"
+    },
+    {
+      "upstreamPath": "js/core/page-rectify.js",
+      "runtimePath": "core/page-rectify.js",
+      "normalizedSha256": "fdce938a12be1caabe013bd00c76de3f29180e9bbab36ce383f7cbe4656dd6b4"
+    }
+  ]
+}

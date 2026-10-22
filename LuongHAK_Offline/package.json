@@ -1,0 +1,70 @@
+{
+  "name": "luong-hak",
+  "version": "2.0.0-alpha.37",
+  "description": "Tính lương HAK - chạy offline",
+  "main": "main.js",
+  "author": "HAK",
+  "scripts": {
+    "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
+    "test:e2e": "node tests/e2e/run-e2e.js",
+    "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
+    "test:workspace": "node tests/e2e/v104-workspace-check.js",
+    "dist": "electron-builder --win nsis --x64",
+    "test:ocr-eval": "node tests/e2e/ocr-eval.js"
+  },
+  "devDependencies": {
+    "electron": "43.7.9",
+    "electron-builder": "26.15.3",
+    "jsdom": "30.1.3"
+  },
+  "build": {
+    "appId": "vn.hak.luong",
+    "productName": "Tinh Luong HAK",
+    "files": [
+      "main.js",
+      "preload.js",
+      "main/**",
+      "core/**",
+      "ui/**",
+      "index.html",
+      "style.css",
+      "app.js",
+      "engine.js",
+      "hr.js",
+      "xlsx.full.min.js",
+      "exceljs.min.js",
+      "vendor/**",
+      "ocr/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tính Lương HAK",
+      "menuCategory": "HAK",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "uninstallDisplayName": "Tính Lương HAK ${version}",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "artifactName": "TinhLuongHAK-V10.4-Setup-${version}.${ext}",
+    "directories": {
+      "buildResources": "build"
+    },
+    "asarUnpack": [
+      "node_modules/**",
+      "ocr/**"
+    ]
+  },
+  "dependencies": {
+    "tesseract.js": "5.1.1"
+  }
+}

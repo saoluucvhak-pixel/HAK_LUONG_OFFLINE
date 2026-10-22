@@ -1,0 +1,241 @@
+name: LUONG HAK V10.4 Windows Setup
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - integration/main-v104-consolidation
+      - feature/luong-hak-v10-4-enterprise-ui
+      - feature/luong-v104-shared-ocr
+      - feature/luong-v104-handwritten-cnn
+      - feature/luong-v104-year-archive
+      - feature/ocr-page-rectify
+    paths:
+      - 'LuongHAK_Offline/**'
+      - '.github/workflows/luong-hak-v10-4-setup.yml'
+      - 'HAK_CODE_QUALITY_TEST/**'
+      - 'HAK_AI_SKILLS/**'
+      - 'HAK_ACCOUNTING_REPORT_STANDARD/**'
+      - 'HAK_SMART_FILTER/**'
+      - 'design-system/**'
+      - 'experimental/**'
+      - 'legacy/**'
+      - 'scripts/check-consolidation.cjs'
+      - 'docs/CONSOLIDATED_BRANCHES.json'
+      - 'package.json'
+permissions:
+  contents: read
+jobs:
+  windows-setup:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: LuongHAK_Offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Test payroll engine and integrations
+        run: npm test
+      - name: Test drawer DOM focus regressions
+        run: npm run test:ui-dom
+      - name: Build Windows NSIS installer
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify handwriting runtime and weights in packaged app
+        run: node scripts/verify-packaged-handwriting.cjs
+      - name: Upload installer EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
+          path: LuongHAK_Offline/dist/*Setup*.exe
+          if-no-files-found: error
+          retention-days: 30
+  electron-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: LuongHAK_Offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies and Electron test driver
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright --no-audit --no-fund
+      - name: Run Electron with isolated synthetic data
+        run: npm run test:e2e 2>&1 | Tee-Object -FilePath electron-e2e.log
+        env:
+          E2E_SHOTS: tests/e2e/screenshots
+      - name: Measure shared OCR per-cell accuracy on synthetic images and PDFs
+        run: npm run test:ocr-eval
+        env:
+          OCR_EVAL_REPORT: tests/e2e/shared-ocr-eval.json
+          OCR_EVAL_SHOTS: tests/e2e/screenshots
+      - name: Verify yearly archive lifecycle on synthetic records
+        run: node tests/e2e/year-archive.cjs
+        env:
+          E2E_SHOTS: tests/e2e/screenshots
+      - name: Verify review-only document workflow on synthetic evidence
+        run: node tests/e2e/document-review.cjs
+      - name: Upload Electron test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAK-LUONG-V10.4-Electron-E2E-${{ github.run_number }}
+          path: |
+            LuongHAK_Offline/electron-e2e.log
+            LuongHAK_Offline/tests/e2e/last-e2e-result.json
+            LuongHAK_Offline/tests/e2e/shared-ocr-eval.json
+            LuongHAK_Offline/tests/e2e/year-archive-result.json
+            LuongHAK_Offline/tests/e2e/document-review-result.json
+            LuongHAK_Offline/tests/e2e/screenshots/*.png
+          retention-days: 14
+  workspace-visual:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: LuongHAK_Offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 4576259a2f7d079b91a915abeeec54cdd4e82d64
+          path: .comparison/v103
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install visual test dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright --no-audit --no-fund
+      - name: Capture V10.3 reference with identical synthetic data
+        run: npm run test:workspace
+        env:
+          APP_UNDER_TEST: ${{ github.workspace }}/.comparison/v103/LuongHAK_Offline
+          VISUAL_BASELINE: '1'
+          VISUAL_OUT: ${{ github.workspace }}/visual-evidence/before-v103
+      - name: Verify V10.4 layouts and all themes
+        if: success() || failure()
+        run: npm run test:workspace
+        env:
+          VISUAL_OUT: ${{ github.workspace }}/visual-evidence/after-v104
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HAK-V10.3-V10.4-Visual-${{ github.run_number }}
+          path: visual-evidence/
+          retention-days: 30
+  inherited-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/checkout@v4
+        with:
+          repository: saoluucvhak-pixel/HAK_OCR_ENGINE
+          ref: 577851d2c913e0f632fa9b2e84ff1587445abd6d
+          path: .comparison/shared-ocr
+      - name: Verify pinned common OCR source parity
+        run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr
+      - name: Verify payroll and persistence source are unchanged
+        run: git diff --exit-code c389ef4ffcfd13a4f867cb070db2069314617dc7 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/engine.js" ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-parse.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/core/page-rectify.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js" ":(exclude)LuongHAK_Offline/core/schema.js" ":(exclude)LuongHAK_Offline/main.js" ":(exclude)LuongHAK_Offline/preload.js" ":(exclude)LuongHAK_Offline/main/fullbackup.js" ":(exclude)LuongHAK_Offline/main/fullbackup-worker.js" ":(exclude)LuongHAK_Offline/main/restore.js" ":(exclude)LuongHAK_Offline/main/pdf.js" ":(exclude)LuongHAK_Offline/main/year-archive.js" ":(exclude)LuongHAK_Offline/main/year-archive-worker.js" ":(exclude)LuongHAK_Offline/main/year-archive-export.js"
+      - uses: actions/cache/restore@v4
+        with:
+          path: hak-project-memory.jsonl
+          key: hak-observer-v104-${{ github.sha }}
+          restore-keys: hak-observer-v104-
+      - name: Execute inherited quality gate and library tests
+        run: python HAK_CODE_QUALITY_TEST/quality_gate.py --config HAK_CODE_QUALITY_TEST/config/luong-hak.json --root . --out hak-quality-results.json
+      - name: Record static security findings for review
+        continue-on-error: true
+        run: python HAK_CODE_QUALITY_TEST/security_audit.py --root LuongHAK_Offline --out hak-security-results.json
+      - name: Analyze dependencies with inherited analyzer
+        run: python HAK_CODE_QUALITY_TEST/architecture_analyzer.py --root LuongHAK_Offline --changed app.js --changed ui/formula-master.js --out hak-architecture-results.json
+      - name: Update sanitized Observer memory
+        run: python HAK_CODE_QUALITY_TEST/ci_observer.py --quality hak-quality-results.json --security hak-security-results.json --architecture hak-architecture-results.json --project LUONG_HAK --branch "$GITHUB_REF_NAME" --commit "$GITHUB_SHA" --memory hak-project-memory.jsonl --out hak-skill-proposals.json
+      - uses: actions/cache/save@v4
+        with:
+          path: hak-project-memory.jsonl
+          key: hak-observer-v104-${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HAK-Inherited-Quality-${{ github.run_number }}
+          path: |
+            hak-quality-results.json
+            hak-security-results.json
+            hak-architecture-results.json
+            hak-project-memory.jsonl
+            hak-skill-proposals.json
+          retention-days: 30
+
+  consolidation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run check
+      - run: npm run test:legacy
+      - run: npm run test:kpi
+
+  publish-release:
+    if: github.ref == 'refs/heads/main'
+    needs: [windows-setup, electron-e2e, workspace-visual, inherited-quality, consolidation]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
+          path: release
+      - name: Publish immutable versioned Windows prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $appVersion = (Get-Content -LiteralPath LuongHAK_Offline/package.json -Raw | ConvertFrom-Json).version
+          $releaseTag = "v$appVersion"
+          $notesPath = "docs/releases/$releaseTag.md"
+          if (-not (Test-Path -LiteralPath $notesPath)) { throw 'Missing release notes for app version' }
+          git rev-parse --verify "refs/tags/$releaseTag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag $releaseTag already exists. Increase app version, do not overwrite it." }
+          gh release view $releaseTag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $releaseTag already exists. Do not overwrite it." }
+          $setupFiles = @(Get-ChildItem -LiteralPath release -Filter '*Setup*.exe' -File)
+          if ($setupFiles.Count -ne 1) { throw 'Expected exactly one Windows installer' }
+          if ($setupFiles[0].Name -notlike "*$appVersion.exe") { throw 'Installer version mismatch' }
+          $setupHash = (Get-FileHash -LiteralPath $setupFiles[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$setupHash  $($setupFiles[0].Name)" | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding utf8
+          @{version=$appVersion; commit=$env:GITHUB_SHA; run=$env:GITHUB_RUN_ID; installer=$setupFiles[0].Name; sha256=$setupHash} | ConvertTo-Json | Set-Content -LiteralPath release/BUILD_INFO.json -Encoding utf8
+          Copy-Item -LiteralPath $notesPath -Destination release/RELEASE_NOTES.md
+          Add-Content -LiteralPath release/RELEASE_NOTES.md -Value "`nCommit: $env:GITHUB_SHA`nBuild: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          gh release create $releaseTag $setupFiles[0].FullName release/SHA256SUMS.txt release/BUILD_INFO.json --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title "HAK Luong V10.4 - $appVersion" --notes-file release/RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Could not publish Windows prerelease' }

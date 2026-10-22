@@ -1,0 +1,318 @@
+# TEST_RESULTS — Kết quả kiểm thử
+
+## 2.0.0-alpha.22 — OCR bảng chấm công tay: dấu x, ghi giờ, số ca (12/10/2026, nhánh `claude/v2-ocr-ky-hieu`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **211/211** (+U-PA-12/13 chia theo chấm công — R-73; +U-PA-11 / U-LV-07 / U-GRD-06 người nghỉ có đơn — R-72; +1 U-PA-10 gộp cảnh báo NV vắng; +1 U-QC-12 làm tròn sản lượng — R-71; +2 U-TAX thuế theo mã — R-70; +6 U-OCR, +2 I-OCR chạy Tesseract thật trên ảnh mẫu giả lập) |
+| E2E Electron (xvfb, Linux) | ✅ **95/95** (+1: Cách đọc ô Dấu x trên bảng tay 2 khối) |
+| Ảnh viết tay thật của người dùng (chỉ trên máy kiểm thử, **không** đưa vào repo) | ⚠ Bảng dấu x 2 khối rõ nét: đúng các ngày có dấu. Bảng có ô ghi giờ, ghi chú: còn ô đếm sai (4–8 dấu) → tô vàng khi > 3. Bảng có dòng con Ngày / Đêm: chỉ nhận 1 khối. Lịch ca viết tay: nhiều ô "?". 1 ảnh không phải bảng kẻ ô: không đọc. **Cần soát tay.** |
+| Windows thật | ⏳ chưa kiểm |
+
+## 2.0.0-alpha.21 — Quy chế lương HAK Group 2026, engine 1.8.0 (11/10/2026, nhánh `claude/v2-quy-che-luong-2026`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **194/194** (+11 U-QC, +1 U-PA) |
+| Hồi quy công thức (v1.3.0, alpha.4) ở cách tính cũ | ✅ trùng 100% |
+| Đối chiếu bảng lương thật (Power Query + DAX; chỉ trên máy kiểm thử, **không** đưa vào repo) | Quy chế 2026: HAK ĐN 11/2025 ✅ **61/61**, Đại Hiệp 8/2026 ✅ **38/45** (7 lệch 2đ làm tròn), CNHAK 9/2026 ✅ **42/44**, HAKQN 7/2026 ✅ **31/50** người có lương khớp từng đồng; người còn lại lệch **đúng phần thuế TNCN** (Q-29). Cách tính cũ: CNHAK 2/44, HAKQN 0/50 |
+| E2E Electron (xvfb, Linux) | ✅ **94/94** (+3) |
+| Windows thật | ⏳ chưa kiểm |
+
+## 2.0.0-alpha.20 — Đọc ảnh / PDF chấm công bằng OCR offline (11/10/2026, nhánh `claude/v2-ocr-cham-cong`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **182/182** (+8 U-OCR, +4 I-OCR — Tesseract thật trên ảnh mẫu giả lập `tests/fixtures/ocr`) |
+| Hồi quy công thức (v1.3.0, alpha.4) | ✅ trùng 100% — không đổi công thức |
+| E2E Electron (xvfb, Linux) | ✅ **91/91** (+9: ảnh PNG, PDF qua pdf.js, Dừng đọc + Đọc lại trang đã dừng, sửa ô → lệch tổng, ghi qua xem trước đúng kỳ từng trang, xuất Excel, Kiểm tra OCR, không lỗi JS) |
+| Thử trên ảnh thật của chủ sở hữu (chỉ trên máy kiểm thử, **không** đưa vào repo / log) | Bảng in quét (PDF trang 1): tên + ô ngày + cột Tổng công / Tổng cơm đọc được; 8/9 dòng khớp tổng, 1 dòng lệch ("0.5" đọc thành "5") được tô đỏ để sửa. Lịch làm viết tay (ảnh rõ): Công 30/30, Cơm 29/29 khớp dòng TC. Ảnh chụp nhỏ 587×1280 (tài xế, NV tăng cường): nhận đúng chiều + khung bảng nhưng nhiều ô viết tay "?" → phải sửa tay / chụp lại rõ hơn. Trang viết tay không kẻ ô: không đọc (đúng thiết kế). |
+| OCR trong Electron (tiến trình chính) | ✅ sau khi sửa: tesseract.js tự nhận môi trường "electron" và coi thư mục ngôn ngữ là URL → treo; bọc worker (`ocr/worker.js`) để đọc từ đĩa. E2E bắt được lỗi này |
+| Bản cài Windows (asarUnpack Tesseract, worker) | CI chạy bước tự kiểm OCR trên `win-unpacked` (kết quả xem CI). ⏳ **chưa kiểm trên máy Windows thật** |
+
+## 2.0.0-alpha.19 — Phân bổ khối lượng như công cụ HAK (11/10/2026, nhánh `claude/v2-phan-bo-khoi-luong`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **170/170** (+8 U-PA) |
+| Hồi quy công thức (v1.3.0, alpha.4) | ✅ trùng 100% — 2 cách bù cũ không đổi |
+| Đối chiếu với công cụ "Phân bổ khối lượng" (công thức viết lại từ code công cụ) | ✅ bù bậc thang trùng 12/12 trường hợp; bù bình quân tổ đúng công thức công cụ |
+| E2E Electron (xvfb, Linux) | ✅ **82/82** (+6; 2 test cũ sửa điều kiện cho đúng ý: khôi phục = đúng dữ liệu trước khi hỏng; bản khi-dong mới khi đã đủ 10 bản) |
+| Ảnh chụp Phân bổ sản lượng, Sản lượng (1366px) | ✅ đã xem, không lỗi JavaScript |
+| Mở file Excel xuất ra bằng Excel thật trên Windows | ⏳ chưa (đã đọc lại file bằng SheetJS trong E2E) |
+
+## 2.0.0-alpha.18 — Sổ lao động đủ thông tin + Báo cáo bảo hiểm + Phiếu lương (11/10/2026, nhánh `claude/v2-solaodong-bh-phieuluong`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **162/162** (+3 U-BHR, +1 U-SLD-05; U-REPO-08 thêm ngoại lệ trợ lý ghi Trình độ) |
+| Hồi quy công thức (v1.3.0, alpha.4) | ✅ trùng 100% — không đổi công thức |
+| E2E Electron (xvfb, Linux) | ✅ **76/76** (+4) |
+| Ảnh chụp Phiếu lương, Báo cáo bảo hiểm, Sổ lao động (thiếu thông tin), form Thêm nhân viên (1366px) | ✅ đã xem, không lỗi JavaScript |
+| In thật ra máy in (mỗi phiếu 1 trang / in gọn) | ⏳ chưa kiểm trên Windows thật |
+
+## 2.0.0-alpha.17 — Lịch sao lưu + đối chiếu nghỉ phép / ốm (11/10/2026, nhánh `claude/v2-backup-schedule-leave`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **158/158** (+5 U-SCH, +5 U-LV; R-PERF-01: danh sách giống hệt, chỉ thêm cảnh báo [Nghỉ phép/ốm]) |
+| Hồi quy công thức (v1.3.0, alpha.4) | ✅ trùng 100% — không đổi công thức |
+| E2E Electron (xvfb, Linux) | ✅ **72/72** (+3 lịch sao lưu) |
+| Ảnh chụp thẻ Lịch sao lưu (1366px) | ✅ đã xem, không lỗi JavaScript |
+| Windows thực tế (sao lưu định kỳ chạy nhiều giờ, khi tắt máy) | ⏳ chưa |
+
+## 2.0.0-alpha.16 — Shortcut + File đã tải (11/10/2026, nhánh `claude/v2-shortcut-downloads`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **148/148** (+5 U-EX) |
+| Hồi quy công thức (v1.3.0, alpha.4) | ✅ trùng 100% — không đổi công thức |
+| E2E Electron (xvfb, Linux) | ✅ **69/69** (+5 file đã tải) |
+| Ảnh chụp thẻ báo tải xong, ngăn File đã tải (sáng / tối), thanh trên 1366px | ✅ đã xem, không lỗi JavaScript |
+| Bộ cài NSIS (icon, shortcut Desktop / Start Menu) | ⏳ chỉ build trên CI (windows-latest) — **chưa cài thử trên máy Windows thật** |
+| Mở Explorer / Excel thật (shell.showItemInFolder / openPath) | ⏳ chưa kiểm trên Windows thật (E2E chỉ ghi lại thao tác) |
+
+## 2.0.0-alpha.15 — Giao diện 2.0 + biến động nhân sự (11/10/2026, nhánh `claude/v2-ui-redesign`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **143/143** (+3 U-BD, +1 I-23; R-PERF-01: danh sách nhân sự + bảng lương giống hệt alpha.4, cảnh báo cũ giữ nguyên, chỉ thêm loại cảnh báo mới) |
+| Hồi quy công thức (v1.3.0, alpha.4) | ✅ trùng 100% |
+| E2E Electron (xvfb, Linux) | ✅ **64/64** (+6 giao diện mới) |
+| Ảnh chụp sáng / tối (Tổng quan, Chấm công, Tính lương, Hồ sơ, Ctrl+K, Tăng lương, Lịch sử, Biến động) | ✅ đã xem, không lỗi JavaScript |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.14 — Sổ quản lý lao động (11/10/2026, nhánh `claude/v2-so-lao-dong`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **137/137** (+4 U-SLD-01…04; R-PERF-02 giữ nguyên cột cũ) |
+| Hồi quy công thức (v1.3.0, alpha.4) | ✅ trùng 100% — không đổi công thức |
+| E2E Electron (xvfb, Linux) | ✅ **55/55** |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.13 — Sao lưu ra ngoài máy (11/10/2026, nhánh `claude/v2-backup-offsite`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **133/133** (+4 U-MIR-01…04: chép + kiểm SHA-256, rút USB, bản sau chốt không bị dọn, đếm ngày) |
+| E2E Electron (xvfb, Linux) | ✅ **55/55** (+4: bản sau chốt ×2, nhắc Trang chủ, chọn thư mục → chép + hết nhắc, không lỗi JS) |
+| Windows thực tế | ⏳ chưa (hộp chọn thư mục Windows + USB thật cần thử trên máy) |
+
+## 2.0.0-alpha.12 — Q-19 chia chi phí theo phòng ban (11/10/2026, nhánh `claude/v2-q19-phongban`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **128/128** (+4 U-ALLOC-01…04) |
+| Không điều chuyển (80 NV) | ✅ báo cáo theo phòng ban + hạch toán **y hệt** cách cũ (U-ALLOC-04); hồi quy công thức trùng 100% |
+| E2E Electron (xvfb, Linux) | ✅ **51/51** |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.11 — Q-22 phụ lục giữa tháng (11/10/2026, nhánh `claude/v2-q22-phuluc`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **124/124** (+5 U-PL-01…05, số tính tay) |
+| Hồi quy công thức (v1.3.0, alpha.4) khi không chọn tùy chọn | ✅ trùng 100% |
+| E2E Electron (xvfb, Linux) | ✅ **51/51** (+1: form phụ lục có lựa chọn) |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.10 — Q-20 Số chứng từ (11/10/2026, nhánh `claude/v2-q20-chungtu`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **119/119** (+4 U-CT-01…04) |
+| Bằng chứng trên alpha.9 | `chungtu.test.js` **4/4 thất bại**. Cụ thể: nhập lại file tạm ứng đã sửa (1.000.000 → 1.200.000) thành 2 dòng, tổng 2.200.000 |
+| E2E Electron (xvfb, Linux) | ✅ **50/50** |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.9 — Q-24 bảo mật lương (11/10/2026, nhánh `claude/v2-q24-pay-privacy`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **115/115** (+2 U-PAY-01/02) |
+| E2E Electron (xvfb, Linux) | ✅ **50/50** (+3: Q-24 vai trò Trưởng bộ phận; tiền thưởng trong Khen thưởng `🔒 ẩn` — thất bại trên `hr.js` trước khi bổ sung; không lỗi JS) |
+| Bằng chứng trên alpha.8 | E2E Q-24 **thất bại** đủ 4 vế: Trưởng bộ phận thấy cột lương, phụ lục hiện số 13.000.000, form có ô lương, không có `🔒 ẩn` |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.8 — PR5 giao diện (11/10/2026, nhánh `claude/v2-ui-hrm`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **113/113** |
+| E2E Electron (xvfb, Linux) | ✅ **47/47** (+4: chia trang 260 dòng, ô tìm kiếm nhớ theo bảng, bàn phím Enter / Ctrl+F, không lỗi JS) |
+| Đo giao diện (`tests/perf/ui-bench.js`) | 1.000 NV mở lưới 6,9 s → 0,38 s; gõ tìm kiếm 19,3 s → 0,41 s tới khi có kết quả; 5.000 NV từ treo → 0,35 s |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.7 — PR4 lưu dữ liệu (11/10/2026, nhánh `claude/v2-storage-perf`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **113/113** (+1 U-STO-17: lệch 1 bit khi đọc lại → không báo thành công) |
+| E2E Electron (xvfb, Linux) | ✅ **43/43** |
+| Lưu 5.000 NV (tiến trình chính, trung vị 5 lần) | 243 → **110 ms** |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.6 — PR3 tầng repository (10/10/2026, nhánh `claude/v2-repository`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **112/112** (+8 U-REPO-01…08) |
+| E2E Electron (xvfb, Linux) | ✅ **43/43** (+1 A3-01) |
+| Bằng chứng A3-01 trên mã alpha.5 | E2E **thất bại**: phụ lục của hợp đồng 2 trước/sau khi bấm Hủy = **1/0** (mồ côi); sau sửa = 1/1 |
+| Hồi quy công thức | ✅ không đổi (R-PERF, v1.3.0) |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.5 — PR2 hiệu năng (10/10/2026, nhánh `claude/v2-perf`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint | ✅ 0/0 |
+| `npm test` | ✅ **104/104** (+3 R-PERF-01…03) |
+| E2E Electron (xvfb, Linux) | ✅ **42/42** |
+| Dựng DS lương 5.000 NV | ✅ 22 ms (mục tiêu < 200 ms; alpha.4: 1.175 ms) — chi tiết `PERFORMANCE_REPORT.md` |
+| Mutation test: đổi chỉ mục sang khóa chuỗi | ✅ R-PERF-01/02 thất bại như mong đợi |
+| Windows thực tế | ⏳ chưa |
+
+## 2.0.0-alpha.4 — Audit V2 (10/10/2026, nhánh `claude/v2-audit2-fixes`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint (`eslint@9.39.5 . --max-warnings 0`) | ✅ 0/0 |
+| `npm test` | ✅ **101/101** (+5 U-CC-13…17, +6 I-15…20) |
+| E2E Electron 43.7.9 (xvfb, Linux) | ✅ **42/42** (+2: ô `-1` bị từ chối & cột 31/09 khóa; dán Ctrl+V không ghi ô sai) |
+| Bằng chứng lỗi: test mới trên mã alpha.3 | `daycell.test.js` **4/5 thất bại** (U-CC-17 là test mô tả hành vi, đạt cả 2 bản); E2E với `app.js` alpha.3: **2/2 kiểm tra mới thất bại** (ô 06 nhận `-1`, ô 13 dán nhận `-1`) |
+| Hồi quy công thức (v1.3.0, 80 NV × 3 kỳ) | ✅ trùng 100% — engine không đổi |
+| Windows thực tế | ⏳ **chưa** — CI chỉ build bộ cài trên `windows-latest` |
+
+## 2.0.0-alpha.3 — Hướng dẫn & Quy chế (10/10/2026, nhánh `claude/v2-guide`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint (thêm `ui/`) | ✅ 0/0 |
+| `npm test` | ✅ **90/90** (+3 U-GUIDE) |
+| E2E Electron | ✅ **40/40** (+1: 5 phần hướng dẫn, quy chế từ danh mục, tải Word) |
+| In thử Quy chế ra PDF (A4, Chromium) | ✅ 7 chương, bảng đủ cột, ẩn menu/nút |
+
+## 2.0.0-alpha.2 — Đăng nhập & phân quyền (10/10/2026, nhánh `claude/v2-auth-rbac`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint (`eslint@9.39.5`) | ✅ 0/0 |
+| `npm test` | ✅ **87/87** (+8 U-PERM, +1 U-GRD-05 Q-15) |
+| E2E Electron 43.7.9 | ✅ **39/39** (+12 phân quyền / đăng nhập / Q-15; mọi kịch bản cũ chạy qua đăng nhập) |
+| Bản chạy trình duyệt (WebCrypto) | ✅ Tạo Admin, đăng xuất, đăng nhập lại (tên đăng nhập viết HOA), mã khôi phục (mã sai bị từ chối, mã đúng đặt lại + cấp mã mới), *Xóa toàn bộ* giữ tài khoản. Không lỗi JS |
+| Thời gian | Mở app 451 ms · tạo Admin (2 lần PBKDF2) 131 ms · vào app 69 ms |
+| Hồi quy công thức (v1.3.0) | ✅ trùng 100% |
+
+## 2.0.0-alpha.1 — giai đoạn ưu tiên 1 (10/10/2026, nhánh `claude/v2-phase1-data-fixes`)
+| Nhóm | Kết quả |
+|---|---|
+| Lint (`eslint@9.39.5 . --max-warnings 0`) | ✅ 0 lỗi, 0 cảnh báo |
+| `npm test` (unit + integration + regression) | ✅ **78/78** (1.4.0: 44; thêm U-CC ×12, U-GRD/CLS/SCH ×7, U-STO ×9, I ×6) |
+| Hồi quy so với v1.3.0 (80 NV × 3 kỳ) | ✅ trùng 100% — **không đổi công thức** |
+| Bằng chứng lỗi: chạy test mới trên mã 1.4.0 | importer: **8/12 thất bại** (U-CC-02,03,05,06,07,09,10,12); storage: 9/9 thất bại. U-STO-11…14, 16 thất bại một phần vì bản cũ không cho mô phỏng lỗi đĩa; lỗi thật đã tái hiện là S1, S2, S3 |
+| E2E Electron 43.7.9 | ✅ **27/27** (thêm 4: SHA-256, người thực hiện, cấu trúc nguy hiểm ×2) |
+| Giao diện xem trước nhập Excel (Chromium, file .xlsx thật) | ✅ Gộp 1, Cập nhật 1 (thêm 15 ô · giữ 15 ô), Xung đột 2 (trùng ngày 05). Chế độ ghi đè hiện cảnh báo XÓA. Sau ghi: BT 30 + TC 6, nhật ký có chế độ "bổ sung". Không lỗi JS |
+| Rollback: 1.4.0 mở dữ liệu do 2.0 tạo | ✅ kỳ chốt "Nguyên vẹn", giữ `inputChecksum` / `nguoiChot`, đọc được bản sao lưu mới, 0 lỗi JS |
+| Bộ cài Windows thật | ⏳ chưa nghiệm thu |
+
+Script tái hiện lỗi (chạy trên 1.4.0):
+
+| | Kỳ vọng | 1.4.0 | 2.0-α1 |
+|---|---|---|---|
+| R1 — file 2 dòng BT 1–15 + 16–30 | 30 | 15 | 30 |
+| R2 — bổ sung 16–30 | 30 | 15 | 30 |
+| R3 — dữ liệu có 2 dòng trùng khóa, nhập file đủ tháng | 30 | 45 | chặn, giữ 30 |
+| R5 — "bt" | 30 | 60 | 30 |
+| S1 — 2 bản sao lưu cùng giây | 2 file | 1 file | 2 |
+| S2 — bản sao lưu bị sửa | từ chối | chấp nhận | từ chối |
+| S3 — 2 lần cất file hỏng cùng giây | giữ cả 2 | mất 1 | giữ cả 2 |
+
+### Hiệu năng (so với baseline 1.4.0, cùng máy)
+| Thao tác | 1.000 NV (1.4.0 → 2.0-α1) | 5.000 NV (1.4.0 → 2.0-α1) |
+|---|---|---|
+| Lưu (`storage.save`) | 15 → 32 ms | 85 → 169 ms |
+| Tạo bản sao lưu | 17 → ~60 ms | 107 → ~250 ms |
+| Kiểm tra cấu trúc khi mở (`schema.validate`, mới) | 26 ms | 81 ms |
+| Kiểm tra toàn vẹn | 42 → 49 ms | 115 → 149–157 ms |
+| Nhập lại chấm công 1 kỳ | 36 → 57 ms | 177 → 224 ms |
+| Tính lương 1 kỳ / dựng DS lương | không đổi (engine không đổi) | không đổi |
+
+**Nguyên nhân chậm hơn:** fsync, SHA-256 và đọc lại sau khi ghi (bảo vệ dữ liệu, không được bỏ theo yêu cầu 2.0 §14), cộng phần so sánh từng ô khi nhập. Hướng xử lý là SQLite ở giai đoạn 2 (RISK-01).
+
+---
+
+# Kết quả kiểm thử Phase 1 (v1.4.0)
+
+Môi trường: Linux, Node v22.22.0, Intel Xeon 2.10GHz 4 CPU · Chromium (Playwright 1.56.1) · Electron 43.7.9 (xvfb) · ngày 10/10/2026.
+
+## 1. Tổng hợp
+
+| Nhóm | Kết quả |
+|---|---|
+| Cú pháp (`node --check` mọi file JS) | ✅ đạt |
+| Lint (`eslint . --max-warnings 0`) | ✅ 0 lỗi, 0 cảnh báo |
+| Unit (engine 14 · core 10 · storage 7 · giao diện 3) | ✅ 34/34 |
+| Integration | ✅ 8/8 |
+| Regression so với v1.3.0 | ✅ 2/2 — trùng 100% trên 80 NV × 3 kỳ (>200 phiếu lương); 1 khác biệt có chủ đích (BUG-002) |
+| **Tổng `npm test`** | ✅ **44/44** |
+| E2E trên Electron 43.7.9 | ✅ **23/23** (gồm nâng cấp từ dữ liệu 1.3.0, font + icon giao diện) |
+| Giao diện trong trình duyệt (Playwright, CSP bật) | ✅ không lỗi JS, không vi phạm CSP |
+| `npm audit --omit=dev` (phần chạy trong app) | ✅ 0 lỗ hổng |
+| `npm audit` (gồm công cụ build) | ⚠ 8 *moderate* — chỉ trong công cụ build (xem AUDIT_REPORT SEC-05) |
+| Bộ cài Windows (.exe) trên máy Windows thật | ⏳ **chưa kiểm thử** — CI build trên `windows-latest`; cần chủ sở hữu cài thử |
+
+## 2. Hồi quy — phân loại khác biệt so với v1.3.0
+| Khác biệt | Phân loại | Bằng chứng |
+|---|---|---|
+| Số tiền chuỗi kiểu VN ("500.000", "9.000.000") được hiểu đúng | Sửa lỗi có chủ đích (BUG-002) | R-02 |
+| Thêm cảnh báo mới (thực lĩnh âm, thiếu giảm trừ, lương đóng BH quá nhỏ, NV nghỉ việc chưa chấm dứt HĐ, chuyển khoản thiếu số TK) | Bổ sung kiểm soát — không đổi số tiền | R-01 kiểm tra cảnh báo cũ không mất |
+| Sai lệch không mong muốn | **Không có** | R-01 |
+
+## 3. E2E (Electron 43.7.9) — `tests/e2e/run-e2e.js`
+```
+PASS Mở ứng dụng — 439 ms
+PASS Cầu nối lưu trữ (preload) hoạt động
+PASS Giao diện: font Be Vietnam Pro đóng gói nạp được, menu dùng icon SVG — {"font":true,"icons":14,"emoji":0}
+PASS Tính lương: 12.000.000 − BH 630.000 = 11.370.000
+PASS Chốt kỳ lương (hộp nhập của app, không dùng window.prompt)
+PASS Mở chốt không cho để trống lý do
+PASS Chốt lại sau khi mở chốt
+PASS Xuất Excel trọn bộ: đủ 4 sheet, số khớp bảng đã chốt — BangLuong,BHXH,ThueTNCN,ChuyenKhoan · thực lĩnh 11370000
+PASS Không có lỗi JavaScript
+PASS data.json có nhân viên + kỳ đã chốt v2 + lịch sử v1
+PASS Lương thỏa thuận lưu đúng 12000000 (nhập "12.000.000")
+PASS Có bản sao lưu tự động (đầu ngày + trước mở chốt)
+PASS Mở lại app: kỳ đã chốt còn nguyên, checksum Nguyên vẹn
+PASS File hỏng → hiện màn hình khôi phục
+PASS File hỏng KHÔNG bị app ghi đè
+PASS Khôi phục từ bản sao lưu tự động
+PASS File hỏng được giữ lại (không xóa)
+PASS Nâng cấp 1.3→1.4: có bản sao lưu trước nâng cấp chứa nguyên trạng
+PASS Nâng cấp: tiền '500.000' → 500000, ngày → ISO, CCCD bù số 0, schemaVersion 2
+PASS Nâng cấp: kỳ đã chốt kiểu cũ giữ nguyên
+PASS Mở lần 2 không tạo thêm bản trước nâng cấp
+PASS Kỳ chốt kiểu cũ hiển thị 'Bản cũ'
+PASS Không lỗi JavaScript khi mở dữ liệu cũ
+E2E: 23/23 đạt
+```
+
+Xác nhận lỗi gốc BUG-003 trên Electron 33.2.0 (bản dùng trong 1.3.0): `window.prompt()` → *"prompt() is and will not be supported."*
+
+## 4. Giao diện (trình duyệt)
+- Đơn giá CN1 nhập "300.000" → mở lại form, bấm Lưu → vẫn 300.000 (BUG-001 không còn); 26 công × 300.000 + thưởng gõ "500.000" = **8.300.000** ✓
+- Nhập cùng file chấm công 2 lần: lần 1 *1 thêm mới, 1 sai tham chiếu*; lần 2 *1 trùng (bỏ qua)*; bảng vẫn 1 dòng ✓
+- Chốt → mở chốt (lý do) → chốt lại: v2 hiện hành, v1 trong lịch sử, toàn vẹn "Nguyên vẹn" ✓
+- Kiểm tra dữ liệu: không phát hiện vấn đề với dữ liệu sạch ✓
+
+## 5. Hiệu năng — baseline (chưa đặt ngưỡng; ngưỡng cần thống nhất trước khi tối ưu)
+| Số NV | Dòng chấm công (3 kỳ) | Dữ liệu | Ghi JSON | Đọc JSON | Dựng DS lương | Tính lương 1 kỳ | Kiểm tra toàn vẹn | Nhập lại CC 1 kỳ | Heap |
+|---|---|---|---|---|---|---|---|---|---|
+| 100 | 557 | 0,19 MB | 2 ms | 1 ms | 3 ms | 5 ms | 5 ms | 5 ms (179 dòng) | 7 MB |
+| 500 | 2.781 | 0,90 MB | 8 ms | 7 ms | 13 ms | 15 ms | 14 ms | 18 ms (927) | 14 MB |
+| 1.000 | 5.549 | 1,81 MB | 18 ms | 11 ms | 38 ms | 25 ms | 28 ms | 36 ms (1.856) | 29 MB |
+| 5.000 | 27.602 | 9,11 MB | 89 ms | 46 ms | **1.303 ms** | 112 ms | 115 ms | 177 ms (9.184) | 67 MB |
+
+Nhận xét: "Dựng DS lương" tăng theo bình phương (PERF-01) — xử lý ở Phase 2. Với 5.000 NV, dữ liệu ~9 MB / 3 kỳ (~36 MB/năm), mỗi lần lưu ghi lại toàn bộ file → lý do chính chuyển SQLite.
+
+## 6. Cách tự kiểm tra lại
+1. `cd LuongHAK_Offline && npm test` → `# pass 44`.
+2. CI GitHub Actions trên PR: job *check*, *e2e*, *build* đều xanh; tải artifact `TinhLuongHAK-Setup` và cài thử trên Windows.
+3. Trên Windows: mở app → *Công ty & Sao lưu* → *Kiểm tra dữ liệu* (xem cảnh báo dữ liệu cũ, đặc biệt "Lương … quá nhỏ" do BUG-001).

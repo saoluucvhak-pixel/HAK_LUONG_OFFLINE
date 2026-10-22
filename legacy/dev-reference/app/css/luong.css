@@ -1,0 +1,16 @@
+/* luong.css — phần giao diện riêng của app Tính lương */
+.dg-wrap { max-height: 68vh; overflow: auto; }
+.dg { font-size: .82rem; }
+.dg thead th { position: sticky; top: 0; z-index: 2; background: var(--card-bg, #fff); white-space: nowrap; }
+.dg td { padding: 2px 3px; }
+.dg-in { min-width: 7rem; font-size: .8rem; padding: 2px 6px; }
+.dg-in[type="date"] { min-width: 8.6rem; }
+.dg-tab { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; color: inherit; text-decoration: none; font-size: .88rem; }
+.dg-tab:hover { background: var(--brand-soft); }
+.dg-tab.active { background: var(--brand-soft); font-weight: 600; box-shadow: inset 3px 0 0 var(--brand); }
+.pl-wrap { max-height: 62vh; overflow: auto; }
+.pl thead th { position: sticky; top: 0; z-index: 3; background: var(--card-bg, #fff); }
+.pl .pl-s0 { position: sticky; left: 0; z-index: 1; background: var(--card-bg, #fff); min-width: 5.5rem; }
+.pl .pl-s1 { position: sticky; left: 5.5rem; z-index: 1; background: var(--card-bg, #fff); min-width: 11rem; }
+.pl thead .pl-s0, .pl thead .pl-s1 { z-index: 4; }
+.pl tfoot td { position: sticky; bottom: 0; background: var(--card-bg, #fff); }

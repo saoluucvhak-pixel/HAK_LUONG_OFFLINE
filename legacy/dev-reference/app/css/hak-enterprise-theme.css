@@ -1,0 +1,49 @@
+/* HAK Enterprise V10.4 visual specification adapted to this Bootstrap app.
+   Theme preference is independent of data-bs-theme and all business records. */
+:root,[data-hak-theme="luxe"] {
+ --brand:#806032; --brand-2:#c7a56b; --brand-soft:#efe7d9;
+ --page-bg:#f6f3ed; --card-bg:#fffdf9; --card-border:#e4ddd1; --ink:#172c43; --muted:#65717d;
+ --sb-bg:#14283f; --sb-text:#c5ced8; --hak-accent:#d9bb85; --hak-hero:#172f49;
+ --bs-primary:var(--brand);--bs-primary-rgb:128,96,50;--bs-link-color:var(--brand);
+ --bs-body-bg:var(--page-bg);--bs-body-color:var(--ink);--bs-border-color:var(--card-border);
+ --bg:var(--page-bg);--card:var(--card-bg);--line:var(--card-border);
+ --shadow:0 2px 10px rgba(27,40,56,.035);
+}
+[data-hak-theme="classic"] {--brand:#0b7285;--brand-2:#15aabf;--brand-soft:#e2f1f3;--page-bg:#f3f7fa;--card-bg:#fff;--card-border:#dce6ed;--hak-accent:#8de1e8;--hak-hero:#14516a;--bs-primary-rgb:11,114,133;}
+[data-hak-theme="neutral"] {--brand:#445d78;--brand-2:#7b94ac;--brand-soft:#e6edf4;--page-bg:#f3f5f8;--card-bg:#fff;--card-border:#dce2e9;--hak-accent:#b9cce0;--hak-hero:#293e56;--bs-primary-rgb:68,93,120;}
+[data-hak-theme="champagne"] {--brand:#83602d;--brand-2:#c6a36b;--brand-soft:#f1e7d7;--page-bg:#faf5ec;--card-bg:#fffdf8;--card-border:#e7dcc9;--hak-accent:#e0c293;--hak-hero:#534334;--bs-primary-rgb:131,96,45;}
+[data-bs-theme="dark"] {--page-bg:#101c2b;--card-bg:#18283b;--card-border:#334255;--ink:#f0ece5;--muted:#b2bcc8;--brand:#dfc18c;--brand-2:#edd4a8;--brand-soft:#3b362e;--sb-bg:#0c1725;--hak-hero:#1b3048;--bs-primary-rgb:223,193,140;}
+[data-bs-theme="dark"][data-hak-theme="classic"] {--brand:#75d3dd;--brand-2:#99e4eb;--brand-soft:#183e48;--bs-primary-rgb:117,211,221;}
+[data-bs-theme="dark"][data-hak-theme="neutral"] {--brand:#b2c8df;--brand-2:#c6d8ea;--brand-soft:#2b4058;--bs-primary-rgb:178,200,223;}
+[data-bs-theme="dark"][data-hak-theme="champagne"] {--brand:#e8c791;--brand-2:#f2d8af;--brand-soft:#43382d;--bs-primary-rgb:232,199,145;}
+body {background:var(--page-bg);color:var(--ink);font-family:'Be Vietnam Pro','Segoe UI',sans-serif;}
+.sidebar {background:var(--sb-bg);border-right:1px solid rgba(255,255,255,.09);}
+.sb-brand {border-bottom:1px solid rgba(255,255,255,.09);padding:20px 16px 17px;}
+.sb-logo {background:var(--hak-accent);color:#14283f;border:1px solid #e5d0a7;border-radius:9px;}
+.sb-link {border:1px solid transparent;min-height:34px;}
+.sb-link:hover {background:rgba(255,255,255,.07);color:#fff;}
+.sb-link.active {background:rgba(220,187,133,.13);color:#f6e7cc;box-shadow:inset 3px 0 0 var(--hak-accent);border-color:rgba(220,187,133,.14);}
+.sb-link.active .ico svg.i {color:var(--hak-accent);}
+.sb-label {color:#c4ced9;opacity:.75;letter-spacing:.08em;}
+.topbar {background:var(--card-bg);backdrop-filter:none;min-height:70px;gap:12px;}
+.topbar h1 {color:var(--ink);font-size:1.05rem;font-weight:700;}
+.hak-theme-select {max-width:155px;color:var(--ink);background-color:var(--card-bg);border-color:var(--card-border);}
+.card,.stat,.step,.zone-nav {background:var(--card-bg);border-color:var(--card-border);box-shadow:var(--shadow);}
+.card-header {background:color-mix(in srgb,var(--card-bg) 92%,var(--brand));border-color:var(--card-border);font-weight:600;}
+.hero {background:var(--hak-hero);color:#fff9ed;border:1px solid var(--card-border);border-radius:16px;padding:30px;}
+.hero h2 {font-size:1.65rem;line-height:1.4;max-width:760px;}
+.hero .btn-light {background:var(--hak-accent);border-color:var(--hak-accent);color:#152b43;}
+.btn-primary {--bs-btn-bg:var(--brand);--bs-btn-border-color:var(--brand);--bs-btn-hover-bg:color-mix(in srgb,var(--brand) 85%,#000);--bs-btn-hover-border-color:var(--brand);--bs-btn-active-bg:var(--brand);--bs-btn-color:#fff;--bs-btn-hover-color:#fff;}
+[data-bs-theme="dark"] .btn-primary {--bs-btn-color:#14283f;--bs-btn-hover-color:#14283f;--bs-btn-hover-bg:var(--brand-2);--bs-btn-hover-border-color:var(--brand-2);}
+.btn-outline-primary {--bs-btn-color:var(--brand);--bs-btn-border-color:var(--brand);--bs-btn-hover-bg:var(--brand);--bs-btn-hover-border-color:var(--brand);--bs-btn-hover-color:#fff;}
+.form-control,.form-select {background-color:var(--card-bg);color:var(--ink);border-color:var(--card-border);}
+.form-control::placeholder {color:var(--muted);opacity:1;}
+.table {--bs-table-bg:var(--card-bg);--bs-table-color:var(--ink);--bs-table-border-color:var(--card-border);--bs-table-hover-bg:var(--brand-soft);}
+.table thead th {background:color-mix(in srgb,var(--card-bg) 75%,var(--brand-soft));color:var(--muted);font-weight:600;letter-spacing:.025em;}
+.tbl-wrap,.hak-table-region {border-radius:10px;border:1px solid var(--card-border);overflow:auto;max-width:100%;}
+.modal-content {background:var(--card-bg);color:var(--ink);border-color:var(--card-border);}
+.badge-soft,.zone-tab.active {background:var(--brand-soft);color:var(--brand);}
+.num {font-variant-numeric:tabular-nums;}
+:focus-visible {outline:3px solid var(--brand);outline-offset:3px;}
+@media(max-width:767px){.topbar{flex-wrap:wrap;gap:8px}.hak-theme-select{max-width:135px}.hero{padding:22px}.hero h2{font-size:1.25rem}.zone-tab{min-width:100px}.content{min-width:0}}
+@media print{.sf,.hak-theme-select{display:none!important}}

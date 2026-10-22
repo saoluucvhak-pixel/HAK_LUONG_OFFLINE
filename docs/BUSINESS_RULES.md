@@ -1,0 +1,183 @@
+# BUSINESS_RULES — Quy tắc nghiệp vụ
+
+## 1. Quy tắc đã áp dụng
+
+### Dữ liệu & nhập liệu
+- R-01 Ngày lưu `YYYY-MM-DD`; kỳ `YYYY-MM`; tiền là số đồng (hiểu đúng "1.500.000", "500.000", "1,500,000").
+- R-02 Mã định danh (CCCD, SĐT, số TK, MST, Mã NV, Số HĐLĐ, Phiếu cân) luôn là chữ; CCCD 12 số, SĐT 10 số (bù số 0 bị Excel làm mất).
+- R-03 Khóa nghiệp vụ chống trùng (nhập Excel và form): xem `DATABASE_SCHEMA.md` §1.
+  - Nhập trùng khóa → **cập nhật**; trùng y hệt → bỏ qua.
+  - Khóa được chuẩn hóa: kỳ `YYYY-MM`; *Hình thức công* viết hoa, để trống = BT.
+- R-03a (2.0) Chấm công 1 dòng = 1 *Kỳ + Mã NV + Hình thức công*:
+  - Trong 1 file có nhiều dòng cùng khóa → **gộp theo ngày**.
+  - (Q-12, chủ sở hữu xác nhận 10/10/2026) Cùng 1 ngày + cùng hình thức ở 2 dòng = **nhập trùng**:
+    - cùng số công → **tính 1 lần**;
+    - khác số công (VD 1 / 0,5) → **xung đột**, không ghi, người dùng tự sửa.
+  - Dữ liệu đang có nhiều dòng cùng khóa → nhập bị chặn cho tới khi gộp. Công cụ gộp: ngày nhập trùng cùng số công → tính 1 lần; nhóm có ngày khác số công hoặc thuộc kỳ đã chốt → giữ nguyên.
+- R-03b (2.0) Cập nhật khi nhập Excel:
+  - Mặc định **bổ sung**: ô trống trong file **không xóa** dữ liệu đang có.
+  - **Ghi đè cả dòng** phải chọn rõ; app báo trước số ô sẽ bị xóa.
+- R-03c (2.0) Cùng khóa trong 1 file nhưng khác dữ liệu (các bảng khác) → xung đột cả 2 dòng, không ghi.
+- R-03d (2.0-beta.1) Ô ngày chấm công hợp lệ: trống, số công ≥ 0 (`1`, `0.5`, `1,5`), số công + nhãn (`1QC`), hoặc chỉ nhãn (`QC`). Nhãn bắt đầu bằng chữ cái.
+  - **Từ chối** (nhập Excel = Lỗi dữ liệu; lưới / dán = không ghi ô): số âm, ký tự lạ (`1.5.2`, `#`, `1/2`), ngày không có trong tháng của kỳ (VD 31/09, 29/02 năm thường). Lưới khóa các cột ngày không tồn tại.
+  - **Cảnh báo, vẫn ghi**: số công > 3/ngày (dòng tăng ca có thể nhập giờ — Q-18); nhãn chưa có mã phụ cấp trùng tên (không được tính phụ cấp công tác).
+  - Dữ liệu cũ đã có ô sai: *Kiểm tra dữ liệu* báo High, hộp chốt kỳ báo số ô sai. App **không tự xóa / sửa**; cách tính lương với ô sai giữ như cũ (chờ Q-21).
+- R-04 Dữ liệu phát sinh (chấm công, tạm ứng, thưởng…) phải có Mã NV có trong Nhân sự.
+- R-05 Nhập Excel bắt buộc qua bước **xem trước**.
+  - (2.0) Luôn tự sao lưu trước khi ghi.
+  - Lưu xuống đĩa thất bại → **hoàn tác toàn bộ** lần nhập.
+
+### Hồ sơ & hợp đồng
+- R-10 Lương tính theo **phụ lục mới nhất có hiệu lực ≤ cuối tháng** của hợp đồng còn hiệu lực trong tháng.
+- R-11 Hợp đồng có Ngày chấm dứt < đầu tháng → không tính lương tháng đó.
+- R-12 Nhân viên "Đã nghỉ việc" mà hợp đồng chưa chấm dứt → vẫn tính và **cảnh báo**.
+- R-13 Người phụ thuộc = nhân thân "Đăng ký phụ thuộc = Có" còn hiệu lực trong kỳ.
+- R-59 (2.0-α14) **Sổ quản lý lao động** theo khoản 2 Điều 3 Nghị định 145/2020/NĐ-CP (sổ dạng điện tử, theo năm): họ tên, giới tính, ngày sinh, quốc tịch, địa chỉ, CCCD; trình độ chuyên môn kỹ thuật, bậc trình độ kỹ năng nghề; vị trí việc làm; loại HĐLĐ; thời điểm bắt đầu làm việc; tham gia BHXH (số sổ, mức đóng); tiền lương; nâng bậc nâng lương; số ngày nghỉ trong năm (nghỉ hằng năm, nghỉ việc riêng có hưởng lương, nghỉ không hưởng lương); số giờ làm thêm; nâng cao trình độ, kỹ năng nghề; kỷ luật, trách nhiệm vật chất; tai nạn lao động, bệnh nghề nghiệp; thời điểm chấm dứt HĐLĐ và lý do.
+  - Đơn nghỉ có thêm *Loại nghỉ*; **để trống = Nghỉ hằng năm** (dữ liệu cũ giữ nguyên ý nghĩa). Chỉ nghỉ hằng năm trừ vào phép năm.
+  - Làm thêm lấy từ chấm công các dòng Hình thức có "TC" trong năm — đơn vị là **công** như bảng chấm công (chưa quy ra giờ, câu hỏi mở).
+  - Bảng mới: `daotao` (nâng cao trình độ), `tainanld` (tai nạn lao động / bệnh nghề nghiệp). Thiếu dữ liệu → ô trống, không phải lỗi.
+  - Người không có quyền xem lương (Q-24): cột lương / mức đóng BHXH / mức nâng lương hiện `🔒 ẩn`, chỉ còn ngày nâng lương.
+  - Sổ này **không** thay thế *Báo cáo tình hình sử dụng lao động* (Mẫu 01/PLI, nộp 6 tháng/lần) — chưa có trong app.
+
+### Chốt kỳ
+- R-20 Chốt luôn tính lại từ dữ liệu mới nhất; nếu khác bảng đang xem → dừng để kiểm tra.
+- R-21 Chốt chỉ thành công khi dữ liệu **đã ghi xuống đĩa**; thất bại → hoàn tác.
+- R-22 Kỳ đã chốt: khóa chấm công, sản lượng, bơm dăm, thưởng/trừ, tạm ứng, suất cơm của kỳ (ô nhập, dán, nhập Excel, đổi ngày sang kỳ đã chốt).
+- R-23 Snapshot chốt gồm kết quả + dữ liệu đầu vào + danh mục + phiên bản engine + checksum; không bị thay đổi bởi sửa hồ sơ/danh mục về sau.
+- R-24 Mở chốt bắt buộc **lý do**; bản cũ chuyển vào lịch sử (không xóa); chốt lại = phiên bản mới; có báo cáo trước/sau.
+- R-25 Mọi thao tác chốt, mở chốt, nhập Excel, khôi phục, xóa toàn bộ, nghỉ việc, nạp danh mục được ghi nhật ký.
+  - (2.0) Ghi thêm: sửa/xóa hồ sơ và danh mục kèm **trước → sau**, đổi Mã NV, gộp chấm công, đổi người sử dụng.
+  - Mỗi dòng nhật ký có **người thực hiện**: tên khai trên máy + tài khoản Windows.
+- R-26 (2.0) Phân loại thay đổi theo kỳ đã chốt:
+  - (1) **Dữ liệu kỳ đã chốt**: chấm công, sản lượng, bơm dăm, thưởng/trừ, tạm ứng, suất cơm thuộc kỳ chốt → **chặn** mọi đường sửa (ô nhập, dán, xóa dòng, nhập Excel, chuyển kỳ).
+  - (2) **Dữ liệu hồi tố**: phụ lục, hợp đồng, nhân thân, tài khoản, danh mục có hiệu lực chồng lên kỳ chốt, cho nghỉ việc lùi ngày → **cho lưu sau khi cảnh báo**, ghi nhật ký kèm nhãn HỒI TỐ.
+  - (3) **Không ảnh hưởng**: học vấn, sức khỏe…, hoặc nhân viên không có trong bảng lương đã chốt.
+  - (4) **Điều chỉnh bằng phiên bản mới**: muốn áp dụng (2) cho kỳ đã chốt → mở chốt (lý do, người, thời điểm) → tính lại → chốt lại vN+1, có báo cáo chênh lệch.
+- R-27 (2.0) Không đổi được Mã NV khi mã đã có trong bảng lương đã chốt. Đổi mã không bao giờ sửa `kyluong`, `kyluong_lichsu`, `auditlog`.
+- R-28 (2.0) Checksum bản chốt bao cả **kết quả** và **dữ liệu đầu vào**.
+
+### Sao lưu
+- R-30 Sao lưu đầu ngày (60 ngày), khi mở app (10 bản), trước thao tác lớn (20 bản/loại), khi dữ liệu giảm > 50%.
+- R-31 Không bao giờ ghi đè file dữ liệu bằng dữ liệu không hợp lệ; không sao lưu file hỏng; file hỏng được cất giữ, không xóa.
+- R-58 (2.0-α13, chủ sở hữu chọn A + B + D 11/10/2026) **Sao lưu ra ngoài máy**: (A) Admin chọn *thư mục sao lưu thứ hai* (USB / NAS / thư mục Google Drive đồng bộ) — mọi bản sao lưu tự chép sang thư mục con `TinhLuongHAK-SaoLuu` + kiểm SHA-256; thư mục không truy cập được → sao lưu trên máy vẫn bình thường, lỗi được báo. (B) Ngay sau khi chốt kỳ: bản `sau-chot-<kỳ>`, **không bao giờ tự xóa** (trên máy và thư mục thứ hai). (D) Quá 7 ngày chưa có bản ra ngoài máy (chép thư mục thứ hai hoặc *Sao lưu ra file*) → Trang chủ nhắc. Cấu hình thư mục là của từng máy (`settings.json`), không nằm trong `data.json`.
+- R-32 (2.0) Bản sao lưu:
+  - Tên duy nhất, không bao giờ ghi đè nhau.
+  - Có mã SHA-256; bản không khớp **không được khôi phục**.
+  - Dọn bản cũ không bao giờ xóa bản sao lưu tốt mới nhất.
+- R-33 (2.0) Dữ liệu có cấu trúc nguy hiểm → chỉ xem / khôi phục, **không ghi**. Gồm: bảng không phải danh sách, phiên bản cấu trúc mới hơn, lỗi khi chuyển đổi.
+- R-34 (2.0) Lỗi dữ liệu dòng chỉ được **báo cáo**, không tự xóa. Bảng không nhận diện được giữ nguyên.
+- R-35 (2.0) Khôi phục phải liệt kê các kỳ đã chốt sẽ mất hoặc đổi. File hỏng chỉ được cất **sau khi** người dùng xác nhận khôi phục.
+
+### Đăng nhập & phân quyền (2.0-alpha.2 — Q-14, Q-16 do chủ sở hữu xác nhận 10/10/2026)
+- R-40 Phải **đăng nhập** mới thấy và dùng dữ liệu.
+  - Dữ liệu chưa có tài khoản (cài mới hoặc nâng cấp từ bản cũ) → bắt buộc tạo **Admin** đầu tiên, kèm **mã khôi phục** (hiện 1 lần).
+- R-41 Mật khẩu ≥ 8 ký tự, có chữ và số.
+  - Lưu dạng băm PBKDF2-SHA256, 210.000 vòng, muối riêng cho từng tài khoản.
+  - Sai 5 lần liên tiếp → chờ 30 giây.
+  - Không thao tác 30 phút → tự đăng xuất.
+- R-42 Admin tạo tài khoản cho người khác với **mật khẩu tạm**; người dùng **bắt buộc đổi** khi đăng nhập lần đầu. Không được khóa hoặc hạ quyền **Admin đang hoạt động cuối cùng**.
+- R-43 Quên mật khẩu Admin → dùng mã khôi phục để đặt lại. Mỗi lần dùng, app cấp **mã mới**; Admin cũng có thể chủ động cấp lại mã.
+- R-44 Quyền được kiểm tra ở **tầng nghiệp vụ** (mọi thao tác ghi, xuất, nhập, tính, chốt, khôi phục), không chỉ ẩn nút. Mở thẳng một màn hình không có quyền → app quay về Trang chủ.
+- R-45 Vai trò mặc định:
+
+| Vai trò | Quyền |
+|---|---|
+| **Quản trị (Admin)** | Tất cả. Là vai trò **duy nhất** được: sửa dữ liệu hồi tố vào kỳ đã chốt (Q-14), mở chốt, khôi phục dữ liệu / sao lưu ra file, quản trị người dùng và công ty, xóa toàn bộ dữ liệu |
+| Nhân sự | Xem/sửa hồ sơ nhân sự (gồm hợp đồng, phụ lục), xem chấm công, báo cáo nhân sự, nhập/xuất Excel. **Không xem bảng lương** |
+| Kế toán lương | Xem hồ sơ; nhập/sửa chấm công, sản lượng, thưởng, tạm ứng; sửa danh mục; tính lương, **chốt** kỳ; xem bảng lương và báo cáo; nhập/xuất Excel. **Không mở chốt** |
+| Kế toán thanh toán | Xem bảng lương / kỳ đã chốt, xuất Excel (danh sách chuyển khoản, phiếu chi) |
+| Trưởng bộ phận | Xem hồ sơ; nhập/sửa chấm công, sản lượng; báo cáo nhân sự. Không xem bảng lương *(chưa giới hạn theo phòng ban — TODO)* |
+| Người phê duyệt | Xem hồ sơ, chấm công, bảng lương, báo cáo; xuất Excel *(quy trình phê duyệt chưa có — giai đoạn sau)* |
+| Người xem báo cáo | Xem báo cáo nhân sự và báo cáo/bảng lương |
+
+- R-46 Nhật ký ghi **tài khoản đăng nhập** (họ tên + tên đăng nhập + tài khoản Windows) cho mọi thao tác, gồm đăng nhập / đăng xuất / tự khóa, thêm/sửa người dùng, khôi phục quyền Admin.
+- R-47 Xóa nhân viên đã có trong bảng lương đã chốt → chỉ Admin; có sao lưu trước và ghi nhật ký.
+- R-48 *Xóa toàn bộ dữ liệu* giữ lại tài khoản, mã khôi phục và nhật ký.
+- R-49 (Q-15) Phụ lục HĐ **đã dùng để tính lương một kỳ đã chốt** bị khóa với **mọi người, kể cả Admin**:
+  - Không sửa, không xóa phụ lục đó. Không đổi Số HĐLĐ hoặc xóa hợp đồng chứa nó. Nhập Excel không cập nhật được nó.
+  - Muốn thay đổi lương, chức vụ, phòng ban: **thêm phụ lục mới** có ngày hiệu lực mới.
+  - Phụ lục mới có hiệu lực lùi vào kỳ đã chốt (hồi tố) → chỉ Admin (R-26, Q-14).
+  - Mở chốt một kỳ thì phụ lục chỉ còn bị khóa bởi các kỳ khác còn chốt.
+- R-50 (Q-13) Nhập Excel có dòng trùng với dữ liệu đã có → màn hình xem trước báo số dòng trùng, người dùng chọn **Bổ sung** (mặc định) hoặc **Ghi đè**.
+- R-51 (Q-24, chủ sở hữu duyệt 11/10/2026) **Bảo mật lương cá nhân**: *Lương thỏa thuận*, *Lương cơ bản* và *Giá trị tiền thưởng* (hồ sơ Khen thưởng, chủ sở hữu duyệt bổ sung 11/10/2026) chỉ hiển thị với người có quyền **Xem bảng lương** hoặc **Sửa hồ sơ**. Với vai trò mặc định, chỉ *Trưởng bộ phận* bị ẩn. Áp dụng ở danh sách Nhân sự, đầu hồ sơ, bảng và form *Lương & phụ lục HĐ* và *Khen thưởng*, báo cáo *Sổ lao động* và *Lịch sử*; ô bị ẩn hiện `🔒 ẩn`.
+- R-52 (Q-18) Một nhân viên có thể làm nhiều ca trong 1 ngày; mỗi ca chấm ở **mã chấm công / Hình thức công** riêng (1 dòng chấm công cho mỗi hình thức). Không có cột *Ca*. Cùng ngày + cùng hình thức = nhập trùng (R-03a).
+- R-53 (Q-19) Chi phí lương của nhân viên điều chuyển trong tháng **chia theo số công làm ở từng phòng ban** theo ngày hiệu lực phụ lục đổi *Phòng ban* trong cùng hợp đồng. Áp dụng cho báo cáo *Tổng hợp theo phòng ban* và *Bảng hạch toán* (TK chi phí của từng phòng); số tiền lương của người lao động không đổi. Kỳ chốt trước 2.0-α12 giữ báo cáo cũ. Đã triển khai 2.0-α12 (`core/allocation.js`).
+- R-54 (Q-20) Thưởng / Trừ / Tạm ứng có cột **Số chứng từ**. Cùng *Số chứng từ + Mã NV* = cùng 1 khoản: nhập lại thì cập nhật, không cộng thêm; lưới chặn dòng trùng; *Kiểm tra dữ liệu* báo High nếu đang có nhiều dòng. Một phiếu chi cho nhiều người: mỗi người 1 dòng cùng số. Dòng chưa có số chứng từ: giữ cách cũ (bỏ qua dòng giống hệt) + nhắc ghi số.
+- R-55 (Q-21) Ô chấm công sai còn trong dữ liệu cũ (ngày không tồn tại, số âm): **giữ nguyên cách tính**, app chỉ cảnh báo (*Kiểm tra dữ liệu* High, hộp chốt kỳ), người dùng tự sửa.
+- R-56 (Q-22) Khi lập phụ lục có ngày hiệu lực giữa tháng, người lập chọn **cách áp dụng trong tháng hiệu lực**: *cả tháng theo mức mới* hoặc *từ ngày hiệu lực* (chia theo công trước / từ ngày hiệu lực; cùng mã lương; BH theo phụ lục đang hiệu lực). Để trống = cả tháng. Đã triển khai 2.0-α11 (engine 1.5.0, `PAYROLL_FORMULAS.md` §4a).
+- R-57 (Q-04 / Q-23 / Q-25, chủ sở hữu xác nhận 11/10/2026) **BH khi đi làm ít ngày** theo danh mục + công thức hiện có: công ty khai *Ngưỡng truy thu BH (công)* cho từng mã lương (để trống = không áp dụng, đóng đủ). Tháng có Tổng công < ngưỡng → không trừ BH NLĐ, **truy thu phần công ty đóng** vào lương (cột *Truy thu BH*, ghi chú 'Chưa đủ ngưỡng'). Không đổi công thức (test U-ENG-07).
+- R-60 (Q-26, chủ sở hữu chọn **phương án A** 11/10/2026) **BH tháng nghỉ việc**: người nghỉ việc trong tháng vẫn lên bảng lương + bảng BHXH của tháng đó (hợp đồng còn hiệu lực ≥ 1 ngày trong kỳ), kể cả 0 công; áp dụng **đúng R-57** như mọi người khác — dưới ngưỡng: không trừ BH NLĐ, truy thu phần công ty đóng. Khoản trừ vượt thu nhập → thực lĩnh 0 + cảnh báo số còn thiếu; **app không chuyển sang kỳ sau, kế toán tự thu ngoài app**. Không đổi công thức (test I-22). Lưu ý đã báo chủ sở hữu: theo khoản 5 Điều 33 Luật BHXH 2024 (nguồn thứ cấp), không làm việc và không hưởng lương ≥ 14 ngày làm việc trong tháng thì cả hai bên không đóng — chủ sở hữu vẫn chọn giữ quy tắc hiện có.
+- R-61 (2.0-α15) **Biến động nhân sự**: tăng lương, giảm lương, điều chuyển, đổi chức vụ, đổi mức đóng BH = **lập phụ lục mới** (không sửa phụ lục cũ — Q-15). *Loại biến động* / *Số quyết định* trên phụ lục chỉ để theo dõi, **không dùng trong công thức**; để trống thì báo cáo tự nhận biết bằng cách so với phụ lục liền trước. Tăng mới = hợp đồng đầu tiên vào làm trong kỳ; nghỉ việc = hợp đồng chấm dứt mà không có hợp đồng nào bắt đầu sau đó.
+- R-62 (2.0-α15) **Cập nhật hồ sơ lưu theo hiệu lực** (Thông tin cá nhân, Tài khoản nhận lương): *Thông tin mới* = thêm bản mới, 'Hiệu lực từ' phải sau bản đang có, bản cũ giữ làm lịch sử; *Sửa lỗi nhập sai* = ghi đè bản đó (nhật ký giữ giá trị cũ). Mọi lần sửa hiện trước danh sách thay đổi cũ → mới.
+- R-63 (2.0-α15) Khi tính lương: **có công sau ngày chấm dứt hợp đồng** trong kỳ → cảnh báo (nêu ngày); app vẫn tính đúng công đã nhập, không tự xóa / trừ (test I-23).
+- R-64 (2.0-α17, Q-27 = phương án A) **Đối chiếu đơn nghỉ phép / ốm với chấm công** khi tính lương — CHỈ cảnh báo, lương vẫn tính theo chấm công (không tự thêm / bớt công):
+  - đơn phép có lương (hằng năm / việc riêng có lương) **đã duyệt** mà ngày đó chưa chấm PN (trừ Chủ nhật, ngày có CL) hoặc vẫn chấm công thường;
+  - đơn nghỉ không hưởng lương / nghỉ ốm **đã duyệt** mà ngày đó vẫn có công thường hoặc PN;
+  - chấm PN vào ngày không có đơn phép có lương đã duyệt — chỉ với người **có** theo dõi đơn nghỉ trong app (chưa nhập đơn nào thì không cảnh báo);
+  - đơn trong kỳ còn *Chờ duyệt*. Đơn *Từ chối* bỏ qua. Không tính dòng TC / CC. (test U-LV-01…05)
+- R-65 (2.0-α18) **Báo cáo bảo hiểm** chỉ cộng / so sánh bảng BHXH engine đã tính của kỳ (kỳ đã chốt lấy bảng đã chốt); phần NLĐ = phần đã trừ lương (người chưa đủ ngưỡng: 0, có dòng truy thu riêng — R-57). Báo cáo nội bộ, không thay mẫu D02-LT / C12-TS. **Phiếu lương** = đúng dòng bảng lương của kỳ (không tính khác). Sổ lao động: mục bắt buộc thiếu → liệt kê, không tự điền.
+- R-66 (2.0-α19, Q-28 = "làm như công cụ và biểu mẫu cũng như công cụ") **Phân bổ khối lượng như công cụ "Phân bổ khối lượng tính lương" của HAK**: phiếu cân / bơm dăm ghi *Mã phòng ban* (tổ) + *NV vắng* → chia đều cho người của tổ đang làm việc ngày cân (tổ lấy theo phụ lục lương hiệu lực ngày đó; hợp đồng đã vào làm, chưa chấm dứt), trừ người vắng (từ cuối họ tên không dấu hoặc Mã NV; trùng tên cuối → cả hai coi là vắng + cảnh báo). Phiếu ghi *Mã NV* giữ nguyên. Không chia được → "chưa phân bổ" + cảnh báo. Thêm 2 cách bù của công cụ: **theo ngày bậc thang (Đại Hiệp)** và **theo bình quân tổ** (công thức: PAYROLL_FORMULAS). 2 cách bù cũ giữ nguyên số. Kỳ đã chốt không đổi. Biểu mẫu: file mẫu phiếu cân / bơm dăm và file kết quả nhiều sheet theo đúng bố cục công cụ (ExcelJS). Engine 1.7.0.
+- R-67 (2.0-α20) **Đọc ảnh / PDF chấm công (OCR)** chỉ tạo **bảng xem trước** trong app — không tự ghi dữ liệu. Người dùng xem / sửa, chọn nhân viên cho từng dòng, chọn kỳ, rồi ghi qua **màn hình xem trước nhập liệu** (cùng kiểm tra như nhập Excel: kỳ đã chốt bị chặn, bổ sung / thay thế, nhật ký). Dòng chưa có nhân viên hoặc còn ô không đọc được ("?") **không được ghi**. Loại dòng: Công → chấm công BT, Tăng ca → TC, Cơm → Suất cơm (1 dòng / ngày có suất). OCR chạy offline; ảnh không gửi ra mạng, không lưu vào dữ liệu. App **không tự sửa** số đọc được (chỉ tô màu nghi ngờ / lệch tổng).
+- R-68 (2.0-α21, chủ sở hữu duyệt 11/10/2026: "HAK và CNHAK và HAKQN quy chế lương như nhau") **Quy chế lương HAK Group 2026** — 10 quy tắc C1…C10 (PAYROLL_FORMULAS 3a), lấy từ bảng lương 4 đơn vị (Power Query + DAX) và kiểm bằng chính các bảng đó: HAK ĐN 11/2025 61/61, Đại Hiệp 8/2026 38/45 (lệch 2đ làm tròn), CNHAK 9/2026 42/44, HAKQN 7/2026 31/50 — phần lệch còn lại = thuế (Q-29). Phân bổ khối lượng (R-66): NV vắng so **có dấu** trước ("Tường" ≠ "Tưởng" như Power Query), không ai khớp mới so không dấu. Mặc định cho mọi kỳ **chưa chốt**; kỳ đã chốt giữ nguyên số, bản chốt ghi quy chế đã dùng; đổi quy chế cần quyền *Sửa danh mục* và ghi nhật ký; "Cách tính cũ (engine 1.7)" giữ để đối chiếu. Đối chiếu bản chốt với dữ liệu hiện tại dùng đúng quy chế lúc chốt. Danh mục mã lương thêm cột *Số ngày giảm trừ* (TG3 4, TG4 2, CN2 4 — như danh mục CNHAK; Excel "Ngày giảm trừ" nhập được).
+- R-69 (2.0-α22, chủ sở hữu duyệt 11/10/2026) **Quy ước đọc bảng chấm công tay** (chỉ áp dụng khi người dùng chọn *Cách đọc ô*; kết quả vẫn qua bảng xem trước như R-67):
+  - dấu **x = 1 công, xx = 2, xxx = 3**; ô ghi giờ = **số giờ / 8**;
+  - lịch ca: **1 ca = 1 công, "1+2" = 2 công**; X = nghỉ.
+  - Bảng mỗi người 1 cột: tên người lấy từ tiêu đề cột, app chỉ gợi ý nhân viên, người dùng xác nhận.
+  - App **không tự đổi** số đếm được; ô không chắc tô vàng.
+- R-70 (Q-29, chủ sở hữu trả lời 12/10/2026) **Thuế TNCN trừ vào lương hằng tháng** theo mã thuế TNCN trên phụ lục lương của từng người:
+  - mã *Lũy tiến* (TNCN2 / LT…) → biểu lũy tiến sau giảm trừ;
+  - mã *Khấu trừ vãng lai* (TNCN1 / VL…) → % trên tổng thu nhập;
+  - người **không trừ** → chọn mã *Không tính thuế / Miễn thuế* (TNCN0 / MT00…), thuế = 0. App không tự đổi mã.
+  - Bảng lương Excel CNHAK 9/2026 và HAKQN 7/2026 không trừ thuế dù mã là TNCN2 → khi dùng app, kế toán đổi mã những người cần miễn sang TNCN0.
+- R-71 (Q-31, chủ sở hữu duyệt 12/10/2026: "thống nhất") **Lương sản lượng = tổng tấn cả tháng × đơn giá, làm tròn 1 lần, cho mọi đơn vị** (HAK, CNHAK, HAKQN, Đại Hiệp). Không làm tròn theo từng ngày. So với file Excel cũ của Đại Hiệp (làm tròn theo ngày), lương sản lượng có thể lệch tối đa vài đồng/người — chấp nhận.
+- R-72 (chủ sở hữu 12/10/2026: "ông Đức xin nghỉ không lương nên phải có giải pháp với người nghỉ không lương"; duyệt "mọi loại nghỉ", "chưa biết ngày về") **Người nghỉ (có đơn) không phải người nghỉ việc**:
+  - Nghỉ không lương / nghỉ phép / nghỉ ốm ghi bằng **đơn nghỉ** trong hồ sơ hợp đồng. **Không** ghi ngày chấm dứt hợp đồng, nhân viên vẫn *Đang làm việc*.
+  - "Đến ngày" để trống = chưa biết ngày đi làm lại (nghỉ đến khi có thông báo). Khi người đó đi làm lại thì nhập "Đến ngày".
+  - **Chia sản lượng / bơm dăm theo tổ:** người có đơn nghỉ **đã duyệt** (mọi loại) phủ ngày cân **tự không nhận** phiếu ngày đó, không cần ghi NV vắng. Phiếu vẫn ghi vắng người đó thì không cảnh báo. Đơn *Chờ duyệt* / *Từ chối* không loại.
+  - Lương vẫn theo chấm công. BH theo ngưỡng công (R-57). Phép có lương vẫn trả theo C3.
+  - Đơn nghỉ phủ kỳ đã chốt: sửa = hồi tố (chỉ Admin). Bản chốt lưu kèm đơn nghỉ phủ kỳ.
+  - Excel NL_NHANSU dùng chung cột "Ngày nghỉ/thay đổi" cho cả nghỉ việc lẫn nghỉ không lương. Bộ chuyển đổi coi là nghỉ việc; trường hợp nghỉ không lương phải sửa tay như ông Đức (CNHAK 9/2026).
+- R-73 (chủ sở hữu 12/10/2026: "1. nếu công > 0 thì sẽ chia sản lượng … không quan tâm là 0,5 hay 0,3; 2. nếu công = 0 thì cảnh báo và coi như nghỉ nguyên ngày và không được chia sản lượng"; "chia theo danh sách nghỉ") **Chia sản lượng / bơm dăm theo chấm công**:
+  - Người của tổ có **công > 0** ngày cân ở hình thức công đi làm (mọi hình thức trừ PN phép, CL lễ, CC tiền cơm) → được chia **đều** (0,3 hay 1 công như nhau).
+  - **Công = 0 / trống** → không chia, có cảnh báo (coi như nghỉ nguyên ngày).
+  - Vẫn trừ người ghi trong **NV vắng** trên phiếu (danh sách nghỉ) và người có đơn nghỉ đã duyệt (R-72).
+  - Ngày mà **cả tổ chưa có chấm công** (chấm công chưa nhập) → chia theo NV vắng như trước, có cảnh báo "chưa có chấm công".
+  - So tên vắng trên cả người đã loại: có dấu trước ("Tưởng" ≠ "Tường").
+  - So với Excel cũ (Excel chỉ dựa NV vắng): Đại Hiệp 8/2026 không đổi; CNHAK 9/2026, HAKQN 7/2026, HAK ĐN 11/2025 có vài người nhận phiếu ngày công trống nên số đổi (tối đa −341.953đ / người — HAKQN).
+
+## 2. Câu hỏi mở — cần chủ sở hữu / kế toán xác nhận
+Phase 1 **giữ nguyên** hành vi hiện tại cho đến khi có xác nhận.
+
+| ID | Câu hỏi | Hiện tại |
+|---|---|---|
+| Q-01 | Phụ lục lương có hiệu lực **giữa tháng** (VD 15/09): tính cả tháng theo mức mới hay chia theo ngày công trước/sau? | ✅ **Đã trả lời (11/10/2026, cùng Q-22): chọn trên phụ lục — cả tháng hoặc từ ngày hiệu lực** → R-56 |
+| Q-02 | "Tổng công" có **gồm công tăng ca** không? (ảnh hưởng ngưỡng BH, phụ cấp theo công, hỗ trợ cơ giới) | Có (giữ như bản Google gốc) |
+| Q-03 | Tiền cơm: loại trừ **toàn bộ** khỏi thu nhập chịu thuế hay chỉ đến mức quy định? | Toàn bộ |
+| Q-04 | Không đủ ngưỡng công đóng BH: truy thu **toàn bộ phần công ty đóng** từ NLĐ có đúng quy chế? | ✅ **Đã trả lời (11/10/2026): giữ công thức hiện có** — ngưỡng công khai ở cột *Ngưỡng truy thu BH (công)* của Danh mục Mã lương (để trống = đóng đủ); dưới ngưỡng: không trừ BH NLĐ, truy thu phần công ty đóng → R-57 |
+| Q-05 | Khoản trừ vượt thu nhập (thực lĩnh âm): chuyển sang kỳ sau, thu hồi tiền mặt hay xóa? | Để 0 + cảnh báo |
+| Q-06 | Có áp **mức trần** lương đóng BHXH/BHTN không? | Không |
+| Q-07 | Không khai Lương cơ bản thì đóng BH theo Lương thỏa thuận — với CN1/CN2/SP (LTT là đơn giá/công) có đúng? | Có — app cảnh báo nếu lương đóng BH < 1.000đ |
+| Q-08 | Một phiếu cân nhiều người: chia theo tỷ lệ / khối lượng / số công / hệ số / tổ? | Người dùng tự nhập phần KL từng người |
+| Q-09 | Ngày công tác có nhãn (QC…) trên dòng CL/PN có được phụ cấp công tác? | Có (mọi dòng có nhãn) |
+| Q-10 | Khấu trừ vãng lai 10%: áp dụng mọi khoản hay chỉ khi mỗi lần chi đạt ngưỡng theo quy định hiện hành? | Mọi khoản |
+| Q-11 | Bản Google Apps Script (GAS-01): đổi quyền truy cập web app sang chỉ người trong tổ chức / danh sách email? | Đang mở cho mọi người có link |
+| Q-12 | Chấm công: 2 dòng cùng NV + cùng hình thức + **cùng ngày** (VD 0,5 + 0,5): là 2 buổi hợp lệ (cộng) hay nhập trùng (lấy 1)? | ✅ **Đã trả lời (10/10/2026): nhập trùng.** Cùng số công → tính 1 lần; khác số công → chặn để người dùng sửa |
+| Q-13 | Nhập Excel cập nhật dòng đã có: mặc định **bổ sung** (ô trống giữ dữ liệu) có phù hợp quy trình? Có cần quyền riêng cho chế độ *ghi đè*? | ✅ **Đã trả lời (10/10/2026): cho người dùng lựa chọn khi trùng — Bổ sung hoặc Ghi đè.** Màn hình xem trước báo số dòng trùng và hiện 2 lựa chọn; mặc định Bổ sung; ai có quyền nhập Excel đều chọn được |
+| Q-14 | Thay đổi **hồi tố** chạm kỳ đã chốt: chỉ cảnh báo (hiện tại) hay **chặn** và bắt buộc mở chốt? Ai được phép? | ✅ **Đã trả lời: chỉ Admin được phép** — triển khai cùng đăng nhập/phân quyền (PR riêng) |
+| Q-15 | Khi đã chốt, có cấm **sửa trực tiếp phụ lục cũ** và bắt buộc lập phụ lục mới không? | ✅ **Đã trả lời: cấm sửa, phải thêm phụ lục mới.** Phụ lục đã dùng tính lương kỳ đã chốt → không ai sửa/xóa được (kể cả Admin), không đổi được Số HĐLĐ, nhập Excel không cập nhật được — R-49 |
+| Q-16 | Định dạng "người thực hiện" cho tới khi có đăng nhập: tên tự khai + tài khoản Windows có đủ cho kiểm toán nội bộ? | ✅ **Đã trả lời: cần đăng nhập + phân quyền** — triển khai PR riêng |
+| Q-17 | Tiền lương **làm thêm giờ**: hệ số tăng ca đang khai báo (VD 0,5) và việc công tăng ca được tính trong *Tổng công* có bảo đảm mức tối thiểu của Bộ luật Lao động 2019 Điều 98 (≥ 150% ngày thường, 200% ngày nghỉ hằng tuần, 300% lễ/Tết) không? | Giữ nguyên công thức bảng lương gốc — cần kế toán/pháp chế đối chiếu trước khi ban hành Quy chế |
+| Q-18 | Chấm công **theo ca**: 1 nhân viên có thể làm **2 ca trong cùng 1 ngày** (VD ca ngày + ca đêm cùng hình thức BT) không? Nếu có, cần thêm cột *Ca* vào khóa chấm công (Kỳ + Mã NV + Hình thức + Ca). Dòng tăng ca (TC) nhập **công** hay **giờ**? | ✅ **Đã trả lời (11/10/2026): được làm 2 ca/ngày; phân biệt bằng mã chấm công (Hình thức công), KHÔNG thêm cột Ca** → R-52 |
+| Q-19 | 1 nhân viên làm cho **2 phòng ban trong cùng tháng** (điều chuyển giữa tháng): chi phí lương chia theo công từng phòng hay ghi toàn bộ cho phòng ở phụ lục cuối? | ✅ **Đã trả lời: làm ở phòng nào tính chi phí phòng đó** (chia theo công) → R-53 (2.0-α12) |
+| Q-20 | Tạm ứng / thưởng **không có Số chứng từ**: 2 dòng cùng NV, cùng ngày, cùng số tiền là 2 lần chi hợp lệ hay nhập trùng? Có bắt buộc cột *Số chứng từ* để chống trùng không? | ✅ **Đã trả lời: theo đề xuất — thêm Số chứng từ** → R-54 (2.0-α10) |
+| Q-21 | Ô chấm công **sai đã có sẵn** trong dữ liệu (ngày 31 của tháng 30 ngày, số âm kiểu số): bảng lương có nên **bỏ qua** các ô này không? (Hiện engine vẫn cộng ngày không tồn tại.) | ✅ **Đã trả lời: giữ nguyên, người dùng tự sửa theo cảnh báo** → R-55 |
+| Q-22 | Phụ lục tăng lương có hiệu lực **giữa tháng** (VD 16/09): tính cả tháng theo mức mới (hiện tại), mức cũ, hay **chia theo số công trước/sau** ngày hiệu lực? | ✅ **Đã trả lời: khi lập phụ lục chọn cách áp dụng trong tháng hiệu lực — cả tháng hoặc từ ngày hiệu lực** → R-56 (2.0-α11) |
+| Q-23 | BHXH khi **vào làm / nghỉ giữa tháng** hoặc ít công: danh mục mặc định chưa đặt *Ngưỡng truy thu BH (công)* nên 2 công vẫn trừ đủ BH. Kế toán xác nhận ngưỡng áp dụng (theo quy định: không làm việc và không hưởng lương từ 14 ngày làm việc trở lên trong tháng thì không đóng) cho từng mã lương. | ✅ **Đã trả lời (11/10/2026): giữ công thức hiện có** — ngưỡng công khai ở cột *Ngưỡng truy thu BH (công)* của Danh mục Mã lương (để trống = đóng đủ); dưới ngưỡng: không trừ BH NLĐ, truy thu phần công ty đóng → R-57 |
+| Q-24 | **Bảo mật lương:** Trưởng bộ phận (không có quyền xem bảng lương) có được thấy lương thỏa thuận / lương cơ bản của nhân viên ở hồ sơ không? | ✅ **Đã trả lời (11/10/2026): ẩn theo đề xuất** → R-51 |
+| Q-25 | **BH khi đi làm ít ngày (tiếp Q-23):** (a) Ngưỡng công cho từng mã lương là bao nhiêu (theo quy định: nghỉ không lương ≥ 14 ngày làm việc trong tháng thì không đóng — VD TG1 công chuẩn 26 → ngưỡng 13 công)? (b) Khi dưới ngưỡng: **không đóng BH cả 2 bên** (theo quy định) hay **giữ cách hiện tại** (truy thu phần công ty đóng vào lương NLĐ)? Kế toán xác nhận | ✅ **Đã trả lời (11/10/2026): giữ công thức hiện có** — ngưỡng công khai ở cột *Ngưỡng truy thu BH (công)* của Danh mục Mã lương (để trống = đóng đủ); dưới ngưỡng: không trừ BH NLĐ, truy thu phần công ty đóng → R-57 |
+| Q-26 | **BH tháng nghỉ việc:** người nghỉ trong tháng, ít / 0 công — (A) giữ R-57 (truy thu phần công ty, phần thiếu kế toán tự xử lý); (B) không tính BH, báo giảm; (C) tính đủ, phần thiếu ghi công nợ | ✅ **Đã trả lời (11/10/2026): phương án A** — giữ công thức hiện có → R-60 |
+| Q-27 | **Đơn nghỉ phép / ốm không tự vào chấm công:** (A) chỉ cảnh báo khi lệch; (B) tạo sẵn dòng PN từ đơn đã duyệt | ✅ **Đã trả lời (11/10/2026): phương án A** → R-64 |
+| Q-28 | **Phân bổ sản lượng khác công cụ HAK** (chia theo tổ + NV vắng; bù bậc thang Đại Hiệp; bù bình quân tổ; biểu mẫu) | ✅ **Đã trả lời (11/10/2026): "làm như công cụ và biểu mẫu cũng như công cụ"** → R-66 |
+| Q-29 | **Thuế TNCN có trừ vào lương hằng tháng không?** Bảng lương CNHAK 9/2026 tính thuế (RP_THUETNCN) nhưng cột *Khấu trừ thuế TNCN* trên RP_THBL để trống; bảng HAKQN 7/2026 không tính thuế; bảng Đại Hiệp 8/2026 **có trừ**; giảm trừ gia cảnh HAKQN / Đại Hiệp / HAK vẫn 11 tr / 4,4 tr (mức trước 2026). App vẫn **trừ** (như trước). | ✅ **Đã trả lời (12/10/2026): "có trừ thuế TNCN, trong phần mềm khi chọn mã TNCN sẽ có miễn thuế nếu muốn kg trừ"** → R-70. Giảm trừ gia cảnh / biểu thuế 2026 trong danh mục từng đơn vị: chưa trả lời |
+| Q-31 | **Làm tròn lương sản lượng** (đối chiếu 12/10/2026, dữ liệu thật chỉ trên máy kiểm thử): app = tổng tấn cả tháng × đơn giá, làm tròn 1 lần — khớp **CNHAK 14/14, HAKQN 14/14, HAK ĐN 16/16** người có sản lượng. Excel **Đại Hiệp** làm tròn **từng ngày** rồi cộng (khớp 14/14 theo cách đó, 7/14 theo cách app; lệch tối đa 2đ/người). | ✅ **Đã trả lời (12/10/2026): "duyệt theo ý bạn", "thống nhất"** → R-71: giữ cách app cho mọi đơn vị |
+| Q-30 | (đóng — R-68) "Ngày giảm trừ" của mã lương / công chuẩn TG3, TG4, CN2 | ✅ 11/10/2026: theo danh mục CNHAK (số ngày − ngày giảm trừ), áp dụng cho cả nhóm |

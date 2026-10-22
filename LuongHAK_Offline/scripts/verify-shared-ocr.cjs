@@ -1,0 +1,12 @@
+'use strict';
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const app = path.resolve(__dirname, '..');
+const lock = JSON.parse(fs.readFileSync(path.join(app, 'shared-ocr.lock.json'), 'utf8'));
+const text = file => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+for (const entry of lock.modules || [lock]) {
+const runtime = text(path.join(app, entry.runtimePath));
+const digest = crypto.createHash('sha256').update(runtime).digest('hex');
+if (digest !== entry.normalizedSha256) throw Error('Shared OCR runtime differs from pinned source checksum');
+if (process.argv[2] && runtime !== text(path.resolve(process.argv[2], entry.upstreamPath))) throw Error('Shared OCR runtime differs from upstream checkout');
+console.log('PASS HAK_OCR_ENGINE parity at ' + lock.commit + ' (LF-normalized SHA256 ' + digest + ')');
+}
