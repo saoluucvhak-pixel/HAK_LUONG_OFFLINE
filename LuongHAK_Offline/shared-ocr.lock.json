@@ -1,6 +1,6 @@
 {
   "repository": "saoluucvhak-pixel/HAK_OCR_ENGINE",
-  "commit": "577851d2c913e0f632fa9b2e84ff1587445abd6d",
+  "commit": "4ee3181603a3886fcb7583f02f2152b245d79dd9",
   "upstreamPath": "js/core/ocr-learning/attendance-validation.js",
   "runtimePath": "core/ocr-learning/rules.js",
   "normalizedSha256": "442b7858eea6eb6915d4a1fb3bbc649df4f5769000bc92a5f633b93e0569a9a2",
@@ -20,12 +20,12 @@
     {
       "upstreamPath": "js/main/ocr-service.js",
       "runtimePath": "main/ocr-service.js",
-      "normalizedSha256": "6ce013ad875b300677fc0abdc72bec6f09ea2624adf1ca5de9401ffbd38c9207"
+      "normalizedSha256": "c0eef963d4d2fc48042cb2d84a9a803263759573b03bf781345498d30190ba10"
     },
     {
       "upstreamPath": "js/core/timesheet-ocr.js",
       "runtimePath": "core/timesheet-ocr.js",
-      "normalizedSha256": "1a4b2b74ca7adc8d030fca2b69fa66084d155dbf5cb7e07cba69f3d3b79e5800"
+      "normalizedSha256": "cec8f8d8a4790271feb3b40e81585aaf9de7113ef8a54def195c04f383a169ee"
     },
     {
       "upstreamPath": "js/ocr/models/mnist-cnn.json",
@@ -51,6 +51,11 @@
       "upstreamPath": "js/core/page-rectify.js",
       "runtimePath": "core/page-rectify.js",
       "normalizedSha256": "fdce938a12be1caabe013bd00c76de3f29180e9bbab36ce383f7cbe4656dd6b4"
+    },
+    {
+      "upstreamPath": "js/main/umi-ocr.js",
+      "runtimePath": "main/umi-ocr.js",
+      "normalizedSha256": "1162b54f177f1cea0a94693a760635eb222fcacc866a6396925722fbf74440d5"
     }
   ]
 }

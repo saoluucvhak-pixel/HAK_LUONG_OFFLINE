@@ -4245,7 +4245,7 @@
             var c = L.src.cells && L.src.cells[d], candidate = c && c.handwriting;
             var raw = String(L.orig && L.orig[d] != null ? L.orig[d] : L.vals[d]);
             var entry = { row: "row-" + (li + 1), day: d, expected: null, read: raw, aligned: null,
-              needsReview: raw === "?" || ocrNum(raw) > 3 || !!(c && (c.conf < 60 || c.unsure || c.src === "nét")) || !!(candidate && (candidate.offered || candidate.status === "NEEDS_REVIEW" || candidate.status === "UNSUPPORTED")) };
+              needsReview: raw === "?" || ocrNum(raw) > 3 || !!(c && (c.conf < 60 || c.unsure || c.src === "nét")) || !!(candidate && (candidate.offered || candidate.status === "NEEDS_REVIEW" || candidate.status === "UNSUPPORTED")) || !!(c && c.secondOpinion && c.secondOpinion.offered) };
             if (candidate && candidate.status === "CANDIDATE" && (!p.mode || p.mode === "so")) entry.suggestion = candidate.text;
             cells.push(entry);
           }); });
@@ -4259,7 +4259,9 @@
       if (!OCRS.reading) bar.appendChild(btn("Xóa danh sách", "ghost", function () { if (confirm("Xóa các trang đã đọc khỏi màn hình này? (Dữ liệu đã ghi vào Chấm công không bị ảnh hưởng)")) { OCRS.pages = []; OCRS.more = []; OCRS.sel = 0; render(); } }));
     }
     bar.appendChild(h("span", { class: "sp" }));
-    bar.appendChild(btn("Kiểm tra OCR", "ghost", function () { window.hakOcr.selfTest().then(function (r) { alert(r.ok ? "OCR hoạt động — đọc thử được \"" + r.text + "\" trong " + r.ms + " ms" : "OCR lỗi: " + r.error); }); }));
+    bar.appendChild(btn("Kiểm tra OCR", "ghost", function () { window.hakOcr.selfTest().then(function (r) {
+      var u = r.umi, umiTxt = !u ? "" : u.ok ? "\nUmi-OCR: đang chạy trên máy này — ô số được đọc thêm làm ý kiến thứ hai (" + (u.languages || []).join(", ") + ")" : u.disabled ? "\nUmi-OCR: đã tắt (HAK_UMI_OCR=0)" : "\nUmi-OCR: không thấy (tuỳ chọn — cài và chạy Umi-OCR để có ý kiến thứ hai cho ô số)";
+      alert((r.ok ? "OCR hoạt động — đọc thử được \"" + r.text + "\" trong " + r.ms + " ms" : "OCR lỗi: " + r.error) + umiTxt); }); }));
     card.appendChild(bar);
     card.appendChild(h("div", { class: "hint", text: "Đọc được: bảng chấm công / chấm cơm có KẺ Ô — dòng = người, cột = ngày 1…31 (có thể có Tổng công, Tổng cơm, Công / Tăng ca), hoặc dòng = ngày, cột = Công / Cơm (Lịch làm) hay mỗi cột 1 người (bảng tay của tổ, có thể 2 khối ngày 1–15 và 16–31). Chọn Cách đọc ô: số công, dấu x (x = 1 công, xx = 2, xxx = 3; ô ghi giờ = giờ / 8) hoặc số ca (1 ca = 1 công, 1+2 = 2 công). Chữ in đọc tốt; chữ viết tay và ảnh chụp nhỏ / nghiêng đọc kém hơn — ô nghi ngờ tô vàng, ô không đọc được có dấu ?, dòng lệch tổng tô đỏ. Luôn xem lại trước khi ghi. Ảnh nên chụp thẳng, đủ sáng, bảng chiếm gần hết khung (hoặc quét PDF ≥ 200 dpi)." }));
     if (OCRS.busy) card.appendChild(h("div", { class: "ok", id: "ocr-status", text: (OCRS.pages[OCRS.sel] && OCRS.pages[OCRS.sel].status) || "Đang xử lý…" }));
@@ -4346,7 +4348,7 @@
       var pad = 6, x0 = Math.max(0, cell.x0 - pad), y0 = Math.max(0, cell.y0 - pad), cw = Math.min(pg.view.width, cell.x1 + pad) - x0, ch = Math.min(pg.view.height, cell.y1 + pad) - y0, sc0 = Math.min(6, 120 / Math.max(1, ch));
       zoom.width = Math.round(cw * sc0); zoom.height = Math.round(ch * sc0);
       var zx = zoom.getContext("2d"); zx.imageSmoothingEnabled = true; zx.drawImage(pg.view, x0, y0, cw, ch, 0, 0, zoom.width, zoom.height);
-      zcap.textContent = label + " · OCR: \"" + (cell.text || "") + "\" · tin cậy " + (cell.conf || 0) + (cell.handwriting && cell.handwriting.text ? " · gợi ý chữ tay: " + cell.handwriting.text + " (chưa xác nhận)" : "") + (cell.src === "nét" ? " · nhận theo nét (số 1 viết tay)" : "") + (cell.valSrc ? " · tính: " + cell.valSrc : "") + (cell.libStatus === "AUTO" ? " · thư viện mẫu tự nhận (" + Math.round(cell.libScore * 100) + "%)" + (cell.libFrom != null ? ", OCR đọc: " + cell.libFrom : "") : cell.libStatus === "SUG" ? " · thư viện gợi ý: " + cell.libLabel + " (" + Math.round(cell.libScore * 100) + "%)" : "") + (cell.unsure ? " · không chắc — xem lại" : "");
+      zcap.textContent = label + " · OCR: \"" + (cell.text || "") + "\" · tin cậy " + (cell.conf || 0) + (cell.handwriting && cell.handwriting.text ? " · gợi ý chữ tay: " + cell.handwriting.text + " (chưa xác nhận)" : "") + (cell.secondOpinion && cell.secondOpinion.status === "DISAGREE" ? " · Umi-OCR đọc KHÁC: " + cell.secondOpinion.text + " (xem lại)" : cell.secondOpinion && cell.secondOpinion.status === "AGREE" ? " · Umi-OCR đọc giống" : "") + (cell.src === "nét" ? " · nhận theo nét (số 1 viết tay)" : "") + (cell.valSrc ? " · tính: " + cell.valSrc : "") + (cell.libStatus === "AUTO" ? " · thư viện mẫu tự nhận (" + Math.round(cell.libScore * 100) + "%)" + (cell.libFrom != null ? ", OCR đọc: " + cell.libFrom : "") : cell.libStatus === "SUG" ? " · thư viện gợi ý: " + cell.libLabel + " (" + Math.round(cell.libScore * 100) + "%)" : "") + (cell.unsure ? " · không chắc — xem lại" : "");
     };
     var tw = h("div", { class: "tw ocrgrid" }), t = h("table"), hr = h("tr");
     ["Tên trên giấy", "Nhân viên", "Loại"].concat(pg.days.map(String), ["Tổng tính", "Tổng giấy"]).forEach(function (x) { hr.appendChild(h("th", { text: x })); });
@@ -4396,6 +4398,20 @@
           useCandidate.setAttribute("data-handwriting-candidate", candidate.text);
           useCandidate.setAttribute("aria-label", "Dùng gợi ý chữ tay " + candidate.text + " cho ngày " + d);
           contents.push(useCandidate);
+        }
+        // Umi-OCR (tuỳ chọn) đọc ô số KHÁC Tesseract → tô vàng, đưa vào "Ô cần kiểm tra tiếp theo", nút gợi ý (không tự thay)
+        var second = cell && cell.secondOpinion;
+        if ((!pg.mode || pg.mode === "so") && second && second.offered && second.status === "DISAGREE" && ocrNum(L.vals[d]) !== ocrNum(second.text)) {
+          inp.classList.add("low"); inp.title = "Tesseract đọc \"" + (cell.text || "") + "\", Umi-OCR đọc \"" + second.text + "\" — xem ảnh ô rồi chọn";
+          if (reviewInputs.indexOf(inp) < 0) reviewInputs.push(inp);
+          var useSecond = btn("⇄ " + second.text, "ghost", function () {
+            showCell(cell, (L.name || "Dòng " + (li + 1)) + " · ngày " + d);
+            inp.value = second.text; inp.dispatchEvent(new window.Event("change"));
+            useSecond.disabled = true; useSecond.textContent = "Đã chọn " + second.text;
+          }, "Umi-OCR (engine thứ hai, chạy trên máy này) đọc ô này là " + second.text + ", khác Tesseract. Đối chiếu ảnh ô trước khi chọn.");
+          useSecond.setAttribute("data-umi-candidate", second.text);
+          useSecond.setAttribute("aria-label", "Dùng kết quả Umi-OCR " + second.text + " cho ngày " + d);
+          contents.push(useSecond);
         }
         tr.appendChild(h("td", { class: "oc" }, contents));
       });
