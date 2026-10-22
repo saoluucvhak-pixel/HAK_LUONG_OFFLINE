@@ -59,6 +59,7 @@ jobs:
         run: node scripts/verify-packaged-handwriting.cjs
       - name: Upload installer EXE
         uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         with:
           name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
           path: LuongHAK_Offline/dist/*Setup*.exe
@@ -97,6 +98,7 @@ jobs:
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         with:
           name: HAK-LUONG-V10.4-Electron-E2E-${{ github.run_number }}
           path: |
@@ -138,6 +140,7 @@ jobs:
         env:
           VISUAL_OUT: ${{ github.workspace }}/visual-evidence/after-v104
       - uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         if: always()
         with:
           name: HAK-V10.3-V10.4-Visual-${{ github.run_number }}
@@ -186,6 +189,7 @@ jobs:
           path: hak-project-memory.jsonl
           key: hak-observer-v104-${{ github.sha }}
       - uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         if: always()
         with:
           name: HAK-Inherited-Quality-${{ github.run_number }}
@@ -220,10 +224,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
-          path: release
+          node-version: '22'
+      - name: Build verified release without Actions artifact dependency
+        shell: pwsh
+        run: |
+          Push-Location LuongHAK_Offline
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
+          npm run dist
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed' }
+          node scripts/verify-packaged-handwriting.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged OCR verification failed' }
+          Pop-Location
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item LuongHAK_Offline/dist/*Setup*.exe release/
       - name: Publish immutable versioned Windows prerelease
         shell: pwsh
         env:
