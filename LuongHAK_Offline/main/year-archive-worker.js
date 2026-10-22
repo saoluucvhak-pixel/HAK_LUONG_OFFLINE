@@ -1,4 +1,5 @@
 "use strict";
+/* global __filename */
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
 if(!isMainThread && workerData && workerData.yearJob){
  try {

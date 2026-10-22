@@ -1,3 +1,4 @@
+/* global document, innerWidth, innerHeight */
 // Real Electron screenshots and layout checks. Only isolated synthetic data is used.
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
