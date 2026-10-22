@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "luonghak_db_v1";
-  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate, HDD = C.hdld, LF = C.lf, CMP = C.company;
+  var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, ID = C.identity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate, HDD = C.hdld, LF = C.lf, CMP = C.company;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
 
   // ---------- Định nghĩa bảng ----------
@@ -387,6 +387,8 @@
     impBusy = false;
     mode = mode || "merge";
     var plans = replan(mode);
+    // 1 người 1 Mã NV: dòng gán CCCD của người khác (đã có, hoặc dòng khác trong file) → Xung đột (không ghi) — core/identity.js
+    plans.forEach(function (p) { ID.blockImportItems(db, p.table, p.items); });
     // Quyền theo từng bảng + chỉ Admin được ghi dữ liệu hồi tố (Q-14): dòng không đủ quyền → không ghi
     plans.forEach(function (p) {
       var perm = /^dm_/.test(p.table) ? "dm.edit" : (S[p.table] ? "input.edit" : "hr.edit"), okT = can(perm);
@@ -898,6 +900,7 @@
             if (n.error) { toast("⚠ " + c + ": " + n.error); inp.value = r[c] == null ? "" : r[c]; return; }
             var patch = {}; patch[c] = n.value;
             // Kỳ đã chốt, ô ngày sai, quyền, hồi tố (danh mục chồng lên kỳ đã chốt: chỉ Admin, cảnh báo + nhật ký) — repository kiểm tra
+            var idE = ID.checkWrite(db, key, r, patch); if (idE) { alert(idE); inp.value = r[c] == null ? "" : r[c]; return; } // 1 người 1 Mã NV (CCCD)
             var pE = REPO.plan("update", key, r, patch, { what: "sửa dòng này", checkDup: CT_KEY[key] });
             if (!pE.ok) { alert(pE.msg); inp.value = r[c] == null ? "" : r[c]; return; }
             var dc = isDay && key === "chamcong" ? VAL.dayCell(c, n.value, r["Kỳ"]) : null;
@@ -920,6 +923,7 @@
             lines.forEach(function (ln, li) {
               var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
               ln.split("\t").forEach(function (v, k) { var col = def.cols[start + k]; if (col && col !== def.kyCol) { var nc = VAL.normCell(col, v); if (nc.error || (key === "chamcong" && /^\d\d$/.test(col) && VAL.dayCell(col, nc.value, cand["Kỳ"]).error)) { bad++; return; } cand[col] = nc.value; } });
+              var cur0 = tgt == null ? null : db[key][tgt]; if (ID.checkWrite(db, key, cur0, cand)) { skip++; return; } // CCCD đã thuộc người khác: không ghi dòng này
               var pP = tgt == null ? REPO.plan("insert", key, null, cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] }) : REPO.plan("update", key, db[key][tgt], cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] });
               var rP = pP.ok ? REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }) : pP;
               if (!rP.ok) { skip++; return; }
@@ -1102,6 +1106,7 @@
         // Trùng khóa, Q-15, kỳ chốt / hồi tố, đổi Số HĐLĐ kéo theo phụ lục: repository kiểm tra HẾT rồi mới ghi (A3-01)
         var vals = isNew ? Object.assign({}, base || {}, d) : asNew ? Object.assign({}, row, d) : d;
         if (asNew) delete vals._id;
+        var idF = ID.checkWrite(db, key, isNew || asNew ? null : row, vals); if (idF) { alert(idF); return; } // 1 người 1 Mã NV (CCCD)
         var pF = REPO.plan(isNew || asNew ? "insert" : "update", key, isNew || asNew ? null : row, vals, { what: (isNew ? "thêm " : asNew ? "cập nhật thông tin mới — " : "sửa ") + cfg.ten, checkDup: true });
         if (!commit(pF, { confirm: true, action: isNew ? "Thêm hồ sơ" : asNew ? "Cập nhật hồ sơ (bản mới)" : "Sửa hồ sơ" })) return;
         save(); close(); toast(asNew ? "Đã thêm thông tin mới từ " + dispVal({ t: "date" }, d["Hiệu lực từ"]) + " — bản cũ giữ làm lịch sử" : "Đã lưu"); (onDone || render)();
@@ -2628,6 +2633,8 @@
     // → sản lượng, thưởng, tạm ứng bị tính 2 lần) — khớp đúng BLOCKER "sản lượng/chấm công bị cộng
     // trùng" của mục IV.2, dù mức integrity.js gán là High (ảnh hưởng tiền trực tiếp như Critical).
     var critIssues = INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN)/.test(i.msg); });
+    // 1 người 2 Mã NV (CCCD trùng giữa các nhân viên CÓ TRONG BẢNG LƯƠNG kỳ này) = trả lương 2 lần → chặn cứng như Mã NV trùng (core/identity.js)
+    ID.payrollDuplicates(db, HRM.staffForPayroll(db, st.nam, st.thang).list.map(function (x) { return x["Mã nhân viên"]; })).forEach(function (d) { critIssues.push({ level: "Critical", msg: d.msg }); });
     if (critIssues.length) {
       alert("⛔ KHÔNG THỂ CHỐT — có " + critIssues.length + " lỗi dữ liệu NGHIÊM TRỌNG cần sửa trước:\n" +
         critIssues.slice(0, 10).map(function (i) { return "• " + i.msg; }).join("\n") + (critIssues.length > 10 ? "\n…" : "") +
