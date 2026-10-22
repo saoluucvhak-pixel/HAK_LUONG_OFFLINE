@@ -4,6 +4,7 @@ const os = require("os");
 const { createStorage } = require("./main/storage");
 const { createExports } = require("./main/exports");
 const { createOcrService, sanitizeOcrItems } = require("./main/ocr-service");
+const { createUmiClient } = require("./main/umi-ocr");
 const pdfSvc = require("./main/pdf");
 const { createVault } = require("./main/documents");
 const fullBackup = require("./main/fullbackup");
@@ -45,7 +46,10 @@ const guard = createGuard(__dirname, {
 let yearBusy = false;
 let fbJob = null; // Full Backup đang chạy (worker)
 let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, restorer = null;
-const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname })); // nạp Tesseract khi dùng lần đầu
+// Umi-OCR (tuỳ chọn): người dùng tự cài và chạy Umi-OCR trên MÁY NÀY → ô số được đọc thêm làm ý kiến thứ hai (không thay kết quả Tesseract).
+// Tắt: HAK_UMI_OCR=0 · cổng khác: HAK_UMI_OCR=<cổng>. Umi không chạy → tự bỏ qua (ngắt mạch 30 giây).
+const umi = process.env.HAK_UMI_OCR === "0" ? null : createUmiClient({ port: /^\d+$/.test(process.env.HAK_UMI_OCR || "") ? +process.env.HAK_UMI_OCR : 1224 });
+const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname, secondOpinion: umi })); // nạp Tesseract khi dùng lần đầu
 const NO_SHELL = !!process.env.HAK_NO_SHELL; // kiểm thử tự động: không mở Explorer thật, chỉ ghi lại thao tác
 let lastShell = null;
 function shellDo(kind, f) { lastShell = { kind, name: path.basename(f) }; if (NO_SHELL) return; if (kind === "show") shell.showItemInFolder(f); else shell.openPath(f); }
@@ -291,7 +295,7 @@ function registerIpc() {
     if (!Array.isArray(items) || items.length > 5000) throw new Error("Lô OCR không hợp lệ");
     return ocrSvc().batch(sanitizeOcrItems(items)); // ô sai kích thước → kết quả rỗng ĐÚNG VỊ TRÍ (không làm lệch thứ tự)
   }));
-  ipcMain.handle("ocr-selftest", guarded("input.edit", async () => { try { return await ocrSvc().selfTest(); } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
+  ipcMain.handle("ocr-selftest", guarded("input.edit", async () => { try { const r = await ocrSvc().selfTest(); r.umi = umi ? await umi.probe() : { ok: false, disabled: true }; return r; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
   // Lịch sao lưu (α17) — cấu hình của máy này (settings.json)
   ipcMain.on("backup-schedule-get", (e) => { try { e.returnValue = Object.assign({ ok: true }, storage.getSchedule()); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
   ipcMain.on("backup-schedule-set", (e, o) => { try { e.returnValue = storage.setSchedule(o && typeof o === "object" ? { everyHours: o.everyHours, onClose: o.onClose, keepDaily: o.keepDaily } : {}); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
