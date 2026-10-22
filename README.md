@@ -22,7 +22,7 @@ npm run test:legacy
 npm run test:kpi
 ```
 
-App chính: `npm --prefix LuongHAK_Offline start` nếu host có script start, hoặc chạy Electron với thư mục `LuongHAK_Offline`. Đóng gói Windows: `npm --prefix LuongHAK_Offline run dist`. Hướng dẫn người dùng: [USER_GUIDE](docs/USER_GUIDE.md).
+Mở app bằng Electron đã cài trong dự án: `node LuongHAK_Offline/node_modules/electron/cli.js LuongHAK_Offline`. Đóng gói Windows: `npm --prefix LuongHAK_Offline run dist`. Hướng dẫn người dùng: [USER_GUIDE](docs/USER_GUIDE.md).
 
 ## Dữ liệu và giới hạn
 
