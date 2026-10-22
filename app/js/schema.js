@@ -39,7 +39,7 @@
 
   /** Tiêu đề các bảng KẾT QUẢ (cho Excel). */
   const OUT = {
-    BANGLUONG: ['Mã NV', 'Họ và tên', 'Phòng ban', 'Chức vụ', 'Lương thỏa thuận', 'Công chuẩn', 'Đơn giá lương TG', 'Công tính LTG', 'Lương thời gian', 'Lương phụ', 'Sản lượng (tấn)', 'Đơn giá SL', 'Lương sản lượng', 'Lương bù SL (nếu dưới ngưỡng)', 'Phương pháp bù SL', 'Số xe bơm dăm', 'Lương bơm dăm', 'Tổng công', 'Công Chủ nhật', 'Công tăng ca', 'Tiền tăng ca', 'Phụ cấp', 'Phụ cấp công tác', 'Lương hỗ trợ', 'Ngày cơm', 'Tiền cơm', 'Thưởng', 'Thu nhập khác', 'Tổng thu nhập (trước trừ)', 'BHXH/BHYT/BHTN trừ NLĐ', 'KPCĐ trừ NLĐ', 'Truy thu bảo hiểm', 'Thuế TNCN', 'Trừ khác', 'Tạm ứng', 'Thực lĩnh'],
+    BANGLUONG: ['Mã NV', 'Họ và tên', 'Phòng ban', 'Chức vụ', 'Lương thỏa thuận', 'Công chuẩn', 'Đơn giá lương TG', 'Công tính LTG', 'Lương thời gian', 'Lương phụ', 'Sản lượng (tấn)', 'Đơn giá SL', 'Lương sản lượng', 'Lương bù SL (nếu dưới ngưỡng)', 'Phương pháp bù SL', 'Số xe bơm dăm', 'Lương bơm dăm', 'Tổng công', 'Công Chủ nhật', 'Công tăng ca', 'Tiền tăng ca', 'Phụ cấp', 'Phụ cấp công tác', 'Lương hỗ trợ', 'Ngày cơm', 'Tiền cơm', 'Thưởng', 'Thu nhập khác', 'Tổng thu nhập (trước trừ)', 'BHXH/BHYT/BHTN trừ NLĐ', 'KPCĐ trừ NLĐ', 'Truy thu bảo hiểm', 'Thuế TNCN', 'Trừ khác', 'Tạm ứng', 'Thực lĩnh', 'Còn thiếu (thực lĩnh âm)'],
     BHXH: ['Mã NV', 'Họ và tên', 'Phòng ban', 'Lương đóng BHXH', 'CTY.BHXH', 'CTY.BHYT', 'CTY.BHTN', 'CTY.KPCĐ', 'Cộng BH công ty đóng', 'NLĐ.BHXH', 'NLĐ.BHYT', 'NLĐ.BHTN', 'NLĐ.KPCĐ', 'Cộng BH NLĐ đóng', 'Truy thu bảo hiểm', 'Ghi chú ngưỡng công'],
     TNCN: ['Mã NV', 'Họ và tên', 'Thu nhập chịu thuế', 'Giảm trừ bản thân', 'Số người phụ thuộc', 'Giảm trừ người phụ thuộc', 'Thu nhập tính thuế', 'Thuế TNCN phải nộp']
   };

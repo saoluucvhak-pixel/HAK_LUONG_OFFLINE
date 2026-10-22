@@ -17,6 +17,7 @@
   const isoOf = (v) => (typeof v === 'string' && /^\d{4}-\d\d-\d\d/.test(v) ? v.slice(0, 10) : '');
   const inMonth = (v, nam, thang) => { const s = isoOf(v); return !!s && Number(s.slice(0, 4)) === Number(nam) && Number(s.slice(5, 7)) === Number(thang); };
   const dayOf = (v) => Number(isoOf(v).slice(8, 10));
+  const soNgayThang = (nam, thang) => new Date(Number(nam), Number(thang), 0).getDate();
 
   /** Số ô chấm công có thể là số thuần (1, 0.5) hoặc số kèm NHÃN chữ ("1QC", "0.5CL") — tách phần số và phần nhãn. */
   function tachSoCongVaNhan(giaTri) {
@@ -57,6 +58,7 @@
   /* ---------- Chấm công ---------- */
   function tongHopChamCong(list, nam, thang) {
     const kq = {};
+    const soNgay = soNgayThang(nam, thang);   // ô ngày không có trong tháng (vd 31/06) bỏ qua
     const rong = () => ({ tongCong: 0, congChuNhat: 0, congTangCa: 0, congLe: 0, congPhep: 0, congCom: 0, congDiChuyen: 0, congTrungChuyen: 0, congTheoHinhThuc: {}, nhanTheoNgay: {} });
     (list || []).forEach((row) => {
       const maNV = row['Mã NV']; if (!maNV || !inMonth(row['Ngày tính công'], nam, thang)) return;
@@ -64,7 +66,7 @@
       const hinhThuc = String(row['Hình thức công'] || 'BT').trim().toUpperCase();
       const laCong = hinhThuc !== 'CC', laTangCa = /TC/i.test(hinhThuc);
       let tong = 0;
-      for (let ngay = 1; ngay <= 31; ngay++) {
+      for (let ngay = 1; ngay <= soNgay; ngay++) {
         const ten = pad2(ngay), { soCong, nhan } = tachSoCongVaNhan(row[ten]);
         if (soCong === 0 && !nhan) continue;
         tong += soCong;
@@ -84,12 +86,12 @@
   }
   /** Công CHÍNH (không gồm dòng tăng ca) theo từng ngày — cho phương án bù sản lượng theo ngày. */
   function layCongChinhTheoNgay(list, nam, thang) {
-    const kq = {};
+    const kq = {}, soNgay = soNgayThang(nam, thang);
     (list || []).forEach((row) => {
       const maNV = row['Mã NV']; if (!maNV || !inMonth(row['Ngày tính công'], nam, thang)) return;
       if (/TC/i.test(String(row['Hình thức công'] || 'BT').trim())) return;
       if (!kq[maNV]) kq[maNV] = {};
-      for (let ngay = 1; ngay <= 31; ngay++) { const ten = pad2(ngay), { soCong } = tachSoCongVaNhan(row[ten]); if (soCong === 0) continue; kq[maNV][ten] = (kq[maNV][ten] || 0) + soCong; }
+      for (let ngay = 1; ngay <= soNgay; ngay++) { const ten = pad2(ngay), { soCong } = tachSoCongVaNhan(row[ten]); if (soCong === 0) continue; kq[maNV][ten] = (kq[maNV][ten] || 0) + soCong; }
     });
     return kq;
   }
@@ -152,7 +154,8 @@
   /* ---------- BẢNG LƯƠNG ---------- */
   function tinhBangLuong(input) {
     const nam = Number(input.nam), thang = Number(input.thang), buTheoNgay = !!input.buTheoNgay, T = input.t || {};
-    const nhanSuList = T.NL_NHANSU || [];
+    // Nhân sự có hiệu lực theo ngày như danh mục: mỗi mã NV lấy đúng 1 dòng của kỳ, giữ thứ tự nhập
+    const nhanSuKy = locTheoHieuLuc(T.NL_NHANSU, 'Mã nhân viên', nam, thang), nhanSuList = (T.NL_NHANSU || []).filter((r) => nhanSuKy[r['Mã nhân viên']] === r);
     const chiTietNS = mapTheoMa(T.NL_CHITIET_NS, 'Mã nhân viên');
     const dmLuong = locTheoHieuLuc(T.DM_LUONG, 'Mã lương', nam, thang), dmPhuCap = locTheoHieuLuc(T.DM_PHUCAP, 'Mã phụ cấp', nam, thang),
       dmTangCa = locTheoHieuLuc(T.DM_TANGCA, 'Mã tăng ca', nam, thang), dmHoTro = locTheoHieuLuc(T.DM_HOTRO, 'Mã hỗ trợ', nam, thang),
@@ -166,11 +169,12 @@
     const comMap = tongHopNgayCom(T.DL_TIENCOM, nam, thang);
     const tenPB = (ma) => (dmPhongBan[ma] ? dmPhongBan[ma]['Tên phòng ban'] : ma), tenCV = (ma) => (dmChucVu[ma] ? dmChucVu[ma]['Tên chức vụ'] : ma);
     const bangLuong = [], bhxh = [], tncn = []; let tongThucLinh = 0;
-    const dauKy = nam + '-' + pad2(thang) + '-01';
+    const dauKy = nam + '-' + pad2(thang) + '-01', cuoiKy = nam + '-' + pad2(thang) + '-' + pad2(soNgayThang(nam, thang));
 
     nhanSuList.forEach((ns) => {
       const maNV = ns['Mã nhân viên']; if (!maNV) return;
       const nghi = isoOf(ns['Ngày nghỉ/thay đổi']); if (nghi && nghi < dauKy) return;
+      const vao = isoOf(ns['Ngày vào làm']); if (vao && vao > cuoiKy) return;
       const cong = chamCongMap[maNV] || { tongCong: 0, congChuNhat: 0, congTangCa: 0, congCom: 0, congLe: 0, congPhep: 0, congDiChuyen: 0, congTrungChuyen: 0, nhanTheoNgay: {} };
       const congChuan = layCongChuan(ns, thang, nam, dmLuong, cong.tongCong), luongTT = num(ns['Lương thỏa thuận']);
       const dmL = dmLuong[ns['Mã tiền lương 1']] || dmLuong[ns['Mã tiền lương 2']] || null, maTL1 = ns['Mã tiền lương 1'] || '';
@@ -260,16 +264,16 @@
       else { chiuThue = tongThuNhap - bhTru - kpcdTru - tienCom; tinhThue = Math.max(0, chiuThue - giamTruBT - giamTruNPT); thue = tinhThueTNCNLuyTien(tinhThue, bieuThue); }
       if (thue > 0) tncn.push({ 'Mã NV': maNV, 'Họ và tên': ns['Họ và tên'], 'Thu nhập chịu thuế': chiuThue, 'Giảm trừ bản thân': maTNCN === 'TNCN1' ? 0 : giamTruBT, 'Số người phụ thuộc': soNPT, 'Giảm trừ người phụ thuộc': maTNCN === 'TNCN1' ? 0 : giamTruNPT, 'Thu nhập tính thuế': tinhThue, 'Thuế TNCN phải nộp': thue });
 
-      // Thực lĩnh (làm tròn hàng nghìn, không âm)
+      // Thực lĩnh (làm tròn hàng nghìn, không âm); khấu trừ vượt thu nhập → ghi số còn thiếu để thu / chuyển kỳ sau
       const truKhac = num(ps['Trừ khác']), tamUng = num(ung['Tạm ứng']);
-      const chenh = tongThuNhap - bhTru - kpcdTru - truyThu - thue - truKhac - tamUng, thucLinh = chenh >= 0 ? Math.round(chenh / 1000) * 1000 : 0;
+      const chenh = tongThuNhap - bhTru - kpcdTru - truyThu - thue - truKhac - tamUng, thucLinh = chenh >= 0 ? Math.round(chenh / 1000) * 1000 : 0, conThieu = chenh < 0 ? Math.round(-chenh) : 0;
       tongThucLinh += thucLinh;
       bangLuong.push({ 'Mã NV': maNV, 'Họ và tên': ns['Họ và tên'], 'Phòng ban': tenPB(ns['Mã PB']), 'Chức vụ': tenCV(ns['Mã CV']),
         'Lương thỏa thuận': luongTT, 'Công chuẩn': congChuan, 'Đơn giá lương TG': Math.round(donGiaLTG), 'Công tính LTG': congTinhLTG, 'Lương thời gian': luongThoiGian, 'Lương phụ': luongPhu,
         'Sản lượng (tấn)': slTan, 'Đơn giá SL': donGiaSL, 'Lương sản lượng': luongSL, 'Lương bù SL (nếu dưới ngưỡng)': luongBu, 'Phương pháp bù SL': laSL ? (buTheoNgay ? 'Theo ngày' : 'Theo tháng') : '',
         'Số xe bơm dăm': soXe, 'Lương bơm dăm': luongBD, 'Tổng công': cong.tongCong, 'Công Chủ nhật': cong.congChuNhat, 'Công tăng ca': cong.congTangCa, 'Tiền tăng ca': tienTangCa,
         'Phụ cấp': tienPC, 'Phụ cấp công tác': tienPCCT, 'Lương hỗ trợ': luongHoTro, 'Ngày cơm': ngayCom, 'Tiền cơm': tienCom, 'Thưởng': num(ps['Thưởng']), 'Thu nhập khác': num(ps['Thu nhập khác']),
-        'Tổng thu nhập (trước trừ)': tongThuNhap, 'BHXH/BHYT/BHTN trừ NLĐ': bhTru, 'KPCĐ trừ NLĐ': kpcdTru, 'Truy thu bảo hiểm': truyThu, 'Thuế TNCN': thue, 'Trừ khác': truKhac, 'Tạm ứng': tamUng, 'Thực lĩnh': thucLinh });
+        'Tổng thu nhập (trước trừ)': tongThuNhap, 'BHXH/BHYT/BHTN trừ NLĐ': bhTru, 'KPCĐ trừ NLĐ': kpcdTru, 'Truy thu bảo hiểm': truyThu, 'Thuế TNCN': thue, 'Trừ khác': truKhac, 'Tạm ứng': tamUng, 'Thực lĩnh': thucLinh, 'Còn thiếu (thực lĩnh âm)': conThieu });
     });
     return { bangLuong, bhxh, tncn, soNguoi: bangLuong.length, tongThucLinh };
   }

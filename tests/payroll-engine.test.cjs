@@ -80,3 +80,39 @@ test('danh mục có hiệu lực theo ngày: lấy đúng phiên bản của k�
   assert.equal(P.locTheoHieuLuc(list, 'Mã lương', 2026, 5).TG1['Số tiền khoán'], 1);
   assert.equal(P.locTheoHieuLuc(list, 'Mã lương', 2026, 6).TG1['Số tiền khoán'], 2);
 });
+
+test('nhân sự nhiều dòng theo hiệu lực: mỗi người 1 dòng lương, đúng mức của kỳ', () => {
+  const d = base(), ns = d.t.NL_NHANSU[0];
+  d.t.NL_NHANSU = [Object.assign({}, ns, { 'Lương thỏa thuận': 18200000, 'Hiệu lực từ': '2026-01-01', 'Hiệu lực đến': '2026-05-31' }), Object.assign({}, ns, { 'Hiệu lực từ': '2026-06-01' })];
+  let r = P.tinhBangLuong(d);
+  assert.equal(r.bangLuong.length, 1); assert.equal(r.bhxh.length, 1);
+  assert.equal(r.bangLuong[0]['Lương thỏa thuận'], 20800000);
+  d.thang = 5; r = P.tinhBangLuong(d);
+  assert.equal(r.bangLuong.length, 1); assert.equal(r.bangLuong[0]['Lương thỏa thuận'], 18200000);
+});
+
+test('nhân viên vào làm sau kỳ lương không có trong bảng lương; vào giữa kỳ vẫn tính', () => {
+  const d = base(); d.t.NL_NHANSU[0]['Mã tiền lương 1'] = 'CĐ'; d.t.NL_CHAMCONG = [];
+  d.t.NL_NHANSU[0]['Ngày vào làm'] = '2026-07-01';
+  let r = P.tinhBangLuong(d);
+  assert.equal(r.bangLuong.length, 0); assert.equal(r.bhxh.length, 0); assert.equal(r.tongThucLinh, 0);
+  d.t.NL_NHANSU[0]['Ngày vào làm'] = '2026-06-30';
+  r = P.tinhBangLuong(d);
+  assert.equal(r.bangLuong.length, 1);
+});
+
+test('khấu trừ vượt thu nhập: thực lĩnh 0 và ghi rõ số còn thiếu', () => {
+  const d = base(); d.t.NL_UNGLUONG = [{ 'Mã NV': 'NV1', 'Ngày hạch toán': '2026-06-10', 'Tạm ứng': 30000000 }];
+  const l = P.tinhBangLuong(d).bangLuong[0];
+  assert.equal(l['Thực lĩnh'], 0);
+  assert.equal(l['Còn thiếu (thực lĩnh âm)'], 9512500);                  // 21.300.000 − 525.000 − 287.500 − 30.000.000
+  assert.equal(P.tinhBangLuong(base()).bangLuong[0]['Còn thiếu (thực lĩnh âm)'], 0);
+});
+
+test('ô ngày không có trong tháng (31/06) không được cộng công', () => {
+  const d = base(); d.t.NL_CHAMCONG = [ngayLam({ 'Mã NV': 'NV1', '31': 1 }), { 'Mã NV': 'NV1', 'Ngày tính công': '2026-06-01', 'Hình thức công': 'TC', '31': 2 }];
+  const t = P.tongHopChamCong(d.t.NL_CHAMCONG, 2026, 6).NV1;
+  assert.equal(t.tongCong, 26); assert.equal(t.congTangCa, 0);
+  assert.equal(P.layCongChinhTheoNgay(d.t.NL_CHAMCONG, 2026, 6).NV1['31'], undefined);
+  assert.equal(P.tinhBangLuong(d).bangLuong[0]['Tổng công'], 26);
+});
