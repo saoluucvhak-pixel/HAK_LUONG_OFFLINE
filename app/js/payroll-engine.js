@@ -278,6 +278,32 @@
     return { bangLuong, bhxh, tncn, soNguoi: bangLuong.length, tongThucLinh };
   }
 
-  HAK.Payroll = { tachSoCongVaNhan, soTuChuoiPhanTram, locTheoHieuLuc, tongHopChamCong, layCongChinhTheoNgay, tinhHeSoTangCa, layCongChuan, tinhThueTNCNLuyTien, tinhBangLuong, isoOf, inMonth };
+  /* ---------- Cảnh báo dữ liệu đầu vào (trước khi tính) ---------- */
+  /** → [['warn', thông báo]…] cho những chỗ engine xử lý "im lặng": dòng nhân sự trùng, ô ngày ngoài tháng, lương CĐ vào/nghỉ giữa kỳ, danh mục thuế cũ. */
+  function canhBaoDauVao(input) {
+    const nam = Number(input.nam), thang = Number(input.thang), T = input.t || {}, out = [];
+    const soNgay = soNgayThang(nam, thang), dauKy = nam + '-' + pad2(thang) + '-01', cuoiKy = nam + '-' + pad2(thang) + '-' + pad2(soNgay);
+    const hieuLuc = (r) => { const tu = isoOf(r['Hiệu lực từ']), den = isoOf(r['Hiệu lực đến']); return !(tu && tu > dauKy) && !(den && den < dauKy); };
+    const vaiMa = (a) => a.slice(0, 8).join(', ') + (a.length > 8 ? '…' : '');
+    // 1. Cùng mã NV có nhiều dòng cùng hiệu lực trong kỳ → chỉ 1 dòng được tính
+    const dem = {}; (T.NL_NHANSU || []).forEach((r) => { const ma = r['Mã nhân viên']; if (ma && hieuLuc(r)) dem[ma] = (dem[ma] || 0) + 1; });
+    const trung = Object.keys(dem).filter((ma) => dem[ma] > 1);
+    if (trung.length) out.push(['warn', 'Nhân sự trùng mã (nhiều dòng cùng hiệu lực kỳ này — chỉ dòng có "Hiệu lực từ" mới nhất được tính; ghi "Hiệu lực đến" cho dòng cũ): ' + vaiMa(trung)]);
+    // 2. Ô chấm công của ngày không có trong tháng → bị bỏ qua
+    const ngoai = new Set();
+    (T.NL_CHAMCONG || []).forEach((r) => { if (!r['Mã NV'] || !inMonth(r['Ngày tính công'], nam, thang)) return; for (let d = soNgay + 1; d <= 31; d++) { const c = tachSoCongVaNhan(r[pad2(d)]); if (c.soCong || c.nhan) { ngoai.add(r['Mã NV']); break; } } });
+    if (ngoai.size) out.push(['warn', 'Chấm công ghi vào ngày không có trong tháng ' + thang + ' (ngày > ' + soNgay + ', KHÔNG được tính): ' + vaiMa(Array.from(ngoai))]);
+    // 3. Lương cố định (CĐ) vào làm / nghỉ giữa kỳ → vẫn nhận đủ tháng
+    const cd = (T.NL_NHANSU || []).filter((r) => r['Mã nhân viên'] && hieuLuc(r) && r['Mã tiền lương 1'] === 'CĐ' && (() => { const v = isoOf(r['Ngày vào làm']), n = isoOf(r['Ngày nghỉ/thay đổi']); return (v > dauKy && v <= cuoiKy) || (n >= dauKy && n < cuoiKy); })()).map((r) => r['Mã nhân viên']);
+    if (cd.length) out.push(['warn', 'Lương cố định (CĐ) vào làm / nghỉ giữa kỳ vẫn nhận ĐỦ tháng — kiểm tra lại nếu quy chế tính theo ngày: ' + vaiMa(cd)]);
+    // 4. Danh mục thuế còn mức cũ cho kỳ từ 2026 (biểu 7 bậc / giảm trừ 11tr – 4,4tr)
+    if (nam >= 2026) {
+      const bac = Object.keys(locTheoHieuLuc(T.DM_TNCN, 'Bậc', nam, thang)).length, gt = Object.values(locTheoHieuLuc(T.DM_GT_TNCN, 'Mã giảm trừ', nam, thang)).map((r) => num(r['Số tiền']));
+      if (bac > 5 || gt.indexOf(11000000) >= 0 || gt.indexOf(4400000) >= 0) out.push(['warn', 'Danh mục thuế TNCN còn mức cũ cho kỳ ' + thang + '/' + nam + ' (từ kỳ tính thuế 2026: biểu 5 bậc — Luật 109/2025/QH15; giảm trừ 15,5tr / người phụ thuộc 6,2tr — NQ 110/2025/UBTVQH15). Thêm dòng mới có "Hiệu lực từ" 01/01/2026.']);
+    }
+    return out;
+  }
+
+  HAK.Payroll = { tachSoCongVaNhan, soTuChuoiPhanTram, locTheoHieuLuc, tongHopChamCong, layCongChinhTheoNgay, tinhHeSoTangCa, layCongChuan, tinhThueTNCNLuyTien, tinhBangLuong, canhBaoDauVao, isoOf, inMonth };
   if (typeof module === 'object' && module.exports) module.exports = HAK.Payroll;
 })(typeof window !== 'undefined' ? window : globalThis);

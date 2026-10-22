@@ -79,8 +79,7 @@
   }
   /** Thư viện nặng chỉ dùng ở vài chức năng: [biến toàn cục kiểm tra, file]. */
   const LIBS = {
-    exceljs: ['ExcelJS', 'libs/exceljs.min.js'],          // Xuất Excel lưu trữ, Báo cáo tổng hợp (~0,9 MB)
-    docxPreview: ['docx', 'libs/docx-preview.min.js']     // Tải PDF biên bản (dựng trang từ Word)
+    exceljs: ['ExcelJS', 'libs/exceljs.min.js']           // Nhập / xuất Excel (~0,9 MB)
   };
   async function needLib(name) {
     const L = LIBS[name];

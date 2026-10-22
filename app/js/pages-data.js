@@ -48,14 +48,21 @@
   }
 
   /* ---------- Sửa ô ---------- */
-  const saveSoon = HAK.UI.debounce(() => { D().save(state.tid).catch((e) => toast('Không lưu được: ' + e.message, 'error')); }, 400);
+  // Ghi trễ theo TỪNG bảng đã sửa (không theo bảng đang mở): chuyển bảng / đóng app trước 400ms vẫn không mất thay đổi
+  const pending = new Set();
+  function flush() {
+    const ids = Array.from(pending); pending.clear();
+    return Promise.all(ids.map((t) => D().save(t).catch((e) => { pending.add(t); toast('Không lưu được bảng ' + t + ': ' + e.message, 'error'); })));
+  }
+  const saveSoon = HAK.UI.debounce(flush, 400);
+  root.addEventListener('pagehide', flush); root.addEventListener('beforeunload', flush);
   function onEdit(e) {
     const el = e.target.closest('.dg-in'); if (!el) return;
     const t = tab(), row = D().rows(t.id)[+el.dataset.i]; if (!row) return;
     const c = el.dataset.c; let v = el.value;
     if (t.nums.indexOf(c) >= 0) { const n = v.trim() === '' ? '' : NF().parse(v, 'num'); if (v.trim() !== '' && n === null) { el.classList.add('is-invalid'); return; } el.classList.remove('is-invalid'); v = n; el.value = n === '' ? '' : NF().txt(+n, 'num'); }
     else if (t.day && t.day.indexOf(c) >= 0) { v = v.trim(); const x = Number(v.replace(',', '.')); if (v !== '' && isFinite(x) && /^[\d.,]+$/.test(v)) v = x; }
-    row[c] = v; saveSoon();
+    row[c] = v; pending.add(t.id); saveSoon();
   }
   function addRow() {
     const t = tab(), r = {}; t.header.forEach((c) => { r[c] = ''; });
@@ -83,7 +90,7 @@
         for (const s of sels) {
           const it = items[+s.dataset.k], t = it.d.table, mode = s.value; if (mode === 'skip') continue;
           let cur = D().rows(t.id), add = it.rows;
-          if (mode === 'all') cur = []; else if (mode === 'month') { const ms = new Set(add.map((r) => String(r[t.monthCol] || '').slice(0, 7))); cur = cur.filter((r) => !ms.has(String(r[t.monthCol] || '').slice(0, 7))); }
+          if (mode === 'all') cur = []; else if (mode === 'month') { const ms = new Set(add.map((r) => String(r[t.monthCol] || '').slice(0, 7)).filter(Boolean)); cur = cur.filter((r) => !ms.has(String(r[t.monthCol] || '').slice(0, 7))); }   // dòng trống tháng trong file không kéo theo xóa dòng trống tháng đang có
           else { const sig = (r) => JSON.stringify(t.header.map((c) => r[c])); const have = new Set(cur.map(sig)); add = add.filter((r) => { const k = sig(r); if (have.has(k)) return false; have.add(k); return true; }); }
           await D().setRows(t.id, cur.concat(add)); n += add.length;
         }
@@ -117,7 +124,7 @@
       });
       page.addEventListener('input', (e) => { if (e.target.id === 'dgQ') { state.q = e.target.value; state.page = 0; clearTimeout(state._q); state._q = setTimeout(() => { draw(); const q = $('#dgQ'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); } });
       page.addEventListener('click', (e) => {
-        const tb = e.target.closest('[data-tid]'); if (tb) { e.preventDefault(); state.tid = tb.dataset.tid; state.page = 0; state.q = ''; draw(); return; }
+        const tb = e.target.closest('[data-tid]'); if (tb) { e.preventDefault(); flush(); state.tid = tb.dataset.tid; state.page = 0; state.q = ''; draw(); return; }
         const pg = e.target.closest('[data-pg]'); if (pg) { state.page += +pg.dataset.pg; draw(); return; }
         const del = e.target.closest('[data-del]'); if (del) { D().rows(state.tid).splice(+del.dataset.del, 1); D().save(state.tid).then(draw); return; }
         if (e.target.closest('#dgAdd')) addRow();
@@ -129,5 +136,5 @@
     if (!state.month) state.month = curMonth();
     draw();
   }
-  HAK.PagesData = { render, setTable(id) { if (S().byId[id]) state.tid = id; } };
+  HAK.PagesData = { render, flush, setTable(id) { if (S().byId[id]) { flush(); state.tid = id; } } };
 })(typeof window !== 'undefined' ? window : globalThis);

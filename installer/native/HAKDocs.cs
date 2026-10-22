@@ -132,7 +132,8 @@ class HAKDocs {
   if(args.Length>0&&args[0]=="--status"){Console.WriteLine(Json.Serialize(Status()));return 0;}
   if(args.Length>=3&&args[0]=="--ocr"){var result=Read(ParseFile(args[1]),args.Length>3?Int32.Parse(args[3]):1,args.Length>4?Int32.Parse(args[4]):0,"",args.Length>5?args[5]:"document").GetAwaiter().GetResult();File.WriteAllText(args[2],Json.Serialize(result),new UTF8Encoding(false));return 0;}
   if(args.Length>0&&args[0]=="--serve"){Serve();return 0;}
-  Process.Start(new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName,"--serve"){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden});
+  /* Lối tắt chỉ mở app. KHÔNG tự bật máy chủ cục bộ --serve: app Tính lương không gọi tới nó, mà máy chủ nhận Origin "null"
+     (trang web lạ cũng gửi được qua iframe sandbox) → để chạy ngầm chỉ thêm bề mặt tấn công. Cần OCR / hộp Lưu thì chạy rõ "HAKDocs.exe --serve". */
   Process.Start(new ProcessStartInfo(Path.Combine(Root,"index.html")){UseShellExecute=true});return 0;
  }catch(Exception e){if(args.Length>=3&&args[0]=="--ocr")try{File.WriteAllText(args[2],Json.Serialize(new{error=e.ToString()}),new UTF8Encoding(false));}catch{}Console.Error.WriteLine(e.ToString());return 1;}}
 }

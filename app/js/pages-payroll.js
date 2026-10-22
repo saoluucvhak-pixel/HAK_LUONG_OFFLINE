@@ -27,23 +27,36 @@
     miss('Mã tiền lương 1', dmL, 'Mã lương'); miss('Mã BHXH', dmB, 'Mã BHXH'); miss('Mã phụ cấp', dmPC, 'Mã phụ cấp');
     if (!D().rows('DM_TNCN').length && ns.some((r) => r['Mã TNCN'] && r['Mã TNCN'] !== 'TNCN0' && r['Mã TNCN'] !== 'TNCN1')) out.push(['warn', 'Chưa có Biểu thuế TNCN luỹ tiến trong danh mục.']);
     const sl = D().rows('DL_SANLUONG').filter((r) => P.inMonth(r['Ngày cân'], nam, thang) && !r['Mã NV']).length; if (sl) out.push(['warn', sl + ' phiếu cân trong tháng chưa gán Mã NV (không được tính vào lương sản lượng).']);
+    const T = {}; ['NL_NHANSU', 'NL_CHAMCONG', 'DM_TNCN', 'DM_GT_TNCN'].forEach((id) => { T[id] = D().rows(id); });
+    out.push.apply(out, P.canhBaoDauVao({ nam, thang, t: T }));
     if (!out.length) out.push(['ok', 'Dữ liệu đầu vào đủ để tính.']);
     return out;
   }
 
-  function compute() {
+  async function compute() {
     const nam = +$('#plNam').value, thang = +$('#plThang').value, bu = $('#plBu').value;
     if (!nam || !(thang >= 1 && thang <= 12)) { toast('Chọn kỳ lương hợp lệ.', 'warning'); return; }
     setPeriod({ nam, thang, bu });
+    const saved = await D().getResult(nam, thang);
+    if (saved && saved.locked) { toast('Kỳ ' + thang + '/' + nam + ' đã chốt — không tính lại. Quản trị bấm 🔓 Mở chốt nếu cần sửa.', 'warning'); await loadSaved(); draw(); return; }
     const T = {}; HAK.Schema.TABLES.forEach((t) => { T[t.id] = D().rows(t.id); });
     const res = HAK.Payroll.tinhBangLuong({ nam, thang, buTheoNgay: bu === 'NGAY', t: T });
-    state.result = res; state.meta = { nam, thang, bu, at: Date.now(), by: HAK.Auth.who() };
-    D().saveResult(nam, thang, res, { bu }).then(() => toast('Đã tính lương ' + thang + '/' + nam + ': ' + res.soNguoi + ' người, tổng thực lĩnh ' + money(res.tongThucLinh) + ' đ.', 'success')).catch((e) => toast('Tính xong nhưng chưa lưu được: ' + e.message, 'warning'));
+    try { metaOf(await D().saveResult(nam, thang, res, { bu })); }
+    catch (e) { toast('Chưa lưu được kết quả: ' + e.message, 'error'); return; }   // không hiện số chưa lưu như thể đã lưu
+    toast('Đã tính lương ' + thang + '/' + nam + ': ' + res.soNguoi + ' người, tổng thực lĩnh ' + money(res.tongThucLinh) + ' đ.', 'success');
     draw();
   }
-  async function loadSaved() {
-    const p = period(); const r = await D().getResult(p.nam, p.thang);
-    state.result = r ? r.res : null; state.meta = r ? { nam: r.nam, thang: r.thang, bu: r.bu, at: r.at, by: r.by } : null;
+  function metaOf(r) {
+    state.result = r ? r.res : null;
+    state.meta = r ? { nam: r.nam, thang: r.thang, bu: r.bu, at: r.at, by: r.by, locked: !!r.locked, lockedAt: r.lockedAt, lockedBy: r.lockedBy, lan: (r.history || []).length } : null;
+  }
+  async function loadSaved() { const p = period(); metaOf(await D().getResult(p.nam, p.thang)); }
+  async function setLock(locked) {
+    const m = state.meta; if (!m) return;
+    if (!locked && !HAK.Auth.isAdmin()) { toast('Chỉ Quản trị được mở chốt kỳ lương.', 'warning'); return; }
+    try { metaOf(await D().lockResult(m.nam, m.thang, locked)); toast((locked ? 'Đã chốt' : 'Đã mở chốt') + ' kỳ ' + m.thang + '/' + m.nam + '.', locked ? 'success' : 'info'); }
+    catch (e) { toast(e.message || String(e), 'error'); }
+    draw();
   }
   const sum = (arr, k) => arr.reduce((a, r) => a + (Number(r[k]) || 0), 0);
   function table(name) {
@@ -62,12 +75,16 @@
     let html = '<div class="mb-3">' + chk.map((c) => '<div class="small ' + (c[0] === 'err' ? 'text-danger' : c[0] === 'warn' ? 'text-warning-emphasis' : 'text-success') + '">' + (c[0] === 'err' ? '✖ ' : c[0] === 'warn' ? '⚠ ' : '✔ ') + esc(c[1]) + '</div>').join('') + '</div>';
     if (!r) html += '<div class="muted text-center py-4">Chưa tính lương kỳ ' + p.thang + '/' + p.nam + '. Bấm <b>Tính lương</b>.</div>';
     else {
-      const bl = r.bangLuong;
-      html += '<div class="small muted mb-2">Kết quả kỳ <b>' + state.meta.thang + '/' + state.meta.nam + '</b> — phương án bù sản lượng: ' + (state.meta.bu === 'NGAY' ? 'theo ngày' : 'theo tháng') + ' · tính lúc ' + new Date(state.meta.at).toLocaleString('vi-VN') + (state.meta.by ? ' · ' + esc(state.meta.by) : '') + '</div>' +
+      const bl = r.bangLuong, m = state.meta, am = bl.filter((x) => Number(x['Còn thiếu (thực lĩnh âm)']) > 0);
+      html += '<div class="d-flex flex-wrap align-items-center gap-2 mb-2"><div class="small muted me-auto">Kết quả kỳ <b>' + m.thang + '/' + m.nam + '</b> — phương án bù sản lượng: ' + (m.bu === 'NGAY' ? 'theo ngày' : 'theo tháng') + ' · tính lúc ' + new Date(m.at).toLocaleString('vi-VN') + (m.by ? ' · ' + esc(m.by) : '') + (m.lan ? ' · đã tính ' + (m.lan + 1) + ' lần (giữ ' + m.lan + ' lần trước)' : '') + '</div>' +
+        (m.locked ? '<span class="badge text-bg-success">🔒 Đã chốt' + (m.lockedAt ? ' ' + new Date(m.lockedAt).toLocaleString('vi-VN') : '') + (m.lockedBy ? ' · ' + esc(m.lockedBy) : '') + '</span>' + (HAK.Auth.isAdmin() ? '<button class="btn btn-sm btn-outline-danger" id="plUnlock" type="button">🔓 Mở chốt</button>' : '')
+          : '<button class="btn btn-sm btn-outline-success" id="plLock" type="button" title="Sau khi chốt, kỳ này không tính lại được (trừ khi Quản trị mở chốt)">🔒 Chốt kỳ</button>') + '</div>' +
+        (am.length ? '<div class="alert alert-warning small py-2">⚠ ' + am.length + ' người có khấu trừ vượt thu nhập — thực lĩnh 0, tổng còn thiếu ' + money(sum(am, 'Còn thiếu (thực lĩnh âm)')) + ' đ (cột “Còn thiếu”): ' + esc(am.slice(0, 8).map((x) => x['Mã NV']).join(', ')) + (am.length > 8 ? '…' : '') + '</div>' : '') +
         '<div class="row g-2 mb-3">' + card('Số người', r.soNguoi) + card('Tổng thu nhập', money(sum(bl, 'Tổng thu nhập (trước trừ)')) + ' đ') + card('BH trừ NLĐ', money(sum(bl, 'BHXH/BHYT/BHTN trừ NLĐ') + sum(bl, 'KPCĐ trừ NLĐ')) + ' đ', 'truy thu BH ' + money(sum(bl, 'Truy thu bảo hiểm'))) + card('Thuế TNCN', money(sum(bl, 'Thuế TNCN')) + ' đ') + card('Tạm ứng + trừ khác', money(sum(bl, 'Tạm ứng') + sum(bl, 'Trừ khác')) + ' đ') + card('THỰC LĨNH', '<span class="text-success">' + money(r.tongThucLinh) + ' đ</span>') + '</div>' +
         '<ul class="nav nav-pills mb-2">' + [['BANGLUONG', '📄 Bảng lương'], ['BHXH', '🛡 BHXH / BHYT / BHTN'], ['TNCN', '🧾 Thuế TNCN']].map((x) => '<li class="nav-item"><button class="nav-link py-1' + (state.tab === x[0] ? ' active' : '') + '" data-pt="' + x[0] + '" type="button">' + x[1] + '</button></li>').join('') + '</ul>' + table(state.tab);
     }
     host.innerHTML = html; const xb = $('#plXls'); if (xb) xb.disabled = !r;
+    const go = $('#plGo'); if (go) { go.disabled = !!(state.meta && state.meta.locked); go.title = go.disabled ? 'Kỳ đã chốt' : ''; }
   }
   async function exportXls() {
     const r = state.result; if (!r) return; const m = state.meta, wb = await HAK.Excel.newWorkbook();
@@ -87,7 +104,9 @@
         '<div><label class="form-label small mb-0" for="plBu">Bù sản lượng</label><select class="form-select form-select-sm" id="plBu"><option value="THANG">Theo tháng (bình quân)</option><option value="NGAY">Theo từng ngày</option></select></div>' +
         '<button class="btn btn-primary" id="plGo" type="button">💰 Tính lương</button><button class="btn btn-success" id="plXls" type="button" disabled>📊 Xuất Excel</button></div><div id="plBody"></div></div></div>';
       page.addEventListener('click', (e) => {
-        if (e.target.closest('#plGo')) compute();
+        if (e.target.closest('#plGo')) compute().catch((x) => toast(x.message || String(x), 'error'));
+        else if (e.target.closest('#plLock')) HAK.UI.confirmClick(e.target.closest('#plLock'), () => setLock(true), 'Bấm lần nữa để CHỐT');
+        else if (e.target.closest('#plUnlock')) HAK.UI.confirmClick(e.target.closest('#plUnlock'), () => setLock(false), 'Bấm lần nữa để mở chốt');
         else if (e.target.closest('#plXls')) exportXls().catch((x) => toast(x.message || String(x), 'error'));
         const pt = e.target.closest('[data-pt]'); if (pt) { state.tab = pt.dataset.pt; draw(); }
       });

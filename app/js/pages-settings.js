@@ -13,8 +13,22 @@
   async function drawBackup() {
     const st = await HAK.DB.status(), mb = (n) => (n == null ? '?' : (n / 1048576).toFixed(1) + ' MB');
     $('#stBackup').innerHTML = '<div class="row g-3"><div class="col-md-6"><div class="card h-100"><div class="card-body"><h6>💾 Sao lưu toàn bộ</h6><div class="small muted mb-2">Một file .json chứa dữ liệu lương của mọi đơn vị, kết quả các kỳ và cài đặt. Nên sao lưu cuối mỗi kỳ.</div><button class="btn btn-primary btn-sm" id="bkOut" type="button">⬇ Sao lưu ra file</button></div></div></div>' +
-      '<div class="col-md-6"><div class="card h-100 admin-only"><div class="card-body"><h6>♻️ Khôi phục từ file</h6><div class="small muted mb-2">Gộp / thay dữ liệu từ file sao lưu (không đụng tới tài khoản đăng nhập của máy này).</div><label class="btn btn-outline-primary btn-sm mb-0">Chọn file sao lưu…<input type="file" id="bkIn" accept=".json" hidden></label> <label class="small ms-2"><input type="checkbox" id="bkReplace"> thay thế toàn bộ</label></div></div></div></div>' +
+      '<div class="col-md-6"><div class="card h-100 admin-only"><div class="card-body"><h6>♻️ Khôi phục từ file</h6><div class="small muted mb-2">Gộp / thay dữ liệu từ file sao lưu (không đụng tới tài khoản đăng nhập của máy này).</div><label class="btn btn-outline-primary btn-sm mb-0">Chọn file sao lưu…<input type="file" id="bkIn" accept=".json" hidden></label> <label class="small ms-2"><input type="checkbox" id="bkReplace"> thay thế toàn bộ</label><div id="bkPreview" class="mt-2"></div></div></div></div></div>' +
       '<div class="small muted mt-3">Bộ nhớ: ' + (st.backend === 'idb' ? 'IndexedDB' : '<b class="text-danger">chỉ RAM — dữ liệu sẽ mất khi đóng</b>') + ' · đã dùng ' + mb(st.usage) + ' / ' + mb(st.quota) + (st.persisted ? ' · đã yêu cầu giữ bền ✔' : ' · <a href="#/settings" id="bkPersist">yêu cầu giữ bền</a>') + '</div>';
+  }
+  /** Xem trước file sao lưu (đã kiểm tra) rồi mới cho bấm khôi phục. */
+  function showRestore(pack, name) {
+    const box = $('#bkPreview'), chk = HAK.Data.checkBackup(pack); if (!box) return;
+    if (!chk.ok) { box.innerHTML = '<div class="alert alert-danger small py-2 mb-0"><b>' + esc(name) + '</b> không dùng được:<ul class="mb-0">' + chk.errors.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></div>'; return; }
+    const nm = (id) => { const c = HAK.Config.data.companies.find((x) => x.id === id); return c ? c.short || c.name : id; };
+    box.innerHTML = '<div class="alert alert-info small py-2 mb-0"><b>' + esc(name) + '</b>' + (pack.at ? ' — tạo lúc ' + esc(new Date(pack.at).toLocaleString('vi-VN')) : '') +
+      '<div>Đơn vị: ' + esc(chk.units.map(nm).join(', ') || '—') + ' · ' + chk.tables + ' bảng · ' + chk.results + ' kỳ lương · ' + chk.kv + ' mục cài đặt</div>' +
+      '<div class="mt-2"><button class="btn btn-sm btn-danger" id="bkApply" type="button">♻️ Khôi phục' + ($('#bkReplace') && $('#bkReplace').checked ? ' (THAY TOÀN BỘ)' : ' (gộp)') + '</button> <button class="btn btn-sm btn-outline-secondary" id="bkCancel" type="button">Hủy</button></div></div>';
+    $('#bkCancel').onclick = () => { box.innerHTML = ''; };
+    $('#bkApply').onclick = (e) => HAK.UI.confirmClick(e.currentTarget, async () => {
+      try { await HAK.Data.importAll(pack, { replace: $('#bkReplace') && $('#bkReplace').checked }); toast('Đã khôi phục. Đang tải lại…', 'success'); setTimeout(() => location.reload(), 900); }
+      catch (x) { toast('Không khôi phục được: ' + x.message, 'error'); }
+    }, 'Bấm lần nữa để khôi phục');
   }
   function render() {
     const host = $('#page-settings'); if (!host) return;
@@ -26,7 +40,8 @@
         const u = e.target.dataset && e.target.dataset.u; if (u !== undefined && e.target.dataset.f) { HAK.Config.data.companies[+u][e.target.dataset.f] = e.target.value; HAK.Config.save(); return; }
         if (e.target.id === 'bkIn') {
           const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-          f.text().then(async (t) => { const pack = JSON.parse(t); await HAK.Data.importAll(pack, { replace: $('#bkReplace') && $('#bkReplace').checked }); toast('Đã khôi phục. Đang tải lại…', 'success'); setTimeout(() => location.reload(), 900); }).catch((x) => toast('File không hợp lệ: ' + x.message, 'error'));
+          if (!HAK.Auth.isAdmin()) { toast('Chỉ Quản trị được khôi phục sao lưu.', 'warning'); return; }
+          f.text().then((t) => showRestore(JSON.parse(t), f.name)).catch((x) => toast('File không đọc được: ' + x.message, 'error'));
         }
       });
       host.addEventListener('click', async (e) => {
@@ -35,7 +50,7 @@
         if (e.target.id === 'bkOut') {
           const pack = await HAK.Data.exportAll(); delete pack.kv['hak.auth.v1'];
           const blob = new Blob([JSON.stringify({ app: 'hak-luong', v: 1, at: new Date().toISOString(), ...pack })], { type: 'application/json' });
-          if (await HAK.Excel.saveBlob(blob, 'SaoLuu_HakLuong_' + new Date().toISOString().slice(0, 10) + '.json')) toast('Đã sao lưu.', 'success');
+          if (await HAK.Excel.saveBlob(blob, 'SaoLuu_HakLuong_' + new Date().toISOString().slice(0, 10) + '.json')) { HAK.Store.set('hak.backup.last', Date.now()); toast('Đã sao lưu.', 'success'); }   // "Sao lưu gần nhất" trên phiếu khôi phục
         }
         if (e.target.id === 'bkPersist') { e.preventDefault(); toast((await HAK.DB.requestPersist()) ? 'Trình duyệt đã đồng ý giữ dữ liệu bền.' : 'Trình duyệt chưa cấp quyền giữ bền.', 'info'); drawBackup(); }
       });
