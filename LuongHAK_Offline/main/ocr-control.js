@@ -9,6 +9,7 @@ function createOcrControl(client, limit = 512) {
     info: () => ({ enabled, available: !!client, cached: cache.size }),
     setEnabled(value) { enabled = !!client && value === true; cache.clear(); return this.info(); },
     clear() { cache.clear(); },
+    async probe() { return enabled && client ? client.probe() : { ok: false, disabled: true }; },
     async read(png) {
       if (!enabled) return { status: "UNAVAILABLE", error: "disabled" };
       const key = crypto.createHash("sha256").update(png).digest("hex");

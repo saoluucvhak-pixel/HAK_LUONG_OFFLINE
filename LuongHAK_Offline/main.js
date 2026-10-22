@@ -314,7 +314,7 @@ function registerIpc() {
     if (typeof enabled === "boolean" && !ocrJobs.size) return ocrControl.setEnabled(enabled);
     return ocrControl.info();
   }));
-  ipcMain.handle("ocr-selftest", guarded("input.edit", async () => { try { const r = await ocrSvc().selfTest(); r.umi = umi ? await umi.probe() : { ok: false, disabled: true }; return r; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
+  ipcMain.handle("ocr-selftest", guarded("input.edit", async () => { try { const r = await ocrSvc().selfTest(); r.umi = await ocrControl.probe(); return r; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
   // Lịch sao lưu (α17) — cấu hình của máy này (settings.json)
   ipcMain.on("backup-schedule-get", (e) => { try { e.returnValue = Object.assign({ ok: true }, storage.getSchedule()); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
   ipcMain.on("backup-schedule-set", (e, o) => { try { e.returnValue = storage.setSchedule(o && typeof o === "object" ? { everyHours: o.everyHours, onClose: o.onClose, keepDaily: o.keepDaily } : {}); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });

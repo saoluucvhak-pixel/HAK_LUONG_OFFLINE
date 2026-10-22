@@ -4260,7 +4260,7 @@
     }
     bar.appendChild(h("span", { class: "sp" }));
     bar.appendChild(btn("Kiểm tra OCR", "ghost", function () { window.hakOcr.selfTest().then(function (r) {
-      var u = r.umi, umiTxt = !u ? "" : u.ok ? "\nUmi-OCR: đang chạy trên máy này — ô số được đọc thêm làm ý kiến thứ hai (" + (u.languages || []).join(", ") + ")" : u.disabled ? "\nUmi-OCR: đã tắt (HAK_UMI_OCR=0)" : "\nUmi-OCR: không thấy (tuỳ chọn — cài và chạy Umi-OCR để có ý kiến thứ hai cho ô số)";
+      var u = r.umi, umiTxt = !u ? "" : u.ok ? "\nUmi-OCR: đang chạy trên máy này — ô số được đọc thêm làm ý kiến thứ hai (" + (u.languages || []).join(", ") + ")" : u.disabled ? "\nUmi-OCR: đã tắt" : "\nUmi-OCR: không thấy (tuỳ chọn — cài và chạy Umi-OCR để có ý kiến thứ hai cho ô số)";
       alert((r.ok ? "OCR hoạt động — đọc thử được \"" + r.text + "\" trong " + r.ms + " ms" : "OCR lỗi: " + r.error) + umiTxt); }); }));
     card.appendChild(bar);
     card.appendChild(h("div", { class: "hint", text: "Đọc được: bảng chấm công / chấm cơm có KẺ Ô — dòng = người, cột = ngày 1…31 (có thể có Tổng công, Tổng cơm, Công / Tăng ca), hoặc dòng = ngày, cột = Công / Cơm (Lịch làm) hay mỗi cột 1 người (bảng tay của tổ, có thể 2 khối ngày 1–15 và 16–31). Chọn Cách đọc ô: số công, dấu x (x = 1 công, xx = 2, xxx = 3; ô ghi giờ = giờ / 8) hoặc số ca (1 ca = 1 công, 1+2 = 2 công). Chữ in đọc tốt; chữ viết tay và ảnh chụp nhỏ / nghiêng đọc kém hơn — ô nghi ngờ tô vàng, ô không đọc được có dấu ?, dòng lệch tổng tô đỏ. Luôn xem lại trước khi ghi. Ảnh nên chụp thẳng, đủ sáng, bảng chiếm gần hết khung (hoặc quét PDF ≥ 200 dpi)." }));
