@@ -201,3 +201,41 @@ jobs:
       - run: npm run check
       - run: npm run test:legacy
       - run: npm run test:kpi
+
+  publish-release:
+    if: github.ref == 'refs/heads/main'
+    needs: [windows-setup, electron-e2e, workspace-visual, inherited-quality, consolidation]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
+          path: release
+      - name: Publish immutable versioned Windows prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $appVersion = (Get-Content -LiteralPath LuongHAK_Offline/package.json -Raw | ConvertFrom-Json).version
+          $releaseTag = "v$appVersion"
+          $notesPath = "docs/releases/$releaseTag.md"
+          if (-not (Test-Path -LiteralPath $notesPath)) { throw 'Missing release notes for app version' }
+          git rev-parse --verify "refs/tags/$releaseTag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag $releaseTag already exists. Increase app version, do not overwrite it." }
+          gh release view $releaseTag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $releaseTag already exists. Do not overwrite it." }
+          $setupFiles = @(Get-ChildItem -LiteralPath release -Filter '*Setup*.exe' -File)
+          if ($setupFiles.Count -ne 1) { throw 'Expected exactly one Windows installer' }
+          if ($setupFiles[0].Name -notlike "*$appVersion.exe") { throw 'Installer version mismatch' }
+          $setupHash = (Get-FileHash -LiteralPath $setupFiles[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$setupHash  $($setupFiles[0].Name)" | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding utf8
+          @{version=$appVersion; commit=$env:GITHUB_SHA; run=$env:GITHUB_RUN_ID; installer=$setupFiles[0].Name; sha256=$setupHash} | ConvertTo-Json | Set-Content -LiteralPath release/BUILD_INFO.json -Encoding utf8
+          Copy-Item -LiteralPath $notesPath -Destination release/RELEASE_NOTES.md
+          Add-Content -LiteralPath release/RELEASE_NOTES.md -Value "`nCommit: $env:GITHUB_SHA`nBuild: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          gh release create $releaseTag $setupFiles[0].FullName release/SHA256SUMS.txt release/BUILD_INFO.json --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title "HAK Luong V10.4 - $appVersion" --notes-file release/RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Could not publish Windows prerelease' }

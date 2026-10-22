@@ -3,6 +3,10 @@ const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_pro
 const root=path.resolve(__dirname,'..'),registry=require('../docs/CONSOLIDATED_BRANCHES.json'),pkg=require('../LuongHAK_Offline/package.json');
 assert.equal(registry.canonicalApp,'LuongHAK_Offline');
 for(const f of pkg.build.files){assert.ok(!/legacy|experimental|\.\./.test(f),'Reference or draft source must not be shipped: '+f);}
+const lock=require('../LuongHAK_Offline/package-lock.json');
+assert.equal(lock.version,pkg.version,'Package lock version mismatch');assert.equal(lock.packages[''].version,pkg.version,'Root lock entry mismatch');
+assert.ok(fs.readFileSync(path.join(root,'LuongHAK_Offline/ui/workspace-v104.js'),'utf8').includes('v'+pkg.version),'UI version mismatch');
+assert.ok(fs.existsSync(path.join(root,'docs/releases/v'+pkg.version+'.md')),'Missing versioned release notes');
 const index=fs.readFileSync(path.join(root,'LuongHAK_Offline/index.html'),'utf8');
 assert.ok(!/experimental|legacy|kpi-/.test(index),'Draft KPI is not connected to payroll');
 assert.ok(!fs.existsSync(path.join(root,'.github/workflows/build-setup.yml')),'Old dev release workflow must not be active');
