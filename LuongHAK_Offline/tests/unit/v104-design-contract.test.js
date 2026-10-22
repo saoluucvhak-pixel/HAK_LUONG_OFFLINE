@@ -7,7 +7,7 @@ test('V10.4 runtime design stylesheet matches the inherited portable source', ()
 });
 test('V10.4 preserves existing palette preferences and keeps luxe as the default', () => {
   const source = fs.readFileSync(path.join(app, 'app.js'), 'utf8');
-  const start = source.indexOf('  var HAK_SKINS ='), end = source.indexOf('  function toggleSkin()', start);
+  const start = source.indexOf('  var HAK_SKINS ='), end = source.indexOf('  applySkin(curSkin());', start);
   assert.ok(start > 0 && end > start);
   for (const saved of [null, 'luxe', 'classic', 'neutral', 'champagne', 'invalid']) {
     let writes = 0;
