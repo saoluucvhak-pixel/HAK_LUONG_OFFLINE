@@ -1,0 +1,8 @@
+"use strict";
+const test=require("node:test"),assert=require("node:assert/strict"),s=require("../../core/kpi-work-schedule.js");
+const calc=(period,profile,workedDays,customStandardDays)=>s.standard({period,profile,workedDays,customStandardDays});
+test("Weighbridge 26 standard: 26 no candidate OT, 27 one candidate",()=>{assert.equal(calc("2026-10","WEIGHBRIDGE_26",26).candidateExcessDays,0);assert.equal(calc("2026-10","WEIGHBRIDGE_26",27).candidateExcessDays,1);});
+test("XNK KTT and executive use 22, not 24",()=>{for(const p of ["XNK_22","KTT_22","EXECUTIVE_22"]){const r=calc("2026-10",p,26);assert.equal(r.standardDays,22);assert.equal(r.candidateExcessDays,4);assert.equal(r.overtimeHours,null);}});
+test("Office schedule: Sundays 0 Saturdays 0.5 and weekdays 1",()=>{const r=calc("2026-10","OFFICE_WEEKLY",26);assert.equal(r.ok,true);assert.equal(r.standardDays,24.5);const x=r.calendar.filter(z=>z.weekday===0),y=r.calendar.filter(z=>z.weekday===6);assert.ok(x.length>0&&x.every(z=>z.standardDays===0));assert.ok(y.length>0&&y.every(z=>z.standardDays===.5));});
+test("Overtime pay only with actual confirmed hours",()=>{assert.equal(s.overtime({eligibleHourlyRateVnd:40000,weekdayHours:4,weeklyRestHours:0,holidayHours:0}).ok,false);const z=s.overtime({eligibleHourlyRateVnd:40000,weekdayHours:4,weeklyRestHours:0,holidayHours:0,evidenceId:"ATTEND-1",timeLogReviewed:true,overtimeApproved:true});assert.equal(z.ok,true);assert.equal(z.payVnd,240000);assert.equal(z.payrollWriteAllowed,false);});
+test("Unassigned schedule and invalid days are blocked",()=>{assert.equal(s.standard({period:"2026-10",workedDays:25,profile:"CUSTOM"}).ok,false);assert.equal(calc("2026-10","WEIGHBRIDGE_26",32).ok,false);});

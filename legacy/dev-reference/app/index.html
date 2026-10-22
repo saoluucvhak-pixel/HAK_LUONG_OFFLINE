@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="light" data-hak-theme="luxe">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAK · TÍNH LƯƠNG</title>
+  <link rel="stylesheet" href="libs/bootstrap.min.css">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/hak-enterprise-components.css">
+  <link rel="stylesheet" href="css/hak-accessibility.css">
+  <link rel="stylesheet" href="css/hak-enterprise-theme.css">
+  <link rel="stylesheet" href="css/hak-smart-filter.css">
+  <link rel="stylesheet" href="css/luong.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e7c86'/%3E%3Ctext x='32' y='42' font-size='28' font-weight='800' text-anchor='middle' fill='white' font-family='Arial'%3EHAK%3C/text%3E%3C/svg%3E">
+  <script>
+    (function () {
+      try {
+        var design = JSON.parse(localStorage.getItem('hak.design.theme') || '"luxe"');
+        document.documentElement.setAttribute('data-hak-theme', ['luxe','classic','neutral','champagne'].includes(design) ? design : 'luxe');
+        var t = JSON.parse(localStorage.getItem('hak.theme') || 'null');
+        if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-bs-theme', t);
+      } catch (e) { /* mặc định sáng */ }
+    })();
+  </script>
+</head>
+<body class="hak-ui">
+<div id="topProgress"><div class="bar"></div></div>
+<div id="loading" class="loading-overlay d-none" role="status" aria-live="polite">
+  <div class="loading-box">
+    <div class="spinner-border text-primary mb-3" style="width:2.6rem;height:2.6rem"></div>
+    <div id="loadingMsg" class="fw-semibold mb-2">Đang xử lý…</div>
+    <div class="progress" style="height:8px"><div id="loadingBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
+    <div id="loadingPct" class="small muted mt-2">0%</div>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">HAK</div>
+      <div><div class="sb-title">TÍNH LƯƠNG</div><div class="sb-sub">Chấm công · Lương · BHXH · Thuế · <span data-hak-version title="Phiên bản đang chạy"></span></div></div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-label">Bắt đầu</div>
+      <a class="sb-link" href="#/home" data-nav="home"><span class="ico">🏠</span> Tổng quan</a>
+      <div class="sb-label">Dữ liệu kỳ lương</div>
+      <a class="sb-link" href="#/data" data-nav="data"><span class="ico">📋</span> Bảng dữ liệu</a>
+      <a class="sb-link" href="#/payroll" data-nav="payroll"><span class="ico">💰</span> Tính lương</a>
+      <div class="sb-label">Hệ thống</div>
+      <a class="sb-link" href="#/settings" data-nav="settings"><span class="ico">⚙️</span> Cài đặt</a>
+      <a class="sb-link" href="#/help" data-nav="help"><span class="ico">❓</span> Hướng dẫn</a>
+    </nav>
+    <div class="sb-foot"><button class="btn btn-sm btn-outline-light w-100" id="btnThemeSb" type="button">🌓 Đổi giao diện sáng / tối</button></div>
+  </aside>
+  <div class="sb-backdrop" id="sbBackdrop"></div>
+
+  <div class="content">
+    <header class="topbar">
+      <button class="btn btn-outline-secondary d-lg-none" id="btnMenu" type="button" aria-label="Mở menu">☰</button>
+      <h1 id="pageTitle">Tổng quan</h1>
+      <span class="ms-auto d-flex align-items-center gap-1" id="topUser"></span>
+      <select id="hakDesignTheme" class="form-select form-select-sm hak-theme-select" aria-label="Phong cách HAK"><option value="luxe">HAK Luxe</option><option value="classic">HAK Classic</option><option value="neutral">HAK Neutral</option><option value="champagne">HAK Champagne</option></select>
+      <button class="btn btn-sm btn-outline-secondary" id="btnTheme" type="button" title="Sáng / tối">🌓</button>
+    </header>
+
+    <section class="page" id="page-home" hidden></section>
+    <section class="page" id="page-data" hidden></section>
+    <section class="page" id="page-payroll" hidden></section>
+    <section class="page" id="page-settings" hidden></section>
+    <section class="page" id="page-help" hidden></section>
+  </div>
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+
+<script src="libs/bootstrap.bundle.min.js"></script>
+<script src="js/version.js"></script>
+<script src="js/store.js"></script>
+<script src="js/db.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/numfmt.js"></script>
+<script src="js/hak-theme.js"></script>
+<script src="js/config.js"></script>
+<script src="js/schema.js"></script>
+<script src="js/sample-data.js"></script>
+<script src="js/payroll-engine.js"></script>
+<script src="js/data.js"></script>
+<script src="js/excel-io.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/pages-home.js"></script>
+<script src="js/pages-data.js"></script>
+<script src="js/pages-payroll.js"></script>
+<script src="js/pages-settings.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

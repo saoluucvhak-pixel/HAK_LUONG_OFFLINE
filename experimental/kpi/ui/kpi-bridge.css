@@ -1,0 +1,14 @@
+/* KPI Bridge V11 draft tracking — inherited HAK V10.4 tokens. */
+#main .hak-kpi-panel { display:flex; flex-direction:column; gap:14px; max-width:100%; }
+#main .hak-kpi-panel .hak-catalog-heading { margin-bottom:2px; }
+#main .hak-kpi-panel .bar { padding:14px; border:1px solid var(--line, #e3e9ee); border-radius:12px; background:var(--card, #fff); display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+#main .hak-kpi-panel .kpi-field { display:flex; flex-direction:column; gap:6px; flex:1 1 250px; min-width:210px; font-size:13px; font-weight:600; }
+#main .hak-kpi-panel .kpi-field > .i { width:100%; box-sizing:border-box; min-height:38px; font-weight:400; }
+#main .hak-kpi-panel .kpi-table { width:100%; border-collapse:collapse; background:var(--card, #fff); border-radius:12px; overflow:hidden; }
+#main .hak-kpi-panel .kpi-table th,#main .hak-kpi-panel .kpi-table td { border-bottom:1px solid var(--line, #e7edf2); text-align:left; padding:12px 14px; }
+#main .hak-kpi-panel .kpi-table th { font-size:12px; background:var(--bg2, #f5f8fa); }
+#main .hak-kpi-panel .kpi-table tr[tabindex] { cursor:pointer; }
+#main .hak-kpi-panel .kpi-table tr[tabindex]:hover, #main .hak-kpi-panel .kpi-table tr[tabindex]:focus { outline:2px solid var(--primary, #277b8b); outline-offset:-2px; }
+#main .hak-kpi-panel > .card { padding:18px; }
+#main .hak-kpi-panel .hint { line-height:1.5; }
+@media(max-width:740px) { #main .hak-kpi-panel .kpi-table { font-size:12px; } #main .hak-kpi-panel .kpi-table th,#main .hak-kpi-panel .kpi-table td {padding:8px 6px;} }

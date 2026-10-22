@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
+      - integration/main-v104-consolidation
       - feature/luong-hak-v10-4-enterprise-ui
       - feature/luong-v104-shared-ocr
       - feature/luong-v104-handwritten-cnn
@@ -16,6 +18,11 @@ on:
       - 'HAK_ACCOUNTING_REPORT_STANDARD/**'
       - 'HAK_SMART_FILTER/**'
       - 'design-system/**'
+      - 'experimental/**'
+      - 'legacy/**'
+      - 'scripts/check-consolidation.cjs'
+      - 'docs/CONSOLIDATED_BRANCHES.json'
+      - 'package.json'
 permissions:
   contents: read
 jobs:
@@ -181,3 +188,16 @@ jobs:
             hak-project-memory.jsonl
             hak-skill-proposals.json
           retention-days: 30
+
+  consolidation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run check
+      - run: npm run test:legacy
+      - run: npm run test:kpi
