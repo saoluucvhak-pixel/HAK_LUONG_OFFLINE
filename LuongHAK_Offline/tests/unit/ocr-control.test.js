@@ -25,3 +25,13 @@ test("OCR control retries unavailable response and respects disabled environment
   const off = createOcrControl(null); off.setEnabled(true);
   assert.equal(off.info().enabled, false);
 });
+test("OCR diagnostics respects session switch and environment lock", async () => {
+  let probes = 0;
+  const c = createOcrControl({ probe: async () => { probes++; return { ok: true, languages: ["English"] }; } });
+  assert.equal((await c.probe()).ok, true);
+  c.setEnabled(false);
+  assert.deepEqual(await c.probe(), { ok: false, disabled: true });
+  assert.equal(probes, 1);
+  c.setEnabled(true); assert.equal((await c.probe()).ok, true);
+  assert.equal((await createOcrControl(null).probe()).disabled, true);
+});
