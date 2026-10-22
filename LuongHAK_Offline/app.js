@@ -212,7 +212,6 @@
   function curSkin() { try { var k = localStorage.getItem(KEY + "_skin"); return HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"; } catch (e) { return "luxe"; } }
   function applySkin(k) { document.documentElement.setAttribute("data-skin", HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"); }
   function setSkin(k) { if (!HAK_SKINS.some(function (v) { return v[0] === k; })) return; try { localStorage.setItem(KEY + "_skin", k); } catch (e) {} applySkin(k); render(); }
-  function toggleSkin() { var i = HAK_SKINS.findIndex(function (v) { return v[0] === curSkin(); }); setSkin(HAK_SKINS[(i + 1) % HAK_SKINS.length][0]); }
   applySkin(curSkin());
   applyTheme(curTheme());
   // ---------- Phân trang + tìm kiếm (PERF-03: 1.000 NV mở lưới chấm công 6,9 s, gõ 4 ký tự 19,9 s khi vẽ toàn bộ) ----------
@@ -4548,7 +4547,7 @@
           var details=Object.keys(p.counts).map(function(t){return t+": "+p.counts[t];}).join("\n");
           if(!confirm("Chuyển hồ sơ năm "+p.year+" vào kho chỉ xem?\nKỳ: "+p.periods.join(", ")+"\n"+details+"\nDữ liệu đang làm dự kiến: "+Math.round(p.beforeBytes/1024)+" → "+Math.round(p.afterBytes/1024)+" KB.\nApp sẽ sao lưu và kiểm tra hồ sơ trước khi chuyển. Tiếp tục?"))return;
           waiting("Đang sao lưu, kiểm tra và chuyển hồ sơ năm… Vui lòng giữ ứng dụng mở.");
-          window.hakYears.archive(p.year,p.token).then(function(r){if(show(r)){alert("Đã lưu trữ năm "+p.year+". Dữ liệu đang làm còn "+Math.round(r.afterBytes/1024)+" KB. App sẽ tải lại.");location.reload();}});
+          window.hakYears.archive(p.year,p.token).then(function(r){if(show(r)){alert("Đã lưu trữ năm "+p.year+". Dữ liệu đang làm còn "+Math.round(r.afterBytes/1024)+" KB. App sẽ tải lại.");window.location.reload();}});
         });
       }));
       if(info.candidates.length)body.appendChild(controls);
@@ -4559,7 +4558,7 @@
           if(!clean())return;
           askText("Đưa hồ sơ về vùng đang làm","Lý do đưa hồ sơ năm "+ref.year+" về vùng đang làm? Các kỳ vẫn giữ trạng thái đã chốt.",{required:true},function(reason){
             if(!reason||!reason.trim())return;
-            window.hakYears.list().then(function(fresh){if(!show(fresh))return;if(!confirm("Đưa toàn bộ hồ sơ năm "+ref.year+" về dữ liệu đang làm? Hệ thống sẽ sao lưu trước và không ghi đè khi có dữ liệu trùng."))return;window.hakYears.restore(ref.year,reason,fresh.token).then(function(r){if(show(r))location.reload();});});
+            window.hakYears.list().then(function(fresh){if(!show(fresh))return;if(!confirm("Đưa toàn bộ hồ sơ năm "+ref.year+" về dữ liệu đang làm? Hệ thống sẽ sao lưu trước và không ghi đè khi có dữ liệu trùng."))return;window.hakYears.restore(ref.year,reason,fresh.token).then(function(r){if(show(r))window.location.reload();});});
           });
         }));body.appendChild(row);
       });
