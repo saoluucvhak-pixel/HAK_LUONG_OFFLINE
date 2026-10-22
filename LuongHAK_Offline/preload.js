@@ -36,7 +36,13 @@ contextBridge.exposeInMainWorld("hakStore", {
 });
 // OCR ảnh bảng chấm công / chấm cơm (α20): chỉ gửi ảnh ô đã cắt (xám) — chạy offline ở tiến trình chính
 contextBridge.exposeInMainWorld("hakOcr", {
-  batch: (items) => ipcRenderer.invoke("ocr-batch", items),       // [{ w, h, data: Uint8Array, mode: "digit"|"text"|"page" }] → [{ text, conf }]
+  batch: (items, progress) => {
+    const listener = (_e, p) => { if (typeof progress === "function") progress(p); };
+    ipcRenderer.on("ocr-progress", listener);
+    return ipcRenderer.invoke("ocr-batch", items).finally(() => ipcRenderer.removeListener("ocr-progress", listener));
+  },
+  cancel: () => ipcRenderer.invoke("ocr-cancel"),
+  options: (enabled) => ipcRenderer.invoke("ocr-options", enabled),
   selfTest: () => ipcRenderer.invoke("ocr-selftest")
 });
 // File xuất (Excel, báo cáo): chỉ thao tác theo TÊN file trong thư mục xuất — không truyền đường dẫn

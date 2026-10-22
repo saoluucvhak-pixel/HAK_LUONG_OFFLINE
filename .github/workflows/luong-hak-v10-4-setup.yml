@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/alpha38-excel-ocr-controls
       - integration/main-v104-consolidation
       - feature/luong-hak-v10-4-enterprise-ui
       - feature/luong-v104-shared-ocr
@@ -39,7 +40,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Test payroll engine and integrations
         run: npm test
       - name: Test drawer DOM focus regressions
@@ -159,7 +160,7 @@ jobs:
       - name: Verify pinned common OCR source parity
         run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr
       - name: Verify payroll and persistence source are unchanged
-        run: git diff --exit-code c389ef4ffcfd13a4f867cb070db2069314617dc7 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/engine.js" ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-parse.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/core/page-rectify.js" ":(exclude)LuongHAK_Offline/main/umi-ocr.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js" ":(exclude)LuongHAK_Offline/core/schema.js" ":(exclude)LuongHAK_Offline/main.js" ":(exclude)LuongHAK_Offline/preload.js" ":(exclude)LuongHAK_Offline/main/fullbackup.js" ":(exclude)LuongHAK_Offline/main/fullbackup-worker.js" ":(exclude)LuongHAK_Offline/main/restore.js" ":(exclude)LuongHAK_Offline/main/pdf.js" ":(exclude)LuongHAK_Offline/main/year-archive.js" ":(exclude)LuongHAK_Offline/main/year-archive-worker.js" ":(exclude)LuongHAK_Offline/main/year-archive-export.js"
+        run: git diff --exit-code c389ef4ffcfd13a4f867cb070db2069314617dc7 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/engine.js" ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-parse.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/core/page-rectify.js" ":(exclude)LuongHAK_Offline/main/umi-ocr.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/ocr-control.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js" ":(exclude)LuongHAK_Offline/core/schema.js" ":(exclude)LuongHAK_Offline/main.js" ":(exclude)LuongHAK_Offline/preload.js" ":(exclude)LuongHAK_Offline/main/fullbackup.js" ":(exclude)LuongHAK_Offline/main/fullbackup-worker.js" ":(exclude)LuongHAK_Offline/main/restore.js" ":(exclude)LuongHAK_Offline/main/pdf.js" ":(exclude)LuongHAK_Offline/main/year-archive.js" ":(exclude)LuongHAK_Offline/main/year-archive-worker.js" ":(exclude)LuongHAK_Offline/main/year-archive-export.js"
       - uses: actions/cache/restore@v4
         with:
           path: hak-project-memory.jsonl

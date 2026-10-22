@@ -1225,6 +1225,21 @@ async function launch(dataDir, opt) {
     dialogs = []; await w.click('#main button:has-text("Kiểm tra OCR")');
     for (let i = 0; i < 40 && !dialogs.length; i++) await w.waitForTimeout(250);
     ok("Kiểm tra OCR trên máy: đọc thử được số", dialogs.some((m) => /OCR hoạt động/.test(m)), dialogs.join(" | "));
+    const ocrControls = await w.evaluate(async () => {
+      const initial = await window.hakOcr.options();
+      await window.hakOcr.options(false);
+      const disabled = await window.hakOcr.options();
+      const states = [], item = { w: 60, h: 40, data: new Uint8Array(2400).fill(255), mode: "digit" };
+      const r = await window.hakOcr.batch([item, item], (p) => states.push(p.done));
+      const p = window.hakOcr.batch(Array.from({ length: 100 }, () => item)).then(() => false, (e) => /OCR_CANCELLED/.test(String(e)));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await window.hakOcr.cancel(); const cancelled = await p;
+      const after = await window.hakOcr.batch([]);
+      await window.hakOcr.options(initial.enabled);
+      return { disabled: !disabled.enabled, count: r.length, progress: states.join(","), cancelled, recovered: after.length === 0 };
+    });
+    ok("OCR alpha.38: switch, cell progress, cancel discards partial batch and next batch recovers", ocrControls.disabled && ocrControls.count === 2 && ocrControls.progress === "1,2" && ocrControls.cancelled && ocrControls.recovered, JSON.stringify(ocrControls));
+    await shotOf(w, "v104-alpha38-ocr-controls");
     // Dừng đọc: chọn thêm 3 trang, bấm Dừng khi trang đầu đang đọc → trang sau không đọc (■), trang đã đọc giữ nguyên; Đọc lại từng trang được
     {
       const [fc2] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);

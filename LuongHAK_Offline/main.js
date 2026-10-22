@@ -5,6 +5,7 @@ const { createStorage } = require("./main/storage");
 const { createExports } = require("./main/exports");
 const { createOcrService, sanitizeOcrItems } = require("./main/ocr-service");
 const { createUmiClient } = require("./main/umi-ocr");
+const { createOcrControl } = require("./main/ocr-control");
 const pdfSvc = require("./main/pdf");
 const { createVault } = require("./main/documents");
 const fullBackup = require("./main/fullbackup");
@@ -49,7 +50,8 @@ let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, 
 // Umi-OCR (tuỳ chọn): người dùng tự cài và chạy Umi-OCR trên MÁY NÀY → ô số được đọc thêm làm ý kiến thứ hai (không thay kết quả Tesseract).
 // Tắt: HAK_UMI_OCR=0 · cổng khác: HAK_UMI_OCR=<cổng>. Umi không chạy → tự bỏ qua (ngắt mạch 30 giây).
 const umi = process.env.HAK_UMI_OCR === "0" ? null : createUmiClient({ port: /^\d+$/.test(process.env.HAK_UMI_OCR || "") ? +process.env.HAK_UMI_OCR : 1224 });
-const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname, secondOpinion: umi })); // nạp Tesseract khi dùng lần đầu
+const ocrControl = createOcrControl(umi), ocrJobs = new Map();
+const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname, secondOpinion: ocrControl })); // nạp Tesseract khi dùng lần đầu
 const NO_SHELL = !!process.env.HAK_NO_SHELL; // kiểm thử tự động: không mở Explorer thật, chỉ ghi lại thao tác
 let lastShell = null;
 function shellDo(kind, f) { lastShell = { kind, name: path.basename(f) }; if (NO_SHELL) return; if (kind === "show") shell.showItemInFolder(f); else shell.openPath(f); }
@@ -293,7 +295,24 @@ function registerIpc() {
   // OCR bảng chấm công (α20): giao diện gửi ẢNH Ô đã cắt (xám, nhỏ) — không gửi đường dẫn file; chạy offline
   ipcMain.handle("ocr-batch", guarded("input.edit", async (e, items) => {
     if (!Array.isArray(items) || items.length > 5000) throw new Error("Lô OCR không hợp lệ");
-    return ocrSvc().batch(sanitizeOcrItems(items)); // ô sai kích thước → kết quả rỗng ĐÚNG VỊ TRÍ (không làm lệch thứ tự)
+    if (ocrJobs.has(e.sender.id)) throw new Error("OCR đang chạy");
+    const job = { cancelled: false }, safe = sanitizeOcrItems(items), out = [];
+    ocrJobs.set(e.sender.id, job);
+    try {
+      for (const item of safe) {
+        if (job.cancelled || e.sender.isDestroyed()) throw new Error("OCR_CANCELLED");
+        const result = await ocrSvc().batch([item]);
+        if (job.cancelled) throw new Error("OCR_CANCELLED");
+        out.push(result[0]);
+        if (!e.sender.isDestroyed()) e.sender.send("ocr-progress", { done: out.length, total: safe.length });
+      }
+      return out; // giữ nguyên thứ tự, không trả lô dở dang khi hủy
+    } finally { ocrJobs.delete(e.sender.id); }
+  }));
+  ipcMain.handle("ocr-cancel", guarded("input.edit", async (e) => { const j = ocrJobs.get(e.sender.id); if (j) j.cancelled = true; return { ok: true }; }));
+  ipcMain.handle("ocr-options", guarded("input.edit", async (_e, enabled) => {
+    if (typeof enabled === "boolean" && !ocrJobs.size) return ocrControl.setEnabled(enabled);
+    return ocrControl.info();
   }));
   ipcMain.handle("ocr-selftest", guarded("input.edit", async () => { try { const r = await ocrSvc().selfTest(); r.umi = umi ? await umi.probe() : { ok: false, disabled: true }; return r; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
   // Lịch sao lưu (α17) — cấu hình của máy này (settings.json)
