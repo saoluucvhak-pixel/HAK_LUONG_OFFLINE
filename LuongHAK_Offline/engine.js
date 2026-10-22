@@ -750,6 +750,7 @@
           maGTBT: ns["Mã GT_TNCN_BT"] || "", maGTPT: ns["Mã GT_TNCN_PT"] || "", tyLeVangLai: kieu === "VL" ? tyLeVL : null, loiThueNV: out.loiThue.filter(function (e) { return e.maNV === ma; }).map(function (e) { return e.loai + ": " + e.message; })
         }
       });
+      if (cl < 0) out.bangluong[out.bangluong.length - 1]["Còn thiếu (thực lĩnh âm)"] = -cl;
       // Q-19 (R-53): điều chuyển phòng ban trong kỳ → tỷ lệ chia chi phí theo công chính ở từng phòng (không đổi số tiền lương)
       if (ns["Phân bổ phòng ban"]) {
         var segs = String(ns["Phân bổ phòng ban"]).split(";").map(function (x) { var i = x.lastIndexOf("@"); return { pb: x.slice(0, i), tu: +x.slice(i + 1) || 1 }; });

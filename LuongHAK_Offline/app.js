@@ -2514,8 +2514,8 @@
   }
 
   // ---------- Tính lương ----------
-  var COLS_FULL = ["Mã NV", "Họ và tên", "Phòng ban", "Công chuẩn", "Tổng công", "Lương thời gian", "Lương phụ", "Sản lượng (tấn)", "Lương sản lượng", "Lương bù SL", "Lương bơm dăm", "Tiền tăng ca", "Phụ cấp", "Phụ cấp công tác", "Lương hỗ trợ", "Tiền cơm", "Thưởng", "Thu nhập khác", "Tổng thu nhập", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Truy thu BH", "Thuế TNCN", "Trừ khác", "Tạm ứng", "Thực lĩnh"];
-  var COLS_COMPACT = ["Mã NV", "Họ và tên", "Phòng ban", "Tổng công", "Tổng thu nhập", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Thuế TNCN", "Tạm ứng", "Trừ khác", "Thực lĩnh"];
+  var COLS_FULL = ["Mã NV", "Họ và tên", "Phòng ban", "Công chuẩn", "Tổng công", "Lương thời gian", "Lương phụ", "Sản lượng (tấn)", "Lương sản lượng", "Lương bù SL", "Lương bơm dăm", "Tiền tăng ca", "Phụ cấp", "Phụ cấp công tác", "Lương hỗ trợ", "Tiền cơm", "Thưởng", "Thu nhập khác", "Tổng thu nhập", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Truy thu BH", "Thuế TNCN", "Trừ khác", "Tạm ứng", "Thực lĩnh", "Còn thiếu (thực lĩnh âm)"];
+  var COLS_COMPACT = ["Mã NV", "Họ và tên", "Phòng ban", "Tổng công", "Tổng thu nhập", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Thuế TNCN", "Tạm ứng", "Trừ khác", "Thực lĩnh", "Còn thiếu (thực lĩnh âm)"];
   var TEXTCOLS = { "Mã NV": 1, "Họ và tên": 1, "Phòng ban": 1 };
 
   // Cách bù lương sản lượng (α19 thêm 2 cách của công cụ phân bổ khối lượng; 2 cách cũ giữ nguyên)
@@ -3632,7 +3632,9 @@
     out.push({ sec: "III. TẠM ỨNG" });
     out.push({ label: "Tạm ứng đã nhận trong kỳ", value: n("Tạm ứng") });
     out.push({ label: "Cộng tạm ứng", value: n("Tạm ứng"), tot: true });
-    var lech = n("Thực lĩnh") - (n("Tổng thu nhập") - sum(SLIP_KT) - n("Tạm ứng"));
+    var thieu = n("Còn thiếu (thực lĩnh âm)");
+    if (thieu > 0) out.push({ label: "Còn thiếu — chưa tự chuyển sang kỳ sau", value: thieu });
+    var lech = n("Thực lĩnh") - (n("Tổng thu nhập") - sum(SLIP_KT) - n("Tạm ứng")) - thieu;
     if (Math.abs(lech) >= 1) out.push({ label: "Làm tròn", value: lech });
     out.push({ label: "THỰC LĨNH (I − II − III)", value: n("Thực lĩnh"), tot: true, grand: true });
     return out;
@@ -3715,6 +3717,7 @@
     var giamTru = (b["BH trừ NLĐ"] || 0) + (b["KPCĐ trừ NLĐ"] || 0) + (b["Thuế TNCN"] || 0) + (b["Trừ khác"] || 0) + (b["Tạm ứng"] || 0);
     t.appendChild(ctRow("Tổng giảm trừ", "BH + KPCĐ + Thuế TNCN + Trừ khác + Tạm ứng", "", giamTru));
     t.appendChild(ctRow("Thực lĩnh", "Tổng thu nhập − Tổng giảm trừ, làm tròn 1.000đ", "", b["Thực lĩnh"], true));
+    if (b["Còn thiếu (thực lĩnh âm)"] > 0) t.appendChild(ctRow("Còn thiếu", "Khoản trừ vượt thu nhập; ghi nhận để đối chiếu, chưa tự khấu trừ kỳ sau", "", b["Còn thiếu (thực lĩnh âm)"], true));
     box.appendChild(t);
     box.appendChild(h("div", { class: "hint", style: "margin-top:8px", text: "Số liệu lấy đúng từ bảng lương đã tính của kỳ này — không tính lại. Đối chiếu công thức gốc: menu Hướng dẫn & Quy chế lương." }));
     return box;
@@ -4242,7 +4245,7 @@
           return { id: stamp + "-page-" + (pi + 1), group: "SET_DOCUMENT_WRITER_GROUP", split: "test", quality: "SET_clear_OR_hard", cells: cells };
         });
         if (!pages.length) { toast("Chưa có trang nào đọc xong"); return; }
-        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.36", pages: pages }, null, 2));
+        download("ocr-acceptance-private-" + stamp + ".json", "application/json", JSON.stringify({ schema: 1, kind: "unclassified", version: "2.0.0-alpha.37", pages: pages }, null, 2));
         toast("Đã xuất phiếu không chứa tên hoặc ảnh. Người kiểm tra cần điền đáp án, xác nhận người/ngày và phân nhóm tài liệu trước khi đánh giá; giữ file riêng, không đưa lên repo.");
       }, "Xuất kết quả OCR ban đầu theo dòng/ngày, không chứa tên hoặc ảnh; đáp án và bố cục để trống cho người nghiệm thu"));
       bar.appendChild(btn("✔ Đưa vào Chấm công / Suất cơm…", "pri", function () { ocrApply(OCRS.pages); }, "Qua màn hình xem trước như nhập Excel"));

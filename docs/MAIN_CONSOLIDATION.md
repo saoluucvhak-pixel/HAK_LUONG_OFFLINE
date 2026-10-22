@@ -23,3 +23,7 @@ Không di chuyển dữ liệu người dùng, ảnh hồ sơ hay backup thật.
 ## Kiểm tra
 
 Bộ lương chính: 709 kiểm thử cục bộ đạt; legacy: 17; KPI: 37; kiểm tra tổ tiên, phạm vi đóng gói và engine/hr không thay đổi đạt. CI Windows, Electron, ảnh giao diện và bản cài phải đạt trên commit tích hợp trước khi main được cập nhật. Kết quả CI cuối và link Setup được báo riêng sau khi hoàn tất.
+
+## Bổ sung theo yêu cầu về khoản trừ vượt thu nhập
+
+Engine giữ nguyên toàn bộ phép tính thu nhập/thuế/khấu trừ/thực lĩnh, chỉ thêm một dòng ghi nhận giá trị âm trước khi đưa thực lĩnh về 0: Còn thiếu (thực lĩnh âm). Guard so sánh toàn bộ engine với mốc f93ffc4 sau khi bỏ đúng dòng bổ sung này; mọi thay đổi công thức khác đều bị chặn. Cột được hiển thị và xuất cùng bảng lương, nằm trong bản chốt mới; không sửa bản chốt cũ, không tự thu hoặc trừ sang tháng sau. Phiếu lương không coi khoản thiếu này là tiền làm tròn.
