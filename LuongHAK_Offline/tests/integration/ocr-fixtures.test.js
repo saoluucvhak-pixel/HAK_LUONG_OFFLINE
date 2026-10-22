@@ -46,6 +46,7 @@ test("I-OCR-02 bảng in người × ngày: đúng tên, đúng từng ngày (c�
   const r = await TO.analyze(readGrayPNG(path.join(FIX, "bang-cham-cong-mau.png")), host);
   const T = r.table;
   assert.strictEqual(r.rot, 0); assert.strictEqual(r.period, "2026-09");
+  assert.strictEqual(r.rectify.applied, false); assert.strictEqual(r.rectify.status, "STRAIGHT"); // ảnh thẳng: không nắn
   assert.strictEqual(T.layout, "A"); assert.strictEqual(T.days.length, 30);
   assert.deepStrictEqual(T.lines.map((l) => l.name), ["E2E Nhân Viên", "Phạm Minh Khoa", "Đỗ Thu Hằng"]);
   assert.deepStrictEqual(T.lines.map((l) => l.sum), [28.5, 20, 15]);
@@ -103,4 +104,31 @@ test("I-OCR-06 lịch làm theo ca: 1 / 2 / 3 = 1 công, '1+2' = 2 công, X = ng
   assert.deepStrictEqual(T.lines.map((l) => l.name), Object.keys(exp));
   T.lines.forEach((l) => exp[l.name].forEach((v, i) => assert.strictEqual(l.values[i + 1], v, l.name + " ngày " + (i + 1))));
   assert.strictEqual(T.lines[0].cells[5].valSrc, "X = nghỉ");
+});
+
+// Nắn thẳng cả trang (HAK_OCR_ENGINE core/page-rectify.js): ảnh làm xấu từ bang-cham-cong-mau.png bằng tests/fixtures/ocr/rectify/make-degraded.py
+// Trước khi có bước nắn: nghiêng 2° = 78 đúng / 9 sai im lặng, 5° = 45 / 22, chụp điện thoại = 66 / 14 (lệch dòng / cột).
+const PRINTED = [["E2E Nhân Viên", Array(26).fill(1).concat([0.5, 1, 1, 0])], ["Phạm Minh Khoa", Array.from({ length: 30 }, (_, i) => [1, 1, 0][i % 3])], ["Đỗ Thu Hằng", Array.from({ length: 30 }, (_, i) => (i < 15 ? 1 : 0))]];
+function score(T) {
+  let ok = 0, wrong = 0;
+  PRINTED.forEach(([, vals], k) => vals.forEach((v, i) => {
+    const got = T.lines[k] ? T.lines[k].values[i + 1] : undefined, exp = v || null;
+    if (got === exp) ok++; else if (!(got === undefined || (typeof got === "number" && isNaN(got)))) wrong++;
+  }));
+  return { ok, wrong };
+}
+test("I-OCR-07 ảnh chụp nghiêng 2° / 5° và giả lập chụp điện thoại: nắn thẳng cả trang → đủ 90 ô đúng, không ô nào sai im lặng, giữ kỳ lương", { timeout: 240000 }, async () => {
+  for (const name of ["01-nghieng-2do", "02-nghieng-5do", "12-chup-dien-thoai"]) {
+    const r = await TO.analyze(readGrayPNG(path.join(FIX, "rectify", name + ".png")), host), T = r.table, s = score(T);
+    assert.strictEqual(r.rectify.applied, true, name + " " + r.rectify.status);
+    assert.ok(T.warnings.some((w) => /nắn thẳng/.test(w)), name + " phải báo đã nắn");
+    assert.strictEqual(r.period, "2026-09", name);
+    assert.deepStrictEqual(T.lines.map((l) => l.name), PRINTED.map((p) => p[0]), name);
+    assert.deepStrictEqual(s, { ok: 90, wrong: 0 }, name);
+  }
+});
+test("I-OCR-08 ảnh chụp rất xấu (60% độ phân giải, mờ, bóng đổ, phối cảnh): nắn không làm tệ hơn — phần lớn ô đúng, sai im lặng ≤ 2", { timeout: 120000 }, async () => {
+  const r = await TO.analyze(readGrayPNG(path.join(FIX, "rectify", "13-chup-dien-thoai-xau.png")), host), s = score(r.table);
+  assert.strictEqual(r.rectify.applied, true, r.rectify.status);
+  assert.ok(s.ok >= 65 && s.wrong <= 2, JSON.stringify(s));   // không nắn: 47 đúng / 16 sai im lặng
 });
