@@ -1,3 +1,4 @@
+/* global queueMicrotask */
 // Presentation adapter for the inherited app. No payroll state or storage bridge is accessed.
 (function () {
   'use strict';
@@ -84,7 +85,7 @@
     const metrics = workspace.querySelector('.hak-catalog-metrics');
     const rows = [...workspace.querySelectorAll('[data-ot-row]')];
     const active = rows.filter(row => row.textContent.includes('Đang hiệu lực')).length;
-    const versions = rows.reduce((sum, row) => { const cells = [...row.children]; return sum + (Number(cells[cells.length - 2]?.textContent) || 0); }, 0);
+    const versions = rows.reduce((sum, row) => { const cells = [...row.children]; const prev = cells[cells.length - 2]; return sum + (Number(prev && prev.textContent) || 0); }, 0);
     const values = [['▤', 'Mã đang hiển thị', rows.length], ['✓', 'Đang hiệu lực', active], ['◷', 'Phiên bản công thức', versions], ['⇄', 'Không gian quản lý', 'Cha – con']];
     const signature = JSON.stringify(values);
     if (metrics && metrics.dataset.signature !== signature) {
@@ -104,11 +105,11 @@
   function enhance() {
     scheduled = false; navigation(); dashboard(); masterDetail(); returnFocus();
     const top = document.querySelector('#top');
-    if (top?.querySelector('.srch') && !top.querySelector('.hak-skin-select')) {
+    if (top && top.querySelector('.srch') && !top.querySelector('.hak-skin-select')) {
       const skins = document.querySelector('#sidefoot .hak-skin-select');
       if (skins) top.insertBefore(skins, top.querySelector('.who'));
     }
-    const search = top?.querySelector('.srch');
+    const search = top && top.querySelector('.srch');
     if (search && !search.dataset.referenceReady) { search.dataset.referenceReady = '1'; search.replaceChildren(make('span', '', '⌕ Tìm nhân viên, mã tăng ca, công thức…'), make('kbd', '', 'Ctrl K')); }
 
     const version = document.querySelector('#sidefoot .ver');
