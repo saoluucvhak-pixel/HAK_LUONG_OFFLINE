@@ -1,6 +1,12 @@
 name: LUONG HAK V10.4 Windows Setup
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'LuongHAK_Offline/**'
+      - '.github/workflows/luong-hak-v10-4-setup.yml'
+      - 'scripts/check-consolidation.cjs'
+      - 'docs/releases/**'
   push:
     branches:
       - main
