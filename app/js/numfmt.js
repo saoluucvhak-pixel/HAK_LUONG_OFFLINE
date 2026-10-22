@@ -1,13 +1,23 @@
 /**
  * numfmt.js — ô nhập số kiểu Việt: tự thêm dấu "." hàng nghìn và "," thập phân khi rời ô (blur).
- *  - data-numfmt="num"  : kg / tấn / tiền — dùng HAK.Excel.util.parseNum ("6.500" = 6500, "13.010,81", "0,123" = 0.123).
+ *  - data-numfmt="num"  : kg / tấn / tiền — parseNum ("6.500" = 6500, "13.010,81", "0,123" = 0.123, "1,234,567" = 1234567).
  *  - data-numfmt="dec"  : độ ẩm, hệ số… không có dấu nghìn — dấu "," hoặc "." đơn luôn là dấu thập phân ("49,981" = 49,981).
  * Giá trị máy đọc (parse) luôn từ HAK.NumFmt.parse; ô chỉ hiển thị đã định dạng.
  */
 (function (root) {
   'use strict';
   const HAK = (root.HAK = root.HAK || {});
-  const parseNum = (s) => (HAK.Excel && HAK.Excel.util ? HAK.Excel.util.parseNum(s) : parseFloat(String(s).replace(',', '.')));
+  /** Số kiểu Việt → Number (null nếu không phải số). Có "," → "," là thập phân, "." là nghìn; chỉ có "." → nghìn khi đúng dạng nhóm 3 số
+   *  (1.234 / 20.800.000), ngược lại là thập phân (1.5, 0.123); nhiều "," dạng nhóm 3 số (dán từ Excel tiếng Anh) → nghìn. */
+  function parseNum(s) {
+    if (typeof s === 'number') return isFinite(s) ? s : null;
+    let t = String(s == null ? '' : s).trim().replace(/\s+/g, '');
+    if (!t) return null;
+    if (/^-?[1-9]\d{0,2}(,\d{3}){2,}$/.test(t)) t = t.replace(/,/g, '');
+    else if (t.indexOf(',') >= 0) t = t.replace(/\./g, '').replace(',', '.');
+    else if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+    return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : null;
+  }
   /** "dec": 1 dấu , hoặc . → thập phân; còn lại (cả hai dấu / nhiều dấu) nhường cho parseNum. */
   function parseDec(s) {
     const t = String(s == null ? '' : s).trim().replace(/\s+/g, '');

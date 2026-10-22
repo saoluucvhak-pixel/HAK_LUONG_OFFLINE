@@ -109,6 +109,30 @@ test('khấu trừ vượt thu nhập: thực lĩnh 0 và ghi rõ số còn thi�
   assert.equal(P.tinhBangLuong(base()).bangLuong[0]['Còn thiếu (thực lĩnh âm)'], 0);
 });
 
+test('danh mục mẫu: biểu thuế 5 bậc + giảm trừ 15,5tr/6,2tr từ 2026; kỳ 2025 vẫn ra mức cũ', () => {
+  const dm = require('../app/js/sample-data.js').dm;
+  const bieu = (nam) => Object.values(P.locTheoHieuLuc(dm.DM_TNCN, 'Bậc', nam, 1)).sort((a, b) => a['Thu nhập tháng (Min)'] - b['Thu nhập tháng (Min)']);
+  const gt = (nam) => P.locTheoHieuLuc(dm.DM_GT_TNCN, 'Mã giảm trừ', nam, 1);
+  assert.equal(bieu(2026).length, 5); assert.equal(bieu(2025).length, 7);
+  assert.equal(gt(2026)['GTBT.01']['Số tiền'], 15500000); assert.equal(gt(2026)['GTNPT.01']['Số tiền'], 6200000);
+  assert.equal(gt(2025)['GTBT.01']['Số tiền'], 11000000);
+  assert.equal(P.tinhThueTNCNLuyTien(25000000, bieu(2026)), 2000000);    // 10tr×5% + 15tr×10%
+  assert.equal(P.tinhThueTNCNLuyTien(150000000, bieu(2026)), 38000000);  // 0,5 + 2 + 6 + 12 + 50×35% (triệu)
+  assert.equal(P.tinhThueTNCNLuyTien(25000000, bieu(2025)), 3350000);    // 0,25 + 0,5 + 1,2 + 1,4 (triệu)
+  assert.equal(P.tinhThueTNCNLuyTien(2000000000, bieu(2025)), Math.round(18150000 + (2000000000 - 80000000) * 0.35));  // thuế luỹ kế tới 80tr = 18,15tr; bậc cao nhất không còn bị chặn ở 1 tỷ
+});
+
+test('cảnh báo đầu vào: nhân sự trùng, ô ngày ngoài tháng, CĐ vào giữa kỳ, danh mục thuế cũ', () => {
+  const d = base(), ns = d.t.NL_NHANSU[0];
+  assert.deepEqual(P.canhBaoDauVao(d).map((x) => x[1]).filter((s) => !/thuế TNCN còn mức cũ/.test(s)), []);   // dữ liệu chuẩn: chỉ còn cảnh báo thuế (fixture dùng giảm trừ 11tr)
+  d.t.NL_NHANSU = [ns, Object.assign({}, ns, { 'Mã tiền lương 1': 'CĐ', 'Ngày vào làm': '2026-06-15' })];
+  d.t.NL_CHAMCONG = [ngayLam({ 'Mã NV': 'NV1', '31': 1 })];
+  d.t.DM_GT_TNCN = [{ 'Mã giảm trừ': 'GTBT', 'Số tiền': 11000000 }];
+  const w = P.canhBaoDauVao(d).map((x) => x[1]).join('\n');
+  assert.match(w, /Nhân sự trùng mã.*NV1/); assert.match(w, /ngày không có trong tháng 6.*NV1/); assert.match(w, /CĐ.*NV1/); assert.match(w, /thuế TNCN còn mức cũ/);
+  d.nam = 2025; assert.doesNotMatch(P.canhBaoDauVao(d).map((x) => x[1]).join('\n'), /mức cũ/);   // trước 2026 thì mức cũ là đúng
+});
+
 test('ô ngày không có trong tháng (31/06) không được cộng công', () => {
   const d = base(); d.t.NL_CHAMCONG = [ngayLam({ 'Mã NV': 'NV1', '31': 1 }), { 'Mã NV': 'NV1', 'Ngày tính công': '2026-06-01', 'Hình thức công': 'TC', '31': 2 }];
   const t = P.tongHopChamCong(d.t.NL_CHAMCONG, 2026, 6).NV1;

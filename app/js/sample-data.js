@@ -66,13 +66,26 @@
     { "Mã tăng ca": "TC5", "Nội dung tăng ca": "Ca làm thêm vị trí khác", "Hệ số tăng ca": "100%", "Tiền tăng ca (nếu tính cố định)": 6000000, "Cách tính": "Lương làm ca khác (khoán, chia công chuẩn)" } ], "DM_HOTRO": [ { "Mã hỗ trợ": "HT.01", "Tên hỗ trợ": "Tiền cơm", "Số tiền": 20000, "Cách tính": "Số tiền × Số ngày công" },
     { "Mã hỗ trợ": "HT.02", "Tên hỗ trợ": "Hỗ trợ lương cơ giới", "Số tiền": 150000, "Cách tính": "Nếu công thực tế < công chuẩn = (công chuẩn − công thực tế) × 150.000" } ], "DM_BAOHIEM": [ { "Mã bảo hiểm": "BH_KPCD.01", "Nội dung": "Khoản trích theo lương — đầy đủ", "DN.BHXH": 0.175, "DN.BHYT": 0.03, "DN.BHTN": 0.01, "DN.KPCD": 0.02, "NLD.BHXH": 0.08, "NLD.BHYT": 0.015, "NLD.BHTN": 0.01, "NLD.KPCD": 0.005 },
     { "Mã bảo hiểm": "BH_KPCD.02", "Nội dung": "Khoản trích theo lương — chỉ BHYT", "DN.BHXH": 0, "DN.BHYT": 0.03, "DN.BHTN": 0, "DN.KPCD": 0, "NLD.BHXH": 0, "NLD.BHYT": 0.015, "NLD.BHTN": 0, "NLD.KPCD": 0 },
-    { "Mã bảo hiểm": "BH_KPCD.03", "Nội dung": "Khoản trích theo lương — không KPCĐ", "DN.BHXH": 0.175, "DN.BHYT": 0.03, "DN.BHTN": 0.01, "DN.KPCD": 0, "NLD.BHXH": 0.08, "NLD.BHYT": 0.015, "NLD.BHTN": 0.01, "NLD.KPCD": 0 } ], "DM_GT_TNCN": [ { "Mã giảm trừ": "GTBT.01", "Số người": 1, "Số tiền": 11000000 },
-    { "Mã giảm trừ": "GTNPT.01", "Số người": 1, "Số tiền": 4400000 } ], "DM_TNCN": [ { "Bậc": 1, "Nội dung khấu trừ": "Luỹ tiến bậc 1", "Tỷ lệ đóng thuế": 0.05, "Thu nhập tháng (Min)": 0, "Thu nhập tháng (Max)": 5000000 },
-    { "Bậc": 2, "Nội dung khấu trừ": "Luỹ tiến bậc 2", "Tỷ lệ đóng thuế": 0.1, "Thu nhập tháng (Min)": 5000000, "Thu nhập tháng (Max)": 10000000 },
-    { "Bậc": 3, "Nội dung khấu trừ": "Luỹ tiến bậc 3", "Tỷ lệ đóng thuế": 0.15, "Thu nhập tháng (Min)": 10000000, "Thu nhập tháng (Max)": 18000000 },
-    { "Bậc": 4, "Nội dung khấu trừ": "Luỹ tiến bậc 4", "Tỷ lệ đóng thuế": 0.2, "Thu nhập tháng (Min)": 18000000, "Thu nhập tháng (Max)": 32000000 },
-    { "Bậc": 5, "Nội dung khấu trừ": "Luỹ tiến bậc 5", "Tỷ lệ đóng thuế": 0.25, "Thu nhập tháng (Min)": 32000000, "Thu nhập tháng (Max)": 52000000 },
-    { "Bậc": 6, "Nội dung khấu trừ": "Luỹ tiến bậc 6", "Tỷ lệ đóng thuế": 0.3, "Thu nhập tháng (Min)": 52000000, "Thu nhập tháng (Max)": 80000000 },
-    { "Bậc": 7, "Nội dung khấu trừ": "Luỹ tiến bậc 7", "Tỷ lệ đóng thuế": 0.35, "Thu nhập tháng (Min)": 80000000, "Thu nhập tháng (Max)": 1000000000 } ] } };
+    { "Mã bảo hiểm": "BH_KPCD.03", "Nội dung": "Khoản trích theo lương — không KPCĐ", "DN.BHXH": 0.175, "DN.BHYT": 0.03, "DN.BHTN": 0.01, "DN.KPCD": 0, "NLD.BHXH": 0.08, "NLD.BHYT": 0.015, "NLD.BHTN": 0.01, "NLD.KPCD": 0 } ], "DM_GT_TNCN": [
+    // Đến hết kỳ tính thuế 2025 (NQ 954/2020/UBTVQH14) — giữ để tính lại kỳ cũ đúng mức của kỳ đó
+    { "Mã giảm trừ": "GTBT.01", "Số người": 1, "Số tiền": 11000000, "Hiệu lực đến": "2025-12-31" },
+    { "Mã giảm trừ": "GTNPT.01", "Số người": 1, "Số tiền": 4400000, "Hiệu lực đến": "2025-12-31" },
+    // Từ kỳ tính thuế 2026 (NQ 110/2025/UBTVQH15)
+    { "Mã giảm trừ": "GTBT.01", "Số người": 1, "Số tiền": 15500000, "Hiệu lực từ": "2026-01-01" },
+    { "Mã giảm trừ": "GTNPT.01", "Số người": 1, "Số tiền": 6200000, "Hiệu lực từ": "2026-01-01" } ], "DM_TNCN": [
+    // Biểu 7 bậc — đến hết kỳ tính thuế 2025
+    { "Bậc": 1, "Nội dung khấu trừ": "Luỹ tiến bậc 1", "Tỷ lệ đóng thuế": 0.05, "Thu nhập tháng (Min)": 0, "Thu nhập tháng (Max)": 5000000, "Hiệu lực đến": "2025-12-31" },
+    { "Bậc": 2, "Nội dung khấu trừ": "Luỹ tiến bậc 2", "Tỷ lệ đóng thuế": 0.1, "Thu nhập tháng (Min)": 5000000, "Thu nhập tháng (Max)": 10000000, "Hiệu lực đến": "2025-12-31" },
+    { "Bậc": 3, "Nội dung khấu trừ": "Luỹ tiến bậc 3", "Tỷ lệ đóng thuế": 0.15, "Thu nhập tháng (Min)": 10000000, "Thu nhập tháng (Max)": 18000000, "Hiệu lực đến": "2025-12-31" },
+    { "Bậc": 4, "Nội dung khấu trừ": "Luỹ tiến bậc 4", "Tỷ lệ đóng thuế": 0.2, "Thu nhập tháng (Min)": 18000000, "Thu nhập tháng (Max)": 32000000, "Hiệu lực đến": "2025-12-31" },
+    { "Bậc": 5, "Nội dung khấu trừ": "Luỹ tiến bậc 5", "Tỷ lệ đóng thuế": 0.25, "Thu nhập tháng (Min)": 32000000, "Thu nhập tháng (Max)": 52000000, "Hiệu lực đến": "2025-12-31" },
+    { "Bậc": 6, "Nội dung khấu trừ": "Luỹ tiến bậc 6", "Tỷ lệ đóng thuế": 0.3, "Thu nhập tháng (Min)": 52000000, "Thu nhập tháng (Max)": 80000000, "Hiệu lực đến": "2025-12-31" },
+    { "Bậc": 7, "Nội dung khấu trừ": "Luỹ tiến bậc 7", "Tỷ lệ đóng thuế": 0.35, "Thu nhập tháng (Min)": 80000000, "Thu nhập tháng (Max)": "", "Hiệu lực đến": "2025-12-31" },
+    // Biểu 5 bậc — từ kỳ tính thuế 2026 (Luật Thuế TNCN số 109/2025/QH15, Điều 9)
+    { "Bậc": 1, "Nội dung khấu trừ": "Luỹ tiến bậc 1", "Tỷ lệ đóng thuế": 0.05, "Thu nhập tháng (Min)": 0, "Thu nhập tháng (Max)": 10000000, "Hiệu lực từ": "2026-01-01" },
+    { "Bậc": 2, "Nội dung khấu trừ": "Luỹ tiến bậc 2", "Tỷ lệ đóng thuế": 0.1, "Thu nhập tháng (Min)": 10000000, "Thu nhập tháng (Max)": 30000000, "Hiệu lực từ": "2026-01-01" },
+    { "Bậc": 3, "Nội dung khấu trừ": "Luỹ tiến bậc 3", "Tỷ lệ đóng thuế": 0.2, "Thu nhập tháng (Min)": 30000000, "Thu nhập tháng (Max)": 60000000, "Hiệu lực từ": "2026-01-01" },
+    { "Bậc": 4, "Nội dung khấu trừ": "Luỹ tiến bậc 4", "Tỷ lệ đóng thuế": 0.3, "Thu nhập tháng (Min)": 60000000, "Thu nhập tháng (Max)": 100000000, "Hiệu lực từ": "2026-01-01" },
+    { "Bậc": 5, "Nội dung khấu trừ": "Luỹ tiến bậc 5", "Tỷ lệ đóng thuế": 0.35, "Thu nhập tháng (Min)": 100000000, "Thu nhập tháng (Max)": "", "Hiệu lực từ": "2026-01-01" } ] } };
   if (typeof module === 'object' && module.exports) module.exports = HAK.Sample;
 })(typeof window !== 'undefined' ? window : globalThis);

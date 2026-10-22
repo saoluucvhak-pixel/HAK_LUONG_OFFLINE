@@ -6,11 +6,10 @@
  * ai vào được tài khoản Windows của máy vẫn đọc được dữ liệu trình duyệt nếu cố ý. Mật khẩu chỉ lưu dạng băm (SHA-256 × 2.000 vòng + muối).
  * Dữ liệu: HAK.Store 'hak.auth.v1' = { v, users:[{ id, username, name, role:'admin'|'staff', companies:[companyId], disabled, salt, hash, createdAt }], rec:{ salt, hash } }
  *          (nằm trong Sao lưu toàn bộ). Phiên: sessionStorage 'hak.session' → giữ đăng nhập tới khi đóng trình duyệt.
- * Quyền Nhân viên (ẩn bằng lớp body.role-staff — xem style.css): không vào Cài đặt (trừ tab 👤 Tài khoản), Danh mục: được thêm / sửa / xóa hợp đồng, chi tiết hợp đồng (chứng thư), tờ khai hải quan (không nhập hàng loạt từ file), không xóa hồ sơ Lưu trữ / dòng nhật ký, không khôi phục sao lưu.
- * v2.6.2 Phase C — CÔNG TY LÀM VIỆC (Thủy chốt 2a/3a): chọn sau khi đăng nhập (chỉ công ty người dùng được làm; Quản trị = mọi công ty
- * trong Cài đặt; 1 công ty thì vào thẳng), lưu trong phiên ('hak.session'.co) + nhớ lần trước ('hak.auth.lastco'). Công ty = "bên xuất"
- * (ô Của / chủ lâm sản): các trang lấy làm MẶC ĐỊNH (vẫn đổi được); Danh mục / Lưu trữ / Báo cáo mặc định chỉ hiện dữ liệu liên quan công ty,
- * có công tắc "Xem tất cả công ty" (scopeIds / scopeSwitch — nhớ ở 'hak.scope.v1'). Đổi công ty = tải lại app (dữ liệu đã nạp vẫn giữ).
+ * Quyền Nhân viên (ẩn bằng lớp body.role-staff — xem style.css): không vào Cài đặt (trừ tab 👤 Tài khoản), không xóa hàng loạt dòng dữ liệu,
+ * không khôi phục sao lưu, không mở chốt kỳ lương (2 việc sau còn kiểm tra lại trong code, không chỉ ẩn nút).
+ * ĐƠN VỊ LÀM VIỆC: chọn sau khi đăng nhập (chỉ đơn vị người dùng được làm; Quản trị = mọi đơn vị trong Cài đặt; 1 đơn vị thì vào thẳng),
+ * lưu trong phiên ('hak.session'.co) + nhớ lần trước ('hak.auth.lastco'). Mỗi đơn vị có dữ liệu lương riêng; đổi đơn vị = tải lại app.
  */
 (function (root) {
   'use strict';
@@ -64,7 +63,7 @@
   const allCompanyIds = () => ((HAK.Config && HAK.Config.data && HAK.Config.data.companies) || []).map((c) => c.id);
   let cur = null;                                                   // người đang đăng nhập (bản ghi)
   let curCo = '';                                                  // công ty làm việc (id trong Cài đặt → Công ty)
-  const LASTCO = 'hak.auth.lastco', SCOPE = 'hak.scope.v1';
+  const LASTCO = 'hak.auth.lastco';
   const companies = () => (HAK.Config && HAK.Config.data && HAK.Config.data.companies) || [];
   /** Công ty người dùng được chọn: Quản trị = mọi công ty trong Cài đặt; Nhân viên = danh sách được gán (còn tồn tại). */
   /** v2.6.5 D4 — MÁY TRẠM: cài từ gói "cho công ty X" → d.station = { cos:[id], at, by }; null = máy chính (mọi công ty). */
@@ -143,12 +142,7 @@
   function screenSetup() {
     showGate('<h5 class="mb-1">Tạo tài khoản quản trị</h5><div class="small muted mb-3">Lần đầu dùng đăng nhập: tạo tài khoản <b>Quản trị</b> (toàn quyền). Dữ liệu cũ của app vẫn giữ nguyên.</div>' +
       '<form id="authForm">' + field('auName', 'Họ tên') + field('auUser', 'Tên đăng nhập', 'text', ' placeholder="vd: thuy"') + field('auPw', 'Mật khẩu (≥ 6 ký tự)', 'password') + field('auPw2', 'Nhập lại mật khẩu', 'password') +
-      '<div class="auth-err text-danger small mb-2"></div><button class="btn btn-primary w-100" type="submit">Tạo tài khoản</button></form>' +
-      (HAK.Backup && HAK.Backup.packRead ? '<div class="text-center mt-3"><label class="small link-primary mb-0" style="cursor:pointer">📦 Cài máy mới? Nhập gói cấu hình trước<input type="file" id="auPack" accept=".json,application/json" hidden></label></div>' : ''));
-    const pk = $('#auPack'); if (pk) pk.addEventListener('change', async (e) => {
-      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-      try { screenPack(await HAK.Backup.packRead(f), f.name); } catch (x) { err(x.message || String(x)); }
-    });
+      '<div class="auth-err text-danger small mb-2"></div><button class="btn btn-primary w-100" type="submit">Tạo tài khoản</button></form>');
     gate.querySelector('#authForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const name = $('#auName').value.trim(), un = normUser($('#auUser').value), pw = $('#auPw').value;
@@ -163,14 +157,6 @@
       screenRecovery(code, () => login(u), !!(d.groupPub || d.master));
     });
   }
-  /** v2.6.4: xem trước + áp dụng gói cấu hình ngay ở lần cài đầu (chưa có Quản trị). */
-  function screenPack(j, name) {
-    showGate('<h5 class="mb-1">📦 Gói cấu hình cài đặt</h5><div class="small muted mb-2">' + esc(name) + '</div>' + HAK.Backup.packSummaryHtml(j) +
-      '<div class="small muted mb-3">Sau khi áp dụng, app tải lại để bạn tạo tài khoản <b>Quản trị</b> riêng cho máy này.</div>' +
-      '<button class="btn btn-primary w-100" type="button" id="auPkApply">Áp dụng gói</button><div class="text-center mt-3"><a href="#" class="small" id="auBack">← Quay lại</a></div>');
-    $('#auBack').addEventListener('click', (e) => { e.preventDefault(); screenSetup(); });
-    $('#auPkApply').addEventListener('click', (e) => { e.currentTarget.disabled = true; HAK.UI.toast(HAK.Backup.packMsg(HAK.Backup.packApply(j)), 'success'); setTimeout(() => location.reload(), 1200); });
-  }
   function screenRecovery(code, next, optional) {
     showGate('<h5 class="mb-1">🔑 Mã khôi phục</h5><div class="small mb-3">Dùng khi <b>quên mật khẩu Quản trị</b>. Mã chỉ hiện <b>một lần</b> — hãy chép / in và cất ở nơi an toàn (không lưu cùng máy nếu có thể).</div>' +
       (optional ? '<div class="alert alert-info small py-2">Máy này đã có ' + (data().master ? '<b>mật khẩu chủ của nhóm</b> — quên mật khẩu thì tự đặt lại bằng mật khẩu chủ' : '<b>khóa khôi phục của nhóm</b> — quên mật khẩu có thể nhờ người giữ công cụ khôi phục') + '. Cất mã này là <b>không bắt buộc</b> (thêm 1 đường dự phòng).</div>' : '') +
@@ -179,7 +165,7 @@
       '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="auKept"><label class="form-check-label" for="auKept">Tôi đã cất mã khôi phục</label></div>' +
       '<button class="btn btn-primary w-100" type="button" id="auNext" disabled>Tiếp tục</button>' +
       (optional ? '<button class="btn btn-outline-secondary w-100 mt-2" type="button" id="auSkip">Bỏ qua — ' + (data().master ? 'dùng mật khẩu chủ của nhóm' : 'dùng công cụ khôi phục của nhóm') + '</button>' : ''));
-    const txt = 'HAK - QUAN LY XUAT HANG\r\nMa khoi phuc tai khoan Quan tri: ' + code + '\r\nTao luc: ' + new Date().toLocaleString('vi-VN') + '\r\n';
+    const txt = 'HAK - TINH LUONG\r\nMa khoi phuc tai khoan Quan tri: ' + code + '\r\nTao luc: ' + new Date().toLocaleString('vi-VN') + '\r\n';
     $('#auCopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(code); HAK.UI.toast('Đã sao chép mã khôi phục.', 'success'); } catch (e) { HAK.UI.toast('Không sao chép được — hãy tải file .txt.', 'warning'); } });
     $('#auSave').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' })); a.download = 'HAK_MaKhoiPhuc.txt'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
     $('#auKept').addEventListener('change', (e) => { $('#auNext').disabled = !e.target.checked; });
@@ -418,7 +404,7 @@
       '<div class="col-md-4"><label class="form-label" for="mpMe">Mật khẩu đăng nhập của bạn (xác nhận)</label><input class="form-control" id="mpMe" type="password" autocomplete="off"></div></div>' +
       '<div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button class="btn btn-primary btn-sm" type="button" id="mpSave">' + (m ? 'Đổi mật khẩu chủ' : 'Lưu mật khẩu chủ') + '</button>' +
       (m ? '<button class="btn btn-outline-danger btn-sm" type="button" id="mpDel">Gỡ</button>' : '') + printBtn + '<span class="small" id="mpMsg"></span></div>' +
-      '<div class="form-text">Mật khẩu chủ đi kèm <b>Gói cấu hình cài đặt</b> (Cài đặt → Chung → 📦) — đặt ở máy chính rồi xuất gói cho các máy / đơn vị. Máy chỉ lưu dạng mã hóa một chiều, không ai xem lại được câu gốc → <b>chép ra giấy cất két</b>. Phân biệt chữ hoa / thường. <a href="#/help" data-help="help-forgot">📘 Xem hướng dẫn</a></div>';
+      '<div class="form-text">Đặt cùng 1 câu mật khẩu chủ ở từng máy. Máy chỉ lưu dạng mã hóa một chiều, không ai xem lại được câu gốc → <b>chép ra giấy cất két</b>. Phân biệt chữ hoa / thường. <a href="#/help" data-help="help-forgot">📘 Xem hướng dẫn</a></div>';
     const msg = (t, ok) => { const el = $('#mpMsg'); el.className = 'small ' + (ok ? 'text-success' : 'text-danger'); el.textContent = t; };
     $('#mpPrint').addEventListener('click', printRecoverySheet);
     $('#mpSave').addEventListener('click', async (e) => {
@@ -428,7 +414,7 @@
       if (!checkPw(me, $('#mpMe').value)) return msg('Mật khẩu đăng nhập của bạn không đúng.');
       if (!subtleOk()) return msg('Trình duyệt không hỗ trợ — dùng Chrome / Edge.');
       e.currentTarget.disabled = true; msg('Đang mã hóa…', true);
-      try { const mm = await makeMaster(a), d = data(); d.master = mm; save(d); renderMaster(); HAK.UI.toast('Đã lưu mật khẩu chủ của nhóm — dấu vân tay ' + mm.fp + '. Xuất lại Gói cấu hình để cài cho các máy khác.', 'success'); }
+      try { const mm = await makeMaster(a), d = data(); d.master = mm; save(d); renderMaster(); HAK.UI.toast('Đã lưu mật khẩu chủ của nhóm — dấu vân tay ' + mm.fp + '. Đặt cùng câu này ở các máy khác.', 'success'); }
       catch (x) { msg('Không lưu được: ' + (x.message || x)); }
     });
     const del = $('#mpDel'); if (del) del.addEventListener('click', (e) => HAK.UI.confirmClick(e.currentTarget, () => {
@@ -473,7 +459,7 @@
       '<textarea class="form-control mono" id="gkKey" rows="2" spellcheck="false" placeholder="BASE64…"></textarea>' +
       '<div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button class="btn btn-primary btn-sm" type="button" id="gkSave">Lưu khóa</button>' +
       (g ? '<button class="btn btn-outline-danger btn-sm" type="button" id="gkDel">Gỡ khóa</button>' : '') + '<span class="small" id="gkMsg"></span></div>' +
-      '<div class="form-text"><a href="#/help" data-help="help-forgot">📘 Xem hướng dẫn</a> · Kiểm tra dấu vân tay trùng với dãy công cụ hiện. Khóa đi kèm <b>Gói cấu hình cài đặt</b> (Cài đặt → Chung) nên chỉ cần dán ở 1 máy. Khóa công khai không phải bí mật; khóa bí mật chỉ nằm trong file của người giữ công cụ.</div>';
+      '<div class="form-text"><a href="#/help" data-help="help-forgot">📘 Xem hướng dẫn</a> · Kiểm tra dấu vân tay trùng với dãy công cụ hiện. Dán cùng khóa ở từng máy. Khóa công khai không phải bí mật; khóa bí mật chỉ nằm trong file của người giữ công cụ.</div>';
     const msg = (t, ok) => { const m = $('#gkMsg'); m.className = 'small ' + (ok ? 'text-success' : 'text-danger'); m.textContent = t; };
     $('#gkSave').addEventListener('click', async () => {
       const k = $('#gkKey').value.replace(/\s+/g, '');
@@ -508,8 +494,8 @@
     body.innerHTML = users().map((u) => '<tr' + (u.disabled ? ' class="opacity-50"' : '') + '><td class="mono">' + esc(u.username) + '</td><td>' + esc(u.name) + (u.id === cur.id ? ' <span class="badge badge-soft">bạn</span>' : '') + '</td>' +
       '<td>' + (u.role === 'admin' ? '<span class="badge text-bg-primary">Quản trị</span>' : '<span class="badge badge-soft">Nhân viên</span>') + '</td>' +
       '<td class="small">' + esc((u.companies || []).map(coName).join(', ') || '—') + '</td><td>' + (u.disabled ? '🔒 Khóa' : 'Đang dùng') + '</td>' +
-      '<td class="text-end text-nowrap"><div class="btn-group btn-group-sm"><button class="btn btn-outline-primary" data-us="edit" data-id="' + u.id + '" type="button">Sửa</button>' +
-      (u.id === cur.id ? '' : '<button class="btn btn-outline-secondary" data-us="lock" data-id="' + u.id + '" type="button">' + (u.disabled ? 'Mở khóa' : 'Khóa') + '</button>') + '</div></td></tr>').join('');
+      '<td class="text-end text-nowrap"><div class="btn-group btn-group-sm"><button class="btn btn-outline-primary" data-us="edit" data-id="' + esc(u.id) + '" type="button">Sửa</button>' +
+      (u.id === cur.id ? '' : '<button class="btn btn-outline-secondary" data-us="lock" data-id="' + esc(u.id) + '" type="button">' + (u.disabled ? 'Mở khóa' : 'Khóa') + '</button>') + '</div></td></tr>').join('');
   }
   function renderUserForm() {
     const u = editing ? users().find((x) => x.id === editing) : { username: '', name: '', role: 'staff', companies: allCompanyIds() };
@@ -569,63 +555,6 @@
   }
   function init() { renderAccount(); root.addEventListener('hashchange', () => onRoute((location.hash.match(/^#\/(\w+)/) || [])[1])); onRoute((location.hash.match(/^#\/(\w+)/) || [])[1]); }
 
-  /* ---------------- Phạm vi dữ liệu theo công ty (Danh mục / Lưu trữ / Báo cáo) ---------------- */
-  const scopeAll = (key) => !!((HAK.Store.get(SCOPE, {}) || {})[key]);
-  /** Danh sách id công ty để lọc, hoặc null = không lọc. Mặc định: chỉ công ty đang làm; bật "Xem tất cả" → Quản trị: tất cả, Nhân viên: các công ty được làm. */
-  function scopeIds(key) {
-    if (!cur || !curCo) return null;
-    if (!scopeAll(key)) return [curCo];
-    return cur.role === 'admin' && !station() ? null : allowedCos();   // máy trạm: "tất cả" = các công ty của máy
-  }
-  /** Công tắc "Xem tất cả công ty" (HTML) — thay đổi phát sự kiện 'hak:scope' {key}. */
-  function scopeSwitch(key) {
-    if (!cur || !curCo) return '';
-    const co = companies().find((c) => c.id === curCo), id = 'scope-' + key;
-    return '<div class="form-check form-switch mb-0 text-nowrap" title="Tắt = chỉ dữ liệu liên quan ' + esc(co ? co.name : '') + '"><input class="form-check-input" type="checkbox" id="' + id + '" data-scope="' + esc(key) + '"' + (scopeAll(key) ? ' checked' : '') + '>' +
-      '<label class="form-check-label small" for="' + id + '">Xem tất cả công ty</label></div>';
-  }
-  document.addEventListener('change', (e) => {
-    const el = e.target.closest && e.target.closest('[data-scope]'); if (!el) return;
-    const s = HAK.Store.get(SCOPE, {}) || {}; s[el.dataset.scope] = el.checked; HAK.Store.set(SCOPE, s);
-    root.dispatchEvent(new CustomEvent('hak:scope', { detail: { key: el.dataset.scope } }));
-  });
-  /** Công ty (id) của 1 hồ sơ Lưu trữ: meta.cid (từ v2.6.2), hồ sơ cũ → dò theo tên rút gọn bên giao (meta.giao). */
-  function companyOfMeta(m) {
-    if (m.cid) return m.cid;
-    const g = String(m.giao || '').trim().toLowerCase(); if (!g) return '';
-    const c = companies().find((x) => String(x.short || '').trim().toLowerCase() === g || String(x.name || '').trim().toLowerCase() === g);
-    return c ? c.id : '';
-  }
-
-  /* ---------------- v2.6.4 D2 — Gói cấu hình cài đặt (chỉ Nhân viên; Quản trị đặt riêng ở từng máy) ---------------- */
-  /** Phần đăng nhập của gói: tài khoản Nhân viên (mật khẩu dạng băm) + khóa công khai khôi phục của nhóm (nếu có). */
-  function packOut(ids) {
-    const d = data(), inIds = (id) => !ids || ids.indexOf(id) >= 0;
-    const us = d.users.filter((u) => u.role !== 'admin' && (u.companies || []).some(inIds))
-      .map((u) => Object.assign({}, u, { companies: (u.companies || []).filter(inIds) }));
-    return { users: us, groupPub: d.groupPub || null, master: d.master || null, station: ids ? { cos: ids.slice() } : null };
-  }
-  /** Gộp phần đăng nhập của gói vào máy này. Trùng tên đăng nhập với Quản trị của máy → bỏ qua; trùng Nhân viên → cập nhật (giữ id máy này). */
-  function packIn(p, dry) {
-    const d = dry ? JSON.parse(JSON.stringify(data())) : data(), r = { added: 0, updated: 0, skipped: [], groupPub: false };
-    ((p && p.users) || []).forEach((pu) => {
-      if (!pu || pu.role === 'admin' || !pu.username || !pu.salt || !pu.hash) return;
-      const un = normUser(pu.username), loc = d.users.find((x) => x.username === un);
-      if (loc && loc.role === 'admin') { r.skipped.push(un); return; }
-      const v = { username: un, name: pu.name || un, role: 'staff', companies: Array.isArray(pu.companies) ? pu.companies.slice() : [], disabled: !!pu.disabled, salt: pu.salt, hash: pu.hash };
-      if (loc) { Object.assign(loc, v); r.updated++; }
-      else { const id = pu.id && !d.users.some((x) => x.id === pu.id) ? pu.id : 'u' + Date.now().toString(36) + rand(3); d.users.push(Object.assign({ id, createdAt: pu.createdAt || Date.now() }, v)); r.added++; }
-    });
-    if (p && p.groupPub && p.groupPub.key) { d.groupPub = p.groupPub; r.groupPub = true; }
-    if (p && p.master && p.master.hash && p.master.salt) { d.master = p.master; r.master = true; }   // v2.7.3 mật khẩu chủ của nhóm
-    // Gói "cho công ty X" → máy trạm (chỉ làm các công ty đó); gói đầy đủ → máy chính (bỏ giới hạn)
-    r.station = p && p.station && Array.isArray(p.station.cos) && p.station.cos.length ? p.station.cos.slice() : null;
-    r.wasStation = station();
-    if (r.station) d.station = { cos: r.station, at: Date.now() }; else delete d.station;
-    if (!dry) save(d);
-    return r;
-  }
-
   HAK.Auth = {
     require, init, logout, renderAccount,
     current: () => cur, isAdmin: () => !!cur && cur.role === 'admin',
@@ -635,7 +564,6 @@
     /** Công ty làm việc (id) — '' khi chưa đăng nhập. */
     company: () => curCo,
     allowedCompanies: () => allowedCos(),
-    scopeIds, scopeSwitch, companyOfMeta, packOut, packIn,
     /** Máy trạm: danh sách công ty của máy; null = máy chính. */
     stationCos: station, _checkReset: checkReset, _fp: fpOf,
     _sha256: sha256hex, _hash: hashPw

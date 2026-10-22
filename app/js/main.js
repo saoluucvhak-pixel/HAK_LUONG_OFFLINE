@@ -8,6 +8,7 @@
 
   function route() {
     const key = ((location.hash.match(/^#\/(\w+)/) || [])[1]) || 'home', k = TITLES[key] ? key : 'home';
+    if (HAK.PagesData && HAK.PagesData.flush) HAK.PagesData.flush();   // ghi ngay các ô vừa sửa trước khi rời trang
     $$('.page').forEach((p) => { p.hidden = p.id !== 'page-' + k; });
     $$('.sb-link').forEach((a) => a.classList.toggle('active', a.dataset.nav === k));
     $('#pageTitle').textContent = TITLES[k]; document.title = 'HAK · TÍNH LƯƠNG — ' + TITLES[k];
