@@ -1,9 +1,16 @@
 name: LUONG HAK V10.4 Windows Setup
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'LuongHAK_Offline/**'
+      - '.github/workflows/luong-hak-v10-4-setup.yml'
+      - 'scripts/check-consolidation.cjs'
+      - 'docs/releases/**'
   push:
     branches:
       - main
+      - release/alpha38-excel-ocr-controls
       - integration/main-v104-consolidation
       - feature/luong-hak-v10-4-enterprise-ui
       - feature/luong-v104-shared-ocr
@@ -40,7 +47,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Test payroll engine and integrations
         run: npm test
       - name: Test drawer DOM focus regressions
@@ -53,6 +60,7 @@ jobs:
         run: node scripts/verify-packaged-handwriting.cjs
       - name: Upload installer EXE
         uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         with:
           name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
           path: LuongHAK_Offline/dist/*Setup*.exe
@@ -91,6 +99,7 @@ jobs:
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         with:
           name: HAK-LUONG-V10.4-Electron-E2E-${{ github.run_number }}
           path: |
@@ -132,6 +141,7 @@ jobs:
         env:
           VISUAL_OUT: ${{ github.workspace }}/visual-evidence/after-v104
       - uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         if: always()
         with:
           name: HAK-V10.3-V10.4-Visual-${{ github.run_number }}
@@ -160,7 +170,7 @@ jobs:
       - name: Verify pinned common OCR source parity
         run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr
       - name: Verify payroll and persistence source are unchanged
-        run: git diff --exit-code c389ef4ffcfd13a4f867cb070db2069314617dc7 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/engine.js" ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-parse.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/core/page-rectify.js" ":(exclude)LuongHAK_Offline/core/identity.js" ":(exclude)LuongHAK_Offline/main/umi-ocr.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js" ":(exclude)LuongHAK_Offline/core/schema.js" ":(exclude)LuongHAK_Offline/main.js" ":(exclude)LuongHAK_Offline/preload.js" ":(exclude)LuongHAK_Offline/main/fullbackup.js" ":(exclude)LuongHAK_Offline/main/fullbackup-worker.js" ":(exclude)LuongHAK_Offline/main/restore.js" ":(exclude)LuongHAK_Offline/main/pdf.js" ":(exclude)LuongHAK_Offline/main/year-archive.js" ":(exclude)LuongHAK_Offline/main/year-archive-worker.js" ":(exclude)LuongHAK_Offline/main/year-archive-export.js"
+        run: git diff --exit-code c389ef4ffcfd13a4f867cb070db2069314617dc7 -- LuongHAK_Offline/engine.js LuongHAK_Offline/hr.js LuongHAK_Offline/core LuongHAK_Offline/main LuongHAK_Offline/main.js LuongHAK_Offline/preload.js ":(exclude)LuongHAK_Offline/engine.js" ":(exclude)LuongHAK_Offline/core/ocr-learning/rules.js" ":(exclude)LuongHAK_Offline/core/timesheet-parse.js" ":(exclude)LuongHAK_Offline/core/timesheet-ocr.js" ":(exclude)LuongHAK_Offline/core/page-rectify.js" ":(exclude)LuongHAK_Offline/core/identity.js" ":(exclude)LuongHAK_Offline/main/umi-ocr.js" ":(exclude)LuongHAK_Offline/main/ocr-service.js" ":(exclude)LuongHAK_Offline/main/ocr-control.js" ":(exclude)LuongHAK_Offline/main/handwritten-digits.js" ":(exclude)LuongHAK_Offline/core/schema.js" ":(exclude)LuongHAK_Offline/main.js" ":(exclude)LuongHAK_Offline/preload.js" ":(exclude)LuongHAK_Offline/main/fullbackup.js" ":(exclude)LuongHAK_Offline/main/fullbackup-worker.js" ":(exclude)LuongHAK_Offline/main/restore.js" ":(exclude)LuongHAK_Offline/main/pdf.js" ":(exclude)LuongHAK_Offline/main/year-archive.js" ":(exclude)LuongHAK_Offline/main/year-archive-worker.js" ":(exclude)LuongHAK_Offline/main/year-archive-export.js"
       - uses: actions/cache/restore@v4
         with:
           path: hak-project-memory.jsonl
@@ -180,6 +190,7 @@ jobs:
           path: hak-project-memory.jsonl
           key: hak-observer-v104-${{ github.sha }}
       - uses: actions/upload-artifact@v4
+        continue-on-error: true # evidence upload only; tests/build remain mandatory
         if: always()
         with:
           name: HAK-Inherited-Quality-${{ github.run_number }}
@@ -214,10 +225,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
-          path: release
+          node-version: '22'
+      - name: Build verified release without Actions artifact dependency
+        shell: pwsh
+        run: |
+          Push-Location LuongHAK_Offline
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
+          npm run dist
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed' }
+          node scripts/verify-packaged-handwriting.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged OCR verification failed' }
+          Pop-Location
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item LuongHAK_Offline/dist/*Setup*.exe release/
       - name: Publish immutable versioned Windows prerelease
         shell: pwsh
         env:

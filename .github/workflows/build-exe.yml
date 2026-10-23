@@ -48,6 +48,7 @@ jobs:
         run: xvfb-run -a node tests/e2e/ocr-eval.js
         env: { PLAYWRIGHT_MODULE: playwright }
       - uses: actions/upload-artifact@v4
+        continue-on-error: true # quota failure must not mask test result
         if: always()
         with: { name: e2e-result, path: "LuongHAK_Offline/tests/e2e/last-e2e-result.json\nLuongHAK_Offline/docs/V10_1_OCR_CHECK.json" }
   build:
@@ -69,6 +70,7 @@ jobs:
           Get-Content ocr-selftest.json
           if ($p.ExitCode -ne 0) { throw "OCR selftest thất bại (exit $($p.ExitCode))" }
       - uses: actions/upload-artifact@v4
+        continue-on-error: true # quota failure must not mask test result
         with:
           name: TinhLuongHAK-Setup
           path: LuongHAK_Offline/dist/*.exe

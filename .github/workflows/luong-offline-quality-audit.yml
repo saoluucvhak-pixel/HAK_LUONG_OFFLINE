@@ -43,6 +43,7 @@ jobs:
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true # quota failure must not mask test result
         with:
           name: luong-hak-offline-audit-${{ github.run_id }}
           path: LuongHAK_Offline/audit-meta.json

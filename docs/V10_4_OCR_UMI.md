@@ -38,4 +38,5 @@ Kiểm tra tự động: `tests/integration/umi-second-opinion.test.js` (Tessera
 
 - Ảnh giả lập, chưa nghiệm thu trên ảnh chụp thật.
 - Chậm hơn rõ khi bật; có thể tối ưu sau bằng cách ghép nhiều ô vào một ảnh mỗi lần gọi.
-- Chưa có công tắc trong giao diện (bật / tắt qua việc chạy Umi-OCR hoặc biến môi trường).
+- Alpha.38 có công tắc **Đọc thêm bằng Umi-OCR** trên trang OCR (áp dụng trong phiên mở app). Tắt qua biến môi trường vẫn được ưu tiên.
+- Alpha.38 báo tiến độ từng ô, Dừng đọc bỏ lô đang dở sau ô hiện tại. Cache tối đa 512 PNG giống hệt trong RAM để giảm gọi Umi lặp; không ghép nhiều ô vào một ảnh.
