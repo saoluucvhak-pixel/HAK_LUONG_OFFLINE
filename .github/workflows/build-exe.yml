@@ -50,7 +50,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         continue-on-error: true # quota failure must not mask test result
         if: always()
-        with: { name: e2e-result, path: "LuongHAK_Offline/tests/e2e/last-e2e-result.json\nLuongHAK_Offline/docs/V10_1_OCR_CHECK.json" }
+        with: { name: e2e-result, path: "LuongHAK_Offline/tests/e2e/last-e2e-result.json\nLuongHAK_Offline/docs/V10_1_OCR_CHECK.json", retention-days: 7 }
   build:
     name: Build bộ cài Windows
     runs-on: windows-latest
@@ -74,3 +74,4 @@ jobs:
         with:
           name: TinhLuongHAK-Setup
           path: LuongHAK_Offline/dist/*.exe
+          retention-days: 7

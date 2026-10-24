@@ -24,4 +24,4 @@ jobs:
           name: TinhLuongHAK-Windows-x64
           path: |
             LuongHAK_Offline/dist/*.exe
-          retention-days: 14
+          retention-days: 7

@@ -65,7 +65,7 @@ jobs:
           name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
           path: LuongHAK_Offline/dist/*Setup*.exe
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7 # bộ cài ~114 MB/lần; bản chính thức nằm ở Releases — giữ ngắn để không đầy hạn mức artifact
   electron-e2e:
     runs-on: windows-latest
     timeout-minutes: 20
@@ -109,7 +109,7 @@ jobs:
             LuongHAK_Offline/tests/e2e/year-archive-result.json
             LuongHAK_Offline/tests/e2e/document-review-result.json
             LuongHAK_Offline/tests/e2e/screenshots/*.png
-          retention-days: 14
+          retention-days: 7
   workspace-visual:
     runs-on: windows-latest
     timeout-minutes: 15
@@ -146,7 +146,7 @@ jobs:
         with:
           name: HAK-V10.3-V10.4-Visual-${{ github.run_number }}
           path: visual-evidence/
-          retention-days: 30
+          retention-days: 5
   inherited-quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -200,7 +200,7 @@ jobs:
             hak-architecture-results.json
             hak-project-memory.jsonl
             hak-skill-proposals.json
-          retention-days: 30
+          retention-days: 7
 
   consolidation:
     runs-on: ubuntu-latest
