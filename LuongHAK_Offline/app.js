@@ -134,6 +134,8 @@
   // HOÀN TÁC (xóa hẳn dữ liệu) phải DỪNG LẠI khi sao lưu thất bại, không được tiếp tục xóa như chưa có gì xảy ra.
   function backupOrBlock(tag, label) {
     var n = backupNow(tag);
+    // Máy mới chưa có file dữ liệu (khôi phục/nhập lần đầu): không có gì để sao lưu — không phải lỗi đĩa, đừng chặn
+    if (!n && store && store.hasDataFile && store.hasDataFile() === false) return true;
     if (!n) { alert("⛔ KHÔNG tạo được bản sao lưu trước khi " + label + " — dữ liệu CHƯA bị xóa, để tránh mất không thể khôi phục.\nKiểm tra dung lượng đĩa / quyền ghi ở Công ty & Sao lưu rồi thử lại."); return false; }
     return true;
   }
@@ -4643,6 +4645,10 @@
     var apply = function () {
       var prev = db, prevRO = readOnly, prevErr = loadError, prevSession = session;
       var revert = function (why) { db = prev; readOnly = prevRO; loadError = prevErr; session = prevSession; try { ensureTables(); } catch (e0) { /* giữ nguyên */ } saveNow(); render(); if (opts.onFail) opts.onFail(why); };
+      // File chỉ có bảng dữ liệu (xuất/nhập bảng, không phải Full Backup): giữ tài khoản, bảo mật, thông tin công ty và nhật ký
+      // thao tác của máy này. Nếu thay hết, nhật ký/tài khoản bị xóa → tiến trình chính từ chối ghi ("nhật ký chỉ được thêm") và
+      // dữ liệu không xuống được đĩa.
+      if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = prev[k]; });
       try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
       catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; render(); if (opts.onFail) opts.onFail("Không nạp được dữ liệu: " + e.message); else alert("Không khôi phục được: " + e.message); return; }
       // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
