@@ -63,12 +63,11 @@ test("U-WP-04 người thường chỉ đổi được mật khẩu của chính
   d = clone(s.db); d.nguoidung[1].khoa = true; assert.equal(s.save(d, nl).ok, false, "tự mở/khóa");
 });
 
-test("U-WP-05 nhật ký thao tác chỉ được thêm, không sửa/xóa", () => {
+test("U-WP-05 nhật ký thao tác không còn chặn ghi (chủ sở hữu yêu cầu): thêm, sửa, rút ngắn đều ghi được", () => {
   const s = setup(); const ad = who("admin", "admin");
   let d = clone(s.db); d.auditlog.push({ luc: "t2" }); assert.equal(s.save(d, ad).ok, true);
-  d = clone(d); d.auditlog[0].thaoTac = "đã sửa"; assert.equal(s.save(d, ad).ok, false, "sửa dòng cũ");
-  d = clone(s.db); d.auditlog.push({ luc: "t2" }); assert.equal(s.save(d, ad).ok, true);
-  d = clone(d); d.auditlog = d.auditlog.slice(1); assert.equal(s.save(d, ad).ok, false, "xóa dòng cũ");
+  d = clone(d); d.auditlog[0].thaoTac = "đã sửa"; assert.equal(s.save(d, ad).ok, true, "sửa dòng cũ");
+  d = clone(d); d.auditlog = d.auditlog.slice(1); assert.equal(s.save(d, ad).ok, true, "rút ngắn nhật ký");
 });
 
 test("U-WP-06 kỳ đã chốt bất biến; chốt cần payroll.close, mở chốt cần payroll.reopen", () => {
