@@ -108,23 +108,25 @@
     try { ensureTables(); }
     catch (e) { loadError = { error: "Lỗi khi kiểm tra bảng dữ liệu: " + e.message + " — dữ liệu KHÔNG bị ghi đè", backups: store && store.listBackups ? store.listBackups() : [] }; readOnly = true; }
   }
-  var saveTimer = null, dirty = false;
+  var saveTimer = null, dirty = false, lastSaveError = "", lastTxnError = "";
   /** Ghi dữ liệu xuống nơi lưu bền vững. Trả true nếu chắc chắn đã lưu. */
   function saveNow() {
     clearTimeout(saveTimer);
-    if (readOnly) { toast("⚠ Đang ở chế độ khôi phục — chưa ghi dữ liệu"); return false; }
+    lastSaveError = "";
+    if (readOnly) { lastSaveError = "Đang ở chế độ khôi phục — chưa ghi dữ liệu"; toast("⚠ " + lastSaveError); return false; }
     var str = JSON.stringify(db);
-    if (store) { var r = store.save(str); if (r !== true) { dirty = true; toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + r); return false; } dirty = false; return true; }
-    try { localStorage.setItem(KEY, str); dirty = false; return true; } catch (e) { dirty = true; toast("⚠ Bộ nhớ trình duyệt đã đầy — hãy bấm Sao lưu ra file ngay!"); return false; }
+    if (store) { var r; try { r = store.save(str); } catch (e) { r = e && e.message || String(e); } if (r !== true) { lastSaveError = String(r && r.error || r || "Nơi lưu dữ liệu không xác nhận đã ghi thành công"); dirty = true; toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + lastSaveError); return false; } dirty = false; return true; }
+    try { localStorage.setItem(KEY, str); dirty = false; return true; } catch (e) { lastSaveError = "Không ghi được bộ nhớ trình duyệt: " + (e && e.message || String(e)); dirty = true; toast("⚠ " + lastSaveError + " — hãy bấm Sao lưu ra file ngay!"); return false; }
   }
   var dbRev = 0; // V9.4: tăng mỗi lần dữ liệu đổi → làm hết hiệu lực bản tính lương tạm đang nhớ (kqKy)
   /** V10.1: giao dịch nhiều bước. Chụp các bảng liên quan (+ nhật ký), chạy fn; fn thất bại/ném lỗi HOẶC tiến trình chính từ chối lưu ⇒ HOÀN TÁC toàn bộ trong bộ nhớ.
    * Ghi xuống đĩa NGAY trong một lần lưu duy nhất — main thấy trọn bộ thay đổi (vd. duyệt nghỉ việc = phiếu + hợp đồng + nhân viên) hoặc không thấy gì. */
   function txn(tables, fn) {
+    lastTxnError = "";
     var names = tables.concat(["auditlog"]), snap = {}, ok = false;
     names.forEach(function (k) { snap[k] = JSON.stringify(db[k] || []); });
-    try { ok = fn() !== false; } catch (e) { ok = false; toast("⛔ Lỗi khi xử lý: " + (e && e.message || e)); }
-    if (ok) { ok = saveNow(); if (ok) { dbRev++; st.kqStale = true; } } // dữ liệu đã đổi → làm hết hiệu lực bản tính lương tạm
+    try { ok = fn() !== false; if (!ok) lastTxnError = "Thao tác kiểm tra dữ liệu không cho phép ghi"; } catch (e) { ok = false; lastTxnError = String(e && e.message || e); toast("⛔ Lỗi khi xử lý: " + lastTxnError); }
+    if (ok) { ok = saveNow(); if (!ok) lastTxnError = lastSaveError; if (ok) { dbRev++; st.kqStale = true; } } // dữ liệu đã đổi → làm hết hiệu lực bản tính lương tạm
     if (!ok) { names.forEach(function (k) { db[k] = JSON.parse(snap[k]); }); dbRev++; st.kqStale = true; dirty = false; }
     return ok;
   }
@@ -473,7 +475,9 @@
     var m = $("#modal"); m.innerHTML = ""; m.className = opts && opts.drawer ? "drawer" : "";
     var close = function () { m.className = "hide"; m.innerHTML = ""; if (opts && opts.onClose) opts.onClose(); };
     var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
-    m.appendChild(d); m.onclick = function (e) { if (e.target === m) close(); };
+    // Form nhập liệu chỉ đóng bằng nút rõ ràng. Kéo chọn chữ rồi thả ngoài dlg
+    // có thể tạo click với target là nền modal và làm mất toàn bộ bản nháp.
+    m.appendChild(d); m.onclick = null;
     return close;
   }
   // Hộp nhập chữ của app (Electron KHÔNG hỗ trợ window.prompt — trả về null nên các nút dùng prompt sẽ không chạy)
@@ -1312,7 +1316,7 @@
           Object.keys(rows).forEach(function (k) { rows[k].forEach(function (r) { db[k].push(r); }); });
           audit("Thêm nhân viên", m + " — " + b["Họ và tên"] + " (" + Object.keys(rows).filter(function (k) { return rows[k].length; }).join(", ") + ")"); return true;
         });
-        if (!okNV) { alert("⛔ KHÔNG lưu được nhân viên " + m + ". Dữ liệu chưa được ghi (không có hồ sơ dở dang). Form vẫn giữ nguyên để bạn sửa/thử lại."); return; }
+        if (!okNV) { alert("⛔ KHÔNG lưu được nhân viên " + m + ".\n\nLý do: " + (lastTxnError || "Nơi lưu dữ liệu chưa xác nhận thành công") + "\n\nDữ liệu chưa được ghi (không có hồ sơ dở dang). Form vẫn giữ nguyên để bạn sửa/thử lại. Giữ form mở và gửi phần Lý do nếu cần hỗ trợ."); return; }
         close(); st.tab = "nv"; st.nv = m; st.nvTab = "canhan"; render(); toast("Đã thêm nhân viên " + b["Họ và tên"]);
       })];
     });
