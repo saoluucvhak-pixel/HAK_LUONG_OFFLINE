@@ -4936,14 +4936,37 @@
   function setRecovery(code) {
     return AUTH.make(code.replace(/-/g, "")).then(function (k) { db.baomat = [{ khoiPhuc: k, taoLuc: new Date().toISOString() }]; });
   }
-  function setupAdminScreen() {
-    // Máy mới: tạo dữ liệu trống cho công ty (không cần file), hoặc khôi phục từ file có sẵn (tùy chọn).
-    var restoreBtn = btn("⬆ Khôi phục từ file có sẵn…", "", function () {
+  /** Hai lựa chọn khi mở app lần đầu: 1) tạo dữ liệu + tài khoản mới (mặc định), 2) khôi phục từ dữ liệu cũ. */
+  function setupChooser(active) {
+    var pick = function (mode) { return function () { st.setupMode = mode; st.setupRestored = false; render(); }; };
+    return h("div", { class: "bar", style: "margin:0 0 12px;gap:8px;flex-wrap:wrap" }, [
+      btn("1. Tạo dữ liệu và tài khoản mới", active === "new" ? "pri" : "", pick("new")),
+      btn("2. Khôi phục từ dữ liệu cũ", active === "restore" ? "pri" : "", pick("restore"))]);
+  }
+  function restoreFirstRunScreen() {
+    var w = h("div", { style: "max-width:440px;margin:40px auto" }), c = h("div", { class: "card" });
+    c.appendChild(h("h3", { text: "Thiết lập ban đầu" })); c.appendChild(setupChooser("restore"));
+    c.appendChild(h("div", { class: "hint", text: "Chọn file dữ liệu cũ (.json — \"Sao lưu ra file\" hoặc file dữ liệu đã xuất). Khôi phục bình thường, không đối chiếu nhật ký thao tác. Nếu file có tài khoản, đăng nhập bằng tài khoản cũ; nếu file chỉ có bảng dữ liệu, bước sau sẽ yêu cầu tạo tài khoản Admin." }));
+    c.appendChild(h("div", { class: "bar", style: "margin-top:12px" }, [btn("⬆ Chọn file dữ liệu cũ…", "pri big", function () {
       var f = h("input", { type: "file", accept: ".json" });
-      f.addEventListener("change", function () { var fr = new FileReader(); fr.onload = function () { restoreFromText(fr.result, f.files[0].name); }; fr.readAsText(f.files[0]); });
+      f.addEventListener("change", function () {
+        if (!f.files[0]) return;
+        var fr = new FileReader(); fr.onload = function () {
+          restoreFromText(fr.result, f.files[0].name, { after: function () { st.setupMode = "new"; st.setupRestored = !(db.nguoidung || []).length; render(); } });
+        }; fr.readAsText(f.files[0]);
+      });
       f.click();
-    });
-    return authCard("Thiết lập ban đầu", "Nhập thông tin công ty và tạo tài khoản Admin đầu tiên. Dữ liệu được tạo mới với danh mục chuẩn — không cần file. Nếu đã có file sao lưu của công ty này, bấm \"Khôi phục từ file có sẵn\" ở dưới.",
+    })]));
+    w.appendChild(c); return w;
+  }
+  function setupAdminScreen() {
+    if (st.setupMode === "restore") return restoreFirstRunScreen();
+    var scr = setupAdminForm();
+    var card = scr.firstChild; card.insertBefore(setupChooser("new"), card.children[1] || null);
+    return scr;
+  }
+  function setupAdminForm() {
+    return authCard("Thiết lập ban đầu", st.setupRestored ? "Đã khôi phục dữ liệu cũ. File không có tài khoản nên cần tạo tài khoản Admin — dữ liệu đã khôi phục được giữ nguyên." : "Nhập thông tin công ty và tạo tài khoản Admin đầu tiên. Dữ liệu được tạo mới với danh mục chuẩn — không cần file. Nếu đã có dữ liệu cũ, chọn \"2. Khôi phục từ dữ liệu cũ\" ở trên.",
       [{ k: "cty", label: "Tên công ty (đầy đủ, dùng trên báo cáo)" }, { k: "ma", label: "Mã công ty (viết tắt, ví dụ HAKQN)" },
         { k: "u", label: "Tên đăng nhập Admin" }, { k: "n", label: "Họ tên Admin" }, { k: "p", label: "Mật khẩu (≥ 8 ký tự, có chữ và số)", type: "password", ac: "new-password" }, { k: "p2", label: "Nhập lại mật khẩu", type: "password", ac: "new-password" }],
       "Tạo dữ liệu và tài khoản Admin", function (v) {
@@ -4966,7 +4989,7 @@
             showRecoveryCode(code);
           });
         });
-      }, [restoreBtn]);
+      });
   }
   function loginScreen() {
     return authCard("Đăng nhập", congTy()["Tên công ty"] || "", [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "p", label: "Mật khẩu", type: "password", ac: "current-password" }], "Đăng nhập", function (v) {
