@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld("hakStore", {
   logout: () => ipcRenderer.sendSync("auth-logout"),
   recover: (code, name) => ipcRenderer.sendSync("auth-recover", code, name), // V10.1: main xác minh mã khôi phục Admin → phiên khôi phục ngắn hạn
   authState: () => ipcRenderer.sendSync("auth-state"), // quyền HIỆN TẠI do main xác định (chỉ để ẩn/hiện giao diện)
+  activity: () => ipcRenderer.sendSync("auth-activity"), // không đăng nhập lại / không phục hồi phiên hết hạn
   whoami: () => ipcRenderer.sendSync("app-user"),            // { user, host } — tài khoản Windows đang dùng
   authSalt: () => ipcRenderer.sendSync("auth-salt"),
   authHash: (pw, salt, iter) => ipcRenderer.sendSync("auth-hash", pw, salt, iter),

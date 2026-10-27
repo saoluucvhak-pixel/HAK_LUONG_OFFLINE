@@ -82,6 +82,8 @@ function registerIpc() {
   // V10.1: main tự xác minh mã khôi phục Admin, cấp phiên khôi phục ngắn hạn (1 tài khoản, 1 lần ghi) — policy chỉ chấp nhận đặt lại Admin khi có phiên này
   ipcMain.on("auth-recover", (e, code, name) => { try { e.returnValue = guard.recover(e, code, name); } catch (err) { e.returnValue = { ok: false, error: "Lỗi xác minh mã khôi phục" }; } });
   ipcMain.on("auth-state", (e) => { const c = guard.trusted(e) ? guard.current(e) : null; e.returnValue = c ? { ok: true, user: c.user, role: c.role, perms: c.perms } : { ok: false }; });
+  // Gia hạn phiên hiện có khi người dùng thao tác; deny vẫn kiểm nguồn, hạn phiên và thu hồi quyền.
+  ipcMain.on("auth-activity", (e) => { const error = guard.deny(e); e.returnValue = error ? { ok: false, error } : { ok: true }; });
   ipcMain.on("store-load", (e) => { e.returnValue = storage.load(); });
   // V9.2: main so với bản đang lưu, tìm bảng thay đổi và kiểm quyền THEO PHIÊN ĐĂNG NHẬP CỦA MAIN (không tin renderer); chốt kỳ được tính lại để chặn lỗi
   let wpol = null;
