@@ -2,7 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
 function runtime(save) {
-  const c = { clearTimeout() {}, toast() {}, store: { save }, readOnly: false, saveTimer: null, dirty: false, lastSaveError: "", lastTxnError: "", dbRev: 0, st: {}, db: { nhanvien: [], canhan: [], hopdong: [], auditlog: [] } };
+  const c = { session: null, clearTimeout() {}, toast() {}, store: { save }, readOnly: false, saveTimer: null, dirty: false, lastSaveError: "", lastTxnError: "", dbRev: 0, st: {}, db: { nhanvien: [], canhan: [], hopdong: [], auditlog: [] } };
   vm.createContext(c);
   vm.runInContext(src.slice(src.indexOf("  function saveNow() {"), src.indexOf("  function save() {")), c);
   return c;

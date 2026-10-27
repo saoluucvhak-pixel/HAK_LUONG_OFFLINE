@@ -98,6 +98,8 @@ jobs:
         run: node tests/e2e/document-review.cjs
       - name: Verify first-run restore without a matching local journal
         run: node tests/e2e/restore-first-run.cjs
+      - name: Verify legacy payroll migration and first admin setup
+        run: node tests/e2e/legacy-upgrade.cjs
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v4
