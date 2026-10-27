@@ -4651,7 +4651,7 @@
       var revert = function (why) { db = prev; readOnly = prevRO; loadError = prevErr; session = prevSession; try { ensureTables(); } catch (e0) { /* giữ nguyên */ } saveNow(); render(); if (opts.onFail) opts.onFail(why); };
       // File chỉ có bảng dữ liệu (xuất/nhập bảng, không phải Full Backup) thì không có tài khoản/công ty/nhật ký.
       // Chỉ lấy phần của máy khi FILE KHÔNG CÓ (file bản sao lưu đầy đủ thì dùng nguyên tài khoản/nhật ký trong file — cài lại Windows không mất).
-      if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = prev[k]; });
+      if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog", "kyluong", "kyluong_lichsu", "ttluong"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = prev[k]; });
       try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
       catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; render(); if (opts.onFail) opts.onFail("Không nạp được dữ liệu: " + e.message); else alert("Không khôi phục được: " + e.message); return; }
       // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
@@ -4660,7 +4660,7 @@
       audit("Khôi phục dữ liệu", label + (diff.length ? " — kỳ chốt thay đổi: " + diff.join("; ") : ""));
       if (!saveNow()) {
         if (opts.strict) { revert("Không ghi được dữ liệu xuống đĩa — đã hoàn tác"); return; } // khôi phục theo giao dịch: không báo thành công khi chưa ghi được
-        alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!");
+        alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!" + (lastSaveError ? "\n\nLý do: " + lastSaveError : ""));
       }
       var fin = function () { st.kq = null; st.tab = "home"; render(); toast("Đã khôi phục từ " + label); if (mm.length) alert(mm.join("\n")); if (opts.after) opts.after(); };
       if (opts.verify) opts.verify().then(function (r) { if (r && r.ok) fin(); else revert((r && r.msg) || "Kiểm tra sau khôi phục không đạt"); }, function (e) { revert(String(e && e.message || e)); });
