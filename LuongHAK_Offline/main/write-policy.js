@@ -7,7 +7,6 @@ const crypto = require("crypto"), fs = require("fs");
 const MONTHLY = { chamcong: 1, sanluong: 1, bandam: 1, psluong: 1, ungluong: 1, tiencom: 1 };
 const PRE_LOGIN_OK = { nguoidung: 1, baomat: 1, auditlog: 1 }; // chưa đăng nhập chỉ được động tới 3 bảng này (đăng nhập / khôi phục / nhật ký)
 const SELF_PW_FIELDS = ["salt", "hash", "iter", "phaiDoiMK", "doiMKLuc"];
-const AUDIT_TRIM_FLOOR = 15000; // app.js AUDIT_MAX = 20000: chỉ chấp nhận nhật ký ngắn đi khi bản cũ đã rất dài (cắt đầu có sao lưu)
 
 /** Quyền (một trong các quyền) cần để GHI bảng t. Bảng chưa biết → cần ít nhất một quyền sửa dữ liệu. */
 function permsFor(t) {
@@ -255,9 +254,7 @@ function createPolicy(opts) {
         continue;
       }
       if (t === "auditlog") {
-        const aud = Array.isArray(next.auditlog) ? next.auditlog : [];
-        const keep = aud.length >= prev.audLen ? h(aud.slice(0, prev.audLen)) === prev.audAll : prev.audLen > AUDIT_TRIM_FLOOR;
-        if (!keep) return deny("nhật ký thao tác chỉ được thêm, không được sửa/xóa");
+        // Theo yêu cầu chủ sở hữu: nhật ký thao tác KHÔNG còn chặn ghi (khôi phục/nhập file có nhật ký ngắn hơn hoặc khác vẫn ghi được).
         continue;
       }
       if (t === "kyluong") {

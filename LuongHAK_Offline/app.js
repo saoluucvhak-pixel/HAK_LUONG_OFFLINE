@@ -136,6 +136,8 @@
   // HOÀN TÁC (xóa hẳn dữ liệu) phải DỪNG LẠI khi sao lưu thất bại, không được tiếp tục xóa như chưa có gì xảy ra.
   function backupOrBlock(tag, label) {
     var n = backupNow(tag);
+    // Máy mới chưa có file dữ liệu (khôi phục/nhập lần đầu): không có gì để sao lưu — không phải lỗi đĩa, đừng chặn
+    if (!n && store && store.hasDataFile && store.hasDataFile() === false) return true;
     if (!n) { alert("⛔ KHÔNG tạo được bản sao lưu trước khi " + label + " — dữ liệu CHƯA bị xóa, để tránh mất không thể khôi phục.\nKiểm tra dung lượng đĩa / quyền ghi ở Công ty & Sao lưu rồi thử lại."); return false; }
     return true;
   }
@@ -4647,6 +4649,9 @@
     var apply = function () {
       var prev = db, prevRO = readOnly, prevErr = loadError, prevSession = session;
       var revert = function (why) { db = prev; readOnly = prevRO; loadError = prevErr; session = prevSession; try { ensureTables(); } catch (e0) { /* giữ nguyên */ } saveNow(); render(); if (opts.onFail) opts.onFail(why); };
+      // File chỉ có bảng dữ liệu (xuất/nhập bảng, không phải Full Backup) thì không có tài khoản/công ty/nhật ký.
+      // Chỉ lấy phần của máy khi FILE KHÔNG CÓ (file bản sao lưu đầy đủ thì dùng nguyên tài khoản/nhật ký trong file — cài lại Windows không mất).
+      if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog", "kyluong", "kyluong_lichsu", "ttluong"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = prev[k]; });
       try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
       catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; render(); if (opts.onFail) opts.onFail("Không nạp được dữ liệu: " + e.message); else alert("Không khôi phục được: " + e.message); return; }
       // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
@@ -4655,7 +4660,7 @@
       audit("Khôi phục dữ liệu", label + (diff.length ? " — kỳ chốt thay đổi: " + diff.join("; ") : ""));
       if (!saveNow()) {
         if (opts.strict) { revert("Không ghi được dữ liệu xuống đĩa — đã hoàn tác"); return; } // khôi phục theo giao dịch: không báo thành công khi chưa ghi được
-        alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!");
+        alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!" + (lastSaveError ? "\n\nLý do: " + lastSaveError : ""));
       }
       var fin = function () { st.kq = null; st.tab = "home"; render(); toast("Đã khôi phục từ " + label); if (mm.length) alert(mm.join("\n")); if (opts.after) opts.after(); };
       if (opts.verify) opts.verify().then(function (r) { if (r && r.ok) fin(); else revert((r && r.msg) || "Kiểm tra sau khôi phục không đạt"); }, function (e) { revert(String(e && e.message || e)); });
@@ -4729,7 +4734,7 @@
     KS.forEach(function (kk) {
       var k = kk[0], movable = k !== "export", inf = STG.info && STG.info[k];
       var verify = STG.ver && STG.ver[k];
-      var acts = h("td", {}, [
+      var acts = h("td", {}, [h("div", { style: "display:flex;flex-wrap:wrap;gap:4px" }, [
         movable ? btn("Chọn / Chuyển…", "ghost", function () {
           if (!need("backup.restore", "đổi thư mục lưu trữ") || STG.busy) return;
           window.hakPaths.pick(k).then(function (p) {
@@ -4748,13 +4753,13 @@
           STG.ver = STG.ver || {}; STG.ver[k] = { text: "Đang kiểm tra…" }; render();
           window.hakPaths.verify(k).then(function (r) { STG.ver[k] = r && r.ok ? { good: r.good, text: r.text } : { good: false, text: (r && r.error) || "lỗi" }; render(); });
         }, "Kiểm tra toàn vẹn (chỉ đọc, không sửa gì)"),
-        btn("↻ Dung lượng", "ghost", function () { STG.info = null; render(); })]);
+        btn("↻ Dung lượng", "ghost", function () { STG.info = null; render(); })])]);
       t.appendChild(h("tr", { "data-stg": k }, [h("td", { text: kk[1] }), h("td", { text: (k === "mirror" ? (STG.data.paths.mirror || "(chưa chọn)") : (k === "export" ? STG.exportDir || "(thư mục xuất file mặc định)" : STG.data.paths[k])), style: "word-break:break-all" }),
         h("td", { text: inf ? (inf.exists ? inf.files + " file · " + fmtB(inf.bytes) + (inf.free != null ? " · trống " + fmtB(inf.free) : "") : "chưa tạo") : "…" }),
         acts]));
       if (verify) t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: verify.good === false ? "warn" : "ok", "data-stg-verify": k, text: (verify.good === false ? "✕ " : verify.good ? "✓ " : "") + verify.text })]));
     });
-    c.appendChild(t);
+    c.appendChild(h("div", { style: "overflow-x:auto;max-width:100%" }, [t])); // cửa sổ hẹp: bảng cuộn ngang, không tràn khỏi khung
     if (STG.msg) c.appendChild(h("div", { class: STG.msg.bad ? "warn" : "ok", "data-stg-msg": "1", text: STG.msg.text }));
     return c;
   }
@@ -4931,14 +4936,37 @@
   function setRecovery(code) {
     return AUTH.make(code.replace(/-/g, "")).then(function (k) { db.baomat = [{ khoiPhuc: k, taoLuc: new Date().toISOString() }]; });
   }
-  function setupAdminScreen() {
-    // Máy mới: tạo dữ liệu trống cho công ty (không cần file), hoặc khôi phục từ file có sẵn (tùy chọn).
-    var restoreBtn = btn("⬆ Khôi phục từ file có sẵn…", "", function () {
+  /** Hai lựa chọn khi mở app lần đầu: 1) tạo dữ liệu + tài khoản mới (mặc định), 2) khôi phục từ dữ liệu cũ. */
+  function setupChooser(active) {
+    var pick = function (mode) { return function () { st.setupMode = mode; st.setupRestored = false; render(); }; };
+    return h("div", { class: "bar", style: "margin:0 0 12px;gap:8px;flex-wrap:wrap" }, [
+      btn("1. Tạo dữ liệu và tài khoản mới", active === "new" ? "pri" : "", pick("new")),
+      btn("2. Khôi phục từ dữ liệu cũ", active === "restore" ? "pri" : "", pick("restore"))]);
+  }
+  function restoreFirstRunScreen() {
+    var w = h("div", { style: "max-width:440px;margin:40px auto" }), c = h("div", { class: "card" });
+    c.appendChild(h("h3", { text: "Thiết lập ban đầu" })); c.appendChild(setupChooser("restore"));
+    c.appendChild(h("div", { class: "hint", text: "Chọn file dữ liệu cũ (.json — \"Sao lưu ra file\" hoặc file dữ liệu đã xuất). Khôi phục bình thường, không đối chiếu nhật ký thao tác. Nếu file có tài khoản, đăng nhập bằng tài khoản cũ; nếu file chỉ có bảng dữ liệu, bước sau sẽ yêu cầu tạo tài khoản Admin." }));
+    c.appendChild(h("div", { class: "bar", style: "margin-top:12px" }, [btn("⬆ Chọn file dữ liệu cũ…", "pri big", function () {
       var f = h("input", { type: "file", accept: ".json" });
-      f.addEventListener("change", function () { var fr = new FileReader(); fr.onload = function () { restoreFromText(fr.result, f.files[0].name); }; fr.readAsText(f.files[0]); });
+      f.addEventListener("change", function () {
+        if (!f.files[0]) return;
+        var fr = new FileReader(); fr.onload = function () {
+          restoreFromText(fr.result, f.files[0].name, { after: function () { st.setupMode = "new"; st.setupRestored = !(db.nguoidung || []).length; render(); } });
+        }; fr.readAsText(f.files[0]);
+      });
       f.click();
-    });
-    return authCard("Thiết lập ban đầu", "Nhập thông tin công ty và tạo tài khoản Admin đầu tiên. Dữ liệu được tạo mới với danh mục chuẩn — không cần file. Nếu đã có file sao lưu của công ty này, bấm \"Khôi phục từ file có sẵn\" ở dưới.",
+    })]));
+    w.appendChild(c); return w;
+  }
+  function setupAdminScreen() {
+    if (st.setupMode === "restore") return restoreFirstRunScreen();
+    var scr = setupAdminForm();
+    var card = scr.firstChild; card.insertBefore(setupChooser("new"), card.children[1] || null);
+    return scr;
+  }
+  function setupAdminForm() {
+    return authCard("Thiết lập ban đầu", st.setupRestored ? "Đã khôi phục dữ liệu cũ. File không có tài khoản nên cần tạo tài khoản Admin — dữ liệu đã khôi phục được giữ nguyên." : "Nhập thông tin công ty và tạo tài khoản Admin đầu tiên. Dữ liệu được tạo mới với danh mục chuẩn — không cần file. Nếu đã có dữ liệu cũ, chọn \"2. Khôi phục từ dữ liệu cũ\" ở trên.",
       [{ k: "cty", label: "Tên công ty (đầy đủ, dùng trên báo cáo)" }, { k: "ma", label: "Mã công ty (viết tắt, ví dụ HAKQN)" },
         { k: "u", label: "Tên đăng nhập Admin" }, { k: "n", label: "Họ tên Admin" }, { k: "p", label: "Mật khẩu (≥ 8 ký tự, có chữ và số)", type: "password", ac: "new-password" }, { k: "p2", label: "Nhập lại mật khẩu", type: "password", ac: "new-password" }],
       "Tạo dữ liệu và tài khoản Admin", function (v) {
@@ -4961,7 +4989,7 @@
             showRecoveryCode(code);
           });
         });
-      }, [restoreBtn]);
+      });
   }
   function loginScreen() {
     return authCard("Đăng nhập", congTy()["Tên công ty"] || "", [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "p", label: "Mật khẩu", type: "password", ac: "current-password" }], "Đăng nhập", function (v) {
