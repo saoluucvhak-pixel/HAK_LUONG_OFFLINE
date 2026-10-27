@@ -4734,7 +4734,7 @@
     KS.forEach(function (kk) {
       var k = kk[0], movable = k !== "export", inf = STG.info && STG.info[k];
       var verify = STG.ver && STG.ver[k];
-      var acts = h("td", {}, [
+      var acts = h("td", {}, [h("div", { style: "display:flex;flex-wrap:wrap;gap:4px" }, [
         movable ? btn("Chọn / Chuyển…", "ghost", function () {
           if (!need("backup.restore", "đổi thư mục lưu trữ") || STG.busy) return;
           window.hakPaths.pick(k).then(function (p) {
@@ -4753,13 +4753,13 @@
           STG.ver = STG.ver || {}; STG.ver[k] = { text: "Đang kiểm tra…" }; render();
           window.hakPaths.verify(k).then(function (r) { STG.ver[k] = r && r.ok ? { good: r.good, text: r.text } : { good: false, text: (r && r.error) || "lỗi" }; render(); });
         }, "Kiểm tra toàn vẹn (chỉ đọc, không sửa gì)"),
-        btn("↻ Dung lượng", "ghost", function () { STG.info = null; render(); })]);
+        btn("↻ Dung lượng", "ghost", function () { STG.info = null; render(); })])]);
       t.appendChild(h("tr", { "data-stg": k }, [h("td", { text: kk[1] }), h("td", { text: (k === "mirror" ? (STG.data.paths.mirror || "(chưa chọn)") : (k === "export" ? STG.exportDir || "(thư mục xuất file mặc định)" : STG.data.paths[k])), style: "word-break:break-all" }),
         h("td", { text: inf ? (inf.exists ? inf.files + " file · " + fmtB(inf.bytes) + (inf.free != null ? " · trống " + fmtB(inf.free) : "") : "chưa tạo") : "…" }),
         acts]));
       if (verify) t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: verify.good === false ? "warn" : "ok", "data-stg-verify": k, text: (verify.good === false ? "✕ " : verify.good ? "✓ " : "") + verify.text })]));
     });
-    c.appendChild(t);
+    c.appendChild(h("div", { style: "overflow-x:auto;max-width:100%" }, [t])); // cửa sổ hẹp: bảng cuộn ngang, không tràn khỏi khung
     if (STG.msg) c.appendChild(h("div", { class: STG.msg.bad ? "warn" : "ok", "data-stg-msg": "1", text: STG.msg.text }));
     return c;
   }
