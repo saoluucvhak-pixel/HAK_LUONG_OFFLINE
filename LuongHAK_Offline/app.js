@@ -123,11 +123,11 @@
    * Ghi xuống đĩa NGAY trong một lần lưu duy nhất — main thấy trọn bộ thay đổi (vd. duyệt nghỉ việc = phiếu + hợp đồng + nhân viên) hoặc không thấy gì. */
   function txn(tables, fn) {
     lastTxnError = "";
-    var names = tables.concat(["auditlog"]), snap = {}, ok = false;
+    var names = tables.concat(["auditlog"]), snap = {}, ok = false, wasDirty = dirty, sessionName = session && session.tenDangNhap;
     names.forEach(function (k) { snap[k] = JSON.stringify(db[k] || []); });
     try { ok = fn() !== false; if (!ok) lastTxnError = "Thao tác kiểm tra dữ liệu không cho phép ghi"; } catch (e) { ok = false; lastTxnError = String(e && e.message || e); toast("⛔ Lỗi khi xử lý: " + lastTxnError); }
     if (ok) { ok = saveNow(); if (!ok) lastTxnError = lastSaveError; if (ok) { dbRev++; st.kqStale = true; } } // dữ liệu đã đổi → làm hết hiệu lực bản tính lương tạm
-    if (!ok) { names.forEach(function (k) { db[k] = JSON.parse(snap[k]); }); dbRev++; st.kqStale = true; dirty = false; }
+    if (!ok) { names.forEach(function (k) { db[k] = JSON.parse(snap[k]); }); dbRev++; st.kqStale = true; dirty = wasDirty; if (names.indexOf("nguoidung") >= 0) session = sessionName ? PERM.findUser(db, sessionName) : null; if (wasDirty) { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); } }
     return ok;
   }
   function save() { dbRev++; dirty = true; st.kqStale = true; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
@@ -4572,7 +4572,7 @@
       if (!backupOrBlock("truoc-gan-ma-cong-ty", "gán Mã công ty")) return;
       var r = CMP.apply(db); audit("Gán Mã công ty", p.companyId + " · " + JSON.stringify(r.changed)); save(); render(); toast("Đã gán Mã công ty cho " + p.total + " dòng");
     }, "Migration có kiểm tra: chỉ chạy khi xác định được duy nhất một công ty"));
-    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: db.auditlog }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); saveNow(); st.kq = null; render(); } }));
+    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; var beforeDelete = db, wasDirty = dirty; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: JSON.parse(JSON.stringify(db.auditlog || [])) }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); if (!saveNow()) { db = beforeDelete; dirty = wasDirty; alert("Chưa xóa dữ liệu: " + lastSaveError); return; } st.kq = null; render(); } }));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: "Hiện có — " + Object.keys(ALL).map(function (k) { return ALL[k].ten + ": " + countOf(k); }).join(" · ") }));
     var w = h("div"); w.appendChild(cardCongTy()); if (can("system.admin")) w.appendChild(cardUsers()); w.appendChild(c); w.appendChild(cardYearArchive()); w.appendChild(cardSchedule()); w.appendChild(cardStorage()); w.appendChild(cardFull()); w.appendChild(cardOffsite()); w.appendChild(cardBackups()); w.appendChild(cardIntegrity()); w.appendChild(cardAudit());
@@ -5040,11 +5040,14 @@
           if (store && store.recover) { var rr = store.recover(v.c, u.tenDangNhap); if (!rr || !rr.ok) throw new Error((rr && rr.error) || "Tiến trình chính từ chối khôi phục"); }
           PERM.noteOk("#recovery");
           var code = randomCode();
-          return AUTH.make(v.p).then(function (k) {
-            Object.assign(u, k, { khoa: false, phaiDoiMK: false, doiMKLuc: new Date().toISOString() });
-            return setRecovery(code).then(function () {
-              session = u; audit("Khôi phục quyền Admin bằng mã khôi phục", u.tenDangNhap + " — đã cấp mã khôi phục mới");
-              if (!saveNow()) throw new Error("Không lưu được xuống đĩa");
+          return Promise.all([AUTH.make(v.p), AUTH.make(code.replace(/-/g, ""))]).then(function (keys) {
+            if (!txn(["nguoidung", "baomat"], function () {
+              Object.assign(u, keys[0], { khoa: false, phaiDoiMK: false, doiMKLuc: new Date().toISOString() });
+              db.baomat = [{ khoiPhuc: keys[1], taoLuc: new Date().toISOString() }];
+              audit("Khôi phục quyền Admin bằng mã khôi phục", u.tenDangNhap + " — đã cấp mã khôi phục mới");
+            })) throw new Error("Chưa khôi phục quyền Admin: " + lastTxnError);
+            session = u;
+            return Promise.resolve().then(function () {
               st.authView = ""; if (!mainLogin(u.tenDangNhap, v.p)) { session = null; throw new Error("Đã đặt lại mật khẩu nhưng chưa thiết lập được phiên — đăng nhập lại"); }
               showRecoveryCode(code);
             });
@@ -5062,7 +5065,7 @@
         if (f.p.value !== f.p2.value) { alert("Hai lần nhập không khớp"); return; }
         AUTH.verify(f.o.value, session).then(function (ok) {
           if (!ok) { alert("Mật khẩu hiện tại không đúng"); return; }
-          return AUTH.make(f.p.value).then(function (k) { Object.assign(session, k, { phaiDoiMK: false, doiMKLuc: new Date().toISOString() }); audit("Đổi mật khẩu", session.tenDangNhap); saveNow(); close(); toast("Đã đổi mật khẩu"); render(); });
+          return AUTH.make(f.p.value).then(function (k) { if (!txn(["nguoidung"], function () { Object.assign(session, k, { phaiDoiMK: false, doiMKLuc: new Date().toISOString() }); audit("Đổi mật khẩu", session.tenDangNhap); })) { alert("Chưa đổi mật khẩu: " + lastTxnError); return; } close(); toast("Đã đổi mật khẩu"); render(); });
         });
       })];
     });
@@ -5088,12 +5091,15 @@
         if ((isNew || f.p.value) && PERM.validatePassword(f.p.value)) { alert(PERM.validatePassword(f.p.value)); return; }
         if (u && PERM.wouldRemoveLastAdmin(db, u, next)) { alert("Không thể: đây là Admin đang hoạt động cuối cùng."); return; }
         var done = function (k) {
+          var savedId = u && u.id;
+          var saved = txn(["nguoidung"], function () {
           var before = u ? { "Vai trò": u.vaiTro, "Khóa": u.khoa ? "Có" : "Không", "Họ tên": u.hoTen } : null;
           if (isNew) { u = Object.assign({ id: HRM.uid(), tenDangNhap: name, taoLuc: new Date().toISOString(), phaiDoiMK: true }, k); db.nguoidung.push(u); }
           else if (k) Object.assign(u, k, { phaiDoiMK: true });
           Object.assign(u, { hoTen: f.n.value.trim() }, next);
           audit(isNew ? "Thêm người dùng" : "Sửa người dùng", u.tenDangNhap + " · " + GRD.changedFields(before, { "Vai trò": u.vaiTro, "Khóa": u.khoa ? "Có" : "Không", "Họ tên": u.hoTen }).join("; ") + (k ? " · đặt mật khẩu tạm" : ""));
-          if (!saveNow()) { alert("Không lưu được xuống đĩa!"); }
+          });
+          if (!saved) { u = isNew ? null : (db.nguoidung || []).find(function (x) { return x.id === savedId; }); alert("Chưa lưu người dùng: " + lastTxnError); return; }
           close(); render(); toast("Đã lưu người dùng");
         };
         if (isNew || f.p.value) AUTH.make(f.p.value).then(done); else done(null);
@@ -5112,7 +5118,7 @@
     c.appendChild(h("div", { class: "bar", style: "margin-top:10px" }, [btn("🔑 Cấp lại mã khôi phục Admin", "", function () {
       if (!need("system.admin")) return;
       if (!confirm("Cấp mã khôi phục MỚI? Mã cũ sẽ hết hiệu lực.")) return;
-      var code = randomCode(); setRecovery(code).then(function () { audit("Cấp lại mã khôi phục Admin", ""); saveNow(); showRecoveryCode(code); });
+      var code = randomCode(); AUTH.make(code.replace(/-/g, "")).then(function (k) { if (!txn(["baomat"], function () { db.baomat = [{ khoiPhuc: k, taoLuc: new Date().toISOString() }]; audit("Cấp lại mã khôi phục Admin", ""); })) { alert("Chưa cấp mã khôi phục mới: " + lastTxnError); return; } showRecoveryCode(code); });
     })]));
     return c;
   }
