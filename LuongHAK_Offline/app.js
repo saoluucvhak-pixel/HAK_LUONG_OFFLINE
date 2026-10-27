@@ -184,7 +184,18 @@
     return false;
   }
   function logout(reason) { if (session) audit("Đăng xuất", reason || ""); try { if (store && store.logout) store.logout(); } catch (e) { /* main hết phiên cũng được */ } session = null; st.kq = null; if (!readOnly) saveNow(); render(); }
-  ["mousedown", "keydown"].forEach(function (ev) { document.addEventListener(ev, function () { lastActive = Date.now(); }, true); });
+  var sessionActivityAt = 0;
+  function noteUserActivity(e) {
+    if (!e.isTrusted) return;
+    lastActive = Date.now();
+    if (!session || !store || !store.activity || lastActive - sessionActivityAt < 60000) return;
+    sessionActivityAt = lastActive;
+    try {
+      var r = store.activity();
+      if (!r || !r.ok) toast("Phiên đăng nhập đã hết hiệu lực — giữ lại nội dung đang nhập và đăng nhập lại trước khi lưu");
+    } catch (err) { toast("Không liên lạc được với phiên đăng nhập — giữ lại nội dung đang nhập trước khi thử lại"); }
+  }
+  ["mousedown", "keydown"].forEach(function (ev) { document.addEventListener(ev, noteUserActivity, true); });
   // Ctrl+F: nhảy tới ô tìm kiếm của màn hình đang mở (nếu có)
   document.addEventListener("keydown", function (e) {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "k" || e.key === "K") && session && !loadError) { e.preventDefault(); quickSearch(); return; }
@@ -4647,11 +4658,18 @@
     if (opts.quarantine && store && store.quarantine) store.quarantine();
     else if (!readOnly && !backupOrBlock("truoc-khoi-phuc", "khôi phục dữ liệu")) return opts.onCancel && opts.onCancel();
     var apply = function () {
-      var prev = db, prevRO = readOnly, prevErr = loadError, prevSession = session;
-      var revert = function (why) { db = prev; readOnly = prevRO; loadError = prevErr; session = prevSession; try { ensureTables(); } catch (e0) { /* giữ nguyên */ } saveNow(); render(); if (opts.onFail) opts.onFail(why); };
+      var prev = db, prevRO = readOnly, prevErr = loadError, prevSession = session, prevDirty = dirty;
+      var revert = function (why, writeBack) {
+        db = prev; readOnly = prevRO; loadError = prevErr; session = prevSession;
+        try { ensureTables(); } catch (e0) { /* giữ nguyên */ }
+        st.kq = null; st.kqStale = true; dirty = prevDirty;
+        if (writeBack && !saveNow()) why += "\nKhông ghi lại được dữ liệu trước khôi phục: " + lastSaveError;
+        render();
+        if (opts.onFail) opts.onFail(why); else alert(why);
+      };
       // File chỉ có bảng dữ liệu (xuất/nhập bảng, không phải Full Backup) thì không có tài khoản/công ty/nhật ký.
       // Chỉ lấy phần của máy khi FILE KHÔNG CÓ (file bản sao lưu đầy đủ thì dùng nguyên tài khoản/nhật ký trong file — cài lại Windows không mất).
-      if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog", "kyluong", "kyluong_lichsu", "ttluong"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = prev[k]; });
+      if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog", "kyluong", "kyluong_lichsu", "ttluong"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = JSON.parse(JSON.stringify(prev[k])); });
       try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
       catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; render(); if (opts.onFail) opts.onFail("Không nạp được dữ liệu: " + e.message); else alert("Không khôi phục được: " + e.message); return; }
       // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
@@ -4659,11 +4677,11 @@
       session = me && !me.khoa ? me : null;
       audit("Khôi phục dữ liệu", label + (diff.length ? " — kỳ chốt thay đổi: " + diff.join("; ") : ""));
       if (!saveNow()) {
-        if (opts.strict) { revert("Không ghi được dữ liệu xuống đĩa — đã hoàn tác"); return; } // khôi phục theo giao dịch: không báo thành công khi chưa ghi được
-        alert("Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa!" + (lastSaveError ? "\n\nLý do: " + lastSaveError : ""));
+        revert("KHÔI PHỤC KHÔNG THÀNH CÔNG — chưa xác nhận ghi được xuống đĩa. Đã trả lại dữ liệu trước khôi phục trên giao diện.\n\nLý do: " + (lastSaveError || "Nơi lưu không xác nhận thành công"), false);
+        return;
       }
       var fin = function () { st.kq = null; st.tab = "home"; render(); toast("Đã khôi phục từ " + label); if (mm.length) alert(mm.join("\n")); if (opts.after) opts.after(); };
-      if (opts.verify) opts.verify().then(function (r) { if (r && r.ok) fin(); else revert((r && r.msg) || "Kiểm tra sau khôi phục không đạt"); }, function (e) { revert(String(e && e.message || e)); });
+      if (opts.verify) opts.verify().then(function (r) { if (r && r.ok) fin(); else revert((r && r.msg) || "Kiểm tra sau khôi phục không đạt", true); }, function (e) { revert(String(e && e.message || e), true); });
       else fin();
     };
     if (opts.prepare) opts.prepare().then(function (r) { if (r && r.ok) apply(); else if (opts.onFail) opts.onFail((r && r.msg) || "Không chuẩn bị được"); }, function (e) { if (opts.onFail) opts.onFail(String(e && e.message || e)); });
