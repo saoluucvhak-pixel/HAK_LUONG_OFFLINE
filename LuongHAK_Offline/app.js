@@ -4645,13 +4645,9 @@
     var apply = function () {
       var prev = db, prevRO = readOnly, prevErr = loadError, prevSession = session;
       var revert = function (why) { db = prev; readOnly = prevRO; loadError = prevErr; session = prevSession; try { ensureTables(); } catch (e0) { /* giữ nguyên */ } saveNow(); render(); if (opts.onFail) opts.onFail(why); };
-      // File chỉ có bảng dữ liệu (xuất/nhập bảng, không phải Full Backup): giữ tài khoản, bảo mật, thông tin công ty và nhật ký
-      // thao tác của máy này. Nếu thay hết, nhật ký/tài khoản bị xóa → tiến trình chính từ chối ghi ("nhật ký chỉ được thêm") và
-      // dữ liệu không xuống được đĩa.
-      if (prev && !prevErr) ["nguoidung", "baomat", "congty"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = prev[k]; });
-      // Nhật ký thao tác chỉ được THÊM (tiến trình chính từ chối bản ngắn đi / khác đi): luôn giữ nhật ký của máy này, kể cả khi
-      // file có nhật ký riêng (bản sao lưu cũ hơn, hoặc ghép từ máy khác) — nếu không sẽ báo "CHƯA lưu được xuống đĩa".
-      if (prev && !prevErr && Array.isArray(prev.auditlog)) o.auditlog = prev.auditlog;
+      // File chỉ có bảng dữ liệu (xuất/nhập bảng, không phải Full Backup) thì không có tài khoản/công ty/nhật ký.
+      // Chỉ lấy phần của máy khi FILE KHÔNG CÓ (file bản sao lưu đầy đủ thì dùng nguyên tài khoản/nhật ký trong file — cài lại Windows không mất).
+      if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = prev[k]; });
       try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
       catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; render(); if (opts.onFail) opts.onFail("Không nạp được dữ liệu: " + e.message); else alert("Không khôi phục được: " + e.message); return; }
       // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
