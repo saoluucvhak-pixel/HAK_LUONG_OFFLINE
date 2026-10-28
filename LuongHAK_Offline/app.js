@@ -9,7 +9,7 @@
   var S = {
     chamcong: { ten: "Chấm công", icon: "🗓", cols: ["Kỳ", "Mã NV", "Hình thức công"].concat(DAYS), kyCol: "Kỳ", hide: ["Kỳ"], def: { "Hình thức công": "BT" }, showName: true, total: true, hint: "Mỗi dòng = 1 nhân viên × 1 hình thức công trong tháng. Hình thức: BT (bình thường), CL (lễ), PN (phép năm), CC (tính cơm), TC/TC1–TC6 (tăng ca). Ô ngày nhập 1, 0.5, hoặc 1QC (1 công + nhãn QC). Cột đỏ nhạt là Chủ nhật." },
     sanluong: { ten: "Sản lượng", icon: "⚖", cols: ["Phiếu cân", "Ngày cân", "Biển số", "KL hàng (Tấn)", "Mã NV", "Mã phòng ban", "NV vắng", "Cân lần 1", "Cân lần 2"], dateCol: "Ngày cân", showName: true, hint: "Cách 1 (như công cụ phân bổ): ghi Mã phòng ban (tổ) + NV vắng → khối lượng chia ĐỀU cho người của tổ có mặt ngày cân (vắng: ghi tên cuối, VD 'Long, Định', hoặc Mã NV). Người có đơn nghỉ đã duyệt (nghỉ phép, không lương, ốm) tự không nhận phiếu những ngày nghỉ — không cần ghi NV vắng. Cách 2: ghi Mã NV → giao đúng người đó. Xem kết quả chia ở Báo cáo lương → Phân bổ sản lượng." },
-    bandam: { ten: "Bơm dăm", icon: "🚛", cols: ["Phiếu cân", "Ngày cân", "Biển số", "KL hàng (Tấn)", "Mã NV", "Mã phòng ban", "NV vắng", "Cân lần 1", "Cân lần 2"], dateCol: "Ngày cân", showName: true, hint: "Cột 'KL hàng (Tấn)' ở bảng này là SỐ XE (mỗi phiếu thường = 1 xe), nhân với đơn giá bơm dăm. Chia theo tổ như Sản lượng: ghi Mã phòng ban + NV vắng, hoặc ghi Mã NV." },
+    bandam: { ten: "Bơm dăm", icon: "🚛", cols: ["Phiếu cân", "Ngày cân", "Biển số", "KL hàng (Tấn)", "Mã NV", "Mã phòng ban", "NV vắng", "Cân lần 1", "Cân lần 2"], dateCol: "Ngày cân", showName: true, hint: "Cột 'KL hàng (Tấn)' ở bảng này là SỐ XE (mỗi phiếu thường = 1 xe), nhân với đơn giá bơm dăm. Bấm Giao trực tiếp cho Mã NV để chọn nhân viên nhận số xe; hoặc Sửa phiếu để chọn Chia theo tổ. Nhập Excel trực tiếp: điền Mã NV, để trống Mã phòng ban và NV vắng." },
     psluong: { ten: "Thưởng / Trừ", icon: "🎁", cols: ["Ngày hạch toán", "Số chứng từ", "Mã NV", "Diễn giải", "Thưởng", "Thu nhập khác", "Trừ khác"], dateCol: "Ngày hạch toán", showName: true },
     ungluong: { ten: "Tạm ứng", icon: "💵", cols: ["Ngày hạch toán", "Số chứng từ", "Mã NV", "Diễn giải", "Tạm ứng"], dateCol: "Ngày hạch toán", showName: true },
     tiencom: { ten: "Suất cơm", icon: "🍚", cols: ["Ngày", "Mã NV", "Số suất cơm", "Ghi chú"], dateCol: "Ngày", showName: true }
@@ -715,6 +715,35 @@
     })]; });
   }
 
+  function bandamEntryForm(ri, after, initialMode) {
+    if (!need("input.edit")) return;
+    var row = ri == null ? null : db.bandam[ri], token = row ? JSON.stringify(row) : "", body = h("div"), f = {};
+    var mode = h("select", { "aria-label": "Cách phân bổ bơm dăm" }, [h("option", { value: "direct", text: "Trực tiếp theo Mã NV" }), h("option", { value: "team", text: "Chia theo tổ / phòng ban" })]);
+    mode.value = row ? (row["Mã NV"] ? "direct" : "team") : initialMode || "direct";
+    body.appendChild(h("div", { class: "fld" }, [h("label", { text: "Cách phân bổ" }), mode]));
+    body.appendChild(h("p", { class: "hint", text: "Trực tiếp: số xe của dòng này giao cho đúng nhân viên đã chọn, không chia lại cho tổ. Theo tổ: chia theo người có mặt và NV vắng như hiện tại. Hồ sơ và đơn giá kỳ lương vẫn được áp dụng." }));
+    ["Phiếu cân", "Ngày cân", "Biển số", "KL hàng (Tấn)"].forEach(function (col) {
+      f[col] = h("input", { class: "i", "aria-label": col === "KL hàng (Tấn)" ? "Số xe được giao" : col, type: col === "Ngày cân" ? "date" : "text", value: row ? row[col] || "" : col === "Ngày cân" ? kyStr() + "-01" : col === "KL hàng (Tấn)" ? "1" : "" });
+      body.appendChild(h("div", { class: "fld" }, [h("label", { text: col === "KL hàng (Tấn)" ? "Số xe được giao" : col }), f[col]]));
+    });
+    var direct = h("div", { class: "fld" }), team = h("div");
+    f["Mã NV"] = h("select", { "aria-label": "Nhân viên nhận bơm dăm" }, [h("option", { value: "", text: "— Chọn nhân viên —" })].concat(db.nhanvien.map(function (n) { return h("option", { value: n["Mã NV"], text: n["Mã NV"] + " — " + (n["Họ và tên"] || "") }); })));
+    f["Mã NV"].value = row && row["Mã NV"] || "";
+    direct.appendChild(h("label", { text: "Nhân viên nhận phiếu" })); direct.appendChild(f["Mã NV"]); body.appendChild(direct);
+    f["Mã phòng ban"] = h("select", { "aria-label": "Tổ nhận bơm dăm" }, [h("option", { value: "", text: "— Chọn tổ —" })].concat((db.dm_phongban || []).map(function (r) { return h("option", { value: r["Mã phòng ban"], text: r["Mã phòng ban"] + " — " + (r["Tên phòng ban"] || "") }); })));
+    f["Mã phòng ban"].value = row && row["Mã phòng ban"] || ""; f["NV vắng"] = h("input", { class: "i", "aria-label": "NV vắng bơm dăm", value: row && row["NV vắng"] || "" });
+    team.appendChild(h("div", { class: "fld" }, [h("label", { text: "Tổ / phòng ban" }), f["Mã phòng ban"]])); team.appendChild(h("div", { class: "fld" }, [h("label", { text: "NV vắng" }), f["NV vắng"]])); body.appendChild(team);
+    var drawMode = function () { direct.style.display = mode.value === "direct" ? "" : "none"; team.style.display = mode.value === "team" ? "" : "none"; }; mode.addEventListener("change", drawMode); drawMode();
+    modal((row ? "Sửa" : "Thêm") + " phiếu Bơm dăm", body, function (close) { return [btn("Hủy", "", close), btn("Lưu phiếu bơm dăm", "pri", function () {
+      if (!need("input.edit")) return;
+      if (row && JSON.stringify(db.bandam[ri]) !== token) { alert("Phiếu đã thay đổi — mở lại để sửa."); return; }
+      var input = { mode: mode.value }; Object.keys(f).forEach(function (k) { input[k] = f[k].value; }); var data;
+      try { data = C.bandamEntry.build(db, input, row ? db.bandam[ri] : null); } catch (e) { alert(e.message); return; }
+      if (!txn(["bandam"], function () { return !!commit(REPO.plan(row ? "update" : "insert", "bandam", row ? db.bandam[ri] : null, data), { action: "Lưu phiếu bơm dăm " + (mode.value === "direct" ? "trực tiếp" : "theo tổ") }); })) { alert("Chưa lưu phiếu: " + lastTxnError); return; }
+      close(); after(); toast("Đã lưu phiếu bơm dăm xuống đĩa");
+    })]; });
+  }
+
   function inputRowEdit(key, def, ri, after) {
     var original = JSON.stringify(db[key][ri]), body = h("div"), fields = {};
     def.cols.forEach(function (col) { var input = h("input", { class: "i", value: db[key][ri][col] == null ? "" : db[key][ri][col], "aria-label": col }); fields[col] = input; body.appendChild(h("div", { class: "fld" }, [h("label", { text: col }), input])); });
@@ -769,12 +798,14 @@
     var sfm = null, lastScan = null;
     var newRow = function () { var r = Object.assign({}, def.def || {}); if (def.kyCol) r[def.kyCol] = kyStr(); if (def.dateCol) r[def.dateCol] = kyStr() + "-01"; return r; };
     if (!locked && isCat) bar.appendChild(btn("＋ Thêm mới", "pri", function () { if (!need(editPerm)) return; var e0 = cedit(key); if (e0 && e0.dirty && !confirm("Đang có thay đổi chưa lưu — bỏ để thêm mới?")) return; st.cedit = st.cedit || {}; st.cedit[key] = { mode: "new", ri: -1, draft: newRow(), dirty: false, state: "EDITING" }; draw(); }, "Tạo dòng mới ở chế độ nháp — chỉ ghi khi bấm Lưu"));
-    else if (!locked) bar.appendChild(btn("＋ Thêm dòng", "pri", function () { if (!need(editPerm)) return; if (!commit(REPO.plan("insert", key, null, newRow(), { what: "thêm dòng" }), { audit: theoKy ? false : "retro", action: "Thêm dòng danh mục" })) return; save(); st.qs[key] = ""; q.value = ""; st.pg[key] = 1e9; draw(); var tw = body; tw.scrollTop = tw.scrollHeight; }));
+    else if (!locked) bar.appendChild(btn("＋ Thêm dòng", "pri", function () { if (!need(editPerm)) return; if (key === "bandam") { bandamEntryForm(null, draw); return; } if (!commit(REPO.plan("insert", key, null, newRow(), { what: "thêm dòng" }), { audit: theoKy ? false : "retro", action: "Thêm dòng danh mục" })) return; save(); st.qs[key] = ""; q.value = ""; st.pg[key] = 1e9; draw(); var tw = body; tw.scrollTop = tw.scrollHeight; }));
     bar.appendChild(q); bar.appendChild(cnt); bar.appendChild(h("span", { class: "sp" }));
-    if (key === "sanluong" || key === "bandam") bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
+    if (key === "sanluong" || key === "bandam") bar.appendChild(btn(key === "bandam" ? "Mẫu Excel chia tổ" : "📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
     else bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadTemplate(key); }, "File Excel mẫu có sẵn tên cột + dòng ví dụ"));
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw); }, "Nhập từ file .xlsx / .xls / .csv"));
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
+    if (key === "bandam" && !locked) bar.appendChild(btn("Giao trực tiếp cho Mã NV…", "pri", function () { bandamEntryForm(null, draw, "direct"); }));
+    if (key === "bandam") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", function () { saveXlsx("Mau_BomDam_GiaoTrucTiep.xlsx", [{ name: "Bơm dăm", cols: ["Phiếu cân", "Ngày cân", "Biển số", "Số xe", "Mã NV"], rows: [] }, { name: "Hướng dẫn", cols: ["Nội dung"], rows: [{ "Nội dung": "Điền số phiếu, ngày cân, số xe được giao và Mã NV có trong Nhân sự. Mỗi dòng là phần xe của nhân viên đó; không ghi thêm dòng chia tổ cho cùng phiếu." }, { "Nội dung": "Nhập tại Bơm dăm → Nhập Excel. Mã NV nhận trực tiếp, không chia theo Mã phòng ban / NV vắng." }] }], "template"); }));
     if (key === "sanluong") bar.appendChild(btn("Chuyển kỳ chi trả SL…", "", function () { productionCarryScreen(draw); }));
     /** MỘT phép quét duy nhất cho: bảng hiển thị · tổng · Excel · PDF · in (hiển thị = tổng = Excel = PDF = in). */
     function scan() {
@@ -964,11 +995,11 @@
       if (pg.el) body.appendChild(pg.el);
       var t = h("table"), trh = h("tr");
       trh.appendChild(h("th", { class: "stk", text: "#", style: "width:36px" }));
-      if (["chamcong", "sanluong"].indexOf(key) >= 0) trh.appendChild(h("th", { text: "Thao tác", style: "position:sticky;left:36px;z-index:2;background:var(--bg,#fff)" }));
+      if (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0) trh.appendChild(h("th", { text: "Thao tác", style: "position:sticky;left:36px;z-index:2;background:var(--bg,#fff)" }));
       vis.forEach(function (c) {
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
-        var th = h("th", { class: cls, text: isDay ? String(+c) : c });
+        var th = h("th", { class: cls, text: isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : c });
         if (COLW[c]) th.style.minWidth = COLW[c] + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
         trh.appendChild(th);
         if (c === "Mã NV" && def.showName) trh.appendChild(h("th", { text: "Họ tên", style: "min-width:150px" }));
@@ -982,7 +1013,7 @@
         var ced = isCat ? cedit(key) : null, editing = !!ced && ced.ri === ri, r = ri === -1 ? ced.draft : db[key][ri], tr = h("tr", { class: editing ? "catedit" : "" }), tot = h("td", { class: "r" });
         var rowLocked = locked || (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0 && (db.sl_chuyenky || []).some(function (x) { return x.source === VAL.rowPeriod(key, r); }));
         tr.appendChild(h("td", { class: "t stk", text: n + 1 }));
-        if (["chamcong", "sanluong"].indexOf(key) >= 0) tr.appendChild(h("td", { style: "position:sticky;left:36px;z-index:1;background:var(--bg,#fff)" }, rowLocked ? [h("span", { text: "Đã khóa" })] : [btn("Sửa", "ghost", function () { inputRowEdit(key, def, ri, draw); }), btn("Xóa", "red ghost", function () { if (!need(editPerm) || !confirm("Xóa dòng này?")) return; if (!txn([key], function () { return !!commit(REPO.plan("remove", key, db[key][ri], null), { action: "Xóa dòng nhập liệu" }); })) { alert("Chưa xóa: " + lastTxnError); return; } draw(); })]));
+        if (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0) tr.appendChild(h("td", { style: "position:sticky;left:36px;z-index:1;background:var(--bg,#fff)" }, rowLocked ? [h("span", { text: "Đã khóa" })] : [btn("Sửa", "ghost", function () { if (key === "bandam") bandamEntryForm(ri, draw); else inputRowEdit(key, def, ri, draw); }), btn("Xóa", "red ghost", function () { if (!need(editPerm) || !confirm("Xóa dòng này?")) return; if (!txn([key], function () { return !!commit(REPO.plan("remove", key, db[key][ri], null), { action: "Xóa dòng nhập liệu" }); })) { alert("Chưa xóa: " + lastTxnError); return; } draw(); })]));
         var updTot = function () { var s = 0; DAYS.forEach(function (d) { s += E.tachCong(r[d]).soCong; }); tot.textContent = s ? fmt(Math.round(s * 100) / 100) : ""; };
         vis.forEach(function (c, ci) {
           var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : "";
