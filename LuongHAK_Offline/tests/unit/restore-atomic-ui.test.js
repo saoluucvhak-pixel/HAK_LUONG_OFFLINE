@@ -3,7 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict"),fs=require(
 const src=fs.readFileSync(path.join(__dirname,"../../app.js"),"utf8");
 function env(initial,saveOK,hasFile=true){
   const alerts=[],toasts=[],writes=[];
-  const c={db:initial,dirty:true,session:null,readOnly:false,loadError:null,ALL:{nhanvien:{}},HRT:{},need:()=>true,
+  const c={db:initial,dirty:hasFile,session:null,readOnly:false,loadError:null,ALL:{nhanvien:{}},HRT:{},need:()=>true,
     SCH:{validate:()=>({fatal:[],errors:[]})},chotSummary:()=>({}),summarize:()=>"synthetic",confirm:()=>true,
     backupNow:()=>hasFile?"synthetic-backup.json":null,store:{hasDataFile:()=>hasFile},
     HRM:{migrate:()=>[]},INT:{normalizeDataset:()=>({messages:[]})},ensureTables:()=>{if(!c.db.auditlog)c.db.auditlog=[];},
