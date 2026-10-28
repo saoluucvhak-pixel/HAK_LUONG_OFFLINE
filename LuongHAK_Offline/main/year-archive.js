@@ -57,7 +57,7 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
     let fd;try{fd=fs.openSync(target,'wx');fs.writeFileSync(fd,text);fs.fsyncSync(fd);}finally{if(fd!==undefined)fs.closeSync(fd);}
     let directoryFd;try{directoryFd=fs.openSync(root,'r');fs.fsyncSync(directoryFd);}catch(e){/* Directory fsync is unavailable on Windows. */}finally{if(directoryFd!==undefined)fs.closeSync(directoryFd);}
     decode(fs.readFileSync(target));const ref={year:p.year,file,sha256:sha(text),active:true,createdAt:p.payload.createdAt,createdBy:String(user||''),counts:p.counts,backupName};
-    read(ref);p.next._yearArchives=[...refs(p.next),ref];p.next.schemaVersion=3;
+    read(ref);p.next._yearArchives=[...refs(p.next),ref];p.next.schemaVersion=Math.max(3,p.next.schemaVersion||3);
     p.next.auditlog=[...(p.next.auditlog||[]),{luc:now().toISOString(),nguoi:String(user||''),thaoTac:'Lưu trữ hồ sơ năm',chiTiet:String(p.year)}];
     saveChecked(p.next);cache=null;
     return {ok:true,year:p.year,counts:p.counts,backupName,beforeBytes:p.beforeBytes,afterBytes:Buffer.byteLength(JSON.stringify(p.next))};

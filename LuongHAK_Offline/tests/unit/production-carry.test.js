@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),C=require('../../core/production-carry'),B=require('../../core/input-batch'),G=require('../../main/payroll-gate'),{fixture}=require('../fixtures/production-carry');
 
-function transfer(d){d.sl_chuyenky=[C.draft(d,'2026-09','2026-10')];d.sl_chuyenky[0].taxOverrides={B:'MT00'};return d;}
+function transfer(d){d.schemaVersion=4;d.sl_chuyenky=[C.draft(d,'2026-09','2026-10')];d.sl_chuyenky[0].taxOverrides={B:'MT00'};return d;}
 test('September actual workers share using October rate and topup; new October joiner excluded',()=>{const d=transfer(fixture());const p=C.payments(d,'2026-10',false,{quyChe:'2026'});assert.deepEqual(p.map(x=>[x.ma,x.quantity,x.salary,x.topup]),[['A',5,1000,19000],['B',5,1000,19000]]);assert.equal(p[1].retired,true);});
 test('Source excludes moved production and topup; target pays each exactly once including retired person',()=>{const d=transfer(fixture());const source=G.computeKy(d,'2026-09',{quyChe:'2026',bu:'daihiep'}).kq;assert.ok(source.bangluong.every(x=>x['Lương sản lượng']===0&&x['Lương bù SL']===0));const r=G.computeKy(d,'2026-10',{quyChe:'2026',bu:'daihiep'}).kq;const b=r.bangluong.find(x=>x['Mã NV']==='B');assert.equal(b['Thu nhập khác'],20000);assert.equal(b['Lương thời gian'],0);assert.equal(b['BH trừ NLĐ'],0);assert.equal(b['SL kỳ trước (tấn)'],5);assert.equal(r.bangluong.filter(x=>x['Mã NV']==='B').length,1);assert.equal(r.bangluong.find(x=>x['Mã NV']==='C')['Thu nhập khác'],0);});
 test('Same source cannot be transferred twice',()=>{const d=transfer(fixture());assert.throws(()=>C.draft(d,'2026-09','2026-11'),/một lần/);});

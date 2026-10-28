@@ -10,6 +10,7 @@ const SELF_PW_FIELDS = ["salt", "hash", "iter", "phaiDoiMK", "doiMKLuc"];
 
 /** Quyền (một trong các quyền) cần để GHI bảng t. Bảng chưa biết → cần ít nhất một quyền sửa dữ liệu. */
 function permsFor(t) {
+  if (t === "schemaVersion") return ["hr.edit", "payroll.calc"];
   if (t === "sl_chuyenky") return ["payroll.calc"];
   if (/^dm_/.test(t)) return t === "dm_congthuc" ? ["dm.edit", "formula.approve"] : ["dm.edit"];
   if (MONTHLY[t] || t === "ocr_ten") return ["input.edit"];
