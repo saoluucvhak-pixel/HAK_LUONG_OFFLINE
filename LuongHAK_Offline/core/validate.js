@@ -124,6 +124,7 @@
   // ---------- Kỳ của 1 dòng phát sinh ----------
   var PERIOD_FIELD = { chamcong: "Kỳ", sanluong: "Ngày cân", bandam: "Ngày cân", psluong: "Ngày hạch toán", ungluong: "Ngày hạch toán", tiencom: "Ngày" };
   function rowPeriod(table, r) {
+    if (table === "sl_chuyenky") return r ? normKy(r.target) : null;
     var f = PERIOD_FIELD[table]; if (!f || !r) return null;
     var v = r[f]; if (!v) return null;
     return table === "chamcong" ? normKy(v) : (normDate(v) || "").slice(0, 7) || null;

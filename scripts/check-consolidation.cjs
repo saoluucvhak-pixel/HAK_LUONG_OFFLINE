@@ -18,6 +18,9 @@ const original=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',b
 const engine=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/engine.js'),'utf8'));
 const allowed='      if (cl < 0) out.bangluong[out.bangluong.length - 1]["Còn thiếu (thực lĩnh âm)"] = -cl;\n';
 assert.equal(engine.split(allowed).length,2,'Expected exactly one additive deficit-output line');
-assert.equal(engine.replace(allowed,''),original,'Existing payroll calculations changed beyond the explicit deficit output');
+const suppress='      if (opts && opts.suppressProduction) { luongSL = 0; luongBu = 0; }\n';
+assert.equal(engine.split(suppress).length,2,'Expected exactly one opt-in production deferral guard');
+const defaultEngine=engine.replace(allowed,'').replace(suppress,'').replace('var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};','var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};');
+assert.equal(defaultEngine,original,'Existing default payroll formulas changed');
 
 console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas unchanged');

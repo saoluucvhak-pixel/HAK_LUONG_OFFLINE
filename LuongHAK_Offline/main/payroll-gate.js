@@ -5,6 +5,7 @@ const E = require("../engine.js");
 const HRM = require("../hr.js");
 const GATE = require("../core/payroll-gate.js");
 const PA = require("../core/production-alloc.js");
+const CARRY = require("../core/production-carry.js");
 const CLS = require("../core/payroll-close.js");
 
 function parseKy(ky) { const m = String(ky || "").match(/^(\d{4})-(\d{2})$/); return m ? { nam: +m[1], thang: +m[2] } : null; }
@@ -16,7 +17,9 @@ function computeKy(db, ky, opts) {
   ["nhanvien", "hopdong", "chitiethd", "nhanthan", "thanhtoan", "canhan", "chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom", "kyluong", "kyluong_lichsu", "nghiphep", "nghiom", "congtac"].forEach((k) => { if (db[k] === undefined || db[k] === null) db[k] = []; else if (!Array.isArray(db[k])) throw new Error("Bảng '" + k + "' sai cấu trúc (không phải danh sách) — không tính được kỳ"); });
   const sp = HRM.staffForPayroll(db, p.nam, p.thang);
   const slK = HRM.sanLuongKy(db, p.nam, p.thang, "sanluong"), bdK = HRM.sanLuongKy(db, p.nam, p.thang, "bandam");
-  const kq = E.tinhBangLuong(Object.assign({}, db, { nhansu: sp.list, sanluong: slK.rows, bandam: bdK.rows }), p.nam, p.thang, opts.bu === undefined ? false : opts.bu, { quyChe: opts.quyChe || "2026" });
+  const carry = CARRY.prepare(db, ky, sp.list, slK.rows, opts.bu, { quyChe: opts.quyChe || "2026" });
+  const kq = E.tinhBangLuong(Object.assign({}, carry.data, { bandam: bdK.rows }), p.nam, p.thang, opts.bu === undefined ? false : opts.bu, { quyChe: opts.quyChe || "2026", suppressProduction: carry.suppress });
+  CARRY.annotate(kq, carry.pay);
   kq.canhbao = sp.warn.concat(kq.canhbao);
   const unalloc = [], allocErr = [];
   [["Sản lượng", "sanluong", slK], ["Bơm dăm", "bandam", bdK]].forEach(([ten, loai, k]) => {

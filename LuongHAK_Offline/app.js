@@ -97,7 +97,7 @@
   }
   // Chỉ TẠO bảng còn thiếu; bảng có nhưng sai kiểu đã bị chặn ở bước kiểm tra cấu trúc (không bao giờ thay bằng bảng rỗng)
   function ensureTables() {
-    Object.keys(ALL).concat(["congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "ocr_ten", "chungtu_lienket", "hdld_tailieu", "ttluong"]).forEach(function (k) {
+    Object.keys(ALL).concat(["sl_chuyenky", "congty", "kyluong", "kyluong_lichsu", "auditlog", "nguoidung", "baomat", "chungtu", "ocr_ten", "chungtu_lienket", "hdld_tailieu", "ttluong"]).forEach(function (k) {
       if (db[k] === undefined) db[k] = [];
       else if (!Array.isArray(db[k])) throw new Error("Bảng " + k + " sai cấu trúc — không tự thay thế");
     });
@@ -685,12 +685,82 @@
     else body.appendChild(simpleTable(rows.map(function (e) { return { "Lúc": fmtTime(e.luc), "Người": e.nguoi || "", "Thao tác": e.thaoTac || "", "Chi tiết": String(e.chiTiet || "").slice(0, 160) }; })));
     modal("Lịch sử — " + tn + (codes.length ? " · " + codes.join(" / ") : ""), body, function (close) { return [btn("Đóng", "", close)]; });
   }
+  function productionCarryScreen(after) {
+    if (!need("payroll.calc")) return;
+    var closeCarry, body = h("div"), source = kyStr(), target = h("input", { type: "month", value: st.nam + "-" + ("0" + Math.min(12, st.thang + 1)).slice(-2), "aria-label": "Kỳ chi trả sản lượng" });
+    body.appendChild(h("p", { text: "Kỳ phát sinh " + source + ": chia theo người, tổ và công thực tế kỳ này. Đơn giá và bù theo kỳ chi trả. Chuyển toàn bộ sản lượng của kỳ; không đổi ngày cân." }));
+    body.appendChild(h("label", { text: "Kỳ tính vào lương: " })); body.appendChild(target);
+    (db.sl_chuyenky || []).forEach(function (r) { body.appendChild(h("div", { class: "bar" }, [h("span", { text: r.source + " → " + r.target }), btn("Hủy chuyển", "red ghost", function () {
+      if (!need("payroll.calc") || !confirm("Hủy chuyển " + r.source + " → " + r.target + "?")) return;
+      if (!backupOrBlock("truoc-huy-chuyen-sl", "hủy chuyển SL")) return;
+      if (!txn(["sl_chuyenky"], function () { var ix = (db.sl_chuyenky || []).findIndex(function (x) { return x.id === r.id; }); if (ix < 0) return false; db.sl_chuyenky.splice(ix, 1); C.productionCarry.validate(db, { sl_chuyenky: [r], kyluong: db.kyluong }); audit("Hủy chuyển SL", r.source + " → " + r.target); })) { alert("Chưa hủy: " + lastTxnError); return; }
+      closeCarry(); after(); render(); toast("Đã hủy chuyển kỳ");
+    })])); });
+    closeCarry = modal("Sản lượng phát sinh / kỳ chi trả", body, function (close) { return [btn("Đóng", "", close), btn("Xem trước chuyển kỳ", "pri", function () {
+      var record, pays, temp, targetKy = target.value;
+      try { record = C.productionCarry.draft(db, source, targetKy); temp = Object.assign({}, db, { sl_chuyenky: (db.sl_chuyenky || []).concat([record]) }); pays = C.productionCarry.payments(temp, targetKy, st.bu, { quyChe: quyChe() }).filter(function (p) { return p.id === record.id; }); } catch (e) { alert(e.message); return; }
+      var detail = h("div", {}, [h("p", { text: "Phát sinh " + source + " → lương " + targetKy + ". Đơn giá và quy chế bù chính thức kỳ chi trả; công/người/ngày làm theo kỳ phát sinh. Khoản chuyển ghi vào Thu nhập khác và chịu xử lý thuế của kỳ chi trả. Kỳ nguồn không tính lại khoản SL/bù đã chuyển." })]);
+      var taxInputs = Object.create(null);
+      pays.filter(function (p) { return p.retired; }).forEach(function (p) { var select = h("select", { "aria-label": "Mã thuế chi trả " + p.ma }, [h("option", { value: "", text: "— Chọn mã thuế kỳ chi trả —" })].concat((db.dm_tncn || []).map(function (r) { return h("option", { value: r["Mã thuế TNCN"], text: r["Mã thuế TNCN"] + " — " + (r["Tên thuế TNCN"] || "") }); }))); taxInputs[p.ma] = select; detail.appendChild(h("div", { class: "fld" }, [h("label", { text: p.ma + " — đã nghỉ: cần chọn mã thuế khi chi trả khoản cũ" }), select])); });
+      detail.appendChild(simpleTable(pays.map(function (p) { return { "Mã NV": p.ma, "Họ tên": p.name, "Tấn": p.quantity, "Lương SL": p.salary, "Bù SL": p.topup, "Tổng trước thuế": p.salary + p.topup, "Lưu ý": p.retired ? "Chỉ nhận khoản chuyển" : "Đang có HĐ" }; })));
+      var revision = dbRev;
+      modal("Xem trước: chia " + source + ", trả " + targetKy, detail, function (finish) { return [btn("Hủy", "", finish), btn("Xác nhận chuyển kỳ", "pri", function () {
+        if (!need("payroll.calc")) return;
+        if (dbRev !== revision) { alert("Dữ liệu đã đổi; hãy xem trước lại."); return; }
+        var missingTax = Object.keys(taxInputs).filter(function (ma) { return !taxInputs[ma].value; }); if (missingTax.length) { alert("Chọn mã thuế chi trả cho " + missingTax.join(", ")); return; }
+        if (!backupOrBlock("truoc-chuyen-sl-" + source, "chuyển kỳ chi trả")) return;
+        if (!txn(["sl_chuyenky"], function () { var r = C.productionCarry.draft(db, source, targetKy); r.taxOverrides = Object.create(null); Object.keys(taxInputs).forEach(function (ma) { r.taxOverrides[ma] = taxInputs[ma].value; }); db.sl_chuyenky.push(r); C.productionCarry.validate(db, db); audit("Chuyển kỳ chi trả SL", source + " → " + targetKy + "; đơn giá/bù kỳ chi trả; người/công kỳ phát sinh"); })) { alert("Chưa chuyển: " + lastTxnError); return; }
+        finish(); close(); after(); render(); toast("Đã chuyển kỳ chi trả; kiểm tra lại lương " + targetKy);
+      })]; });
+    })]; });
+  }
+
+  function inputRowEdit(key, def, ri, after) {
+    var original = JSON.stringify(db[key][ri]), body = h("div"), fields = {};
+    def.cols.forEach(function (col) { var input = h("input", { class: "i", value: db[key][ri][col] == null ? "" : db[key][ri][col], "aria-label": col }); fields[col] = input; body.appendChild(h("div", { class: "fld" }, [h("label", { text: col }), input])); });
+    modal("Sửa " + def.ten, body, function (close) { return [btn("Hủy", "", close), btn("Lưu thay đổi", "pri", function () {
+      if (!need("input.edit")) return;
+      if (JSON.stringify(db[key][ri]) !== original) { alert("Dữ liệu đã đổi; hãy mở lại dòng."); return; }
+      var values = {}, bad = [];
+      def.cols.forEach(function (col) { var n = VAL.normCell(col, fields[col].value); if (n.error) bad.push(col + ": " + n.error); values[col] = n.value; });
+      if (bad.length) { alert(bad.join("\n")); return; }
+      if (!txn([key], function () { var result = commit(REPO.plan("update", key, db[key][ri], values), { action: "Sửa dòng nhập liệu" }); return !!result; })) { alert("Chưa lưu: " + lastTxnError); return; }
+      close(); after(); toast("Đã lưu xuống đĩa");
+    })]; });
+  }
+  function inputPeriodBatch(key, replacing, after) {
+    if (!need("input.edit")) return;
+    var period = kyStr();
+    var preview = function (raw, name) {
+      var plan; try { plan = C.inputBatch.plan(db, key, period, ALL[key].cols, raw); } catch (e) { alert(e.message); return; }
+      var body = h("div", {}, [h("p", { text: ALL[key].ten + " — " + kyLabel(period) }), h("p", { text: "Sẽ xóa " + plan.remove.length + " dòng; thêm " + plan.rows.length + " dòng. Các kỳ khác giữ nguyên." }), h("p", { text: name || "Xóa dữ liệu của kỳ đã chọn" })]);
+      modal(replacing ? "Thay toàn bộ dữ liệu kỳ" : "Xóa dữ liệu kỳ", body, function (close) { return [btn("Hủy", "", close), btn("Xác nhận " + (replacing ? "thay dữ liệu" : "xóa kỳ"), "red", function () {
+        if (!need("input.edit")) return;
+        if (period !== kyStr() || JSON.stringify(db[key] || []) !== plan.token) { alert("Dữ liệu hoặc kỳ đã đổi — mở lại xem trước."); return; }
+        if (!backupOrBlock("truoc-thay-" + key + "-" + period, "thay/xóa " + ALL[key].ten)) return;
+        if (!txn([key], function () {
+          var now = C.inputBatch.plan(db, key, period, ALL[key].cols, raw);
+          for (var i = 0; i < now.remove.length; i++) if (!commit(REPO.plan("remove", key, now.remove[i], null), { audit: false })) return false;
+          for (var j = 0; j < now.rows.length; j++) if (!commit(REPO.plan("insert", key, null, now.rows[j]), { audit: false })) return false;
+          audit("Thay/xóa dữ liệu kỳ", key + " " + period + ": xóa " + now.remove.length + ", thêm " + now.rows.length);
+        })) { alert("Chưa thay dữ liệu: " + lastTxnError); return; }
+        close(); after(); toast("Đã lưu dữ liệu kỳ " + period);
+      })]; });
+    };
+    if (!replacing) { preview(null, ""); return; }
+    readWorkbook(function (wb, name) {
+      var sheet = wb.SheetNames.filter(function (n) { return n === sheetName(ALL[key].ten); })[0] || wb.SheetNames[0];
+      var raw = key === "sanluong" ? IMP.rowsFromAoa(XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header: 1, raw: true, defval: "" }), key, ALL[key].cols).rows : XLSX.utils.sheet_to_json(wb.Sheets[sheet], { raw: true, defval: "" });
+      preview(raw, name);
+    });
+  }
+
   // ---------- Bảng nhập liệu ----------
   function grid(key, def) {
     var wrap = h("div"), card = h("div", { class: "card" }), bar = h("div", { class: "bar" }), body = h("div", { class: "tw" });
     var theoKy = !!(def.kyCol || def.dateCol), cnt = h("span", { class: "hint", style: "margin:0" });
     var editPerm = S[key] ? "input.edit" : "dm.edit", noRight = !can(editPerm), isCat = !S[key];
-    var locked = (theoKy && !!kyChot(kyStr())) || noRight;
+    var locked = (theoKy && !!kyChot(kyStr())) || noRight || (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0 && (db.sl_chuyenky || []).some(function (r) { return r.source === kyStr(); }));
     var inMode = !!INPUT_FILTER[key], pcMode = key === "sanluong" || key === "bandam", pcTot = h("div", { class: "card", "data-pc-totals": key, style: "margin:6px 0;padding:8px" });
     var shared = key === "chamcong"; // Chấm công dùng bộ lọc chung (phòng ban, từ khóa) như Báo cáo lương
     var deptOf = {};
@@ -704,6 +774,8 @@
     if (key === "sanluong" || key === "bandam") bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
     else bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadTemplate(key); }, "File Excel mẫu có sẵn tên cột + dòng ví dụ"));
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw); }, "Nhập từ file .xlsx / .xls / .csv"));
+    if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
+    if (key === "sanluong") bar.appendChild(btn("Chuyển kỳ chi trả SL…", "", function () { productionCarryScreen(draw); }));
     /** MỘT phép quét duy nhất cho: bảng hiển thị · tổng · Excel · PDF · in (hiển thị = tổng = Excel = PDF = in). */
     function scan() {
       var idx = [], qq = qOf(key), names = {}, LKMAP = key === "chamcong" ? linkMapNow() : {}, total = 0;
@@ -744,6 +816,7 @@
     if (pcMode) bar.appendChild(btn("⬇ PDF", "", function () { var rows = pcRows(); exportSheetsPdf({ title: def.ten + " (đã lọc)", ky: pcScopeText(key), sheets: [{ name: def.ten, rows: rows.map(function (r) { var o = {}; def.cols.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); return o; }) }] }, slug(def.ten) + "_loc.pdf"); }, "Xuất đúng các dòng đang lọc"));
     bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = scanRows(), loc = sfm && !SFC.isEmpty(sfm.cfg.state.get()); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + (loc && !pcMode && !inMode ? "_loc" : "") + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }], "pro"); }));
     card.appendChild(bar);
+    if (key === "sanluong") (db.sl_chuyenky || []).filter(function (r) { return r.source === kyStr() || r.target === kyStr(); }).forEach(function (r) { card.appendChild(h("div", { class: "warn", text: "Sản lượng phát sinh " + r.source + " → tính vào lương " + r.target + ". Người/công theo kỳ phát sinh; đơn giá/bù theo kỳ chi trả. Không tính hai lần." })); });
     if (inMode) INDEX_PB = null;
     sfm = mountGridSF(); card.appendChild(sfm.el);
     if (pcMode || inMode) card.appendChild(pcTot);
@@ -891,6 +964,7 @@
       if (pg.el) body.appendChild(pg.el);
       var t = h("table"), trh = h("tr");
       trh.appendChild(h("th", { class: "stk", text: "#", style: "width:36px" }));
+      if (["chamcong", "sanluong"].indexOf(key) >= 0) trh.appendChild(h("th", { text: "Thao tác", style: "position:sticky;left:36px;z-index:2;background:var(--bg,#fff)" }));
       vis.forEach(function (c) {
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
@@ -906,7 +980,9 @@
       idx.slice(pg.start, pg.end).forEach(function (ri, n0) {
         var n = pg.start + n0; // vị trí trong TOÀN BỘ danh sách đã lọc (dán nhiều dòng tiếp sang trang sau đúng thứ tự)
         var ced = isCat ? cedit(key) : null, editing = !!ced && ced.ri === ri, r = ri === -1 ? ced.draft : db[key][ri], tr = h("tr", { class: editing ? "catedit" : "" }), tot = h("td", { class: "r" });
+        var rowLocked = locked || (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0 && (db.sl_chuyenky || []).some(function (x) { return x.source === VAL.rowPeriod(key, r); }));
         tr.appendChild(h("td", { class: "t stk", text: n + 1 }));
+        if (["chamcong", "sanluong"].indexOf(key) >= 0) tr.appendChild(h("td", { style: "position:sticky;left:36px;z-index:1;background:var(--bg,#fff)" }, rowLocked ? [h("span", { text: "Đã khóa" })] : [btn("Sửa", "ghost", function () { inputRowEdit(key, def, ri, draw); }), btn("Xóa", "red ghost", function () { if (!need(editPerm) || !confirm("Xóa dòng này?")) return; if (!txn([key], function () { return !!commit(REPO.plan("remove", key, db[key][ri], null), { action: "Xóa dòng nhập liệu" }); })) { alert("Chưa xóa: " + lastTxnError); return; } draw(); })]));
         var updTot = function () { var s = 0; DAYS.forEach(function (d) { s += E.tachCong(r[d]).soCong; }); tot.textContent = s ? fmt(Math.round(s * 100) / 100) : ""; };
         vis.forEach(function (c, ci) {
           var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : "";
@@ -963,7 +1039,7 @@
             var paint = function () { inp.className = dayCls(inp.value, r["Hình thức công"]); };
             paint(); inp.addEventListener("input", paint); inp.addEventListener("change", function () { setTimeout(paint, 0); });
           }
-          if (locked || (isCat && !editing)) inp.disabled = true; if (isCat && editing) inp.classList.add("editing");
+          if (rowLocked || (isCat && !editing)) inp.disabled = true; if (isCat && editing) inp.classList.add("editing");
           // Ngày không có trong tháng (VD 31/09): không cho nhập; nếu dữ liệu cũ có giá trị thì vẫn cho sửa để xóa
           if (isDay && key === "chamcong" && +c > VAL.daysInKy(r["Kỳ"]) && (r[c] === "" || r[c] == null)) { inp.disabled = true; inp.title = "Tháng này không có ngày " + c; cls += " dis"; }
           var td = h("td", { class: cls }, [inp]); if (inp._dl) td.appendChild(inp._dl);
@@ -972,7 +1048,7 @@
         });
         if (def.total) { updTot(); tr.appendChild(tot); }
         if (isCat) tr.appendChild(catActions(ri, r, editing));
-        else tr.appendChild(h("td", { style: "text-align:center" }, [locked ? null : btn("✕", "red ghost", function () {
+        else tr.appendChild(h("td", { style: "text-align:center" }, [rowLocked ? null : btn("✕", "red ghost", function () {
           if (!need(editPerm)) return;
           var pX = REPO.plan("remove", key, db[key][ri], null, { what: "xóa dòng này" });
           if (!pX.ok) { alert(pX.msg); return; }
@@ -2544,7 +2620,7 @@
   }
 
   // ---------- Tính lương ----------
-  var COLS_FULL = ["Mã NV", "Họ và tên", "Phòng ban", "Công chuẩn", "Tổng công", "Lương thời gian", "Lương phụ", "Sản lượng (tấn)", "Lương sản lượng", "Lương bù SL", "Lương bơm dăm", "Tiền tăng ca", "Phụ cấp", "Phụ cấp công tác", "Lương hỗ trợ", "Tiền cơm", "Thưởng", "Thu nhập khác", "Tổng thu nhập", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Truy thu BH", "Thuế TNCN", "Trừ khác", "Tạm ứng", "Thực lĩnh", "Còn thiếu (thực lĩnh âm)"];
+  var COLS_FULL = ["Kỳ sản lượng chuyển", "SL kỳ trước (tấn)", "Lương SL kỳ trước", "Bù SL kỳ trước", "Mã NV", "Họ và tên", "Phòng ban", "Công chuẩn", "Tổng công", "Lương thời gian", "Lương phụ", "Sản lượng (tấn)", "Lương sản lượng", "Lương bù SL", "Lương bơm dăm", "Tiền tăng ca", "Phụ cấp", "Phụ cấp công tác", "Lương hỗ trợ", "Tiền cơm", "Thưởng", "Thu nhập khác", "Tổng thu nhập", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Truy thu BH", "Thuế TNCN", "Trừ khác", "Tạm ứng", "Thực lĩnh", "Còn thiếu (thực lĩnh âm)"];
   var COLS_COMPACT = ["Mã NV", "Họ và tên", "Phòng ban", "Tổng công", "Tổng thu nhập", "BH trừ NLĐ", "KPCĐ trừ NLĐ", "Thuế TNCN", "Tạm ứng", "Trừ khác", "Thực lĩnh", "Còn thiếu (thực lĩnh âm)"];
   var TEXTCOLS = { "Mã NV": 1, "Họ và tên": 1, "Phòng ban": 1 };
 
@@ -2584,7 +2660,10 @@
     var sp = HRM.staffForPayroll(db, nam, thang);
     // α19: phiếu cân ghi Mã phòng ban → chia đều cho tổ (như công cụ phân bổ khối lượng) trước khi tính
     var slK = HRM.sanLuongKy(db, nam, thang, "sanluong"), bdK = HRM.sanLuongKy(db, nam, thang, "bandam");
-    var qc = qcDung || quyChe(), kq = E.tinhBangLuong(Object.assign({}, db, { nhansu: sp.list, sanluong: slK.rows, bandam: bdK.rows }), nam, thang, st.bu, { quyChe: qc });
+    var qc = qcDung || quyChe(), carry = C.productionCarry.prepare(db, kyKey(nam, thang), sp.list, slK.rows, st.bu, { quyChe: qc });
+    sp.list = carry.staff;
+    var kq = E.tinhBangLuong(Object.assign({}, carry.data, { bandam: bdK.rows }), nam, thang, st.bu, { quyChe: qc, suppressProduction: carry.suppress });
+    C.productionCarry.annotate(kq, carry.pay);
     slK.alloc.warnings.forEach(function (w) { kq.canhbao.push("Sản lượng — " + w); });
     // α22: người có đơn nghỉ đã duyệt (mọi loại) tự không nhận phiếu ngày nghỉ — ghi rõ để kế toán thấy
     var dmN = function (x) { return x.slice(8, 10) + "/" + x.slice(5, 7); };

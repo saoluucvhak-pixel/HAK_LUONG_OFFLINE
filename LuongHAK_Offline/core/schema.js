@@ -10,7 +10,7 @@
   var CLS = (typeof module !== "undefined" && module.exports) ? require("./payroll-close.js") : root.HAKCore.close;
 
   var SUPPORTED_SCHEMA = 3;
-  var SYSTEM_TABLES = ["congty", "kyluong", "kyluong_lichsu", "auditlog", "nhansu", "nguoidung", "baomat", "chungtu", "_yearArchives"];
+  var SYSTEM_TABLES = ["sl_chuyenky", "congty", "kyluong", "kyluong_lichsu", "auditlog", "nhansu", "nguoidung", "baomat", "chungtu", "_yearArchives"];
   var SCALAR_KEYS = { schemaVersion: "number" };
   var MONTHLY = ["chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom"];
 

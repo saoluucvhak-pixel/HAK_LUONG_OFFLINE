@@ -100,6 +100,10 @@ jobs:
         run: node tests/e2e/restore-first-run.cjs
       - name: Verify legacy payroll migration and first admin setup
         run: node tests/e2e/legacy-upgrade.cjs
+      - name: Verify production carry and period input replacement
+        run: node tests/e2e/production-carry.cjs
+        env:
+          E2E_SHOTS: tests/e2e/screenshots
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v4
