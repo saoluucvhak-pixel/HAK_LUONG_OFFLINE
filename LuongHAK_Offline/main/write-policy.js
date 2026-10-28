@@ -10,6 +10,8 @@ const SELF_PW_FIELDS = ["salt", "hash", "iter", "phaiDoiMK", "doiMKLuc"];
 
 /** Quyền (một trong các quyền) cần để GHI bảng t. Bảng chưa biết → cần ít nhất một quyền sửa dữ liệu. */
 function permsFor(t) {
+  if (t === "schemaVersion") return ["hr.edit", "payroll.calc"];
+  if (t === "sl_chuyenky") return ["payroll.calc"];
   if (/^dm_/.test(t)) return t === "dm_congthuc" ? ["dm.edit", "formula.approve"] : ["dm.edit"];
   if (MONTHLY[t] || t === "ocr_ten") return ["input.edit"];
   if (t === "congty" || t === "baomat" || t === "nguoidung") return ["system.admin"];
@@ -229,6 +231,7 @@ function createPolicy(opts) {
     let next; try { next = JSON.parse(text); } catch (e) { return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" }; }
     if (!next || typeof next !== "object" || Array.isArray(next)) return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" };
     const prev = ensurePrev(), nx = snapshot(next);
+    try { const oldText = readText(); require("../core/production-carry.js").validate(next, opts && opts.restoring ? null : oldText ? JSON.parse(oldText) : null); } catch (e) { return {ok:false,error:String(e.message||e)}; }
     pending = nx;
     if (!prev || !prev.hasUsers) return { ok: true, firstRun: true }; // chưa có dữ liệu / chưa có tài khoản: thiết lập ban đầu
     const changed = Object.keys(nx.tables).filter((k) => prev.tables[k] !== nx.tables[k]).concat(Object.keys(prev.tables).filter((k) => !(k in nx.tables)));

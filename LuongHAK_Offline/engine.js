@@ -447,7 +447,7 @@
     // Cách bù lương sản lượng: false = theo tháng (từng người) · true = theo ngày (liên tục) — 2 cách cũ, giữ nguyên;
     // α19 (chủ sở hữu duyệt "làm như công cụ"): "daihiep" = theo ngày bậc thang (công cụ HAK, mẫu Đại Hiệp) · "to" = theo bình quân tổ
     var cheDoBu = buTheoNgay === "daihiep" || buTheoNgay === "to" ? buTheoNgay : (buTheoNgay ? "ngay" : "thang");
-    var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};
+    var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};
     if (cheDoBu === "to") {
       // Tổng tiền sản lượng (tấn × đơn giá + xe bơm dăm × đơn giá) cả tổ / số ngày của tháng / số người của tổ (người hưởng lương sản phẩm)
       var toSum = {};
@@ -662,6 +662,7 @@
       Object.keys(dem).forEach(function (n) { if (dmPC[n]) { var fN2 = tienCongTac(n, dem[n]); pcCT += fN2 !== null ? fN2 : dem[n] * money(dmPC[n]["Số tiền"]); } else out.canhbao.push(ma + ": nhãn công tác '" + n + "' trên chấm công (" + dem[n] + " ngày) chưa có mã phụ cấp tương ứng trong Danh mục phụ cấp — phụ cấp công tác = 0đ cho nhãn này, kiểm tra lại danh mục"); });
 
       var p = ps[ma] || { "Thưởng": 0, "Thu nhập khác": 0, "Trừ khác": 0 }, u = ung[ma] || { "Tạm ứng": 0 };
+      if (opts && opts.suppressProduction) { luongSL = 0; luongBu = 0; }
       var tongTN = luongTG + luongPhu + luongSL + luongBu + luongBD + tienTC + tienPC + pcCT + luongHT + tienCom + p["Thưởng"] + p["Thu nhập khác"];
 
       // BHXH

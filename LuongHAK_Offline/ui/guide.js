@@ -199,6 +199,7 @@
       ["Báo \"Không mở được file dữ liệu\"?", "App không ghi đè file. Chọn một bản sao lưu trong danh sách để khôi phục (bản có dấu ✓ Nguyên vẹn), hoặc khôi phục từ file bạn đã cất. File lỗi được giữ lại với tên data.corrupt_…"],
       ["Đổi máy tính?", "Máy cũ: tạo <b>Full Backup</b> để có dữ liệu, chứng từ và kho hồ sơ năm. Máy mới: cài bản tương thích → đăng nhập/khởi tạo → khôi phục Full Backup. Bản JSON riêng lẻ không chứa các gói năm và chứng từ."]
     ];
+    Q.push(["Thay bảng công / sản lượng đã nhập và chuyển sản lượng sang kỳ sau?", "Trong Chấm công hoặc Sản lượng, chọn đúng kỳ rồi dùng Sửa/Xóa ở đầu dòng, Xóa dữ liệu kỳ hoặc Thay toàn bộ kỳ từ Excel. Xem trước số xóa/thêm; file phải đúng kỳ và hợp lệ; app sao lưu trước và hoàn tác nếu ghi thất bại. Ghi đè theo khóa trong Nhập Excel cũ không phải thay toàn bộ kỳ.<br>Trong Sản lượng tháng 9, bấm Chuyển kỳ chi trả SL, chọn tháng 10, xem người nhận và tiền trước thuế rồi xác nhận. Công/người/ngày cân vẫn theo tháng 9; đơn giá và bù dùng tháng 10. Tiền chuyển cộng một lần vào Thu nhập khác của tháng 10, có cột đối soát riêng. Người đã nghỉ phải chọn mã thuế chi trả. Kỳ nguồn đã chốt có tiền SL/bù hoặc kỳ trả đã chốt thì phải đối soát/mở chốt trước. Hiện chuyển toàn bộ kỳ trong cùng năm; muốn sửa căn cứ nguồn phải hủy chuyển trước khi chốt."]);
     return "<h2>Câu hỏi thường gặp</h2>" + Q.map(function (x) { return "<div class='g-scr'><h3>" + x[0] + "</h3><p>" + x[1] + "</p></div>"; }).join("");
   }
 

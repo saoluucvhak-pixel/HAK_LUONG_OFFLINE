@@ -29,6 +29,8 @@
     meta = meta || {};
     var input = {};
     MONTHLY.forEach(function (t) { input[t] = clone((db[t] || []).filter(function (r) { return V.rowPeriod(t, r) === ky; })); });
+    var carries = (db.sl_chuyenky || []).filter(function (r) { return r.source === ky || r.target === ky; });
+    if (carries.length) input.sl_chuyenky = clone(carries);
     // α22: đơn nghỉ phủ kỳ (dùng để loại người nghỉ khỏi tổ khi chia sản lượng) — "Đến ngày" trống = chưa biết ngày về
     var dau = ky + "-01", cuoi = ky + "-31";
     ["nghiphep", "nghiom"].forEach(function (t) {

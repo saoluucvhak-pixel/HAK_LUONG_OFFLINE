@@ -2,7 +2,7 @@
 // Immutable year packages; data.json holds only their small registry. Never read packages at startup.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const V = require('../core/validate'), C = require('../core/payroll-close');
-const MONTHLY = ['chamcong','sanluong','bandam','psluong','ungluong','tiencom'];
+const MONTHLY = ['chamcong','sanluong','bandam','psluong','ungluong','tiencom','sl_chuyenky'];
 const TABLES = [...MONTHLY,'kyluong','kyluong_lichsu'];
 const sha = text => crypto.createHash('sha256').update(text).digest('hex');
 const yearOf = (table,row) => String(MONTHLY.includes(table) ? V.rowPeriod(table,row) || '' : row.ky || '').slice(0,4);
@@ -11,6 +11,7 @@ function decode(bytes) {
   const envelope = JSON.parse(bytes.toString('utf8')), p = envelope.payload;
   if (!p || p.format !== 'HAK-YEAR-ARCHIVE' || p.version !== 1 || sha(JSON.stringify(p)) !== envelope.sha256) throw Error('Hồ sơ năm hỏng hoặc sai mã kiểm tra');
   if (!/^\d{4}$/.test(String(p.year)) || !p.data || !p.context) throw Error('Cấu trúc hồ sơ năm không hợp lệ');
+  if(p.data.sl_chuyenky===undefined)p.data.sl_chuyenky=[]; // archives before alpha.45
   for (const t of TABLES) if (!Array.isArray(p.data[t]) || p.data[t].some(r=>yearOf(t,r)!==String(p.year))) throw Error('Hồ sơ có dữ liệu ngoài năm');
   for (const s of p.data.kyluong) if(C.verify(s)!=='ok') throw Error('Bản chốt trong hồ sơ bị hỏng');
   return p;
@@ -56,7 +57,7 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
     let fd;try{fd=fs.openSync(target,'wx');fs.writeFileSync(fd,text);fs.fsyncSync(fd);}finally{if(fd!==undefined)fs.closeSync(fd);}
     let directoryFd;try{directoryFd=fs.openSync(root,'r');fs.fsyncSync(directoryFd);}catch(e){/* Directory fsync is unavailable on Windows. */}finally{if(directoryFd!==undefined)fs.closeSync(directoryFd);}
     decode(fs.readFileSync(target));const ref={year:p.year,file,sha256:sha(text),active:true,createdAt:p.payload.createdAt,createdBy:String(user||''),counts:p.counts,backupName};
-    read(ref);p.next._yearArchives=[...refs(p.next),ref];p.next.schemaVersion=3;
+    read(ref);p.next._yearArchives=[...refs(p.next),ref];p.next.schemaVersion=Math.max(3,p.next.schemaVersion||3);
     p.next.auditlog=[...(p.next.auditlog||[]),{luc:now().toISOString(),nguoi:String(user||''),thaoTac:'Lưu trữ hồ sơ năm',chiTiet:String(p.year)}];
     saveChecked(p.next);cache=null;
     return {ok:true,year:p.year,counts:p.counts,backupName,beforeBytes:p.beforeBytes,afterBytes:Buffer.byteLength(JSON.stringify(p.next))};

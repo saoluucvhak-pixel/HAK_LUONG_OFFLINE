@@ -9,8 +9,8 @@
   var V = (typeof module !== "undefined" && module.exports) ? require("./validate.js") : root.HAKCore.validate;
   var CLS = (typeof module !== "undefined" && module.exports) ? require("./payroll-close.js") : root.HAKCore.close;
 
-  var SUPPORTED_SCHEMA = 3;
-  var SYSTEM_TABLES = ["congty", "kyluong", "kyluong_lichsu", "auditlog", "nhansu", "nguoidung", "baomat", "chungtu", "_yearArchives"];
+  var SUPPORTED_SCHEMA = 4;
+  var SYSTEM_TABLES = ["sl_chuyenky", "congty", "kyluong", "kyluong_lichsu", "auditlog", "nhansu", "nguoidung", "baomat", "chungtu", "_yearArchives"];
   var SCALAR_KEYS = { schemaVersion: "number" };
   var MONTHLY = ["chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom"];
 
@@ -33,6 +33,7 @@
       if (typeof db.schemaVersion !== "number" || !isFinite(db.schemaVersion)) res.fatal.push("schemaVersion không hợp lệ: " + JSON.stringify(db.schemaVersion));
       else if (db.schemaVersion > SUPPORTED_SCHEMA) res.fatal.push("File dữ liệu của phiên bản MỚI HƠN (cấu trúc " + db.schemaVersion + ", bản này hỗ trợ tới " + SUPPORTED_SCHEMA + "). Hãy cài bản mới — mở bằng bản cũ có thể làm hỏng dữ liệu.");
     }
+    if(Array.isArray(db.sl_chuyenky)&&db.sl_chuyenky.length&&!(db.schemaVersion>=4))res.fatal.push("Sổ chuyển kỳ cần cấu trúc dữ liệu 4 để tránh mở nhầm bằng app cũ");
     if(db._yearArchives!==undefined){
       var archiveYears={};
       if(!(db.schemaVersion>=3)||!Array.isArray(db._yearArchives))res.fatal.push('Kho hồ sơ năm sai cấu trúc hoặc thiếu phiên bản dữ liệu mới');
