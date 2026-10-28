@@ -131,13 +131,13 @@
     return ok;
   }
   function save() { dbRev++; dirty = true; st.kqStale = true; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
-  function backupNow(tag) { if (!store || !store.backup) return null; if (dirty) saveNow(); return store.backup(tag); }
+  function backupNow(tag) { if (!store || !store.backup) return null; if (dirty && !saveNow()) return null; return store.backup(tag); }
   // P0: backupNow() có thể âm thầm thất bại (đĩa đầy, mất quyền ghi…) và trả null — các hành động KHÔNG THỂ
   // HOÀN TÁC (xóa hẳn dữ liệu) phải DỪNG LẠI khi sao lưu thất bại, không được tiếp tục xóa như chưa có gì xảy ra.
   function backupOrBlock(tag, label) {
     var n = backupNow(tag);
     // Máy mới chưa có file dữ liệu (khôi phục/nhập lần đầu): không có gì để sao lưu — không phải lỗi đĩa, đừng chặn
-    if (!n && store && store.hasDataFile && store.hasDataFile() === false) return true;
+    if (!n && !dirty && store && store.hasDataFile && store.hasDataFile() === false) return true;
     if (!n) { alert("⛔ KHÔNG tạo được bản sao lưu trước khi " + label + " — dữ liệu CHƯA bị xóa, để tránh mất không thể khôi phục.\nKiểm tra dung lượng đĩa / quyền ghi ở Công ty & Sao lưu rồi thử lại."); return false; }
     return true;
   }
@@ -183,7 +183,15 @@
     try { var r = store.login(name, pw); if (r && r.ok) return true; toast("⛔ " + ((r && r.error) || "Tiến trình chính từ chối phiên đăng nhập")); } catch (e) { toast("⛔ Không thiết lập được phiên đăng nhập tin cậy"); }
     return false;
   }
-  function logout(reason) { if (session) audit("Đăng xuất", reason || ""); try { if (store && store.logout) store.logout(); } catch (e) { /* main hết phiên cũng được */ } session = null; st.kq = null; if (!readOnly) saveNow(); render(); }
+  function logout(reason, forceLock) {
+    var pendingFailed = !readOnly && dirty && !saveNow();
+    if (pendingFailed && !forceLock) { alert("Chưa đăng xuất: chưa lưu được thay đổi. " + lastSaveError + "\nGiữ ứng dụng mở để thử lưu lại."); return false; }
+    if (!pendingFailed && !readOnly && session && !txn([], function () { audit("Đăng xuất", reason || ""); }) && !forceLock) { alert("Chưa đăng xuất: " + lastTxnError); return false; }
+    try { if (store && store.logout) store.logout(); } catch (e) { /* main hết phiên cũng được */ }
+    session = null; st.kq = null; render();
+    if (pendingFailed) toast("Đã khóa phiên; còn thay đổi chưa lưu — giữ app mở và đăng nhập lại để lưu.");
+    return true;
+  }
   var sessionActivityAt = 0;
   function noteUserActivity(e) {
     if (!e.isTrusted) return;
@@ -201,7 +209,7 @@
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "k" || e.key === "K") && session && !loadError) { e.preventDefault(); quickSearch(); return; }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "f" || e.key === "F")) { var sb = document.querySelector("#main input.search, main input.search"); if (sb) { e.preventDefault(); sb.focus(); sb.select(); } }
   });
-  setInterval(function () { if (session && Date.now() - lastActive > IDLE_MS) { logout("tự khóa sau 30 phút không thao tác"); toast("Đã tự khóa sau 30 phút không thao tác — đăng nhập lại"); } }, 30000);
+  setInterval(function () { if (session && Date.now() - lastActive > IDLE_MS) { logout("tự khóa sau 30 phút không thao tác", true); toast("Đã tự khóa sau 30 phút không thao tác — đăng nhập lại"); } }, 30000);
   var AUDIT_MAX = 20000;
   function audit(action, detail) {
     db.auditlog.push({ luc: new Date().toISOString(), nguoi: currentUser(), thaoTac: action, chiTiet: detail || "" });
@@ -5060,7 +5068,7 @@
     if (forced) body.appendChild(h("div", { class: "warn", text: "Admin yêu cầu bạn đổi mật khẩu trước khi làm việc." }));
     [["o", "Mật khẩu hiện tại"], ["p", "Mật khẩu mới (≥ 8 ký tự, có chữ và số)"], ["p2", "Nhập lại mật khẩu mới"]].forEach(function (x) { f[x[0]] = h("input", { class: "i", type: "password", style: "width:100%" }); body.appendChild(h("div", { class: "fld", style: "margin:8px 0" }, [h("label", { text: x[1] }), f[x[0]]])); });
     modal("Đổi mật khẩu — " + session.tenDangNhap, body, function (close) {
-      return [forced ? btn("Đăng xuất", "", function () { close(); logout("không đổi mật khẩu bắt buộc"); }) : btn("Hủy", "", close), btn("Đổi mật khẩu", "pri", function () {
+      return [forced ? btn("Đăng xuất", "", function () { if (logout("không đổi mật khẩu bắt buộc")) close(); }) : btn("Hủy", "", close), btn("Đổi mật khẩu", "pri", function () {
         var bad = PERM.validatePassword(f.p.value); if (bad) { alert(bad); return; }
         if (f.p.value !== f.p2.value) { alert("Hai lần nhập không khớp"); return; }
         AUTH.verify(f.o.value, session).then(function (ok) {
@@ -5150,9 +5158,11 @@
   function napMau() {
     if (!need("dm.edit", "nạp danh mục")) return;
     var sd = HRM.seedDanhMuc(), done = [], skip = [];
-    Object.keys(sd).forEach(function (k) { if (!db[k].length) { db[k] = sd[k]; done.push(DM[k].ten); } else skip.push(DM[k].ten); });
-    if (done.length) audit("Nạp danh mục chuẩn", done.join(", "));
-    saveNow(); render();
+    if (!txn(Object.keys(sd), function () {
+      Object.keys(sd).forEach(function (k) { if (!db[k].length) { db[k] = sd[k]; done.push(DM[k].ten); } else skip.push(DM[k].ten); });
+      if (done.length) audit("Nạp danh mục chuẩn", done.join(", "));
+    })) { alert("Chưa nạp danh mục: " + lastTxnError); return; }
+    render();
     alert((done.length ? "Đã nạp: " + done.join(", ") + "\n" : "") + (skip.length ? "Giữ nguyên (đã có dữ liệu): " + skip.join(", ") + "\n" : "") + "\nSố liệu lấy theo danh mục thật của HAK (QL_NHANSU). Kế toán kiểm tra lại đơn giá, tỷ lệ BH, biểu thuế theo quy định hiện hành.");
   }
 
