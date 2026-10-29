@@ -382,7 +382,18 @@ function createWindow() {
       if (!win.isDestroyed()) win.webContents.send("download-done", { ok, name: path.basename(f), dir: path.dirname(f), state, opened: ok && exportsDir.openAfter() });
     });
   });
-  win.on("close", e => {if(yearBusy)e.preventDefault();});
+  let closeApproved = false, closeChecking = false;
+  win.on("close", e => {
+    if (yearBusy) { e.preventDefault(); return; }
+    if (closeApproved || win.webContents.isDestroyed()) return;
+    e.preventDefault();
+    if (closeChecking) return;
+    closeChecking = true;
+    win.webContents.executeJavaScript("typeof window.hakFlushBeforeClose === 'function' ? window.hakFlushBeforeClose() : true").then(ok => {
+      closeChecking = false;
+      if (ok === true && !win.isDestroyed()) { closeApproved = true; win.close(); }
+    }).catch(() => { closeChecking = false; });
+  });
   win.loadFile(path.join(__dirname, "index.html"));
   win.maximize();
   return win;

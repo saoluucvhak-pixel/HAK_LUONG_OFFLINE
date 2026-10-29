@@ -219,7 +219,8 @@
       db.auditlog.splice(0, db.auditlog.length - AUDIT_MAX);
     }
   }
-  window.addEventListener("beforeunload", function () { if (dirty) saveNow(); });
+  window.hakFlushBeforeClose = function () { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (dirty && !saveNow()) { toast("Chưa lưu được dữ liệu — app giữ cửa sổ mở. " + lastSaveError); return false; } return true; };
+  window.addEventListener("beforeunload", function (e) { if (dirty && !saveNow()) { e.preventDefault(); e.returnValue = false; toast("Chưa lưu được dữ liệu — giữ app mở để thử lại hoặc sao lưu. " + lastSaveError); } });
   if (!readOnly && (fromLocal || migMsg.length)) saveNow();
   var now = new Date();
   var st = { tab: "home", dm: "dm_luong", nam: now.getFullYear(), thang: now.getMonth() + 1, bu: "to", kq: null, compact: true, q: "", qs: {}, pg: {}, pageSize: 100 };
@@ -820,13 +821,12 @@
     var sfm = null, lastScan = null;
     var newRow = function () { var r = Object.assign({}, def.def || {}); if (def.kyCol) r[def.kyCol] = kyStr(); if (def.dateCol) r[def.dateCol] = kyStr() + "-01"; return r; };
     if (!locked && isCat) bar.appendChild(btn("＋ Thêm mới", "pri", function () { if (!need(editPerm)) return; var e0 = cedit(key); if (e0 && e0.dirty && !confirm("Đang có thay đổi chưa lưu — bỏ để thêm mới?")) return; st.cedit = st.cedit || {}; st.cedit[key] = { mode: "new", ri: -1, draft: newRow(), dirty: false, state: "EDITING" }; draw(); }, "Tạo dòng mới ở chế độ nháp — chỉ ghi khi bấm Lưu"));
-    else if (!locked) bar.appendChild(btn("＋ Thêm dòng", "pri", function () { if (!need(editPerm)) return; if (key === "bandam") { bandamEntryForm(null, draw, pumpMode); return; } if (!commit(REPO.plan("insert", key, null, newRow(), { what: "thêm dòng" }), { audit: theoKy ? false : "retro", action: "Thêm dòng danh mục" })) return; save(); st.qs[key] = ""; q.value = ""; st.pg[key] = 1e9; draw(); var tw = body; tw.scrollTop = tw.scrollHeight; }));
+    else if (!locked) bar.appendChild(btn(key === "bandam" && pumpMode === "direct" ? "Giao trực tiếp cho Mã NV…" : "＋ Thêm dòng", "pri", function () { if (!need(editPerm)) return; if (key === "bandam") { bandamEntryForm(null, draw, pumpMode); return; } if (!commit(REPO.plan("insert", key, null, newRow(), { what: "thêm dòng" }), { audit: theoKy ? false : "retro", action: "Thêm dòng danh mục" })) return; save(); st.qs[key] = ""; q.value = ""; st.pg[key] = 1e9; draw(); var tw = body; tw.scrollTop = tw.scrollHeight; }));
     bar.appendChild(q); bar.appendChild(cnt); bar.appendChild(h("span", { class: "sp" }));
     if (key === "sanluong" || (key === "bandam" && pumpMode === "team")) bar.appendChild(btn(key === "bandam" ? "Mẫu Excel chia tổ" : "📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
     else if (key !== "bandam") bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadTemplate(key); }, "File Excel mẫu có sẵn tên cột + dòng ví dụ"));
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw, pumpMode); }, "Nhập từ file .xlsx / .xls / .csv"));
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
-    if (key === "bandam" && pumpMode === "direct" && !locked) bar.appendChild(btn("Giao trực tiếp cho Mã NV…", "pri", function () { bandamEntryForm(null, draw, "direct"); }));
     if (key === "bandam" && pumpMode === "direct") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", bandamDirectExcelTemplate));
     if (key === "sanluong") bar.appendChild(btn("Chuyển kỳ chi trả SL…", "", function () { productionCarryScreen(draw); }));
     if (inputReview) {
@@ -834,7 +834,7 @@
         if (!need("input.edit")) return;
         if (locked) { alert("Kỳ đang khóa — không thay đổi trạng thái lưu."); return; }
         try { C.inputReview.assertValid(db, key, kyStr(), pumpMode); } catch (e) { alert(e.message); return; }
-        var errors = INT.check(db).filter(function (x) { return x.level === "Critical" && x.area === ALL[key].ten; });
+        var errors = INT.check(db).filter(function (x) { return x.level === "Critical" && (x.area === key || x.area === ALL[key].ten); });
         if (errors.length) { alert("Kiểm tra dữ liệu trước khi lưu: " + errors.map(function (x) { return x.msg; }).join("; ")); return; }
         if (!txn(["_inputReviews"], function () { C.inputReview.approve(db, key, kyStr(), pumpMode, currentUser()); audit("Lưu để tính lương", key + " " + kyStr() + " " + pumpMode); })) { alert("Chưa lưu để tính lương: " + lastTxnError); return; }
         draw(); toast("Đã lưu để tính lương kỳ " + kyStr());
@@ -1010,6 +1010,10 @@
     function draw() {
       refreshNVList();
       body.innerHTML = "";
+      if (inputReview) {
+        var badRows = (db[key] || []).map(function (r, i) { return {r:r,i:i}; }).filter(function (x) { return !VAL.rowPeriod(key,x.r); });
+        if (badRows.length) { var badBox = h("div", {class:"warn", "data-invalid-input":key}, [h("b",{text:badRows.length + " dòng lỗi ngày/kỳ — cần sửa trước khi tính lương"})]); badRows.forEach(function (x) { badBox.appendChild(h("div", {}, [h("span",{text:(x.r["Phiếu cân"] || x.r["Mã NV"] || "Dòng " + (x.i+1)) + " · "}), btn("Sửa dòng lỗi", "", function () { if(key === "bandam")bandamEntryForm(x.i,draw);else inputRowEdit(key,ALL[key],x.i,draw); }), btn("Xóa dòng lỗi", "red ghost", function () { if(!need(editPerm)||!confirm("Xóa dòng lỗi này?"))return;if(!txn([key],function(){return !!commit(REPO.plan("remove",key,db[key][x.i],null));})){alert(lastTxnError);return;}draw(); })])); }); body.appendChild(badBox); }
+      }
       var sc = scan(), idx = sc.idx.slice(), qq = qOf(key), nameOf = sc.nameOf, LKMAP = sc.LKMAP;
       if (pcMode) {
         var T = LF.tongPhieuCan(idx.map(function (i2) { return db[key][i2]; })), unit = key === "bandam" ? " xe" : " tấn";
@@ -1032,7 +1036,7 @@
       if (pg.el) body.appendChild(pg.el);
       var t = h("table"), trh = h("tr");
       trh.appendChild(h("th", { class: "stk", text: "#", style: "width:36px" }));
-      if (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0) trh.appendChild(h("th", { text: "Thao tác", style: "position:sticky;left:36px;z-index:2;background:var(--bg,#fff)" }));
+      if (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0) trh.appendChild(h("th", { text: "Thao tác", style: "position:sticky;left:36px;z-index:4;background:var(--bg,#fff)" }));
       vis.forEach(function (c) {
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
@@ -2725,6 +2729,8 @@
   function buLabel(v) { var o = BU_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : (BU_LEGACY[String(v)] || String(v)); }
   function tinhLuong(nam, thang, qcDung) {
     nam = nam || st.nam; thang = thang || st.thang;
+    var invalid = C.inputSafety.problems(db, kyKey(nam, thang));
+    if (invalid.length) return { ky: kyKey(nam, thang), bangluong: [], bhxh: [], tncn: [], canhbao: invalid, inputErrors: invalid };
     var reviewMessage = C.inputReview.message(db, kyKey(nam, thang));
     if (reviewMessage) return { ky: kyKey(nam, thang), bangluong: [], bhxh: [], tncn: [], canhbao: ["Còn dữ liệu Nháp: " + reviewMessage + ". Bấm Lưu để tính lương tại bảng nhập liệu."], nhapLieuChuaLuu: [reviewMessage] };
     var sp = HRM.staffForPayroll(db, nam, thang);
@@ -3360,6 +3366,7 @@
     bar.appendChild(btn("▶ Tính lương tháng " + st.thang + "/" + st.nam, "pri big", function () {
       if (!need("payroll.calc")) return;
       if (!db.nhanvien.length) { alert("Chưa có nhân viên. Hãy nhập ở mục Nhân sự trước."); return; }
+      var invalid = C.inputSafety.problems(db, kyStr()); if (invalid.length) { alert("Chưa tính lương: " + invalid.join("; ")); return; }
       var reviewMessage = C.inputReview.message(db, kyStr()); if (reviewMessage) { alert("Chưa tính lương: " + reviewMessage + " còn Nháp. Mở bảng và bấm Lưu để tính lương."); return; }
       if (st.dangTinh) return; st.dangTinh = true;
       try { st.kq = tinhLuong(); } finally { st.dangTinh = false; }

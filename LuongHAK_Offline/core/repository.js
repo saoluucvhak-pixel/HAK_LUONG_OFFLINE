@@ -66,6 +66,8 @@
       var perm = permFor(table);
       // Công thức tiền lương: người có quyền duyệt cũng được ghi (việc được phép làm cụ thể do formula-approval.check quyết định)
       if (!ctx.can(perm) && !(table === "dm_congthuc" && ctx.can("formula.approve"))) return deny("perm", "Bạn không có quyền " + what + " (" + tname(table) + ")");
+      var inputSafety = isNode ? require('./input-safety.js') : root.HAKCore.inputSafety;
+      if (inputSafety) { var unsafe = inputSafety.mutation(db, table, target, after); if (unsafe) return deny('input', unsafe); }
       // 2. ô ngày chấm công
       if (table === "chamcong" && after) {
         for (var d = 1; d <= 31; d++) {

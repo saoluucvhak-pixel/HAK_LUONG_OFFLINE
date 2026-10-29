@@ -4,6 +4,7 @@
   "use strict";
   // Mỗi luật: mã, nhãn, hàm nhận kq (kết quả tinhBangLuong) → danh sách thông báo chi tiết
   var RULES = [
+    { code: "INPUT_INVALID", ten: "Dữ liệu đầu vào sai hoặc trùng", test: function(kq) { return kq.inputErrors || []; } },
     { code: "INPUT_DRAFT", ten: "Dữ liệu nhập liệu chưa lưu để tính lương", test: function (kq) { return kq.nhapLieuChuaLuu || []; } },
     { code: "FORMULA_ERROR", ten: "Lỗi công thức tiền lương", test: function (kq) { return (kq.loiCongThuc || []).map(function (e) { return (e.maNV ? e.maNV + " · " : "") + e.loai + " '" + e.maCongThuc + "' — " + e.message; }); } },
     { code: "TAX_CONFIG_CONFLICT", ten: "Biểu thuế TNCN xung đột (bậc chồng nhau)", test: function (kq) { return (kq.loiThue || []).filter(function (e) { return e.loai === "CONFLICT"; }).map(function (e) { return e.maNV + " (mã '" + e.maThue + "'): " + e.message; }); } },
