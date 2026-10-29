@@ -3,15 +3,16 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const V = require('../core/validate'), C = require('../core/payroll-close');
 const MONTHLY = ['chamcong','sanluong','bandam','psluong','ungluong','tiencom','sl_chuyenky'];
-const TABLES = [...MONTHLY,'kyluong','kyluong_lichsu'];
+const TABLES = [...MONTHLY,'_inputReviews','kyluong','kyluong_lichsu'];
 const sha = text => crypto.createHash('sha256').update(text).digest('hex');
-const yearOf = (table,row) => String(MONTHLY.includes(table) ? V.rowPeriod(table,row) || '' : row.ky || '').slice(0,4);
+const yearOf = (table,row) => String(table === '_inputReviews' ? row.period || '' : MONTHLY.includes(table) ? V.rowPeriod(table,row) || '' : row.ky || '').slice(0,4);
 const validFile = name => /^year-\d{4}-[a-f0-9]{32}\.json$/.test(name);
 function decode(bytes) {
   const envelope = JSON.parse(bytes.toString('utf8')), p = envelope.payload;
   if (!p || p.format !== 'HAK-YEAR-ARCHIVE' || p.version !== 1 || sha(JSON.stringify(p)) !== envelope.sha256) throw Error('Hồ sơ năm hỏng hoặc sai mã kiểm tra');
   if (!/^\d{4}$/.test(String(p.year)) || !p.data || !p.context) throw Error('Cấu trúc hồ sơ năm không hợp lệ');
   if(p.data.sl_chuyenky===undefined)p.data.sl_chuyenky=[]; // archives before alpha.45
+  if(p.data._inputReviews===undefined)p.data._inputReviews=[];
   for (const t of TABLES) if (!Array.isArray(p.data[t]) || p.data[t].some(r=>yearOf(t,r)!==String(p.year))) throw Error('Hồ sơ có dữ liệu ngoài năm');
   for (const s of p.data.kyluong) if(C.verify(s)!=='ok') throw Error('Bản chốt trong hồ sơ bị hỏng');
   return p;
@@ -37,13 +38,14 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
       if(db[t]!==undefined&&!Array.isArray(db[t]))throw Error('Bảng '+t+' sai cấu trúc');
       data[t]=(db[t]||[]).filter(r=>yearOf(t,r)===String(year));counts[t]=data[t].length;
       if(MONTHLY.includes(t))for(const r of db[t]||[])if(!V.rowPeriod(t,r))throw Error('Có dòng không xác định được kỳ tại '+t+'; cần sửa trước khi chuyển');
-      for(const r of data[t]) periods.add(MONTHLY.includes(t)?V.rowPeriod(t,r):r.ky);
+      for(const r of data[t]) periods.add(t === '_inputReviews' ? r.period : MONTHLY.includes(t)?V.rowPeriod(t,r):r.ky);
     }
     if(!Object.values(counts).some(Boolean))throw Error('Năm này không có dữ liệu để chuyển');
-    for(const ky of periods){const snaps=data.kyluong.filter(s=>s.ky===ky);if(snaps.length!==1||C.verify(snaps[0])!=='ok')throw Error('Kỳ '+ky+' chưa chốt hoặc bản chốt không nguyên vẹn');}
+    for(const ky of periods){require('../core/input-review').assertReady(db,ky);const snaps=data.kyluong.filter(s=>s.ky===ky);if(snaps.length!==1||C.verify(snaps[0])!=='ok')throw Error('Kỳ '+ky+' chưa chốt hoặc bản chốt không nguyên vẹn');}
     const context={};for(const k of Object.keys(db))if(!TABLES.includes(k)&&!['_yearArchives','nguoidung','baomat','auditlog'].includes(k))context[k]=db[k];
     const payload={format:'HAK-YEAR-ARCHIVE',version:1,year,createdAt:now().toISOString(),data,context};
     const next={...db};for(const t of TABLES)next[t]=(db[t]||[]).filter(r=>yearOf(t,r)!==String(year));
+    if (db._inputReviews === undefined) delete next._inputReviews;
     return {year,token:sha(text),counts,periods:[...periods].sort(),payload,next,beforeBytes:Buffer.byteLength(text)};
   }
   function preview(year){const p=plan(year);return {ok:true,year:p.year,token:p.token,counts:p.counts,periods:p.periods,beforeBytes:p.beforeBytes,afterBytes:Buffer.byteLength(JSON.stringify(p.next))};}
@@ -81,6 +83,11 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
     const employees=new Set((db.nhanvien||[]).map(r=>r['Mã NV']));
     for(const t of MONTHLY)for(const r of p.data[t])if(r['Mã NV']&&!employees.has(r['Mã NV']))throw Error('Hồ sơ nhân viên của năm cũ không còn trong danh mục; cần đối chiếu trước khi đưa về');
     const next={...db};for(const t of TABLES){const ids=new Set((db[t]||[]).map(r=>r._id).filter(Boolean));if(p.data[t].some(r=>r._id&&ids.has(r._id)))throw Error('Trùng mã bản ghi; không tự ghép');next[t]=[...(db[t]||[]),...p.data[t]];}
+    if (!(next.schemaVersion >= 5)) delete next._inputReviews;
+    else if (!(p.context.schemaVersion >= 5)) {
+      const IR = require('../core/input-review');
+      for (const t of ['chamcong','sanluong','bandam']) for (const r of p.data[t]) IR.approve(next,t,V.rowPeriod(t,r),t === 'bandam' ? IR.mode(r) : '', 'Hồ sơ năm bản cũ đã chốt');
+    }
     const backupName=backup('truoc-mo-ho-so-nam');next._yearArchives=refs(db).map(r=>r===ref?{...r,active:false,restoredAt:now().toISOString(),restoredBy:String(user||''),restoreReason:String(reason).trim()}:r);
     next.auditlog=[...(db.auditlog||[]),{luc:now().toISOString(),nguoi:String(user||''),thaoTac:'Đưa hồ sơ năm về vùng đang làm',chiTiet:year+': '+String(reason).trim()}];
     saveChecked(next);cache=null;return {ok:true,backupName};

@@ -15,6 +15,7 @@ function computeKy(db, ky, opts) {
   opts = opts || {};
   const p = parseKy(ky); if (!p) throw new Error("Kỳ không hợp lệ: " + ky);
   ["nhanvien", "hopdong", "chitiethd", "nhanthan", "thanhtoan", "canhan", "chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom", "kyluong", "kyluong_lichsu", "nghiphep", "nghiom", "congtac"].forEach((k) => { if (db[k] === undefined || db[k] === null) db[k] = []; else if (!Array.isArray(db[k])) throw new Error("Bảng '" + k + "' sai cấu trúc (không phải danh sách) — không tính được kỳ"); });
+  require("../core/input-review.js").assertReady(db, ky);
   const sp = HRM.staffForPayroll(db, p.nam, p.thang);
   const slK = HRM.sanLuongKy(db, p.nam, p.thang, "sanluong"), bdK = HRM.sanLuongKy(db, p.nam, p.thang, "bandam");
   const carry = CARRY.prepare(db, ky, sp.list, slK.rows, opts.bu, { quyChe: opts.quyChe || "2026" });
