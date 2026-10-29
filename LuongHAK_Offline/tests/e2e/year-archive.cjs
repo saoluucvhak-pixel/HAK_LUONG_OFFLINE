@@ -17,6 +17,7 @@ async function launch(){app=await _electron.launch({executablePath:require('elec
  db.chamcong=[{_id:'a1','Kỳ':'2023-01','Mã NV':'SYN01','1':'1'},{_id:'a2','Kỳ':'2026-01','Mã NV':'SYN01','1':'1'}];
  db.psluong=Array.from({length:1000},(_,i)=>({_id:'p'+i,'Ngày hạch toán':'2023-01-15','Mã NV':'SYN01','Thưởng':'1000','Ghi chú':'Synthetic historical record '+i}));
  db.kyluong=[C.buildSnapshot(db,'2023-01',{bangluong:[{'Mã NV':'SYN01','Họ và tên':'Synthetic Person','Thực lĩnh':1000000}],bhxh:[],tncn:[],canhbao:[]},db.nhanvien,{user:'tester'})];
+ const IR=require('../../core/input-review');IR.initialize(db);IR.approve(db,'chamcong','2023-01','','Archive fixture');IR.approve(db,'chamcong','2026-01','','Archive fixture');
  const expected=JSON.stringify(db.kyluong);fs.writeFileSync(file,JSON.stringify(db));const before=fs.statSync(file).size;
  w=await launch();await w.click('#nav button[data-k=backup]');await w.waitForSelector('[data-year-archive] select');
  await w.selectOption('[aria-label="Năm cần lưu trữ"]','2023');
@@ -26,7 +27,7 @@ async function launch(){app=await _electron.launch({executablePath:require('elec
  let live=JSON.parse(fs.readFileSync(file,'utf8'));
  const afterArchiveBytes=fs.statSync(file).size;
  check('archive removes historical transactions from active data, retains current period',live.psluong.length===0&&live.chamcong.length===1&&live.chamcong[0]['Kỳ']==='2026-01');
- check('active file becomes smaller and schema protects against older apps',fs.statSync(file).size<before/2&&live.schemaVersion===3);
+ check('active file becomes smaller and schema protects against older apps',fs.statSync(file).size<before/2&&live.schemaVersion===5);
  check('year registry points to an immutable package',live._yearArchives.length===1&&fs.existsSync(path.join(dir,'year-archives',live._yearArchives[0].file)));
  await w.locator('[data-year-archive] button:has-text("Mở hồ sơ năm")').click();await w.waitForSelector('[data-year-view] tbody tr');
  check('archived year viewer has no editable data inputs',await w.locator('[data-year-view] input, [data-year-view] textarea, [data-year-view] [contenteditable=true]').count()===0);

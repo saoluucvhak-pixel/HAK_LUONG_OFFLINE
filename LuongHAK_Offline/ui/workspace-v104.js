@@ -1,7 +1,7 @@
 // Presentation adapter for the inherited app. No payroll state or storage bridge is accessed.
 (function () {
   'use strict';
-  const VERSION = 'V10.4 · v2.0.0-alpha.46';
+  const VERSION = 'V10.4 · v2.0.0-alpha.47';
   const NAV_KEY = 'luonghak_db_v1_nav_collapsed';
   const main = document.querySelector('#main'), nav = document.querySelector('#nav');
   if (!main || !nav) return;

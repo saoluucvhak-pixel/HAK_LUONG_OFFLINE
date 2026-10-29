@@ -77,3 +77,6 @@ test('year worker: stale mutation blocked, verified archive and restore preserve
  assert.deepEqual(current(s).kyluong,s.db.kyluong);
  assert.equal((await run('unsupported',[])).ok,false);
 });
+
+test('year archive: schema 5 approvals travel with year and remain valid after restore',()=>{const s=setup(),R=require('../../core/input-review'),db=current(s);R.initialize(db);s.storage.save(JSON.stringify(db));move(s);let d=current(s);assert.equal(d._inputReviews.some(r=>r.period==='2023-01'),false);s.years.restore(2023,'synthetic restore',s.years.token(),'tester');d=current(s);assert.equal(R.changed(d,'chamcong','2023-01',''),false);assert.doesNotThrow(()=>R.validate(d));});
+test('year archive: legacy year restored into schema 5 initializes reviewed legacy inputs',()=>{const s=setup(),R=require('../../core/input-review');move(s);const db=current(s);R.initialize(db);s.storage.save(JSON.stringify(db));s.years.restore(2023,'synthetic restore',s.years.token(),'tester');assert.equal(R.changed(current(s),'chamcong','2023-01',''),false);assert.doesNotThrow(()=>R.validate(current(s)));});

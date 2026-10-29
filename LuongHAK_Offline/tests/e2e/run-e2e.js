@@ -125,6 +125,7 @@ async function launch(dataDir, opt) {
   const row2 = w.locator("main tbody tr").last().locator("input"), v13 = await row2.nth(1 + 13).inputValue(), v14 = await row2.nth(1 + 14).inputValue();
   ok("Dán từ Excel: ô '-1' không được ghi, ô hợp lệ vẫn ghi", v13 === "" && v14 === "1", "13='" + v13 + "', 14='" + v14 + "'");
   ok("Chấm công: ô '-1' bị từ chối (giữ trống), cột 31 tháng 9 bị khóa", v6 === "" && dis31 && dialogs.some((d) => /không được âm/.test(d)), "ô 06='" + v6 + "', 31 khóa=" + dis31 + " | " + dialogs.join(" | "));
+  await w.getByRole("button", {name:"Lưu để tính lương",exact:true}).click();
   // tính + chốt
   await w.click("#nav button[data-k=luong]");
   ok("V10: Tính lương có thanh 7 bước", (await w.locator("[data-steps7] li").count()) === 7);
@@ -866,6 +867,8 @@ async function launch(dataDir, opt) {
     await w.click(".dlg footer button.pri"); await w.waitForTimeout(500);
     const slNow = JSON.parse(fs.readFileSync(f, "utf8")).sanluong.filter((r) => /^P\d$/.test(r["Phiếu cân"]));
     ok("Nhập phiếu cân theo MẪU CÔNG CỤ (tiêu đề phía trên, Ngày cân 1, Mã phòng ban, NV vắng) — 4 phiếu, mã tổ lạ được cảnh báo", slNow.length === 4 && slNow.find((r) => r["Phiếu cân"] === "P1")["NV vắng"] === "Long" && slNow.find((r) => r["Phiếu cân"] === "P1")["Ngày cân"] === "2026-10-01" && /09\.99/.test(pv), slNow.length + " phiếu · " + pv.replace(/\s+/g, " ").slice(0, 160));
+    await w.getByRole('button',{name:'Lưu để tính lương',exact:true}).click();
+    await w.click('#nav button[data-k=chamcong]');await w.getByRole('button',{name:'Lưu để tính lương',exact:true}).click();
     // Bù theo ngày bậc thang (Đại Hiệp) → báo cáo phân bổ + file Excel mẫu công cụ
     await w.click("#nav button[data-k=luong]"); await w.selectOption('select[aria-label="Cách bù lương sản lượng"]', "daihiep");
     await w.click("#nav button[data-k=baocaoluong]"); await w.click('#main button:has-text("Phân bổ sản lượng")'); await w.waitForTimeout(300);
@@ -1120,6 +1123,8 @@ async function launch(dataDir, opt) {
     ok("Danh mục KHÔNG còn mục Quy chế bù sản lượng / Công thức tiền lương (đã chuyển sang Cài đặt); Cài đặt chỉ có đúng 2 phương pháp bù", (await w.locator('#main button:has-text("Xem cách tính")').count()) === 2);
     await w.click("#nav button[data-k=luong]");
     await w.selectOption("#top select", "11"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(200);
+    await w.click('#nav button[data-k=chamcong]');await w.getByRole('button',{name:'Lưu để tính lương',exact:true}).click();
+    await w.click('#nav button[data-k=sanluong]');await w.getByRole('button',{name:'Lưu để tính lương',exact:true}).click();await w.click('#nav button[data-k=luong]');
     const warnNoPolicy = await w.locator("main").first().innerText();
     ok("Tính lương: chưa có Quy chế bù sản lượng CHÍNH THỨC → cảnh báo ngay trên màn hình (lựa chọn hiện tại chỉ để xem thử)", /Chưa có Phương pháp bù sản lượng CHÍNH THỨC/.test(warnNoPolicy));
     await w.click("button.big"); await w.waitForTimeout(200);
@@ -1489,6 +1494,8 @@ async function launch(dataDir, opt) {
     // Kỳ 2027-01: kỳ sạch (không dùng ở test nào khác) → chỉ còn đúng 1 cảnh báo (tăng ca ZCHK1) để
     // kiểm tra đường WARNING vẫn chốt được sau khi xác nhận checklist.
     d0.chamcong.push({ "Kỳ": "2027-01", "Mã NV": "ZCHK1", "Hình thức công": "BT", "01": "1XYZ" });
+    // This fixture isolates checklist rules; draft blocking has dedicated UI coverage.
+    const IR = require(path.join(APP, 'core/input-review.js')); for (const r of IR.pending(d0,'2026-10').concat(IR.pending(d0,'2027-01'))) IR.approve(d0,r.table,r.period,r.kind,'Checklist fixture');
     fs.writeFileSync(f, JSON.stringify(d0));
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=luong]");
@@ -1522,7 +1529,7 @@ async function launch(dataDir, opt) {
 
   // Cấu trúc dữ liệu nguy hiểm → chỉ xem/khôi phục, file KHÔNG bị đổi 1 byte (bản 1.4.0 thay bảng sai kiểu bằng bảng rỗng)
   for (const [label, bad] of [["bảng Nhân viên sai kiểu", { schemaVersion: 2, nhanvien: { NV001: { "Họ và tên": "A" } }, chamcong: [] }],
-    ["file của phiên bản mới hơn (schemaVersion 5)", { schemaVersion: 5, nhanvien: [{ "Mã NV": "NV001" }], bangmoi: [{ x: 1 }] }]]) {
+    ["file của phiên bản mới hơn (schemaVersion 6)", { schemaVersion: 6, nhanvien: [{ "Mã NV": "NV001" }], bangmoi: [{ x: 1 }] }]]) {
     const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-sch-")), txt0 = JSON.stringify(bad);
     fs.writeFileSync(path.join(SD, "data.json"), txt0);
     ({ app, w, errs } = await launch(SD)); await w.waitForTimeout(500);
