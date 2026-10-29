@@ -715,6 +715,20 @@
     })]; });
   }
 
+  function bandamDirectExcelTemplate() {
+    if (!window.ExcelJS) { alert("Thiếu thư viện Excel — chưa tạo mẫu."); return; }
+    var book = new window.ExcelJS.Workbook(), sheet = book.addWorksheet("Bơm dăm");
+    sheet.columns = [{ header: "Phiếu cân", key: "phieu", width: 20 }, { header: "Ngày cân", key: "ngay", width: 16 }, { header: "Biển số", key: "xe", width: 18 }, { header: "Số xe", key: "soxe", width: 16 }, { header: "Mã NV", key: "ma", width: 24 }];
+    [1, 3, 5].forEach(function (n) { sheet.getColumn(n).numFmt = "@"; });
+    sheet.getColumn(2).numFmt = "dd/mm/yyyy"; sheet.getColumn(4).numFmt = "0.###";
+    sheet.views = [{ state: "frozen", ySplit: 1 }]; sheet.getRow(1).font = { bold: true };
+    var guide = book.addWorksheet("Hướng dẫn"); guide.getColumn(1).width = 110;
+    guide.addRow(["Điền số phiếu, ngày cân, số xe được giao và Mã NV có trong Nhân sự. Mỗi dòng là phần xe giao cho nhân viên đó; không ghi thêm dòng chia tổ cho cùng phiếu."]);
+    guide.addRow(["Mã NV, số phiếu và biển số đã định dạng Chữ để giữ số 0 đầu. Không đổi tên cột. Nhập tại Bơm dăm → Nhập Excel."]);
+    guide.eachRow(function (r) { r.alignment = { wrapText: true }; r.height = 40; });
+    book.xlsx.writeBuffer().then(function (buf) { download("Mau_BomDam_GiaoTrucTiep.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf); }).catch(function (e) { alert("Không tạo được mẫu: " + e.message); });
+  }
+
   function bandamEntryForm(ri, after, initialMode) {
     if (!need("input.edit")) return;
     var row = ri == null ? null : db.bandam[ri], token = row ? JSON.stringify(row) : "", body = h("div"), f = {};
@@ -805,7 +819,7 @@
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw); }, "Nhập từ file .xlsx / .xls / .csv"));
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
     if (key === "bandam" && !locked) bar.appendChild(btn("Giao trực tiếp cho Mã NV…", "pri", function () { bandamEntryForm(null, draw, "direct"); }));
-    if (key === "bandam") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", function () { saveXlsx("Mau_BomDam_GiaoTrucTiep.xlsx", [{ name: "Bơm dăm", cols: ["Phiếu cân", "Ngày cân", "Biển số", "Số xe", "Mã NV"], rows: [] }, { name: "Hướng dẫn", cols: ["Nội dung"], rows: [{ "Nội dung": "Điền số phiếu, ngày cân, số xe được giao và Mã NV có trong Nhân sự. Mỗi dòng là phần xe của nhân viên đó; không ghi thêm dòng chia tổ cho cùng phiếu." }, { "Nội dung": "Nhập tại Bơm dăm → Nhập Excel. Mã NV nhận trực tiếp, không chia theo Mã phòng ban / NV vắng." }] }], "template"); }));
+    if (key === "bandam") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", bandamDirectExcelTemplate));
     if (key === "sanluong") bar.appendChild(btn("Chuyển kỳ chi trả SL…", "", function () { productionCarryScreen(draw); }));
     /** MỘT phép quét duy nhất cho: bảng hiển thị · tổng · Excel · PDF · in (hiển thị = tổng = Excel = PDF = in). */
     function scan() {
