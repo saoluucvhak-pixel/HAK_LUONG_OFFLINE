@@ -1241,6 +1241,7 @@
   // Bảng hồ sơ lưu theo "Hiệu lực từ" (giữ lịch sử): khi sửa được chọn "Thông tin mới" (thêm bản mới) hay "Sửa lỗi nhập sai" (ghi đè)
   var VERSIONED = { canhan: 1, thanhtoan: 1 };
   function hrForm(key, row, base, onDone) {
+    var rowIndex = row ? db[key].indexOf(row) : -1;
     var cfg = HR[key], isNew = !row, data = Object.assign({}, base || {}, row || {});
     if (isNew && cfg.defaults) Object.assign(data, cfg.defaults(base));
     var body = h("div");
@@ -1262,7 +1263,7 @@
     if (fs.length < cfg.f.length) body.appendChild(h("div", { class: "hint", text: "🔒 Các ô lương được ẩn vì vai trò của bạn không có quyền xem lương." }));
     var g = h("div", { class: "fgrid" }); body.appendChild(g);
     var get = fieldInputs(g, fs, data), upd = null;
-    if (!isNew) upd = liveDiff(body, get, fs, row);
+    if (!isNew) upd = liveDiff(body, get, fs, Object.assign({}, row));
     // Bản ghi bị khóa (Q-15 phụ lục đã dùng cho kỳ chốt / kỳ đã chốt): báo ngay khi mở, không đợi bấm Lưu
     var p0 = isNew ? null : REPO.plan("update", key, row, {}, { what: "sửa " + cfg.ten });
     if (p0 && !p0.ok && (p0.code === "frozen" || p0.code === "locked")) body.insertBefore(h("div", { class: "locked", text: p0.msg }), body.firstChild);
@@ -1281,8 +1282,14 @@
         if (asNew) delete vals._id;
         var idF = ID.checkWrite(db, key, isNew || asNew ? null : row, vals); if (idF) { alert(idF); return; } // 1 người 1 Mã NV (CCCD)
         var pF = REPO.plan(isNew || asNew ? "insert" : "update", key, isNew || asNew ? null : row, vals, { what: (isNew ? "thêm " : asNew ? "cập nhật thông tin mới — " : "sửa ") + cfg.ten, checkDup: true });
-        if (!commit(pF, { confirm: true, action: isNew ? "Thêm hồ sơ" : asNew ? "Cập nhật hồ sơ (bản mới)" : "Sửa hồ sơ" })) return;
-        save(); close(); toast(asNew ? "Đã thêm thông tin mới từ " + dispVal({ t: "date" }, d["Hiệu lực từ"]) + " — bản cũ giữ làm lịch sử" : "Đã lưu"); (onDone || render)();
+        if (!pF.ok) { alert(pF.msg); return; }
+        if (pF.retro && !confirm(pF.confirmMsg)) return;
+        var tables = Object.keys(HRT).concat([key]).filter(function (t,i,a) { return a.indexOf(t) === i; });
+        if (!txn(tables, function () { return !!commit(pF, { action: isNew ? "Thêm hồ sơ" : asNew ? "Cập nhật hồ sơ (bản mới)" : "Sửa hồ sơ" }); })) {
+          if (rowIndex >= 0) row = db[key][rowIndex];
+          alert("Chưa lưu hồ sơ: " + lastTxnError + ". Form giữ nguyên để bạn sửa hoặc thử lại."); return;
+        }
+        close(); toast(asNew ? "Đã thêm thông tin mới từ " + dispVal({ t: "date" }, d["Hiệu lực từ"]) + " — bản cũ giữ làm lịch sử" : "Đã lưu"); (onDone || render)();
       })];
     }, { drawer: true });
   }
@@ -1492,7 +1499,7 @@
   function editBaseNV(nv) {
     var body = h("div"), g = h("div", { class: "fgrid" }); body.appendChild(g);
     var get = fieldInputs(g, HR.nhanvien.f, nv);
-    liveDiff(body, get, HR.nhanvien.f, nv);
+    liveDiff(body, get, HR.nhanvien.f, Object.assign({}, nv));
     body.appendChild(h("div", { class: "hint", style: "margin-top:10px", html: "Đổi CCCD, địa chỉ… → tab <b>Thông tin cá nhân</b>. Đổi lương, chức vụ, phòng ban → <b>＋ Tăng lương / biến động</b> (lập phụ lục mới)." }));
     modal("Sửa thông tin cơ bản", body, function (close) {
       return [btn("Hủy", "", close), btn("💾 Lưu", "pri", function () {
@@ -1509,12 +1516,17 @@
           if (refs.kyluong || refs.kyluong_lichsu) { alert("Không đổi được Mã NV " + old + ": mã này đã có trong bảng lương ĐÃ CHỐT (" + (refs.kyluong || 0) + " kỳ hiện hành, " + (refs.kyluong_lichsu || 0) + " bản lịch sử). Đổi mã sẽ làm dữ liệu kỳ đã chốt không còn khớp với hồ sơ.\nNếu thật sự cần mã mới: tạo nhân viên mới và chấm dứt hồ sơ cũ."); return; }
           var refTxt = Object.keys(refs).map(function (k) { return (ALL[k] ? ALL[k].ten : k) + ": " + refs[k]; }).join(", ");
           if (!confirm("Đổi Mã NV " + old + " → " + d["Mã NV"] + "?\nApp sẽ đổi theo ở: " + (refTxt || "(không có dữ liệu liên quan)"))) return;
-          Object.keys(db).forEach(function (k) { if (Array.isArray(db[k]) && k !== "auditlog" && k !== "kyluong" && k !== "kyluong_lichsu") db[k].forEach(function (r) { if (r && r !== nv && r["Mã NV"] === old) r["Mã NV"] = d["Mã NV"]; }); });
-          audit("Đổi Mã NV", old + " → " + d["Mã NV"] + " (" + (refTxt || "không có dữ liệu liên quan") + ")");
-          st.nv = d["Mã NV"];
         }
-        var bNV = Object.assign({}, nv);
-        Object.assign(nv, d); auditChange("Sửa thông tin cơ bản", "nhanvien", bNV, nv, nv["Mã NV"]); save(); close(); render();
+        var nvIndex = db.nhanvien.indexOf(nv), bNV = Object.assign({}, nv);
+        var touched = Object.keys(db).filter(function (k) { return Array.isArray(db[k]); });
+        if (!txn(touched, function () {
+          if (d["Mã NV"] !== old) {
+            Object.keys(db).forEach(function (k) { if (Array.isArray(db[k]) && k !== "auditlog" && k !== "kyluong" && k !== "kyluong_lichsu") db[k].forEach(function (r) { if (r && r !== nv && r["Mã NV"] === old) r["Mã NV"] = d["Mã NV"]; }); });
+            audit("Đổi Mã NV", old + " → " + d["Mã NV"] + " (" + (refTxt || "không có dữ liệu liên quan") + ")");
+          }
+          Object.assign(nv, d); auditChange("Sửa thông tin cơ bản", "nhanvien", bNV, nv, nv["Mã NV"]);
+        })) { nv = db.nhanvien[nvIndex]; alert("Chưa lưu hồ sơ: " + lastTxnError + ". Form giữ nguyên để thử lại."); return; }
+        st.nv = d["Mã NV"]; close(); render();
       })];
     }, { drawer: true });
   }
@@ -1551,8 +1563,10 @@
         var L = loai.v || (function () { var a = E.money(cur["Lương thỏa thuận"]), b = E.money(d["Lương thỏa thuận"]); return b > a ? "Tăng lương" : b < a ? "Giảm lương" : d["Phòng ban"] !== cur["Phòng ban"] ? "Điều chuyển phòng ban" : d["Chức vụ"] !== cur["Chức vụ"] ? "Bổ nhiệm / đổi chức vụ" : "Điều chỉnh mức đóng BH"; })();
         var rec = Object.assign({}, draft, d, { "Loại biến động": L, "Loại phụ lục": "Phụ lục sửa đổi" }); delete rec._id;
         var pF = REPO.plan("insert", "chitiethd", null, rec, { what: "lập phụ lục " + L.toLowerCase(), checkDup: true });
-        if (!commit(pF, { confirm: true, action: "Biến động: " + L })) return;
-        save(); close(); st.nvTab = "hopdong"; st.hd = hd["Số HĐLĐ"]; st.hdTab = "chitiethd"; render(); toast("Đã lập phụ lục " + rec["Mã công tác"] + " · " + L + " từ " + dispVal({ t: "date" }, rec["Hiệu lực từ"]));
+        if (!pF.ok) { alert(pF.msg); return; }
+        if (pF.retro && !confirm(pF.confirmMsg)) return;
+        if (!txn(["chitiethd"], function () { return !!commit(pF, { action: "Biến động: " + L }); })) { alert("Chưa lưu phụ lục: " + lastTxnError + ". Form giữ nguyên để thử lại."); return; }
+        close(); st.nvTab = "hopdong"; st.hd = hd["Số HĐLĐ"]; st.hdTab = "chitiethd"; render(); toast("Đã lập phụ lục " + rec["Mã công tác"] + " · " + L + " từ " + dispVal({ t: "date" }, rec["Hiệu lực từ"]));
       })];
     }, { drawer: true });
   }
