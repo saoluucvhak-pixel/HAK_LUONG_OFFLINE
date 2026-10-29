@@ -1494,6 +1494,8 @@ async function launch(dataDir, opt) {
     // Kỳ 2027-01: kỳ sạch (không dùng ở test nào khác) → chỉ còn đúng 1 cảnh báo (tăng ca ZCHK1) để
     // kiểm tra đường WARNING vẫn chốt được sau khi xác nhận checklist.
     d0.chamcong.push({ "Kỳ": "2027-01", "Mã NV": "ZCHK1", "Hình thức công": "BT", "01": "1XYZ" });
+    // This fixture isolates checklist rules; draft blocking has dedicated UI coverage.
+    const IR = require(path.join(APP, 'core/input-review.js')); for (const r of IR.pending(d0,'2026-10').concat(IR.pending(d0,'2027-01'))) IR.approve(d0,r.table,r.period,r.kind,'Checklist fixture');
     fs.writeFileSync(f, JSON.stringify(d0));
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=luong]");
