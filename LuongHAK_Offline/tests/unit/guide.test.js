@@ -40,3 +40,18 @@ test("U-GUIDE-03 mọi câu hỏi [Q-xx] nêu trong quy chế đều có trong B
   for (const k of G.TABS.map((t) => t[0])) assert.ok(G.section(k, { db, E, nam: 2026, thang: 9, congTy: {} }).length > 500, k);
   assert.match(G.regulationDoc({ db, E, nam: 2026, thang: 9, congTy: {} }), /^<html>.*<meta charset='utf-8'>/s);
 });
+
+
+test('Guide distinguishes payroll days and reproduces mechanics example in engine',()=>{
+ const db=F.baseDb();db.nhansu=[F.staff({'Mã nhân viên':'NV','Mã tiền lương 1':'TG1','Mã tăng ca':'TC5','Lương thỏa thuận':9300000})];
+ db.dm_luong=[{'Mã lương':'TG1','Mã hình thức lương':'LTG','Số ngày cơ sở':31,'Số ngày giảm trừ':0}];
+ db.dm_tangca=[{'Mã tăng ca':'TC5','Hệ số tăng ca':.5,'Tiền tăng ca (nếu tính cố định)':3100000},{'Mã tăng ca':'TC4','Hệ số tăng ca':.5}];
+ const bt={'Kỳ':'2026-10','Mã NV':'NV','Hình thức công':'BT'};for(let day=1;day<=29;day++)bt[String(day).padStart(2,'0')]=1;
+ db.chamcong=[bt,F.ccRow('NV',2026,10,'TC',1,2)];
+ const calc=()=>E.tinhBangLuong(db,2026,10,'to',{quyChe:'2026'}).bangluong[0];
+ let row=calc();assert.equal(row['Tổng công'],31);assert.equal(row._ct.congTinhTG,29);assert.equal(row['Lương thời gian'],8700000);assert.equal(row['Tiền tăng ca'],100000);
+ db.nhansu[0]['Mã tăng ca']='TC4';row=calc();assert.equal(row._ct.congTinhTG,31);assert.equal(row['Lương thời gian'],9300000);assert.equal(row['Tiền tăng ca'],300000);
+ const ctx={db,E,nam:2026,thang:10};for(const html of [G.section('screens',ctx),G.section('rules',ctx),G.regulationDoc(ctx)])for(const text of ['Công tính lương là công nào?','CONG_TINH_LUONG','29 công BT','8.700.000','TG_LE_TANGCA','Chế độ cũ'])assert.ok(html.includes(text),text);
+ assert.match(G.tangCaText({'Mã tăng ca':'TC5','Hệ số tăng ca':.5}),/Công TC × hệ số/);
+ assert.match(G.tangCaText({'Mã tăng ca':'CUSTOM','Loại công thức':'TC1','Hệ số tăng ca':.5}),/MAX\(0/);
+});

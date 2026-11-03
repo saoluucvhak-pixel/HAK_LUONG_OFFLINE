@@ -32,11 +32,11 @@
     return "Công chuẩn = số ngày của tháng − số ngày Chủ nhật";
   }
   function luongText(r) {
-    var ma = String(r["Mã lương"] || ""), ht = String(r["Mã hình thức lương"] || "");
-    if (/SP/i.test(ht)) return "Lương sản phẩm = Sản lượng (tấn) × " + money(r["Số tiền khoán"]) + " đ/tấn" + (n(r["ĐK_Bù lương (công tối thiểu)"]) ? "; bù lương khi bình quân < " + r["ĐK_Bù lương (công tối thiểu)"] + " tấn/công, đơn giá bù " + money(r["Đơn giá bù lương"]) + " đ/công" : "");
-    if (/^CĐ/i.test(ma) || /cố định/i.test(r["Cách tính"])) return "Lương cố định hằng tháng = Lương thỏa thuận (không phụ thuộc số công)";
-    if (/^CN/i.test(ma) || /thực tế/i.test(r["Cách tính"])) return "Lương công nhật = Đơn giá ngày (Lương thỏa thuận) × số công thực tế";
-    return "Lương thời gian = Lương thỏa thuận ÷ Công chuẩn × Công thực tế (tối đa bằng công chuẩn). " + congChuanText(r["Cách tính"]);
+    var ma = String(r["Mã lương"] || ""), ht = String(r["Mã hình thức lương"] || ""), sl = /SP/i.test(ht) ? "Tiền sản lượng = tấn × " + money(r["Số tiền khoán"]) + " đ/tấn; bù SL theo phương pháp chính thức của kỳ. " : "";
+    if (ma === "CĐ") return sl + "Lương thời gian cố định = Lương thỏa thuận (không nhân số công).";
+    if (ma === "SP") return sl + "Quy chế 2026: lương thời gian = Lương thỏa thuận/ngày × (công lễ + công phép); chọn TG_LE_TANGCA thì dùng (công lễ + công TC).";
+    if (ma === "CN1" || ma === "CN2") return sl + "Lương thời gian = Lương thỏa thuận/ngày × Công tính lương thời gian; Quy chế 2026 không chặn công ở công chuẩn, riêng mã tăng ca TC5 loại công TC khỏi công thời gian.";
+    return sl + "Lương thời gian = Lương thỏa thuận ÷ Công chuẩn × Công tính lương thời gian. Quy chế 2026: dùng Tổng công, riêng Mã tăng ca TC5 dùng Tổng công − TC; không chặn ở công chuẩn. Xem bảng phân biệt các loại công và cấu hình mã.";
   }
   function phuCapText(r) {
     var ct = String(r["Cách tính"] || "");
@@ -45,13 +45,43 @@
     return "Đủ " + (ref ? "(công chuẩn − " + ref + ")" : "công chuẩn") + " → hưởng đủ " + money(r["Số tiền"]) + " đ; thiếu công → " + money(r["Số tiền"]) + " ÷ công chuẩn × công thực tế";
   }
   function tangCaText(r) {
-    var ma = String(r["Mã tăng ca"] || ""), hs = r["Hệ số tăng ca"];
-    if (/TC5/i.test(ma)) return "Tiền cố định " + money(r["Tiền tăng ca (nếu tính cố định)"]) + " ÷ công chuẩn × công tăng ca";
-    if (/TC6/i.test(ma)) return "Công vượt công chuẩn (không nhân hệ số) × đơn giá ngày";
-    if (/TC3/i.test(ma)) return "(Công tăng ca + công Chủ nhật) × hệ số " + hs + " × đơn giá ngày";
-    if (/TC1/i.test(ma)) return "[(Công tính lương − lễ − trung chuyển − phép − tăng ca − công chuẩn) + công tăng ca] × hệ số " + hs + " × đơn giá ngày";
-    if (/TC2/i.test(ma)) return "Như TC1 nhưng trừ thêm công di chuyển; × hệ số " + hs + " × đơn giá ngày";
-    return "Công tăng ca × hệ số " + hs + " × đơn giá ngày (lương công nhật: đơn giá × công tăng ca)";
+    var key = String(r["Loại công thức"] || r["Mã tăng ca"] || "").trim(), hs = r["Hệ số tăng ca"];
+    var expressions = {
+      TC1: "MAX(0, Tổng công − lễ − trung chuyển − phép − TC − công chuẩn) × hệ số + công TC × hệ số",
+      TC2: "MAX(0, Tổng công − lễ − trung chuyển − phép − TC − di chuyển − chuẩn áp dụng) × hệ số + công TC × hệ số; chuẩn áp dụng = Công chuẩn 2 nếu > 0, nếu không dùng công chuẩn",
+      TC3: "(Công TC + công Chủ nhật) × hệ số",
+      TC4: "Công TC × hệ số",
+      TC5: "Công TC × hệ số; đơn giá = Tiền tăng ca (nếu tính cố định) ÷ công chuẩn",
+      TC6: "MAX(0, Tổng công − trung chuyển − lễ − công chuẩn), không nhân hệ số"
+    };
+    return expressions[key] ? "Công TC quy đổi = " + expressions[key] + ". Hệ số danh mục: " + hs + ". Tiền TC = công TC quy đổi × đơn giá áp dụng (CN1/CN2 dùng lương thỏa thuận/ngày; mã khác dùng lương thỏa thuận ÷ công chuẩn, riêng TC5 như trên). Nếu có công thức cấu hình hiệu lực, công thức cấu hình được ưu tiên." : "Công thức cấu hình mã " + key + ": xem Danh mục → Công thức → Kiểm thử; chưa có công thức hợp lệ thì báo lỗi, không suy đoán.";
+  }
+
+  function payrollDays(ctx) {
+    ctx = ctx || {};
+    var h = "<section data-guide-payroll-days='1'><h2>Công tính lương là công nào?</h2>" +
+      "<p><b>Quy chế 2026</b> — phân biệt công chấm, công chuẩn và công quy đổi. Bộ phận Cơ khí không có công thức riêng theo tên phòng ban: phải tra Mã lương và Mã tăng ca trong phụ lục hiệu lực của nhân viên.</p>";
+    h += table([["Loại công", function(r){return r[0];}], ["Nguồn và cách tính", function(r){return r[1];}]], [
+      ["Công BT", "Cộng các ô ngày của dòng Hình thức công = BT, đúng kỳ và mã nhân viên."],
+      ["Công TC", "Cộng các ô ngày của các dòng hình thức có chữ TC. Đây là công thô, chưa nhân hệ số tăng ca."],
+      ["Tổng công", "Cộng mọi hình thức công trừ CC (công cơm); có cả BT, TC, CL (lễ), PN (phép), DC (di chuyển), TRCH (trung chuyển). Không tự hiểu là số ngày có mặt."],
+      ["Công chuẩn", "Mẫu số chia đơn giá. Ưu tiên Công chuẩn 2 của nhãn công tác trên dòng BT; tiếp theo Số ngày cơ sở − Số ngày giảm trừ nếu mã lương có khai. Nếu chưa khai ngày cơ sở: Quy chế 2026 dùng ngày lịch tháng − số ngày giảm trừ; cách tính có Chủ nhật thì trừ số Chủ nhật và hậu tố giảm trừ. Không phải số công thực tế đã chấm."],
+      ["Công tính lương thời gian", "Quy chế 2026: mã SP chính xác dùng CL + PN; nếu Loại công thức = TG_LE_TANGCA thì CL + TC. Các mã còn lại dùng Tổng công; riêng nhân viên có Mã tăng ca = TC5 thì dùng Tổng công − TC. Không chặn ở công chuẩn."],
+      ["Công tính lương trong biến tăng ca", "CONG_TINH_LUONG đưa vào công thức TC1–TC6 = Tổng công, không phải công tính lương thời gian đã loại/đổi ở bước trên."],
+      ["Công TC quy đổi", "Kết quả công thức của mã tăng ca và hệ số. Công Chủ nhật chỉ cộng từ hình thức không phải TC và không phải CC; không mặc định cứ Chủ nhật là được cộng tiền như nhau."]
+    ]);
+    h += "<h3>Đổi công thành tiền theo mã lương</h3>" + table([["Mã lương",function(r){return r[0];}],["Công thức tiền lương thời gian",function(r){return r[1];}]], [
+      ["CĐ", "Lương thời gian = Lương thỏa thuận, không nhân công. Nếu phụ lục có chia mức cũ/mới trong tháng thì dùng mức đã bình quân theo công chính."],
+      ["CN1, CN2", "Lương thời gian = Lương thỏa thuận (đơn giá ngày) × Công tính lương thời gian."],
+      ["SP", "Lương thời gian = Lương thỏa thuận (đơn giá ngày) × (CL + PN), hoặc (CL + TC) khi chọn TG_LE_TANGCA. Tiền sản lượng và bù sản lượng tính riêng."],
+      ["TG1, TG2, TG3, TG4 và các mã khác", "Lương thời gian = ROUND(Lương thỏa thuận ÷ Công chuẩn × Công tính lương thời gian, 0). Phân nhánh theo mã chính xác, không theo tên phòng ban. Mã tùy đặt có hình thức SP vẫn nhận tiền sản lượng nhưng không tự chuyển thành nhánh thời gian của mã SP chính xác."]
+    ]);
+    if(ctx.E && ctx.db){var codes=active(ctx.E,ctx.db.dm_luong,"Mã lương",ctx.nam,ctx.thang);h += "<h3>Mã lương hiệu lực kỳ " + esc(ctx.thang+"/"+ctx.nam) + " — minh họa 29 công đầu vào</h3>" + table([["Mã",function(r){return r["Mã lương"]; }],["Cách tính danh mục",function(r){return r["Cách tính"]||"(trống)";}],["Công chuẩn minh họa theo mã",function(r){var x=ctx.E.congChuanTheoMa(r);return x&&x.loi ? x.loi : ctx.E.congChuan(r,ctx.thang,ctx.nam,29,true); }]],codes);}
+    h += "<h3>Ví dụ cơ khí: 29 công BT và 2 công TC</h3><p>Tổng công = 31. Nếu mã lương có công chuẩn 31, đây vẫn là <b>29 công BT + 2 công TC</b>, không phải chấm 31 ngày. Với mã TG và TC4: công tính TG = 31, công TC quy đổi = 2 × hệ số. Với TC5: công tính TG = 29 và tiền TC tính riêng theo đơn giá TC5. Không tự áp TC4/TC5 cho toàn bộ cơ khí.</p>" +
+      "<p>Ví dụ TG + TC5: Lương thỏa thuận 9.300.000đ, công chuẩn 31, BT 29, TC 2 → đơn giá TG 300.000đ, lương TG 8.700.000đ. Tiền TC còn phụ thuộc mức tiền và hệ số TC5 trong danh mục. Công chuẩn 31 không tự làm công BT 29 thành 31.</p>" +
+      "<p><b>Chế độ cũ:</b> công tính TG khởi đầu = MIN(Tổng công, Công chuẩn), nếu kết quả bằng 0 thì lấy Tổng công; không dùng nhánh SP/TC5 riêng của Quy chế 2026. Luôn kiểm tra Quy chế tính lương của kỳ và bản đã chốt.</p>" +
+      "<p><b>Đối chiếu một người:</b> mở phụ lục hiệu lực → ghi Mã lương, Mã tăng ca → cộng các dòng BT/TC/CL/PN → Tính lương → Chi tiết cách tính → xem Công chuẩn, Công tính TG, Công TC quy đổi, đơn giá và tiền. Nếu lương đổi giữa tháng với Áp dụng từ ngày: mức tính TG được bình quân theo công chính trước/sau ngày hiệu lực.</p></section>";
+    return h;
   }
 
   // ===================== 1. Bắt đầu nhanh =====================
@@ -108,7 +138,7 @@
 
     h += "<h3>Chương II. HÌNH THỨC TRẢ LƯƠNG VÀ CÁCH TÍNH</h3>";
     h += D("Các hình thức trả lương đang áp dụng") + table([["Mã", function (r) { return r["Mã lương"]; }], ["Hình thức", function (r) { return r["Hình thức lương"]; }], ["Cách tính", function (r) { return luongText(r); }], ["Lương phụ", function (r) { return n(r["Lương phụ"]) ? money(r["Lương phụ"]) : ""; }], ["Hiệu lực từ", function (r) { return dmy(r["Hiệu lực từ"]); }]], L);
-    h += "<p>Đơn giá ngày (lương thời gian) = Lương thỏa thuận ÷ Công chuẩn. Công tính lương thời gian không vượt quá công chuẩn; phần vượt được xét theo mục Làm thêm giờ của Quy chế này. Lương bơm dăm = số xe × đơn giá bơm dăm của mã lương.</p>" +
+    h += "<p>Đơn giá ngày (lương thời gian) = Lương thỏa thuận ÷ Công chuẩn. Quy chế 2026: công tính lương thời gian không bị chặn ở công chuẩn; mã TC5 loại công tăng ca khỏi công tính thời gian. Chế độ cũ giới hạn công ở công chuẩn. Xem bảng phân biệt các loại công bên dưới. Lương bơm dăm = số xe × đơn giá bơm dăm của mã lương.</p>" +
       "<p><b>Thay đổi lương giữa tháng:</b> phụ lục có hiệu lực giữa tháng được áp dụng theo lựa chọn ghi trên phụ lục: <i>Cả tháng</i> — cả tháng theo mức mới; hoặc <i>Từ ngày hiệu lực</i> — công trước ngày hiệu lực tính theo lương thỏa thuận cũ, công từ ngày hiệu lực tính theo mức mới (cùng mã lương). Bảo hiểm tính theo phụ lục đang hiệu lực.</p>";
     h += D("Thời gian làm việc và chấm công") + "<p>Công được chấm hằng ngày theo các hình thức sau (mỗi người mỗi hình thức 1 dòng/tháng; cùng ngày, cùng hình thức nhập trùng chỉ tính 1 lần):</p>" + table([["Hình thức", function (r) { return r["Hình thức công"]; }], ["Nội dung", function (r) { return r["Diễn giải"] || r["Nội dung"]; }], ["Nhóm", function (r) { return r["Nội dung"]; }]], CC) +
       "<p><b>Tổng công</b> tính lương = tổng công mọi hình thức trừ công tính cơm (CC). <b>[cần quyết định — Q-02]</b> Hiện tổng công <b>gồm cả công tăng ca</b> (theo cách tính của bảng lương gốc); công ty xác nhận có giữ quy ước này không.</p>";
@@ -210,8 +240,8 @@
   /** Nội dung HTML của 1 phần. ctx: { db, E, nam, thang, congTy } */
   function section(key, ctx) {
     if (key === "process") return process();
-    if (key === "rules") return regulation(ctx);
-    if (key === "screens") return screens();
+    if (key === "rules") return regulation(ctx) + payrollDays(ctx);
+    if (key === "screens") return screens() + payrollDays(ctx);
     if (key === "faq") return faq();
     return quickStart();
   }
@@ -219,7 +249,7 @@
   function regulationDoc(ctx) {
     var css = "body{font-family:'Times New Roman',serif;font-size:13pt;line-height:1.4}h1{text-align:center;font-size:15pt}h3{font-size:13pt;margin-top:14pt}h4{font-size:13pt;margin:8pt 0 4pt}" +
       "table{border-collapse:collapse;width:100%;margin:4pt 0 8pt}td,th{border:1px solid #444;padding:3pt 5pt;font-size:11pt;vertical-align:top}th{background:#eee}.g-doc-head{display:flex;justify-content:space-between;text-align:center}.g-center{text-align:center}.g-warn{border:1px solid #b08d4c;background:#fff8ec;padding:6pt}.g-sign{display:flex;justify-content:space-between;text-align:center;margin-top:24pt}.g-small{font-size:11pt}";
-    return "<html><head><meta charset='utf-8'><title>Quy che tra luong</title><style>" + css + "</style></head><body>" + regulation(ctx) + "</body></html>";
+    return "<html><head><meta charset='utf-8'><title>Quy che tra luong</title><style>" + css + "</style></head><body>" + regulation(ctx) + payrollDays(ctx) + "</body></html>";
   }
-  return { TABS: TABS, section: section, regulationDoc: regulationDoc, luongText: luongText, phuCapText: phuCapText, tangCaText: tangCaText, congChuanText: congChuanText };
+  return { payrollDays: payrollDays, TABS: TABS, section: section, regulationDoc: regulationDoc, luongText: luongText, phuCapText: phuCapText, tangCaText: tangCaText, congChuanText: congChuanText };
 });
