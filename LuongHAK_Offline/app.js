@@ -2178,10 +2178,10 @@
   var DM_CAI_DAT = { dm_congthuc: 1, dm_quychebu: 1, dm_congthuc_kiemthu: 1 };
   /** Mô tả 2 phương pháp bù sản lượng chính thức (V10). Mã lưu giữ nguyên "to" / "daihiep" để không đổi engine. */
   var BU_METHODS = [
-    { ma: "to", ten: "BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ",
+    { ma: "to", ten: "BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ CỐ ĐỊNH NGÀY CÔNG THÁNG",
       nguon: ["Đơn giá khoán (đ/tấn): Danh mục → Mã lương, cột “Số tiền khoán” của mã lương gán cho từng nhân viên.", "Mức sàn: Danh mục → Mã lương, cột “Đơn giá bù lương” — MỖI MÃ LƯƠNG MỘT MỨC, lấy theo mã lương của nhân viên (đồng/công BT). Để trống hoặc 0 thì không bù.", "Ngưỡng công: Danh mục → Mã lương, cột “Ngưỡng công bù theo tổ”.", "Công BT: màn hình Chấm công. Tấn: màn hình Sản lượng. Tổ: phòng ban/tổ của nhân viên."],
       mota: "Tính bình quân tiền sản lượng của cả tổ mỗi người mỗi ngày; nếu thấp hơn mức sàn thì người đủ ngưỡng công được bù phần chênh × công BT.",
-      buoc: ["Tiền sản lượng cả tổ = Σ(tấn × đơn giá khoán) của người hưởng lương sản phẩm trong tổ.", "Bình quân tổ = Tiền sản lượng cả tổ ÷ số ngày của tháng ÷ số người của tổ.", "Điều kiện bù: công BT của người ≥ 'Ngưỡng công bù theo tổ' và Bình quân tổ < 'Đơn giá bù lương' (mức sàn, lấy ở Danh mục → Mã lương — xem mục “Số liệu lấy từ đâu”).", "Tiền bù = (Mức sàn − Bình quân tổ) × công BT của người."],
+      buoc: ["Tiền sản lượng cả tổ = Σ(tấn × đơn giá khoán) của người hưởng lương sản phẩm trong tổ.", "Bình quân tổ = Tiền sản lượng cả tổ ÷ số ngày của tháng ÷ số người hưởng lương SP của tổ có công BT trong tháng > 0.", "Điều kiện bù: công BT của người ≥ 'Ngưỡng công bù theo tổ' và Bình quân tổ < 'Đơn giá bù lương' (mức sàn, lấy ở Danh mục → Mã lương — xem mục “Số liệu lấy từ đâu”).", "Tiền bù = (Mức sàn − Bình quân tổ) × công BT của người."],
       vd: function () { var tien = 31000000, ngay = 31, nguoi = 10, bq = tien / ngay / nguoi, san = 150000, cong = 26; return { dong: ["Tiền sản lượng cả tổ: " + fmt(tien) + " đ · tháng " + ngay + " ngày · tổ " + nguoi + " người", "Bình quân tổ = " + fmt(tien) + " ÷ " + ngay + " ÷ " + nguoi + " = " + fmt(Math.round(bq)) + " đ/người/ngày", "Mức sàn " + fmt(san) + " đ > bình quân → được bù", "Tiền bù = (" + fmt(san) + " − " + fmt(Math.round(bq)) + ") × " + cong + " công = " + fmt(Math.round((san - bq) * cong)) + " đ"] }; } },
     { ma: "daihiep", ten: "BÙ SẢN LƯỢNG THEO NGÀY",
       nguon: ["Đơn giá khoán (đ/tấn): Danh mục → Mã lương, cột “Số tiền khoán” của mã lương gán cho từng nhân viên.", "Mức sàn: Danh mục → Mã lương, cột “Đơn giá bù lương” — MỖI MÃ LƯƠNG MỘT MỨC, lấy theo mã lương của nhân viên (đồng/công BT). Để trống hoặc 0 thì không bù.", "Bậc thang theo công BT từng ngày: cố định trong hệ thống (không cấu hình ở đây). Công BT và sản lượng theo ngày: màn hình Chấm công và Sản lượng."],
@@ -2711,7 +2711,7 @@
   var TEXTCOLS = { "Mã NV": 1, "Họ và tên": 1, "Phòng ban": 1 };
 
   // Cách bù lương sản lượng (α19 thêm 2 cách của công cụ phân bổ khối lượng; 2 cách cũ giữ nguyên)
-  var BU_OPTS = [["to", "BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ"], ["daihiep", "BÙ SẢN LƯỢNG THEO NGÀY"]];
+  var BU_OPTS = [["to", "BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ CỐ ĐỊNH NGÀY CÔNG THÁNG"], ["daihiep", "BÙ SẢN LƯỢNG THEO NGÀY"]];
   var BU_LEGACY = { "false": "Cách bù cũ theo THÁNG (không còn hỗ trợ — cần rà soát)", "true": "Cách bù cũ theo NGÀY liên tục (không còn hỗ trợ — cần rà soát)" };
   // Quy chế tính lương (R-68): "2026" = quy chế HAK Group (HAK, CNHAK, HAKQN — chủ sở hữu duyệt 11/10/2026) · "1.7" = cách tính trước đó (đối chiếu)
   var QC_OPTS = [["2026", "Quy chế lương HAK Group 2026"], ["1.7", "Cách tính cũ (engine 1.7 — để đối chiếu)"]];
@@ -3898,7 +3898,7 @@
         var ppbTen = c.phuongPhapBu === "daihiep" ? "theo ngày bậc thang (Đại Hiệp)" : c.phuongPhapBu === "to" ? "bình quân tổ (HAK)" : c.phuongPhapBu === "ngay" ? "theo ngày (liên tục)" : "theo tháng";
         t.appendChild(ctRow("Phương pháp bù", "", ppbTen));
         t.appendChild(ctRow("Mức bù (DM_LUONG)", "\"Đơn giá bù lương\" trong Danh mục lương", fmt(c.mucBuDmLuong) + " đ", c.mucBuDmLuong));
-        if (c.binhQuanTo != null) t.appendChild(ctRow("Bình quân tổ", "tổng tiền sản lượng cả tổ ÷ số ngày tháng ÷ số người tổ", fmt(c.binhQuanTo) + " đ/người/ngày", c.binhQuanTo));
+        if (c.binhQuanTo != null) t.appendChild(ctRow("Bình quân tổ", "tổng tiền sản lượng cả tổ ÷ số ngày lịch tháng ÷ số người SP có công BT > 0", fmt(c.binhQuanTo) + " đ/người/ngày", c.binhQuanTo));
         if (c.phuongPhapBu === "daihiep") t.appendChild(ctRow("SL tham chiếu", "theo bậc thang công BT TỪNG NGÀY — xem sheet \"Bu luong theo ngay - DH\" trong file Excel Phân bổ khối lượng để xem chi tiết từng ngày", "", null));
         t.appendChild(ctRow("Tiền bù", "", "", b["Lương bù SL"], true));
       }

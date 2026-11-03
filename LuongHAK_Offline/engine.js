@@ -459,7 +459,7 @@
         var dm20 = dmLuong[ns["Mã tiền lương 2"]] || null, laSP20 = !!(dm20 && /SP/i.test(dm20["Mã hình thức lương"] || ""));
         var gBD = laSP20 ? money(dm20["Số tiền khoán"]) : money(dmL0["Đơn giá bơm dăm"]);
         var k = ns["Mã PB"] || "", o = toSum[k] || (toSum[k] = { tien: 0, n: 0 });
-        o.tien += (sl.tong[ma] || 0) * money(dmL0["Số tiền khoán"]) + (qc2026 ? 0 : (bd.tong[ma] || 0) * gBD); o.n++; // 2026 (C4): tiền tổ chỉ tính sản lượng
+        o.tien += (sl.tong[ma] || 0) * money(dmL0["Số tiền khoán"]) + (qc2026 ? 0 : (bd.tong[ma] || 0) * gBD); if (cc[ma] && cc[ma].congBT > 0) o.n++; // Chỉ người có công BT trong kỳ tham gia mẫu số; tiền SL tổ giữ nguyên. 2026 (C4): tiền tổ chỉ tính sản lượng
       });
       Object.keys(toSum).forEach(function (k) { binhQuanTo[k] = toSum[k].n ? toSum[k].tien / soNgayThang / toSum[k].n : 0; });
     }
