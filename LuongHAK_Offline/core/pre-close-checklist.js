@@ -79,13 +79,13 @@
       var tong = (b["Lương thời gian"] || 0) + (b["Lương phụ"] || 0) + (b["Lương sản lượng"] || 0) + (b["Lương bù SL"] || 0) + (b["Lương bơm dăm"] || 0) +
         (b["Tiền tăng ca"] || 0) + (b["Phụ cấp"] || 0) + (b["Phụ cấp công tác"] || 0) + (b["Lương hỗ trợ"] || 0) + (b["Tiền cơm"] || 0) + (b["Thưởng"] || 0) + (b["Thu nhập khác"] || 0);
       if (Math.round(tong) !== Math.round(b["Tổng thu nhập"] || 0)) saiTongTN.push(b["Mã NV"] + ": cộng lại = " + Math.round(tong) + ", bảng lương = " + Math.round(b["Tổng thu nhập"] || 0));
-      var giamTru = (b["BH trừ NLĐ"] || 0) + (b["KPCĐ trừ NLĐ"] || 0) + (b["Thuế TNCN"] || 0) + (b["Trừ khác"] || 0) + (b["Tạm ứng"] || 0);
+      var giamTru = (b["Truy thu BH"] || 0) + (b["BH trừ NLĐ"] || 0) + (b["KPCĐ trừ NLĐ"] || 0) + (b["Thuế TNCN"] || 0) + (b["Trừ khác"] || 0) + (b["Tạm ứng"] || 0);
       var tl = (b["Tổng thu nhập"] || 0) - giamTru;
       var tlDung = tl >= 0 ? round1000(tl) : 0;
       if (tlDung !== Math.round(b["Thực lĩnh"] || 0)) saiThucLinh.push(b["Mã NV"] + ": tính lại = " + tlDung + ", bảng lương = " + Math.round(b["Thực lĩnh"] || 0));
     });
     add(18, "Tổng thu nhập đúng (cộng đủ các khoản, từng người)", saiTongTN.length ? "loi" : "ok", saiTongTN);
-    add(19, "Tổng giảm trừ hợp lệ (BH + KPCĐ + Thuế + Trừ khác + Tạm ứng)", "ok", []);
+    add(19, "Tổng giảm trừ hợp lệ (BH + KPCĐ + Truy thu BH + Thuế + Trừ khác + Tạm ứng)", "ok", []);
     add(20, "Thực lĩnh đúng (Tổng thu nhập − Tổng giảm trừ, làm tròn 1.000đ)", saiThucLinh.length ? "loi" : "ok", saiThucLinh);
 
     // 21. Công thức đang hiệu lực phải tính được (Master V5 P0-01): FORMULA_ERROR = BLOCKER, không dùng công thức mặc định thay thế

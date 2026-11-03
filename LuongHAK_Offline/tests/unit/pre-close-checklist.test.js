@@ -108,3 +108,14 @@ test("#18/#20: dữ liệu thật từ tinhBangLuong() luôn tự khớp (bảng
   assert.equal(item(r, 18).trangThai, "ok");
   assert.equal(item(r, 20).trangThai, "ok");
 });
+
+
+test('KT-20 includes insurance arrears and still rejects incorrect net pay',()=>{
+ const db=baseDb();
+ const row={'Mã NV':'SYNTHETIC','Tổng thu nhập':186300,'Lương thời gian':186300,'BH trừ NLĐ':62100,'Truy thu BH':124200,'Thực lĩnh':0};
+ const check=r=>PCC.run({db,kq:{bangluong:[r],canhbao:[]}}).items.find(x=>x.id===20);
+ assert.equal(check(row).trangThai,'ok');
+ assert.equal(check(Object.assign({},row,{'Thực lĩnh':124000})).trangThai,'loi');
+ assert.equal(check(Object.assign({},row,{'Truy thu BH':0,'Thực lĩnh':124000})).trangThai,'ok');
+ assert.equal(check(Object.assign({},row,{'Truy thu BH':200000,'Thực lĩnh':0})).trangThai,'ok');
+});
