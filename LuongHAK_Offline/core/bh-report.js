@@ -41,7 +41,7 @@
     rows.forEach(function (r) { ["Công ty đóng", "Người lao động đóng (trừ lương)", "Cộng"].forEach(function (c) { t[c] += r[c]; }); });
     rows.push(t);
     var chua = b.filter(function (r) { return !duNguong(r); });
-    return { rows: rows, soNguoi: b.length, chuaDuNguong: chua.length, truyThu: s("Truy thu bảo hiểm"), lechNLD: s("Cộng BH NLĐ đóng") + s("NLĐ.KPCĐ", duNguong) - t["Người lao động đóng (trừ lương)"] }; // "Cộng BH NLĐ đóng" = BHXH + BHYT + BHTN; KPCĐ NLĐ là cột riêng
+    return { rows: rows, soNguoi: b.length, chuaDuNguong: chua.length, truyThu: s("Truy thu bảo hiểm"), lechNLD: s("Cộng BH NLĐ đóng", duNguong) + s("NLĐ.KPCĐ", duNguong) - t["Người lao động đóng (trừ lương)"] }; // "Cộng BH NLĐ đóng" = BHXH + BHYT + BHTN; KPCĐ NLĐ là cột riêng
   }
   /** Tăng / giảm / điều chỉnh mức đóng so với kỳ trước */
   function bienDong(kq, kqTruoc) {
