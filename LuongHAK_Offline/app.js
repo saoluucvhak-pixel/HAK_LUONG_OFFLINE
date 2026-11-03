@@ -496,7 +496,7 @@
     if (opts && opts.drawer && st.hdModal && !opts.onClose) opts = Object.assign({}, opts, { onClose: function () { hdReopen(); } });
     var m = $("#modal"); m.innerHTML = ""; m.className = opts && opts.drawer ? "drawer" : "";
     var close = function () { m.className = "hide"; m.innerHTML = ""; if (opts && opts.onClose) opts.onClose(); };
-    var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
+    var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : "") + (opts && opts.stable ? " stable-edit" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
     // Form nhập liệu chỉ đóng bằng nút rõ ràng. Kéo chọn chữ rồi thả ngoài dlg
     // có thể tạo click với target là nền modal và làm mất toàn bộ bản nháp.
     m.appendChild(d); m.onclick = null;
@@ -1224,14 +1224,30 @@
 
   /** Khung "Sẽ lưu N thay đổi": so giá trị đang nhập với bản cũ, tô viền ô đã đổi. Trả hàm cập nhật. */
   function liveDiff(body, get, fields, orig) {
-    var box = h("section", { class: "diff none", "aria-live": "polite" });
+    var box = h("section", { class: "diff none", "aria-live": "polite" }), heading = h("div"), list = h("dl"), entries = {}, signature = null;
+    box.appendChild(heading); box.appendChild(list);
     var show = function (f, v) { var s = dispVal(f, v); return s === "" ? "(trống)" : s; };
     var upd = function () {
       var d = get(), ch = fields.filter(function (f) { return String(orig[f.k] == null ? "" : orig[f.k]) !== String(d[f.k] == null ? "" : d[f.k]); });
       body.querySelectorAll(".fld[data-k]").forEach(function (w) { w.classList.toggle("chg", ch.some(function (f) { return f.k === w.getAttribute("data-k"); })); });
-      box.innerHTML = ""; box.className = "diff" + (ch.length ? "" : " none");
-      box.appendChild(h("div", { text: ch.length ? "Sẽ lưu " + ch.length + " thay đổi" : "Chưa có thay đổi nào" }));
-      if (ch.length) { var dl = h("dl"); ch.forEach(function (f) { dl.appendChild(h("div", {}, [h("dt", { text: f.label || f.k }), h("dd", {}, [h("del", { text: show(f, orig[f.k]) }), " → ", h("ins", { text: show(f, d[f.k]) })])])); }); box.appendChild(dl); }
+      var next = JSON.stringify(ch.map(function (f) { return [f.k, d[f.k]]; }));
+      if (signature === next) return ch;
+      signature = next;
+      var scroller = body.closest(".bd"), scrollTop = scroller ? scroller.scrollTop : 0;
+      box.className = "diff" + (ch.length ? "" : " none");
+      var label = ch.length ? "Sẽ lưu " + ch.length + " thay đổi" : "Chưa có thay đổi nào";
+      if (heading.textContent !== label) heading.textContent = label;
+      Object.keys(entries).forEach(function (key) { if (!ch.some(function (f) { return f.k === key; })) { entries[key].row.remove(); delete entries[key]; } });
+      ch.forEach(function (f) {
+        var entry = entries[f.k];
+        if (!entry) {
+          var value = h("ins", { text: show(f, d[f.k]) });
+          var row = h("div", {}, [h("dt", { text: f.label || f.k }), h("dd", {}, [h("del", { text: show(f, orig[f.k]) }), " → ", value])]);
+          entry = entries[f.k] = { row: row, value: value }; list.appendChild(row);
+        }
+        var text = show(f, d[f.k]); if (entry.value.textContent !== text) entry.value.textContent = text;
+      });
+      if (scroller) scroller.scrollTop = scrollTop;
       return ch;
     };
     body.addEventListener("input", upd); body.addEventListener("change", upd);
@@ -1291,7 +1307,7 @@
         }
         close(); toast(asNew ? "Đã thêm thông tin mới từ " + dispVal({ t: "date" }, d["Hiệu lực từ"]) + " — bản cũ giữ làm lịch sử" : "Đã lưu"); (onDone || render)();
       })];
-    }, { drawer: true });
+    }, { drawer: true, stable: true });
   }
   // Mặc định khi thêm mới phụ lục: chép từ phụ lục gần nhất
   HR.chitiethd.defaults = function (base) {

@@ -104,6 +104,8 @@ jobs:
         run: node tests/e2e/production-carry.cjs
         env:
           E2E_SHOTS: tests/e2e/screenshots
+      - name: Verify stable contract editor while typing
+        run: node tests/e2e/contract-edit-stability.cjs
       - name: Verify HR durable save and renderer crash exit
         run: node tests/e2e/hr-save-close.cjs
       - name: Verify input safety, pinned headers and safe window closing

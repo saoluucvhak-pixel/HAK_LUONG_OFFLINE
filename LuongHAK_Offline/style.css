@@ -678,3 +678,7 @@ td.ot-note{background:var(--th);color:var(--mut)}
 .sfd .sfd-foot { border-top:1px solid var(--line);background:var(--card); }
 .sfd :is(button,input,select):focus-visible { outline:2px solid var(--brand);outline-offset:2px; }
 @media(max-width:600px){.sfd .hak-sfd-head{padding:15px}}
+
+/* HR edit: stable geometry while marking changed fields. */
+#modal.drawer .dlg.stable-edit{animation:none}
+.fld.chg input,.fld.chg select,.fld.chg textarea{border-width:1px;box-shadow:inset 0 0 0 1px var(--edit)}
