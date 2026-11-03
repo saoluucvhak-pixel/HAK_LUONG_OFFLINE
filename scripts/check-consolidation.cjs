@@ -20,7 +20,11 @@ const allowed='      if (cl < 0) out.bangluong[out.bangluong.length - 1]["Còn t
 assert.equal(engine.split(allowed).length,2,'Expected exactly one additive deficit-output line');
 const suppress='      if (opts && opts.suppressProduction) { luongSL = 0; luongBu = 0; }\n';
 assert.equal(engine.split(suppress).length,2,'Expected exactly one opt-in production deferral guard');
-const defaultEngine=engine.replace(allowed,'').replace(suppress,'').replace('var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};','var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};');
+// Approved alpha.50 rule: only positive-BT staff count in the team denominator.
+const activeHeadcount='if (cc[ma] && cc[ma].congBT > 0) o.n++; // Chỉ người có công BT trong kỳ tham gia mẫu số; tiền SL tổ giữ nguyên. 2026 (C4): tiền tổ chỉ tính sản lượng';
+const priorHeadcount='o.n++; // 2026 (C4): tiền tổ chỉ tính sản lượng';
+assert.equal(engine.split(activeHeadcount).length,2,'Expected exactly one approved active-worker headcount rule');
+const defaultEngine=engine.replace(activeHeadcount,priorHeadcount).replace(allowed,'').replace(suppress,'').replace('var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};','var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};');
 assert.equal(defaultEngine,original,'Existing default payroll formulas changed');
 
-console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas unchanged');
+console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas preserved except explicitly approved deficit, carry, and active-worker headcount changes');

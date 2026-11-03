@@ -34,3 +34,15 @@ test('Retired pay-only staff uses dependent eligibility of target period',()=>{c
 test('Fresh-machine restore accepts a valid closed transfer without requiring previous local ledger',()=>{const d=transfer(fixture()),CLS=require('../../core/payroll-close');for(const ky of ['2026-09','2026-10']){const kq=G.computeKy(d,ky,{quyChe:'2026',bu:'daihiep'}).kq;d.kyluong.push(CLS.buildSnapshot(d,ky,kq,[],{buTheoNgay:'daihiep',quyChe:'2026'}));}assert.doesNotThrow(()=>C.validate(d,null));});
 
 test('Group topup uses October day count with September actual attendance',()=>{const d=transfer(fixture());d.dm_quychebu[0]['Cách bù']='to';assert.equal(C.payments(d,'2026-10')[0].topup,19968);});
+
+
+test('Team carry excludes source zero-BT worker and uses target calendar days',()=>{
+ const d=fixture(); d.dm_quychebu[0]['Cách bù']='to';
+ d.nhanvien.push({'Mã NV':'ZERO','Họ và tên':'Zero'});
+ d.hopdong.push({'Mã NV':'ZERO','Số HĐLĐ':'ZERO','Ngày vào làm':'2026-01-01'});
+ d.chitiethd.push({'Mã NV':'ZERO','Số HĐLĐ':'ZERO','Hiệu lực từ':'2026-01-01','Mã lương':'SP','Phòng ban':'02.01','Thuế TNCN':'MT00'});
+ transfer(d);
+ const p=C.payments(d,'2026-10',false,{quyChe:'2026'});
+ assert.deepEqual(p.map(x=>x.ma),['A','B']);
+ for(const r of p) assert.equal(r.topup,Math.round(20000-2000/31/2));
+});

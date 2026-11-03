@@ -228,3 +228,22 @@ test("U-PA-13 phiếu ghi vắng \"Tưởng\" mà Tưởng không có công (đ�
   assert.deepEqual(r.shares.map((x) => [x.ma, x.kl]), [["A", 5], ["C", 5]]);
   assert.deepEqual(r.warnings, []); assert.deepEqual(r.nghi, []); // đã ghi vắng → không báo thêm
 });
+
+
+test("Team topup excludes zero-BT staff but retains positive BT below threshold", () => {
+  const db = baseDb();
+  db.nhansu = ['A','B','ZERO','MISSING'].map(ma => staff({'Mã nhân viên':ma,'Mã tiền lương 1':'SP','Mã PB':'02.02'}));
+  db.chamcong = [
+    {'Kỳ':'2026-09','Mã NV':'A','Hình thức công':'BT','01':20},
+    {'Kỳ':'2026-09','Mã NV':'B','Hình thức công':'BT','01':10},
+    {'Kỳ':'2026-09','Mã NV':'ZERO','Hình thức công':'PN','01':20},
+    {'Kỳ':'2026-10','Mã NV':'MISSING','Hình thức công':'BT','01':20}
+  ];
+  db.sanluong = [{'Ngày cân':'2026-09-01','KL hàng (Tấn)':900,'Mã NV':'A'}];
+  const rows = E.tinhBangLuong(db,2026,9,'to',{quyChe:'2026'}).bangluong;
+  const get = ma => rows.find(r=>r['Mã NV']===ma);
+  assert.equal(get('A')['Lương bù SL'],(200000-900*6000/30/2)*20);
+  for (const ma of ['B','ZERO','MISSING']) assert.equal(get(ma)['Lương bù SL'],0);
+  db.chamcong = [];
+  assert.ok(E.tinhBangLuong(db,2026,9,'to').bangluong.every(r=>r['Lương bù SL']===0));
+});
