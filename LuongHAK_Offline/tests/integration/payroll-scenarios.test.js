@@ -71,32 +71,32 @@ test("I-20 phụ lục tăng lương hiệu lực GIỮA THÁNG (16/09), KHÔNG 
   assert.equal(pay(db, 2026, 8).b["Lương thời gian"], 20000000);
 });
 
-test("I-21 (R-57) cùng dữ liệu I-16, chỉ KHAI ngưỡng 15 công cho TG1 trong danh mục → công thức có sẵn tự áp dụng: không trừ BH NLĐ, truy thu phần công ty 6tr × 23,5% = 1.410.000", () => {
+test("I-21 (R-57) cùng dữ liệu I-16, chỉ KHAI ngưỡng 15 công cho TG1 trong danh mục → công thức có sẵn tự áp dụng: luôn trừ BH NLĐ, truy thu thêm phần công ty 6tr × 23,5% = 1.410.000", () => {
   const db = one(); db.hopdong[0]["Ngày vào làm"] = "2026-09-15"; db.chitiethd[0]["Hiệu lực từ"] = "2026-09-15";
   db.chamcong = [keep(ccRow("NV001", 2026, 9), 15, 30)];
   db.dm_luong.find((l) => l["Mã lương"] === "TG1")["Ngưỡng truy thu BH (công)"] = "15"; // chỉ thay DỮ LIỆU danh mục, không đổi code
   const { b } = pay(db, 2026, 9);
   assert.equal(b["Tổng công"], 14);
-  assert.equal(b["BH trừ NLĐ"], 0); assert.equal(b["Truy thu BH"], 1410000); // (17,5% + 3% + 1% + 2%) × 6.000.000
-  assert.equal(b["Thực lĩnh"], 9359000); // 10.769.231 − 1.410.000 = 9.359.231 → làm tròn 1.000
+  assert.equal(b["BH trừ NLĐ"], 630000); assert.equal(b["Truy thu BH"], 1410000); // (17,5% + 3% + 1% + 2%) × 6.000.000
+  assert.equal(b["Thực lĩnh"], 8729000); // 10.769.231 − 630.000 − 1.410.000 = 8.729.231 → làm tròn 1.000
   // đủ ngưỡng (khai 14) → đóng bình thường
   db.dm_luong.find((l) => l["Mã lương"] === "TG1")["Ngưỡng truy thu BH (công)"] = "14";
   assert.equal(pay(db, 2026, 9).b["BH trừ NLĐ"], 630000);
 });
 
-test("I-22 (Q-26 = phương án A, chủ sở hữu chọn 11/10/2026) nghỉ việc 02/09 dưới ngưỡng 14 công → GIỮ quy tắc Q-04: không trừ BH NLĐ, truy thu phần công ty; 0 công → thực lĩnh 0 + cảnh báo số còn thiếu, không tự chuyển kỳ sau", () => {
+test("I-22 (Q-26 = phương án A, chủ sở hữu chọn 11/10/2026) nghỉ việc 02/09 dưới ngưỡng 14 công → GIỮ quy tắc Q-04: luôn trừ BH NLĐ, truy thu thêm phần công ty; 0 công → thực lĩnh 0 + cảnh báo số còn thiếu, không tự chuyển kỳ sau", () => {
   const db = one(); db.hopdong[0]["Ngày chấm dứt"] = "2026-09-02";
   db.dm_luong.find((l) => l["Mã lương"] === "TG1")["Ngưỡng truy thu BH (công)"] = "14";
-  // 2 công (01, 02/09): lương 20tr × 2/26 = 1.538.462; truy thu 6tr × 23,5% = 1.410.000 → 128.462 → 128.000
+  // 2 công (01, 02/09): lương 20tr × 2/26 = 1.538.462; BH NLĐ 630.000 + truy thu 1.410.000 → còn thiếu 501.538
   db.chamcong = [keep(ccRow("NV001", 2026, 9), 1, 2)];
   let { b } = pay(db, 2026, 9);
   assert.equal(b["Tổng công"], 2); assert.equal(b["Lương thời gian"], 1538462);
-  assert.equal(b["BH trừ NLĐ"], 0); assert.equal(b["Truy thu BH"], 1410000); assert.equal(b["Thực lĩnh"], 128000);
+  assert.equal(b["BH trừ NLĐ"], 630000); assert.equal(b["Truy thu BH"], 1410000); assert.equal(b["Thực lĩnh"], 0); assert.equal(b["Còn thiếu (thực lĩnh âm)"], 501538);
   // 0 công (nghỉ đầu tháng, không đi làm ngày nào): vẫn có dòng lương + BH vì hợp đồng còn hiệu lực trong kỳ
   db.chamcong = [];
   const r = pay(db, 2026, 9); b = r.b;
   assert.equal(b["Tổng công"], 0); assert.equal(b["Truy thu BH"], 1410000); assert.ok(!b["Thực lĩnh"]);
-  assert.ok(r.warn.some((w) => /vượt thu nhập 1\.410\.000đ.*CHƯA được chuyển sang kỳ sau/.test(w)), r.warn.join("\n"));
+  assert.ok(r.warn.some((w) => /vượt thu nhập 2\.040\.000đ.*CHƯA được chuyển sang kỳ sau/.test(w)), r.warn.join("\n"));
   // tháng sau không còn trong bảng lương
   assert.equal(pay(db, 2026, 10).b, undefined);
 });

@@ -26,7 +26,10 @@ const priorHeadcount='o.n++; // 2026 (C4): tiền tổ chỉ tính sản lượn
 assert.equal(engine.split(activeHeadcount).length,2,'Expected exactly one approved active-worker headcount rule');
 const reportTotal='"Cộng BH NLĐ đóng": Math.round(luongBH * num(bh["NLD.BHXH"])) + Math.round(luongBH * num(bh["NLD.BHYT"])) + Math.round(luongBH * num(bh["NLD.BHTN"]))';
 assert.equal(engine.split(reportTotal).length,2,'Expected exactly one additive insurance report total');
-const defaultEngine=engine.replace(reportTotal,'"Cộng BH NLĐ đóng": bhNLD').replace(activeHeadcount,priorHeadcount).replace(allowed,'').replace(suppress,'').replace('var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};','var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};');
+const insuranceStart='      // BHXH\n', insuranceEnd='      // TNCN\n';
+assert.equal(engine.split(insuranceStart).length,2); assert.equal(engine.split(insuranceEnd).length,2);
+const normalizeInsurance=src=>src.slice(0,src.indexOf(insuranceStart))+original.slice(original.indexOf(insuranceStart),original.indexOf(insuranceEnd))+src.slice(src.indexOf(insuranceEnd));
+const defaultEngine=normalizeInsurance(engine).replace(reportTotal,'"Cộng BH NLĐ đóng": bhNLD').replace(activeHeadcount,priorHeadcount).replace(allowed,'').replace(suppress,'').replace('var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};','var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};');
 assert.equal(defaultEngine,original,'Existing default payroll formulas changed');
 
-console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas preserved except explicitly approved deficit, carry, and active-worker headcount changes');
+console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas preserved except explicitly approved deficit, carry, active-worker headcount, and approved insurance reconciliation changes');

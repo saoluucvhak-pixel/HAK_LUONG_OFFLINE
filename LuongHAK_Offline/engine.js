@@ -671,11 +671,18 @@
       var khongLCB = !!(bh && qc2026 && !(luongBH > 0));
       if (khongLCB) { bh = null; out.canhbao.push(ma + ": có mã BHXH nhưng chưa có Lương cơ bản (mức đóng) — quy chế 2026 không tính BH / truy thu (như bảng lương Excel)"); } // 2026 (C8)
       if (bh) {
-        var tlNLD = num(bh["NLD.BHXH"]) + num(bh["NLD.BHYT"]) + num(bh["NLD.BHTN"]); // KPCĐ NLĐ tách riêng (xem kpcdNLD) — không gộp vào Cộng BH NLĐ đóng, đúng như báo cáo RP_BHXH/RP_THLUONG thực tế của HAK_DN (T11/2025) và Quế Sơn (T9/2025): "Tổng KPCĐ" là cột riêng, không cộng vào "Tổng BH"
+        // KPCĐ NLĐ tách riêng (xem kpcdNLD) — không gộp vào Cộng BH NLĐ đóng, đúng như báo cáo RP_BHXH/RP_THLUONG thực tế của HAK_DN (T11/2025) và Quế Sơn (T9/2025): "Tổng KPCĐ" là cột riêng, không cộng vào "Tổng BH"
         var ng = dmL ? num(dmL["Ngưỡng truy thu BH (công)"]) : 0;
         var du2 = !ng || c.tongCong >= ng;
-        var ctyDong = Math.round(luongBH * (num(bh["DN.BHXH"]) + num(bh["DN.BHYT"]) + num(bh["DN.BHTN"]) + num(bh["DN.KPCD"])));
-        if (du2) { bhNLD = Math.round(luongBH * tlNLD); kpcdNLD = Math.round(luongBH * num(bh["NLD.KPCD"])); } else truyThu = ctyDong; // KPCĐ NLĐ áp dụng luôn, không chỉ qc2026 (dữ liệu thực tế HAK_DN T11/2025 và Quế Sơn T9/2025 đều đã trừ trước khi quy chế 2026 được duyệt 11/10/2026)
+        var nldParts = {}, dnParts = {};
+        ["BHXH", "BHYT", "BHTN"].forEach(function (part) {
+          nldParts[part] = Math.round(luongBH * num(bh["NLD." + part]));
+          dnParts[part] = Math.round(luongBH * num(bh["DN." + part]));
+          bhNLD += nldParts[part];
+        });
+        kpcdNLD = Math.round(luongBH * num(bh["NLD.KPCD"]));
+        var ctyDong = dnParts.BHXH + dnParts.BHYT + dnParts.BHTN + Math.round(luongBH * num(bh["DN.KPCD"]));
+        if (!du2 && bhNLD > 0 && ctyDong > 0) truyThu = ctyDong;
         var bhRow = {
           "Mã NV": ma, "Họ và tên": ns["Họ và tên"], "Phòng ban": (pb[ns["Mã PB"]] || {})["Tên phòng ban"] || ns["Mã PB"] || "",
           "Số sổ BHXH": ns["Số sổ BHXH"] || "", // PV-7a: báo cáo BHXH thật (RP_BHXH) có cột này
