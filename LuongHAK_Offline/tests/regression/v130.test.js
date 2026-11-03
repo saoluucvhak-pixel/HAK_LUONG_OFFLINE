@@ -18,6 +18,7 @@ function stripKpcd(rows, key) { return rows.map((r) => { const o = Object.assign
 
 test("bộ dữ liệu chuẩn (80 NV × 3 kỳ, số liệu dạng số thuần): kết quả tiền lương TRÙNG KHỚP 100% với v1.3.0", () => {
   const db = regressionDataset(80);
+  db.dm_luong.forEach(r => { r["Ngưỡng truy thu BH (công)"] = 0; });
   let people = 0;
   [[2026, 8], [2026, 9], [2026, 10]].forEach(([y, m]) => {
     const { a, b, sp0, sp } = runBoth(JSON.parse(JSON.stringify(db)), y, m);

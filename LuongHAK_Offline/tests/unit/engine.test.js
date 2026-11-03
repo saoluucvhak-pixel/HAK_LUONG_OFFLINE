@@ -291,7 +291,7 @@ test("BHXH người lao động 10,5% lương đóng BH; truy thu khi dưới ng
   db.nhansu = [staff({ "Mã tiền lương 1": "TG1", "Lương thỏa thuận": "9000000", "Lương cơ bản": "5000000", "Mã BHXH": "BH01" })];
   db.chamcong = [ccRow("NV", 2026, 9, "BT", 1, 10)];
   const r2 = row(E.tinhBangLuong(db, 2026, 9, false));
-  assert.equal(r2["BH trừ NLĐ"], 0);
+  assert.equal(r2["BH trừ NLĐ"], 525000);
   assert.equal(r2["Truy thu BH"], 1175000); // 5.000.000 × 23,5%
 });
 

@@ -24,7 +24,7 @@
       if (!m[k]) { m[k] = { "Phòng ban": k, "Số người": 0, "Lương đóng BHXH": 0, "Cộng BH công ty đóng": 0, "Cộng BH NLĐ đóng": 0, "Truy thu bảo hiểm": 0 }; order.push(k); }
       var o = m[k]; o["Số người"]++; ["Lương đóng BHXH", "Cộng BH công ty đóng", "Cộng BH NLĐ đóng", "Truy thu bảo hiểm"].forEach(function (c) { o[c] += n0(r[c]); });
     });
-    var rows = order.map(function (k) { var o = m[k]; o["Tổng BH (công ty + NLĐ + truy thu)"] = o["Cộng BH công ty đóng"] + o["Cộng BH NLĐ đóng"] + o["Truy thu bảo hiểm"]; return o; });
+    var rows = order.map(function (k) { var o = m[k]; o["Tổng BH (công ty + NLĐ)"] = o["Cộng BH công ty đóng"] + o["Cộng BH NLĐ đóng"]; return o; });
     if (rows.length) { var t = { "Phòng ban": "TỔNG CỘNG" }; Object.keys(rows[0]).slice(1).forEach(function (c) { t[c] = rows.reduce(function (a, r) { return a + r[c]; }, 0); }); rows.push(t); }
     return rows;
   }
@@ -32,16 +32,16 @@
   function tongHop(kq) {
     var b = kq && kq.bhxh || [], s = function (c, f) { return b.filter(f || function () { return true; }).reduce(function (a, r) { return a + n0(r[c]); }, 0); };
     var rows = [
-      { "Khoản": "BHXH", "Công ty đóng": s("CTY.BHXH"), "Người lao động đóng (trừ lương)": s("NLĐ.BHXH", duNguong) },
-      { "Khoản": "BHYT", "Công ty đóng": s("CTY.BHYT"), "Người lao động đóng (trừ lương)": s("NLĐ.BHYT", duNguong) },
-      { "Khoản": "BHTN", "Công ty đóng": s("CTY.BHTN"), "Người lao động đóng (trừ lương)": s("NLĐ.BHTN", duNguong) },
-      { "Khoản": "KPCĐ (nộp công đoàn)", "Công ty đóng": s("CTY.KPCĐ"), "Người lao động đóng (trừ lương)": s("NLĐ.KPCĐ", duNguong) }]; // KPCĐ NLĐ trừ riêng (cột "KPCĐ trừ NLĐ" của bảng lương)
+      { "Khoản": "BHXH", "Công ty đóng": s("CTY.BHXH"), "Người lao động đóng (trừ lương)": s("NLĐ.BHXH") },
+      { "Khoản": "BHYT", "Công ty đóng": s("CTY.BHYT"), "Người lao động đóng (trừ lương)": s("NLĐ.BHYT") },
+      { "Khoản": "BHTN", "Công ty đóng": s("CTY.BHTN"), "Người lao động đóng (trừ lương)": s("NLĐ.BHTN") },
+      { "Khoản": "KPCĐ (nộp công đoàn)", "Công ty đóng": s("CTY.KPCĐ"), "Người lao động đóng (trừ lương)": s("NLĐ.KPCĐ") }]; // KPCĐ NLĐ trừ riêng (cột "KPCĐ trừ NLĐ" của bảng lương)
     rows.forEach(function (r) { r["Cộng"] = r["Công ty đóng"] + r["Người lao động đóng (trừ lương)"]; });
     var t = { "Khoản": "TỔNG", "Công ty đóng": 0, "Người lao động đóng (trừ lương)": 0, "Cộng": 0 };
     rows.forEach(function (r) { ["Công ty đóng", "Người lao động đóng (trừ lương)", "Cộng"].forEach(function (c) { t[c] += r[c]; }); });
     rows.push(t);
     var chua = b.filter(function (r) { return !duNguong(r); });
-    return { rows: rows, soNguoi: b.length, chuaDuNguong: chua.length, truyThu: s("Truy thu bảo hiểm"), lechNLD: s("Cộng BH NLĐ đóng", duNguong) + s("NLĐ.KPCĐ", duNguong) - t["Người lao động đóng (trừ lương)"] }; // "Cộng BH NLĐ đóng" = BHXH + BHYT + BHTN; KPCĐ NLĐ là cột riêng
+    return { rows: rows, soNguoi: b.length, chuaDuNguong: chua.length, truyThu: s("Truy thu bảo hiểm"), lechNLD: s("Cộng BH NLĐ đóng") + s("NLĐ.KPCĐ") - t["Người lao động đóng (trừ lương)"] }; // "Cộng BH NLĐ đóng" = BHXH + BHYT + BHTN; KPCĐ NLĐ là cột riêng
   }
   /** Tăng / giảm / điều chỉnh mức đóng so với kỳ trước */
   function bienDong(kq, kqTruoc) {
