@@ -684,7 +684,7 @@
           "CTY.BHTN": Math.round(luongBH * num(bh["DN.BHTN"])), "CTY.KPCĐ": Math.round(luongBH * num(bh["DN.KPCD"])),
           "Cộng BH công ty đóng": ctyDong,
           "NLĐ.BHXH": Math.round(luongBH * num(bh["NLD.BHXH"])), "NLĐ.BHYT": Math.round(luongBH * num(bh["NLD.BHYT"])),
-          "NLĐ.BHTN": Math.round(luongBH * num(bh["NLD.BHTN"])), "Cộng BH NLĐ đóng": bhNLD, "NLĐ.KPCĐ": kpcdNLD, "Truy thu bảo hiểm": truyThu,
+          "NLĐ.BHTN": Math.round(luongBH * num(bh["NLD.BHTN"])), "Cộng BH NLĐ đóng": Math.round(luongBH * num(bh["NLD.BHXH"])) + Math.round(luongBH * num(bh["NLD.BHYT"])) + Math.round(luongBH * num(bh["NLD.BHTN"])), "NLĐ.KPCĐ": kpcdNLD, "Truy thu bảo hiểm": truyThu,
           "Ghi chú": du2 ? "Đủ ngưỡng" : "Chưa đủ ngưỡng (" + c.tongCong + "/" + ng + " công)"
         };
         out.bhxh.push(bhRow);

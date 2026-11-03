@@ -46,7 +46,7 @@ test("bộ dữ liệu chuẩn (80 NV × 3 kỳ, số liệu dạng số thuần
     assert.deepEqual(stripTC(stripKpcd(stripKpcd(b.bangluong, "KPCĐ trừ NLĐ"), "_ct")), stripTC(a.bangluong), "bảng lương " + m + "/" + y);
     // "Số sổ BHXH" (PV-7a) cũng mới, luôn rỗng với dữ liệu mẫu — strip trước khi so với baseline
     b.bhxh.forEach((r) => assert.equal(r["Số sổ BHXH"], "", "Số sổ BHXH (BHXH) " + m + "/" + y));
-    assert.deepEqual(stripKpcd(stripKpcd(b.bhxh, "NLĐ.KPCĐ"), "Số sổ BHXH"), a.bhxh, "BHXH " + m + "/" + y);
+    assert.deepEqual(stripKpcd(stripKpcd(b.bhxh, "NLĐ.KPCĐ"), "Số sổ BHXH"), a.bhxh.map(r => Object.assign({}, r, { "Cộng BH NLĐ đóng": r["NLĐ.BHXH"] + r["NLĐ.BHYT"] + r["NLĐ.BHTN"] })), "BHXH " + m + "/" + y);
     // Thuế TNCN của người bị ảnh hưởng bởi lỗi tăng ca CN1/CN2 (xem trên) cũng đổi theo — loại khỏi so sánh
     const tncnKhongBiAnhHuong = (rows) => rows.filter((r) => !nvTcKhacNhau[r["Mã NV"]]);
     assert.deepEqual(tncnKhongBiAnhHuong(b.tncn), tncnKhongBiAnhHuong(a.tncn), "TNCN " + m + "/" + y);
