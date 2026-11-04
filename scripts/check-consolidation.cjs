@@ -33,3 +33,7 @@ const defaultEngine=normalizeInsurance(engine).replace(reportTotal,'"Cộng BH N
 assert.equal(defaultEngine,original,'Existing default payroll formulas changed');
 
 console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas preserved except explicitly approved deficit, carry, active-worker headcount, and approved insurance reconciliation changes');
+
+const oldImporter=normalize(cp.execFileSync('git',['-c','safe.directory=*','show','c389ef4ffcfd13a4f867cb070db2069314617dc7:LuongHAK_Offline/core/importer.js'],{cwd:root,encoding:'utf8'}));
+const currentImporter=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/core/importer.js'),'utf8'));
+assert.equal(currentImporter.replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,'Importer changed beyond approved parent tax key');
