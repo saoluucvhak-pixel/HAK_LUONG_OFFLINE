@@ -682,3 +682,9 @@ td.ot-note{background:var(--th);color:var(--mut)}
 /* HR edit: stable geometry while marking changed fields. */
 #modal.drawer .dlg.stable-edit{animation:none}
 .fld.chg input,.fld.chg select,.fld.chg textarea{border-width:1px;box-shadow:inset 0 0 0 1px var(--edit)}
+
+/* Contract forms: avoid backdrop recomposition while dragging/scrolling. */
+#modal.stable-modal{backdrop-filter:none;-webkit-backdrop-filter:none;overscroll-behavior:contain}
+#modal.stable-modal>.dlg>header,#modal.stable-modal>.dlg>footer{flex-shrink:0}
+#modal.stable-modal>.dlg>.bd{min-height:0;overscroll-behavior:contain;scrollbar-gutter:stable;overflow-anchor:none}
+#modal.stable-modal>.dlg{animation:none}
