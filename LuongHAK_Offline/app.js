@@ -688,6 +688,31 @@
     else body.appendChild(simpleTable(rows.map(function (e) { return { "Lúc": fmtTime(e.luc), "Người": e.nguoi || "", "Thao tác": e.thaoTac || "", "Chi tiết": String(e.chiTiet || "").slice(0, 160) }; })));
     modal("Lịch sử — " + tn + (codes.length ? " · " + codes.join(" / ") : ""), body, function (close) { return [btn("Đóng", "", close)]; });
   }
+  function productionReperiodScreen(after) {
+    if (!need("input.edit")) return;
+    var source = kyStr(), body = h("div"), target = h("input", { type: "month", value: st.nam + "-" + ("0" + Math.min(12, st.thang + 1)).slice(-2), "aria-label": "Kỳ sản lượng mới" });
+    body.appendChild(h("p", { text: "Chuyển hẳn sản lượng " + source + " sang kỳ mới: người/tổ/công, đơn giá và bù đều theo kỳ mới. Giữ số ngày trong tháng (ví dụ 09/09 → 09/10), giữ ngày gốc để tra cứu. Kỳ nguồn không còn các phiếu này. Dữ liệu chuyển ở trạng thái Nháp, cần kiểm tra và Lưu để tính lương." }));
+    body.appendChild(target);
+    modal("Chuyển thành sản lượng kỳ mới", body, function (close) { return [btn("Đóng", "", close), btn("Xem trước", "pri", function () {
+      var plan; try { plan = C.productionCarry.reperiod(db, source, target.value); } catch (e) { alert(e.message); return; }
+      var detail = h("div");
+      detail.appendChild(h("p", { text: "Chuyển " + plan.rows.length + " phiếu: " + source + " → " + plan.target + ". Chia theo công thực tế kỳ " + plan.target + ". Kiểm tra ngày phân bổ bên dưới trước khi xác nhận." }));
+      detail.appendChild(simpleTable(plan.rows.map(function (r, i) { return { "Phiếu": r["Phiếu cân"], "Ngày cũ": plan.moving[i]["Ngày cân"], "Ngày phân bổ mới": r["Ngày cân"], "Tấn": r["KL hàng (Tấn)"], "Tổ": r["Mã phòng ban"] || "", "Mã NV": r["Mã NV"] || "" }; })));
+      modal("Xem trước chuyển hẳn sản lượng", detail, function (finish) { return [btn("Hủy", "", finish), btn("Xác nhận chuyển hẳn", "pri", function () {
+        if (!need("input.edit")) return;
+        if (JSON.stringify(db.sanluong || []) !== plan.token) { alert("Dữ liệu đã đổi; hãy xem trước lại."); return; }
+        if (!backupOrBlock("truoc-chuyen-han-sl-" + source, "chuyển hẳn sản lượng")) return;
+        if (!txn(["sanluong", "_inputReviews", "schemaVersion"], function () {
+          var fresh = C.productionCarry.reperiod(db, source, plan.target);
+          C.inputReview.initialize(db);
+          db.sanluong = db.sanluong.filter(function (r) { return fresh.moving.indexOf(r) < 0; }).concat(fresh.rows);
+          audit("Chuyển hẳn sản lượng", source + " → " + plan.target + "; " + fresh.rows.length + " phiếu; phân bổ theo kỳ mới; Nháp");
+        })) { alert("Chưa chuyển: " + lastTxnError); return; }
+        finish(); close(); after(); render(); toast("Đã chuyển thành SL " + plan.target + ". Kiểm tra rồi Lưu để tính lương ở cả kỳ nguồn và kỳ mới.");
+      })]; });
+    })]; });
+  }
+
   function productionCarryScreen(after) {
     if (!need("payroll.calc")) return;
     var closeCarry, body = h("div"), source = kyStr(), target = h("input", { type: "month", value: st.nam + "-" + ("0" + Math.min(12, st.thang + 1)).slice(-2), "aria-label": "Kỳ chi trả sản lượng" });
@@ -835,7 +860,7 @@
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw, pumpMode); }, "Nhập từ file .xlsx / .xls / .csv"));
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
     if (key === "bandam" && pumpMode === "direct") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", bandamDirectExcelTemplate));
-    if (key === "sanluong") bar.appendChild(btn("Chuyển kỳ chi trả SL…", "", function () { productionCarryScreen(draw); }));
+    if (key === "sanluong") { bar.appendChild(btn("Chuyển thành SL kỳ mới…", "", function () { productionReperiodScreen(draw); })); bar.appendChild(btn("Chỉ đổi kỳ chi trả SL…", "", function () { productionCarryScreen(draw); })); }
     if (inputReview) {
       bar.appendChild(btn("Lưu để tính lương", "pri", function () {
         if (!need("input.edit")) return;

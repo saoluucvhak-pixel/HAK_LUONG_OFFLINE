@@ -109,6 +109,7 @@ jobs:
           node tests/e2e/contract-edit-stability.cjs
           node tests/e2e/hr-editor-stability.cjs
           node tests/e2e/catalog-filter-stability.cjs
+          node tests/e2e/production-reperiod.cjs
       - name: Verify HR durable save and renderer crash exit
         run: node tests/e2e/hr-save-close.cjs
       - name: Verify input safety, pinned headers and safe window closing
