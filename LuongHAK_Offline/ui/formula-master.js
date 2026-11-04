@@ -354,16 +354,25 @@
     }
     function infoCheck(chk) {
       var b = h("div", { "data-ot-check": "1" });
+      b.dataset.signature = JSON.stringify([chk.errors, chk.warnings]);
       chk.errors.forEach(function (x) { b.appendChild(h("div", { class: "warn ot-err", text: "⛔ " + x })); });
       chk.warnings.forEach(function (x) { b.appendChild(h("div", { class: "hint", text: "⚠ " + x })); });
       return b;
     }
     function vctx() { return { editing: M.isNew || (M.info && M.info.mode === "newver") ? null : M.row, pct: A.pct, isoDate: function (v) { var s = String(v == null ? "" : v).trim(); if (!s) return ""; var n = VAL.normDate(s); return n || ""; } }; }
-    function dirty() { M.dirty = true; var c = A.$("#modal [data-ot-check]"); if (c && M.tab === "info") { var chk = OM.validateInfo(db(), M.info, vctx()); var nb = infoCheck(chk); c.replaceWith(nb); } }
+    function updateInfoCheck(chk) {
+      var c = A.$("#modal [data-ot-check]"); if (!c) return;
+      var signature = JSON.stringify([chk.errors, chk.warnings]);
+      if (c.dataset.signature === signature) return;
+      var body = c.closest(".ot-body"), top = body ? body.scrollTop : 0, next = infoCheck(chk);
+      c.replaceChildren.apply(c, Array.prototype.slice.call(next.childNodes)); c.dataset.signature = signature;
+      if (body) body.scrollTop = top;
+    }
+    function dirty() { M.dirty = true; if (M.tab === "info") updateInfoCheck(OM.validateInfo(db(), M.info, vctx())); }
     function saveInfo() {
       var f = M.info; var chk = OM.validateInfo(db(), f, vctx());
       if (f.mode === "newver" && !M.isNew) { if (!f.tuMoi) chk.errors.push("Chưa nhập ngày áp dụng của phiên bản mới"); else if (M.row && f.tuMoi <= (M.row["Hiệu lực từ"] || "")) chk.errors.push("Ngày áp dụng mới phải sau Hiệu lực từ của bản đang xem (" + fdate(M.row["Hiệu lực từ"]) + ")"); }
-      if (chk.errors.length) { A.$("#modal [data-ot-check]").replaceWith(infoCheck(chk)); A.toast("Còn lỗi trong biểu mẫu — xem phần cảnh báo"); return; }
+      if (chk.errors.length) { updateInfoCheck(chk); A.toast("Còn lỗi trong biểu mẫu — xem phần cảnh báo"); return; }
       if (M.isNew) {
         var vals = vals0(f, f.tu, f.den);
         if (!A.commit(A.REPO.plan("insert", T, null, vals, { what: "thêm " + K.noun }), { action: K.title + " — thêm mã " + f.ma })) return;

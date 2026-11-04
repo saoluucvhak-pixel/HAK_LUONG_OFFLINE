@@ -24,7 +24,7 @@ assert.equal(engine.split(suppress).length,2,'Expected exactly one opt-in produc
 const activeHeadcount='if (cc[ma] && cc[ma].congBT > 0) o.n++; // Chỉ người có công BT trong kỳ tham gia mẫu số; tiền SL tổ giữ nguyên. 2026 (C4): tiền tổ chỉ tính sản lượng';
 const priorHeadcount='o.n++; // 2026 (C4): tiền tổ chỉ tính sản lượng';
 assert.equal(engine.split(activeHeadcount).length,2,'Expected exactly one approved active-worker headcount rule');
-const reportTotal='"Cộng BH NLĐ đóng": Math.round(luongBH * num(bh["NLD.BHXH"])) + Math.round(luongBH * num(bh["NLD.BHYT"])) + Math.round(luongBH * num(bh["NLD.BHTN"]))';
+const reportTotal='"Cộng BH NLĐ đóng": Math.round(luongBH * pct(bh["NLD.BHXH"])) + Math.round(luongBH * pct(bh["NLD.BHYT"])) + Math.round(luongBH * pct(bh["NLD.BHTN"]))';
 assert.equal(engine.split(reportTotal).length,2,'Expected exactly one additive insurance report total');
 const insuranceStart='      // BHXH\n', insuranceEnd='      // TNCN\n';
 assert.equal(engine.split(insuranceStart).length,2); assert.equal(engine.split(insuranceEnd).length,2);
@@ -33,3 +33,7 @@ const defaultEngine=normalizeInsurance(engine).replace(reportTotal,'"Cộng BH N
 assert.equal(defaultEngine,original,'Existing default payroll formulas changed');
 
 console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas preserved except explicitly approved deficit, carry, active-worker headcount, and approved insurance reconciliation changes');
+
+const oldImporter=normalize(cp.execFileSync('git',['-c','safe.directory=*','show','c389ef4ffcfd13a4f867cb070db2069314617dc7:LuongHAK_Offline/core/importer.js'],{cwd:root,encoding:'utf8'}));
+const currentImporter=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/core/importer.js'),'utf8'));
+assert.equal(currentImporter.replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,'Importer changed beyond approved parent tax key');

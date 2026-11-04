@@ -42,7 +42,7 @@
       ten: "Quy chế bù sản lượng",
       cols: ["Hiệu lực từ", "Hiệu lực đến", "Cách bù", "Trạng thái", "Người phê duyệt", "Mô tả"],
       def: { "Trạng thái": "Nháp" },
-      hint: "'Cách bù' (đúng 1 trong 4 mã, xem Tính lương để biết tên hiển thị): false = theo THÁNG (từng người) · true = theo NGÀY liên tục (cách cũ) · daihiep = theo NGÀY bậc thang (công cụ HAK/Đại Hiệp) · to = theo BÌNH QUÂN TỔ (công cụ HAK). Chỉ bản 'Trạng thái'='Hiệu lực' mới được dùng để CHỐT kỳ — màn hình Tính lương vẫn cho chọn phương pháp khác để xem thử/so sánh, nhưng khi chốt app tự tính lại theo đúng bản Hiệu lực ở đây. Chưa có bản Hiệu lực nào cho kỳ đang chốt (và kỳ đó có sản lượng cần bù) → KHÔNG chốt được."
+      hint: "'Cách bù' (đúng 1 trong 4 mã, xem Tính lương để biết tên hiển thị): false = theo THÁNG (từng người) · true = theo NGÀY liên tục (cách cũ) · daihiep = theo NGÀY bậc thang (công cụ HAK/Đại Hiệp) · to = theo BÌNH QUÂN TỔ (công cụ HAK). Chỉ bản 'Trạng thái'='Hiệu lực' mới được dùng để CHỐT kỳ — màn hình Tính lương vẫn cho chọn phương pháp khác để xem thử/so sánh, nhưng khi chốt phương pháp đang xem phải khớp bản Hiệu lực; nếu khác thì app chặn, không tự chuyển hoặc tính lại. Chưa có bản Hiệu lực nào cho kỳ đang chốt (và kỳ đó có sản lượng cần bù) → KHÔNG chốt được."
     }
   };
   var HRT = {}; Object.keys(HRM.HR).forEach(function (k) { HRT[k] = { ten: HRM.HR[k].ten, cols: HRM.HR[k].store, hr: true }; });
@@ -496,7 +496,7 @@
     if (opts && opts.drawer && st.hdModal && !opts.onClose) opts = Object.assign({}, opts, { onClose: function () { hdReopen(); } });
     var m = $("#modal"); m.innerHTML = ""; m.className = opts && opts.drawer ? "drawer" : "";
     var close = function () { m.className = "hide"; m.innerHTML = ""; if (opts && opts.onClose) opts.onClose(); };
-    var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
+    var d = h("div", { class: "dlg" + (opts && opts.wide ? " wide" : "") + (opts && opts.stable ? " stable-edit" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, [h("header", {}, [h("h3", { text: title }), btn("✕", "ghost", close)]), h("div", { class: "bd" }, [body]), footer ? h("footer", {}, footer(close)) : null]);
     // Form nhập liệu chỉ đóng bằng nút rõ ràng. Kéo chọn chữ rồi thả ngoài dlg
     // có thể tạo click với target là nền modal và làm mất toàn bộ bản nháp.
     m.appendChild(d); m.onclick = null;
@@ -688,6 +688,31 @@
     else body.appendChild(simpleTable(rows.map(function (e) { return { "Lúc": fmtTime(e.luc), "Người": e.nguoi || "", "Thao tác": e.thaoTac || "", "Chi tiết": String(e.chiTiet || "").slice(0, 160) }; })));
     modal("Lịch sử — " + tn + (codes.length ? " · " + codes.join(" / ") : ""), body, function (close) { return [btn("Đóng", "", close)]; });
   }
+  function productionReperiodScreen(after) {
+    if (!need("input.edit")) return;
+    var source = kyStr(), body = h("div"), target = h("input", { type: "month", value: st.nam + "-" + ("0" + Math.min(12, st.thang + 1)).slice(-2), "aria-label": "Kỳ sản lượng mới" });
+    body.appendChild(h("p", { text: "Chuyển hẳn sản lượng " + source + " sang kỳ mới: người/tổ/công, đơn giá và bù đều theo kỳ mới. Giữ số ngày trong tháng (ví dụ 09/09 → 09/10), giữ ngày gốc để tra cứu. Kỳ nguồn không còn các phiếu này. Dữ liệu chuyển ở trạng thái Nháp, cần kiểm tra và Lưu để tính lương." }));
+    body.appendChild(target);
+    modal("Chuyển thành sản lượng kỳ mới", body, function (close) { return [btn("Đóng", "", close), btn("Xem trước", "pri", function () {
+      var plan; try { plan = C.productionCarry.reperiod(db, source, target.value); } catch (e) { alert(e.message); return; }
+      var detail = h("div");
+      detail.appendChild(h("p", { text: "Chuyển " + plan.rows.length + " phiếu: " + source + " → " + plan.target + ". Chia theo công thực tế kỳ " + plan.target + ". Kiểm tra ngày phân bổ bên dưới trước khi xác nhận." }));
+      detail.appendChild(simpleTable(plan.rows.map(function (r, i) { return { "Phiếu": r["Phiếu cân"], "Ngày cũ": plan.moving[i]["Ngày cân"], "Ngày phân bổ mới": r["Ngày cân"], "Tấn": r["KL hàng (Tấn)"], "Tổ": r["Mã phòng ban"] || "", "Mã NV": r["Mã NV"] || "" }; })));
+      modal("Xem trước chuyển hẳn sản lượng", detail, function (finish) { return [btn("Hủy", "", finish), btn("Xác nhận chuyển hẳn", "pri", function () {
+        if (!need("input.edit")) return;
+        if (JSON.stringify(db.sanluong || []) !== plan.token) { alert("Dữ liệu đã đổi; hãy xem trước lại."); return; }
+        if (!backupOrBlock("truoc-chuyen-han-sl-" + source, "chuyển hẳn sản lượng")) return;
+        if (!txn(["sanluong", "_inputReviews", "schemaVersion"], function () {
+          var fresh = C.productionCarry.reperiod(db, source, plan.target);
+          C.inputReview.initialize(db);
+          db.sanluong = db.sanluong.filter(function (r) { return fresh.moving.indexOf(r) < 0; }).concat(fresh.rows);
+          audit("Chuyển hẳn sản lượng", source + " → " + plan.target + "; " + fresh.rows.length + " phiếu; phân bổ theo kỳ mới; Nháp");
+        })) { alert("Chưa chuyển: " + lastTxnError); return; }
+        finish(); close(); after(); render(); toast("Đã chuyển thành SL " + plan.target + ". Kiểm tra rồi Lưu để tính lương ở cả kỳ nguồn và kỳ mới.");
+      })]; });
+    })]; });
+  }
+
   function productionCarryScreen(after) {
     if (!need("payroll.calc")) return;
     var closeCarry, body = h("div"), source = kyStr(), target = h("input", { type: "month", value: st.nam + "-" + ("0" + Math.min(12, st.thang + 1)).slice(-2), "aria-label": "Kỳ chi trả sản lượng" });
@@ -703,6 +728,12 @@
       var record, pays, temp, targetKy = target.value;
       try { record = C.productionCarry.draft(db, source, targetKy); temp = Object.assign({}, db, { sl_chuyenky: (db.sl_chuyenky || []).concat([record]) }); pays = C.productionCarry.payments(temp, targetKy, st.bu, { quyChe: quyChe() }).filter(function (p) { return p.id === record.id; }); } catch (e) { alert(e.message); return; }
       var detail = h("div", {}, [h("p", { text: "Phát sinh " + source + " → lương " + targetKy + ". Đơn giá và quy chế bù chính thức kỳ chi trả; công/người/ngày làm theo kỳ phát sinh. Khoản chuyển ghi vào Thu nhập khác và chịu xử lý thuế của kỳ chi trả. Kỳ nguồn không tính lại khoản SL/bù đã chuyển." })]);
+      var warningAck = null;
+      if ((record.warnings || []).length) {
+        detail.appendChild(h("div", { class: "warn", text: "Sản lượng đã phân bổ đủ nhưng còn cảnh báo cần đối chiếu:\n" + record.warnings.join("\n"), style: "white-space:pre-wrap" }));
+        warningAck = h("input", { type: "checkbox", "aria-label": "Đã kiểm tra cảnh báo phân bổ" });
+        detail.appendChild(h("label", {}, [warningAck, document.createTextNode(" Tôi đã kiểm tra các cảnh báo và xác nhận danh sách người nhận, công và phần sản lượng trong bảng dưới là đúng.")]));
+      }
       var taxInputs = Object.create(null);
       pays.filter(function (p) { return p.retired; }).forEach(function (p) { var select = h("select", { "aria-label": "Mã thuế chi trả " + p.ma }, [h("option", { value: "", text: "— Chọn mã thuế kỳ chi trả —" })].concat((db.dm_tncn || []).map(function (r) { return h("option", { value: r["Mã thuế TNCN"], text: r["Mã thuế TNCN"] + " — " + (r["Tên thuế TNCN"] || "") }); }))); taxInputs[p.ma] = select; detail.appendChild(h("div", { class: "fld" }, [h("label", { text: p.ma + " — đã nghỉ: cần chọn mã thuế khi chi trả khoản cũ" }), select])); });
       detail.appendChild(simpleTable(pays.map(function (p) { return { "Mã NV": p.ma, "Họ tên": p.name, "Tấn": p.quantity, "Lương SL": p.salary, "Bù SL": p.topup, "Tổng trước thuế": p.salary + p.topup, "Lưu ý": p.retired ? "Chỉ nhận khoản chuyển" : "Đang có HĐ" }; })));
@@ -711,8 +742,9 @@
         if (!need("payroll.calc")) return;
         if (dbRev !== revision) { alert("Dữ liệu đã đổi; hãy xem trước lại."); return; }
         var missingTax = Object.keys(taxInputs).filter(function (ma) { return !taxInputs[ma].value; }); if (missingTax.length) { alert("Chọn mã thuế chi trả cho " + missingTax.join(", ")); return; }
+        if (warningAck && !warningAck.checked) { alert("Hãy kiểm tra cảnh báo và xác nhận danh sách phân bổ trước khi chuyển kỳ."); return; }
         if (!backupOrBlock("truoc-chuyen-sl-" + source, "chuyển kỳ chi trả")) return;
-        if (!txn(["sl_chuyenky", "schemaVersion"], function () { var r = C.productionCarry.draft(db, source, targetKy); r.taxOverrides = Object.create(null); Object.keys(taxInputs).forEach(function (ma) { r.taxOverrides[ma] = taxInputs[ma].value; }); db.schemaVersion = Math.max(4, db.schemaVersion || 0); db.sl_chuyenky.push(r); C.productionCarry.validate(db, db); audit("Chuyển kỳ chi trả SL", source + " → " + targetKy + "; đơn giá/bù kỳ chi trả; người/công kỳ phát sinh"); })) { alert("Chưa chuyển: " + lastTxnError); return; }
+        if (!txn(["sl_chuyenky", "schemaVersion"], function () { var r = C.productionCarry.draft(db, source, targetKy); r.warningsAcknowledged = !!(warningAck && warningAck.checked); r.taxOverrides = Object.create(null); Object.keys(taxInputs).forEach(function (ma) { r.taxOverrides[ma] = taxInputs[ma].value; }); db.schemaVersion = Math.max(4, db.schemaVersion || 0); db.sl_chuyenky.push(r); C.productionCarry.validate(db, db); audit("Chuyển kỳ chi trả SL", source + " → " + targetKy + "; đơn giá/bù kỳ chi trả; người/công kỳ phát sinh"); })) { alert("Chưa chuyển: " + lastTxnError); return; }
         finish(); close(); after(); render(); toast("Đã chuyển kỳ chi trả; kiểm tra lại lương " + targetKy);
       })]; });
     })]; });
@@ -828,7 +860,7 @@
     if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw, pumpMode); }, "Nhập từ file .xlsx / .xls / .csv"));
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
     if (key === "bandam" && pumpMode === "direct") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", bandamDirectExcelTemplate));
-    if (key === "sanluong") bar.appendChild(btn("Chuyển kỳ chi trả SL…", "", function () { productionCarryScreen(draw); }));
+    if (key === "sanluong") { bar.appendChild(btn("Chuyển thành SL kỳ mới…", "", function () { productionReperiodScreen(draw); })); bar.appendChild(btn("Chỉ đổi kỳ chi trả SL…", "", function () { productionCarryScreen(draw); })); }
     if (inputReview) {
       bar.appendChild(btn("Lưu để tính lương", "pri", function () {
         if (!need("input.edit")) return;
@@ -1224,14 +1256,30 @@
 
   /** Khung "Sẽ lưu N thay đổi": so giá trị đang nhập với bản cũ, tô viền ô đã đổi. Trả hàm cập nhật. */
   function liveDiff(body, get, fields, orig) {
-    var box = h("section", { class: "diff none", "aria-live": "polite" });
+    var box = h("section", { class: "diff none", "aria-live": "polite" }), heading = h("div"), list = h("dl"), entries = {}, signature = null;
+    box.appendChild(heading); box.appendChild(list);
     var show = function (f, v) { var s = dispVal(f, v); return s === "" ? "(trống)" : s; };
     var upd = function () {
       var d = get(), ch = fields.filter(function (f) { return String(orig[f.k] == null ? "" : orig[f.k]) !== String(d[f.k] == null ? "" : d[f.k]); });
       body.querySelectorAll(".fld[data-k]").forEach(function (w) { w.classList.toggle("chg", ch.some(function (f) { return f.k === w.getAttribute("data-k"); })); });
-      box.innerHTML = ""; box.className = "diff" + (ch.length ? "" : " none");
-      box.appendChild(h("div", { text: ch.length ? "Sẽ lưu " + ch.length + " thay đổi" : "Chưa có thay đổi nào" }));
-      if (ch.length) { var dl = h("dl"); ch.forEach(function (f) { dl.appendChild(h("div", {}, [h("dt", { text: f.label || f.k }), h("dd", {}, [h("del", { text: show(f, orig[f.k]) }), " → ", h("ins", { text: show(f, d[f.k]) })])])); }); box.appendChild(dl); }
+      var next = JSON.stringify(ch.map(function (f) { return [f.k, d[f.k]]; }));
+      if (signature === next) return ch;
+      signature = next;
+      var scroller = body.closest(".bd"), scrollTop = scroller ? scroller.scrollTop : 0;
+      box.className = "diff" + (ch.length ? "" : " none");
+      var label = ch.length ? "Sẽ lưu " + ch.length + " thay đổi" : "Chưa có thay đổi nào";
+      if (heading.textContent !== label) heading.textContent = label;
+      Object.keys(entries).forEach(function (key) { if (!ch.some(function (f) { return f.k === key; })) { entries[key].row.remove(); delete entries[key]; } });
+      ch.forEach(function (f) {
+        var entry = entries[f.k];
+        if (!entry) {
+          var value = h("ins", { text: show(f, d[f.k]) });
+          var row = h("div", {}, [h("dt", { text: f.label || f.k }), h("dd", {}, [h("del", { text: show(f, orig[f.k]) }), " → ", value])]);
+          entry = entries[f.k] = { row: row, value: value }; list.appendChild(row);
+        }
+        var text = show(f, d[f.k]); if (entry.value.textContent !== text) entry.value.textContent = text;
+      });
+      if (scroller) scroller.scrollTop = scrollTop;
       return ch;
     };
     body.addEventListener("input", upd); body.addEventListener("change", upd);
@@ -1291,7 +1339,7 @@
         }
         close(); toast(asNew ? "Đã thêm thông tin mới từ " + dispVal({ t: "date" }, d["Hiệu lực từ"]) + " — bản cũ giữ làm lịch sử" : "Đã lưu"); (onDone || render)();
       })];
-    }, { drawer: true });
+    }, { drawer: true, stable: true });
   }
   // Mặc định khi thêm mới phụ lục: chép từ phụ lục gần nhất
   HR.chitiethd.defaults = function (base) {
@@ -1528,7 +1576,7 @@
         })) { nv = db.nhanvien[nvIndex]; alert("Chưa lưu hồ sơ: " + lastTxnError + ". Form giữ nguyên để thử lại."); return; }
         st.nv = d["Mã NV"]; close(); render();
       })];
-    }, { drawer: true });
+    }, { drawer: true, stable: true });
   }
   /** Tăng lương / điều chuyển / đổi chức vụ / đổi mức đóng BH: lập PHỤ LỤC MỚI (không sửa phụ lục cũ — Q-15), có so sánh trước → sau. */
   function bienDongForm(nv, hd) {
@@ -1568,7 +1616,7 @@
         if (!txn(["chitiethd"], function () { return !!commit(pF, { action: "Biến động: " + L }); })) { alert("Chưa lưu phụ lục: " + lastTxnError + ". Form giữ nguyên để thử lại."); return; }
         close(); st.nvTab = "hopdong"; st.hd = hd["Số HĐLĐ"]; st.hdTab = "chitiethd"; render(); toast("Đã lập phụ lục " + rec["Mã công tác"] + " · " + L + " từ " + dispVal({ t: "date" }, rec["Hiệu lực từ"]));
       })];
-    }, { drawer: true });
+    }, { drawer: true, stable: true });
   }
   /** Lịch sử 1 nhân viên: quá trình lương + dòng thời gian thay đổi hồ sơ (từ nhật ký, chỉ đọc). */
   function lichSuNV(nv) {
@@ -2882,10 +2930,8 @@
       }
       var buChinhThuc = maChinhThuc === "true" ? true : maChinhThuc === "false" ? false : maChinhThuc;
       if (String(buChinhThuc) !== String(st.bu)) {
-        // Không chốt theo lựa chọn xem tạm — tự chuyển đúng phương pháp đã duyệt rồi tính lại trước khi chốt.
-        st.bu = buChinhThuc; saveUi();
-        fresh = tinhLuong(); now2 = CLS.totals(fresh);
-        toast("Đã tự chuyển sang đúng phương pháp bù đã duyệt (" + buLabel(buChinhThuc) + ") theo Quy chế bù sản lượng để chốt.");
+        alert("⛔ KHÔNG THỂ CHỐT — phương pháp bù đang xem khác phương pháp chính thức của kỳ. Hãy chủ động chọn đúng phương pháp, bấm Tính lương và kiểm tra lại bảng trước khi chốt. App không tự đổi phương pháp hoặc tính lại để chốt.");
+        return;
       }
     }
     preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); }); // hộp thoại dùng chung #modal nên bấm đúp không mở 2 hộp; chống chốt 2 lần nằm trong chotKyTiep (kyChot) và ở main (kỳ trùng)
@@ -3412,7 +3458,7 @@
       var qcBu = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
       if (qcBu) {
         var dungPP = String(qcBu["Cách bù"]) === String(st.bu);
-        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", "data-bu-trial": dungPP ? "0" : "1", text: (dungPP ? "✓ " : "⚠ ") + "Phương pháp bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; khi Chốt kỳ, app sẽ tự tính lại theo đúng quy chế chính thức.") }));
+        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", "data-bu-trial": dungPP ? "0" : "1", text: (dungPP ? "✓ " : "⚠ ") + "Phương pháp bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; chưa được chốt. Bạn cần chọn phương pháp chính thức, bấm Tính lương và kiểm tra lại trước khi chốt.") }));
       } else card.appendChild(h("div", { class: "warn", text: "⚠ Chưa có Phương pháp bù sản lượng CHÍNH THỨC (Cài đặt → Phương pháp bù sản lượng) cho kỳ " + st.thang + "/" + st.nam + " — lựa chọn ở trên chỉ để xem thử/so sánh. Nếu kỳ này có sản lượng cần bù, sẽ KHÔNG chốt được cho đến khi khai báo quy chế." }));
     }
     if (!st.kq) {
@@ -3425,7 +3471,7 @@
     }
     bar.appendChild(btn("🔒 Chốt kỳ lương", "pri", chotKy, "Lưu bảng lương kỳ này để xem lại về sau và khóa dữ liệu kỳ"));
     var qcOf = db.dm_luong.some(function (l) { return /SP/.test(l["Mã hình thức lương"] || ""); }) ? E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang) : null;
-    if (qcOf && String(qcOf["Cách bù"]) !== String(st.kq.cheDoBu)) box.appendChild(h("div", { class: "warn", "data-bu-result-trial": "1", html: "<b>⚠ KẾT QUẢ XEM THỬ</b> — bảng dưới tính theo <b>" + esc(buLabel(st.kq.cheDoBu)) + "</b>, KHÔNG phải phương pháp chính thức (<b>" + esc(buLabel(qcOf["Cách bù"])) + "</b>). Không dùng số này để thanh toán; khi chốt, app tự tính lại theo phương pháp chính thức." }));
+    if (qcOf && String(qcOf["Cách bù"]) !== String(st.kq.cheDoBu)) box.appendChild(h("div", { class: "warn", "data-bu-result-trial": "1", html: "<b>⚠ KẾT QUẢ XEM THỬ</b> — bảng dưới tính theo <b>" + esc(buLabel(st.kq.cheDoBu)) + "</b>, KHÔNG phải phương pháp chính thức (<b>" + esc(buLabel(qcOf["Cách bù"])) + "</b>). Không dùng số này để thanh toán; app chặn chốt bảng xem thử. Hãy chọn phương pháp chính thức, bấm Tính lương và kiểm tra lại trước khi chốt." }));
     return renderKq(box, card, bar);
   }
   // ---------- Bộ lọc báo cáo dùng chung + xuất PDF (Master V5) ----------

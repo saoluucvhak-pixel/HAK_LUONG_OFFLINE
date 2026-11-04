@@ -9,7 +9,11 @@
   function collect(db,source){var p=period(source),d=deps(),staff=d.H.staffForPayroll(db,p.y,p.m),sl=d.H.sanLuongKy(db,p.y,p.m,'sanluong'),cc=(db.chamcong||[]).filter(function(x){return x['Kỳ']===source;});return{staff:staff.list,sl:sl,cc:cc,basis:JSON.stringify([(db.sanluong||[]).filter(function(x){return String(x['Ngày cân']||'').slice(0,7)===source;}),cc,staff.list.map(function(n){return [n['Mã nhân viên'],n['Mã PB'],n['Mã tiền lương 1'],n['Mã tiền lương 2']];}),sl.rows.map(function(r){return [r['Mã NV'],r['Ngày cân'],r['KL hàng (Tấn)']];}),d.H.sanLuongKy(db,p.y,p.m,'bandam').rows])};}
   function assertSource(db,source,c){
     (node?require("./input-review.js"):root.HAKCore.inputReview).assertReady(db,source);
-    if(!c.sl.rows.length||c.sl.chuaGan.length||c.sl.alloc.unallocated>0.000001||(c.sl.alloc.warnings||[]).length)throw Error('Kỳ nguồn chưa phân bổ sạch: kiểm tra công thực tế, tổ và NV vắng trước');
+    var problems=[];
+    if(!c.sl.rows.length)problems.push('Không có dòng sản lượng đã phân bổ cho nhân viên');
+    if(c.sl.chuaGan.length)problems.push('Còn '+c.sl.chuaGan.length+' phiếu chưa gán tổ hoặc nhân viên: '+JSON.stringify(c.sl.chuaGan.slice(0,5)));
+    if(c.sl.alloc.unallocated>0.000001)problems.push('Còn '+c.sl.alloc.unallocated+' tấn chưa phân bổ');
+    if(problems.length)throw Error('Kỳ nguồn chưa phân bổ sạch:\n'+problems.concat(c.sl.alloc.warnings||[]).join('\n'));
     var seen={};(db.sanluong||[]).filter(function(r){return String(r['Ngày cân']||'').slice(0,7)===source;}).forEach(function(r){if(!(node?require('./validate.js'):root.HAKCore.validate).normDate(r['Ngày cân']))throw Error('Ngày cân nguồn không hợp lệ');var id=String(r['Phiếu cân']||'').trim(),key=id+'|'+String(r['Mã NV']||'');if(!(deps().E.num(r['KL hàng (Tấn)'])>0))throw Error('Khối lượng nguồn phải lớn hơn 0');if(!id||seen[key])throw Error('Phiếu nguồn thiếu số phiếu hoặc trùng khóa; đối soát trước khi chuyển');seen[key]=1;});
     c.sl.rows.forEach(function(r){var dd=String(r['Ngày cân']).slice(8,10);if(!c.cc.some(function(cc){return cc['Mã NV']===r['Mã NV']&&!['PN','CL','CC'].includes(String(cc['Hình thức công']||'BT').trim().toUpperCase())&&parseFloat(String(cc[dd]||'').replace(',','.'))>0;}))throw Error('Thiếu công thực tế ngày cân của '+r['Mã NV']+' tại kỳ nguồn');});
   }
@@ -20,6 +24,7 @@
       var old=(previous&&previous.sl_chuyenky||[]).find(function(x){return x.id===r.id;});
       if(previous&&closed(db,r.target)&&(!old||JSON.stringify(old)!==JSON.stringify(r)))throw Error('Kỳ chi trả đã chốt');
       var sourceData=collect(db,r.source);assertSource(db,r.source,sourceData);
+      if(!allowUnreviewed&&(sourceData.sl.alloc.warnings||[]).length&&!r.warningsAcknowledged)throw Error("Cần xác nhận đã kiểm tra cảnh báo phân bổ kỳ nguồn:\n"+sourceData.sl.alloc.warnings.join("\n"));
       if(r.basis!==sourceData.basis)throw Error('Công/phiếu/hồ sơ kỳ '+r.source+' đã đổi sau khi chuyển. Hủy chuyển và lập lại trước khi sửa.');
       if(!old&&closed(db,r.source)){var k=(db.kyluong||[]).find(function(x){return x.ky===r.source;});if(!k.kq||!Array.isArray(k.kq.bangluong)||k.kq.bangluong.some(function(x){return +x['Lương sản lượng']>0||+x['Lương bù SL']>0;}))throw Error('Kỳ nguồn đã có tiền sản lượng/bù hoặc thiếu đối soát — mở chốt và đối soát trước, không chuyển trùng');}
     });
@@ -28,7 +33,7 @@
   }
   function draft(db,source,target){period(source);period(target);if(source.slice(0,4)!==target.slice(0,4))throw Error('Bản này hỗ trợ chuyển kỳ trong cùng năm');if(target<=source||closed(db,target))throw Error('Chọn kỳ chi trả sau kỳ phát sinh và chưa chốt');var c=collect(db,source);
     assertSource(db,source,c);
-    var r={id:'SL-'+source+'-'+target,source:source,target:target,basis:c.basis};var n=Object.assign({},db,{schemaVersion:Math.max(4,db.schemaVersion||0),sl_chuyenky:(db.sl_chuyenky||[]).concat([r])});validate(n,db,true);return r;
+    var r={id:'SL-'+source+'-'+target,source:source,target:target,basis:c.basis,warnings:(c.sl.alloc.warnings||[]).slice()};var n=Object.assign({},db,{schemaVersion:Math.max(4,db.schemaVersion||0),sl_chuyenky:(db.sl_chuyenky||[]).concat([r])});validate(n,db,true);return r;
   }
   function payments(db,ky,bu,opts){if(!(db.sl_chuyenky||[]).some(function(r){return r.target===ky;}))return [];var d=deps(),E=d.E,H=d.H,target=period(ky),out=[],targetStaff=H.staffForPayroll(db,target.y,target.m).list;
     (db.sl_chuyenky||[]).filter(function(r){return r.target===ky;}).forEach(function(r){var p=period(r.source),c=collect(db,r.source),rate=E.hieuLuc(db.dm_luong||[],'Mã lương',target.y,target.m),dm=Object.keys(rate).map(function(k){return Object.assign({},rate[k],{'Hiệu lực từ':r.source+'-01','Hiệu lực đến':''});});
@@ -46,5 +51,27 @@
     return{data:Object.assign({},db,{nhansu:list,sanluong:source?[]:sl,psluong:ps,chamcong:(db.chamcong||[]).filter(function(r){return !ghost[r['Mã NV']]||r['Kỳ']!==ky;})}),staff:list,pay:pay,suppress:source};
   }
   function annotate(kq,pay){kq.bangluong.forEach(function(r){var rows=pay.filter(function(x){return x.ma===r['Mã NV'];});if(rows.length){r['Kỳ sản lượng chuyển']=rows.map(function(x){return x.source;}).join(', ');r['SL kỳ trước (tấn)']=rows.reduce(function(n,x){return n+x.quantity;},0);r['Lương SL kỳ trước']=rows.reduce(function(n,x){return n+x.salary;},0);r['Bù SL kỳ trước']=rows.reduce(function(n,x){return n+x.topup;},0);}});return kq;}
-  var api={draft:draft,validate:validate,payments:payments,prepare:prepare,annotate:annotate};if(node)module.exports=api;else root.HAKCore.productionCarry=api;
+  // Chuyển hẳn dữ liệu sang kỳ mới: phân bổ, đơn giá và bù đều theo kỳ mới.
+  function reperiod(db,source,target){
+    period(source);var t=period(target);
+    if(target<=source||source.slice(0,4)!==target.slice(0,4))throw Error('Chọn kỳ mới sau kỳ nguồn trong cùng năm');
+    if(closed(db,source)||closed(db,target))throw Error('Kỳ nguồn hoặc kỳ mới đã chốt — mở chốt và đối soát trước');
+    if((db.sl_chuyenky||[]).some(function(r){return [source,target].includes(r.source)||[source,target].includes(r.target);}))throw Error('Kỳ đang có sổ chuyển chi trả SL; hủy và đối soát sổ cũ trước khi chuyển hẳn');
+    if((db._yearArchives||[]).some(function(r){return r.active&&String(r.year)===source.slice(0,4);}))throw Error('Đưa hồ sơ năm về vùng đang làm trước');
+    var V=node?require('./validate.js'):root.HAKCore.validate,all=db.sanluong||[],moving=all.filter(function(r){return V.rowPeriod('sanluong',r)===source;});
+    if(!moving.length)throw Error('Kỳ nguồn không có sản lượng');
+    var seen=Object.create(null);all.filter(function(r){return moving.indexOf(r)<0;}).forEach(function(r){seen[String(r['Phiếu cân']||'').trim()+'|'+String(r['Mã NV']||'').trim()]=true;});
+    var targetStaff=deps().H.staffForPayroll(db,t.y,t.m).list;
+    var max=new Date(t.y,t.m,0).getDate(),rows=moving.map(function(r){
+      var d=V.normDate(r['Ngày cân']),id=String(r['Phiếu cân']||'').trim(),key=id+'|'+String(r['Mã NV']||'').trim();
+      if(!d||+d.slice(8)>max)throw Error('Phiếu '+id+': ngày '+r['Ngày cân']+' không có ngày tương ứng trong kỳ '+target);
+      if(!id||seen[key])throw Error('Phiếu thiếu số hoặc trùng khóa với dữ liệu đang có: '+id);
+      if(r['Mã NV']&&!targetStaff.some(function(n){return n['Mã nhân viên']===r['Mã NV'];}))throw Error('Phiếu '+id+': Mã NV '+r['Mã NV']+' không có hồ sơ tính lương kỳ '+target+'; kiểm tra người nhận trước');
+      if(!(deps().E.num(r['KL hàng (Tấn)'])>0))throw Error('Khối lượng phải lớn hơn 0: '+id);
+      seen[key]=true;
+      return Object.assign({},r,{'Ngày cân':target+d.slice(7),'Ngày cân gốc':r['Ngày cân gốc']||d,'Kỳ sản lượng gốc':r['Kỳ sản lượng gốc']||source});
+    });
+    return {source:source,target:target,rows:rows,moving:moving,token:JSON.stringify(all)};
+  }
+  var api={reperiod:reperiod,draft:draft,validate:validate,payments:payments,prepare:prepare,annotate:annotate};if(node)module.exports=api;else root.HAKCore.productionCarry=api;
 })(typeof window!=='undefined'?window:this);
