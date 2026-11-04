@@ -1140,8 +1140,17 @@ async function launch(dataDir, opt) {
     const warnMoPhong = await w.locator("main").first().innerText();
     ok("Tính lương: có phương pháp chính thức ('daihiep') khác lựa chọn đang xem ('to') → báo rõ đang XEM THỬ, không phải chính thức", /Phương pháp bù sản lượng CHÍNH THỨC kỳ 11\/2026: BÙ SẢN LƯỢNG THEO NGÀY/.test(warnMoPhong) && /đang XEM THỬ phương pháp khác/.test(warnMoPhong), warnMoPhong.replace(/\s+/g, " ").slice(0, 300));
     await w.click("button.big"); await w.waitForTimeout(200);
+    dialogs = [];
+    const beforeClose = await w.locator("main").first().innerText();
+    await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForTimeout(200);
+    ok("Khác phương pháp chính thức: chặn chốt, giữ phương pháp và nguyên bảng đang xem",
+      dialogs.some((x) => /KHÔNG THỂ CHỐT.*phương pháp bù đang xem/.test(x)) &&
+      await w.locator('select[aria-label="Cách bù lương sản lượng"]').inputValue() === "to" &&
+      await w.locator("main").first().innerText() === beforeClose &&
+      await w.locator(".dlg").count() === 0);
+    await w.selectOption('select[aria-label="Cách bù lương sản lượng"]', "daihiep");
+    await w.click("button.big"); await w.waitForTimeout(200);
     await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
-    ok("Có Quy chế hợp lệ nhưng khác lựa chọn xem thử → app TỰ chuyển đúng phương pháp đã duyệt rồi mới chốt (không chốt theo lựa chọn tự do)", /Chốt Tháng 11\/2026|Chốt kỳ/.test(await w.locator(".dlg header h3").innerText()));
     await w.locator(".dlg input").fill("Chốt E2E mục VIII"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
     ok("Chốt thành công sau khi có Quy chế bù sản lượng CHÍNH THỨC hợp lệ", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
     ok("Không lỗi JavaScript ở Quy chế bù sản lượng (mục VIII)", errs.length === 0, errs.join(" | "));

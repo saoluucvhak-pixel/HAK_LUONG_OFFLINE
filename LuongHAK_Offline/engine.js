@@ -676,22 +676,22 @@
         var du2 = !ng || c.tongCong >= ng;
         var nldParts = {}, dnParts = {};
         ["BHXH", "BHYT", "BHTN"].forEach(function (part) {
-          nldParts[part] = Math.round(luongBH * num(bh["NLD." + part]));
-          dnParts[part] = Math.round(luongBH * num(bh["DN." + part]));
+          nldParts[part] = Math.round(luongBH * pct(bh["NLD." + part]));
+          dnParts[part] = Math.round(luongBH * pct(bh["DN." + part]));
           bhNLD += nldParts[part];
         });
-        kpcdNLD = Math.round(luongBH * num(bh["NLD.KPCD"]));
-        var ctyDong = dnParts.BHXH + dnParts.BHYT + dnParts.BHTN + Math.round(luongBH * num(bh["DN.KPCD"]));
+        kpcdNLD = Math.round(luongBH * pct(bh["NLD.KPCD"]));
+        var ctyDong = dnParts.BHXH + dnParts.BHYT + dnParts.BHTN + Math.round(luongBH * pct(bh["DN.KPCD"]));
         if (!du2 && bhNLD > 0 && ctyDong > 0) truyThu = ctyDong;
         var bhRow = {
           "Mã NV": ma, "Họ và tên": ns["Họ và tên"], "Phòng ban": (pb[ns["Mã PB"]] || {})["Tên phòng ban"] || ns["Mã PB"] || "",
           "Số sổ BHXH": ns["Số sổ BHXH"] || "", // PV-7a: báo cáo BHXH thật (RP_BHXH) có cột này
           "Lương đóng BHXH": luongBH,
-          "CTY.BHXH": Math.round(luongBH * num(bh["DN.BHXH"])), "CTY.BHYT": Math.round(luongBH * num(bh["DN.BHYT"])),
-          "CTY.BHTN": Math.round(luongBH * num(bh["DN.BHTN"])), "CTY.KPCĐ": Math.round(luongBH * num(bh["DN.KPCD"])),
+          "CTY.BHXH": Math.round(luongBH * pct(bh["DN.BHXH"])), "CTY.BHYT": Math.round(luongBH * pct(bh["DN.BHYT"])),
+          "CTY.BHTN": Math.round(luongBH * pct(bh["DN.BHTN"])), "CTY.KPCĐ": Math.round(luongBH * pct(bh["DN.KPCD"])),
           "Cộng BH công ty đóng": ctyDong,
-          "NLĐ.BHXH": Math.round(luongBH * num(bh["NLD.BHXH"])), "NLĐ.BHYT": Math.round(luongBH * num(bh["NLD.BHYT"])),
-          "NLĐ.BHTN": Math.round(luongBH * num(bh["NLD.BHTN"])), "Cộng BH NLĐ đóng": Math.round(luongBH * num(bh["NLD.BHXH"])) + Math.round(luongBH * num(bh["NLD.BHYT"])) + Math.round(luongBH * num(bh["NLD.BHTN"])), "NLĐ.KPCĐ": kpcdNLD, "Truy thu bảo hiểm": truyThu,
+          "NLĐ.BHXH": Math.round(luongBH * pct(bh["NLD.BHXH"])), "NLĐ.BHYT": Math.round(luongBH * pct(bh["NLD.BHYT"])),
+          "NLĐ.BHTN": Math.round(luongBH * pct(bh["NLD.BHTN"])), "Cộng BH NLĐ đóng": Math.round(luongBH * pct(bh["NLD.BHXH"])) + Math.round(luongBH * pct(bh["NLD.BHYT"])) + Math.round(luongBH * pct(bh["NLD.BHTN"])), "NLĐ.KPCĐ": kpcdNLD, "Truy thu bảo hiểm": truyThu,
           "Ghi chú": du2 ? "Đủ ngưỡng" : "Chưa đủ ngưỡng (" + c.tongCong + "/" + ng + " công)"
         };
         out.bhxh.push(bhRow);

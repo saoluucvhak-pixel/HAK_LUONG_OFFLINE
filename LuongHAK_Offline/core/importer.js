@@ -17,7 +17,7 @@
     psluong: ["Số chứng từ", "Mã NV"], ungluong: ["Số chứng từ", "Mã NV"],
     dm_luong: ["Mã lương", "Hiệu lực từ"], dm_phucap: ["Mã phụ cấp", "Hiệu lực từ"], dm_tangca: ["Mã tăng ca", "Hiệu lực từ"],
     dm_hotro: ["Mã hỗ trợ", "Hiệu lực từ"], dm_baohiem: ["Mã bảo hiểm", "Hiệu lực từ"], dm_tncn: ["Mã thuế TNCN", "Hiệu lực từ"],
-    dm_bacthue: ["Bậc", "Hiệu lực từ"], dm_giamtru: ["Mã giảm trừ", "Hiệu lực từ"], dm_phongban: ["Mã phòng ban"], dm_chucvu: ["Mã chức vụ"],
+    dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"], dm_giamtru: ["Mã giảm trừ", "Hiệu lực từ"], dm_phongban: ["Mã phòng ban"], dm_chucvu: ["Mã chức vụ"],
     dm_cc: ["Mã CC", "Hình thức công"],
     nhanvien: ["Mã NV"], canhan: ["Mã NV", "Hiệu lực từ"], thanhtoan: ["Mã NV", "Hiệu lực từ"], nhanthan: ["Mã NV", "Họ tên nhân thân"],
     hopdong: ["Mã NV", "Số HĐLĐ"], chitiethd: ["Mã NV", "Số HĐLĐ", "Hiệu lực từ"], congtac: ["Mã NV", "Từ ngày"],

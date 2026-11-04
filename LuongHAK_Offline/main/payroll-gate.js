@@ -21,6 +21,13 @@ function computeKy(db, ky, opts) {
   const carry = CARRY.prepare(db, ky, sp.list, slK.rows, opts.bu, { quyChe: opts.quyChe || "2026" });
   const kq = E.tinhBangLuong(Object.assign({}, carry.data, { bandam: bdK.rows }), p.nam, p.thang, opts.bu === undefined ? false : opts.bu, { quyChe: opts.quyChe || "2026", suppressProduction: carry.suppress });
   CARRY.annotate(kq, carry.pay);
+  const staffById = Object.fromEntries(carry.staff.map((x) => [x["Mã nhân viên"], x]));
+  kq.bangluong.forEach((row) => {
+    const x = staffById[row["Mã NV"]] || {};
+    row["HTTT"] = x["HTTT"] || ""; row["Số tài khoản"] = x["Số tài khoản"] || "";
+    row["Ngân hàng"] = x["Tên Ngân hàng"] || ""; row["Người phụ thuộc"] = x["Người phụ thuộc"] || 0;
+    row["Số HĐLĐ"] = x["Số HĐLĐ"] || ""; row["Mã PB"] = x["Mã PB"] || "";
+  });
   kq.canhbao = sp.warn.concat(kq.canhbao);
   const unalloc = [], allocErr = [];
   [["Sản lượng", "sanluong", slK], ["Bơm dăm", "bandam", bdK]].forEach(([ten, loai, k]) => {
@@ -95,6 +102,12 @@ function verifySnapshot(db, snap) {
   Object.keys(mine).forEach((ma) => { const a = mine[ma], b = theirs[ma]; if (!b) lech.push(ma + " thiếu trong bản chốt"); else if (Math.abs((+a["Thực lĩnh"] || 0) - (+b["Thực lĩnh"] || 0)) > 1 || Math.abs((+a["Tổng thu nhập"] || 0) - (+b["Tổng thu nhập"] || 0)) > 1) lech.push(ma + ": thực lĩnh " + Math.round(+b["Thực lĩnh"] || 0) + " ≠ tính lại " + Math.round(+a["Thực lĩnh"] || 0)); });
   Object.keys(theirs).forEach((ma) => { if (!mine[ma]) lech.push(ma + " không có trong kết quả tính lại"); });
   if (lech.length) why.push(lech.length + " nhân viên lệch khi tính lại: " + lech.slice(0, 3).join(" | "));
+  // Đối chiếu mọi cột công khai của cả ba báo cáo, không chỉ hai số tổng.
+  const publicRows = (rows) => (rows || []).map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith("_"))));
+  const equal = require("node:util").isDeepStrictEqual;
+  ["bangluong", "bhxh", "tncn"].forEach((table) => {
+    if (!equal(publicRows(r.kq[table]), publicRows(snap.kq[table]))) why.push("chi tiết " + table + " khác kết quả tính lại");
+  });
   const p = parseKy(snap.ky);
   if (p && r.kq.bangluong.some((b) => b._ct && b._ct.laSanLuong)) {
     const qc = E.quyCheBuChinhThuc(db.dm_quychebu, p.nam, p.thang), ma = qc && String(qc["Cách bù"] || "").trim();

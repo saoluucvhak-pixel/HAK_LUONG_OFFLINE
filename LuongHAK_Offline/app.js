@@ -42,7 +42,7 @@
       ten: "Quy chế bù sản lượng",
       cols: ["Hiệu lực từ", "Hiệu lực đến", "Cách bù", "Trạng thái", "Người phê duyệt", "Mô tả"],
       def: { "Trạng thái": "Nháp" },
-      hint: "'Cách bù' (đúng 1 trong 4 mã, xem Tính lương để biết tên hiển thị): false = theo THÁNG (từng người) · true = theo NGÀY liên tục (cách cũ) · daihiep = theo NGÀY bậc thang (công cụ HAK/Đại Hiệp) · to = theo BÌNH QUÂN TỔ (công cụ HAK). Chỉ bản 'Trạng thái'='Hiệu lực' mới được dùng để CHỐT kỳ — màn hình Tính lương vẫn cho chọn phương pháp khác để xem thử/so sánh, nhưng khi chốt app tự tính lại theo đúng bản Hiệu lực ở đây. Chưa có bản Hiệu lực nào cho kỳ đang chốt (và kỳ đó có sản lượng cần bù) → KHÔNG chốt được."
+      hint: "'Cách bù' (đúng 1 trong 4 mã, xem Tính lương để biết tên hiển thị): false = theo THÁNG (từng người) · true = theo NGÀY liên tục (cách cũ) · daihiep = theo NGÀY bậc thang (công cụ HAK/Đại Hiệp) · to = theo BÌNH QUÂN TỔ (công cụ HAK). Chỉ bản 'Trạng thái'='Hiệu lực' mới được dùng để CHỐT kỳ — màn hình Tính lương vẫn cho chọn phương pháp khác để xem thử/so sánh, nhưng khi chốt phương pháp đang xem phải khớp bản Hiệu lực; nếu khác thì app chặn, không tự chuyển hoặc tính lại. Chưa có bản Hiệu lực nào cho kỳ đang chốt (và kỳ đó có sản lượng cần bù) → KHÔNG chốt được."
     }
   };
   var HRT = {}; Object.keys(HRM.HR).forEach(function (k) { HRT[k] = { ten: HRM.HR[k].ten, cols: HRM.HR[k].store, hr: true }; });
@@ -2898,10 +2898,8 @@
       }
       var buChinhThuc = maChinhThuc === "true" ? true : maChinhThuc === "false" ? false : maChinhThuc;
       if (String(buChinhThuc) !== String(st.bu)) {
-        // Không chốt theo lựa chọn xem tạm — tự chuyển đúng phương pháp đã duyệt rồi tính lại trước khi chốt.
-        st.bu = buChinhThuc; saveUi();
-        fresh = tinhLuong(); now2 = CLS.totals(fresh);
-        toast("Đã tự chuyển sang đúng phương pháp bù đã duyệt (" + buLabel(buChinhThuc) + ") theo Quy chế bù sản lượng để chốt.");
+        alert("⛔ KHÔNG THỂ CHỐT — phương pháp bù đang xem khác phương pháp chính thức của kỳ. Hãy chủ động chọn đúng phương pháp, bấm Tính lương và kiểm tra lại bảng trước khi chốt. App không tự đổi phương pháp hoặc tính lại để chốt.");
+        return;
       }
     }
     preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); }); // hộp thoại dùng chung #modal nên bấm đúp không mở 2 hộp; chống chốt 2 lần nằm trong chotKyTiep (kyChot) và ở main (kỳ trùng)
@@ -3428,7 +3426,7 @@
       var qcBu = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
       if (qcBu) {
         var dungPP = String(qcBu["Cách bù"]) === String(st.bu);
-        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", "data-bu-trial": dungPP ? "0" : "1", text: (dungPP ? "✓ " : "⚠ ") + "Phương pháp bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; khi Chốt kỳ, app sẽ tự tính lại theo đúng quy chế chính thức.") }));
+        card.appendChild(h("div", { class: dungPP ? "hint" : "warn", "data-bu-trial": dungPP ? "0" : "1", text: (dungPP ? "✓ " : "⚠ ") + "Phương pháp bù sản lượng CHÍNH THỨC kỳ " + st.thang + "/" + st.nam + ": " + buLabel(qcBu["Cách bù"]) + (dungPP ? " — đang xem đúng phương pháp này." : " — đang XEM THỬ phương pháp khác (" + buLabel(st.bu) + ") để so sánh; chưa được chốt. Bạn cần chọn phương pháp chính thức, bấm Tính lương và kiểm tra lại trước khi chốt.") }));
       } else card.appendChild(h("div", { class: "warn", text: "⚠ Chưa có Phương pháp bù sản lượng CHÍNH THỨC (Cài đặt → Phương pháp bù sản lượng) cho kỳ " + st.thang + "/" + st.nam + " — lựa chọn ở trên chỉ để xem thử/so sánh. Nếu kỳ này có sản lượng cần bù, sẽ KHÔNG chốt được cho đến khi khai báo quy chế." }));
     }
     if (!st.kq) {
@@ -3441,7 +3439,7 @@
     }
     bar.appendChild(btn("🔒 Chốt kỳ lương", "pri", chotKy, "Lưu bảng lương kỳ này để xem lại về sau và khóa dữ liệu kỳ"));
     var qcOf = db.dm_luong.some(function (l) { return /SP/.test(l["Mã hình thức lương"] || ""); }) ? E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang) : null;
-    if (qcOf && String(qcOf["Cách bù"]) !== String(st.kq.cheDoBu)) box.appendChild(h("div", { class: "warn", "data-bu-result-trial": "1", html: "<b>⚠ KẾT QUẢ XEM THỬ</b> — bảng dưới tính theo <b>" + esc(buLabel(st.kq.cheDoBu)) + "</b>, KHÔNG phải phương pháp chính thức (<b>" + esc(buLabel(qcOf["Cách bù"])) + "</b>). Không dùng số này để thanh toán; khi chốt, app tự tính lại theo phương pháp chính thức." }));
+    if (qcOf && String(qcOf["Cách bù"]) !== String(st.kq.cheDoBu)) box.appendChild(h("div", { class: "warn", "data-bu-result-trial": "1", html: "<b>⚠ KẾT QUẢ XEM THỬ</b> — bảng dưới tính theo <b>" + esc(buLabel(st.kq.cheDoBu)) + "</b>, KHÔNG phải phương pháp chính thức (<b>" + esc(buLabel(qcOf["Cách bù"])) + "</b>). Không dùng số này để thanh toán; app chặn chốt bảng xem thử. Hãy chọn phương pháp chính thức, bấm Tính lương và kiểm tra lại trước khi chốt." }));
     return renderKq(box, card, bar);
   }
   // ---------- Bộ lọc báo cáo dùng chung + xuất PDF (Master V5) ----------
