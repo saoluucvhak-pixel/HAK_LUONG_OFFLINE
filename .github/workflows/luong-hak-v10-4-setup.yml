@@ -107,6 +107,7 @@ jobs:
       - name: Verify stable contract editor while typing
         run: |
           node tests/e2e/contract-edit-stability.cjs
+          node tests/e2e/contract-scroll-stability.cjs
           node tests/e2e/hr-editor-stability.cjs
           node tests/e2e/catalog-filter-stability.cjs
           node tests/e2e/production-reperiod.cjs
