@@ -9,7 +9,11 @@
   function collect(db,source){var p=period(source),d=deps(),staff=d.H.staffForPayroll(db,p.y,p.m),sl=d.H.sanLuongKy(db,p.y,p.m,'sanluong'),cc=(db.chamcong||[]).filter(function(x){return x['Kỳ']===source;});return{staff:staff.list,sl:sl,cc:cc,basis:JSON.stringify([(db.sanluong||[]).filter(function(x){return String(x['Ngày cân']||'').slice(0,7)===source;}),cc,staff.list.map(function(n){return [n['Mã nhân viên'],n['Mã PB'],n['Mã tiền lương 1'],n['Mã tiền lương 2']];}),sl.rows.map(function(r){return [r['Mã NV'],r['Ngày cân'],r['KL hàng (Tấn)']];}),d.H.sanLuongKy(db,p.y,p.m,'bandam').rows])};}
   function assertSource(db,source,c){
     (node?require("./input-review.js"):root.HAKCore.inputReview).assertReady(db,source);
-    if(!c.sl.rows.length||c.sl.chuaGan.length||c.sl.alloc.unallocated>0.000001||(c.sl.alloc.warnings||[]).length)throw Error('Kỳ nguồn chưa phân bổ sạch: kiểm tra công thực tế, tổ và NV vắng trước');
+    var problems=[];
+    if(!c.sl.rows.length)problems.push('Không có dòng sản lượng đã phân bổ cho nhân viên');
+    if(c.sl.chuaGan.length)problems.push('Còn '+c.sl.chuaGan.length+' phiếu chưa gán tổ hoặc nhân viên: '+JSON.stringify(c.sl.chuaGan.slice(0,5)));
+    if(c.sl.alloc.unallocated>0.000001)problems.push('Còn '+c.sl.alloc.unallocated+' tấn chưa phân bổ');
+    if(problems.length)throw Error('Kỳ nguồn chưa phân bổ sạch:\n'+problems.concat(c.sl.alloc.warnings||[]).join('\n'));
     var seen={};(db.sanluong||[]).filter(function(r){return String(r['Ngày cân']||'').slice(0,7)===source;}).forEach(function(r){if(!(node?require('./validate.js'):root.HAKCore.validate).normDate(r['Ngày cân']))throw Error('Ngày cân nguồn không hợp lệ');var id=String(r['Phiếu cân']||'').trim(),key=id+'|'+String(r['Mã NV']||'');if(!(deps().E.num(r['KL hàng (Tấn)'])>0))throw Error('Khối lượng nguồn phải lớn hơn 0');if(!id||seen[key])throw Error('Phiếu nguồn thiếu số phiếu hoặc trùng khóa; đối soát trước khi chuyển');seen[key]=1;});
     c.sl.rows.forEach(function(r){var dd=String(r['Ngày cân']).slice(8,10);if(!c.cc.some(function(cc){return cc['Mã NV']===r['Mã NV']&&!['PN','CL','CC'].includes(String(cc['Hình thức công']||'BT').trim().toUpperCase())&&parseFloat(String(cc[dd]||'').replace(',','.'))>0;}))throw Error('Thiếu công thực tế ngày cân của '+r['Mã NV']+' tại kỳ nguồn');});
   }
@@ -20,6 +24,7 @@
       var old=(previous&&previous.sl_chuyenky||[]).find(function(x){return x.id===r.id;});
       if(previous&&closed(db,r.target)&&(!old||JSON.stringify(old)!==JSON.stringify(r)))throw Error('Kỳ chi trả đã chốt');
       var sourceData=collect(db,r.source);assertSource(db,r.source,sourceData);
+      if(!allowUnreviewed&&(sourceData.sl.alloc.warnings||[]).length&&!r.warningsAcknowledged)throw Error("Cần xác nhận đã kiểm tra cảnh báo phân bổ kỳ nguồn:\n"+sourceData.sl.alloc.warnings.join("\n"));
       if(r.basis!==sourceData.basis)throw Error('Công/phiếu/hồ sơ kỳ '+r.source+' đã đổi sau khi chuyển. Hủy chuyển và lập lại trước khi sửa.');
       if(!old&&closed(db,r.source)){var k=(db.kyluong||[]).find(function(x){return x.ky===r.source;});if(!k.kq||!Array.isArray(k.kq.bangluong)||k.kq.bangluong.some(function(x){return +x['Lương sản lượng']>0||+x['Lương bù SL']>0;}))throw Error('Kỳ nguồn đã có tiền sản lượng/bù hoặc thiếu đối soát — mở chốt và đối soát trước, không chuyển trùng');}
     });
@@ -28,7 +33,7 @@
   }
   function draft(db,source,target){period(source);period(target);if(source.slice(0,4)!==target.slice(0,4))throw Error('Bản này hỗ trợ chuyển kỳ trong cùng năm');if(target<=source||closed(db,target))throw Error('Chọn kỳ chi trả sau kỳ phát sinh và chưa chốt');var c=collect(db,source);
     assertSource(db,source,c);
-    var r={id:'SL-'+source+'-'+target,source:source,target:target,basis:c.basis};var n=Object.assign({},db,{schemaVersion:Math.max(4,db.schemaVersion||0),sl_chuyenky:(db.sl_chuyenky||[]).concat([r])});validate(n,db,true);return r;
+    var r={id:'SL-'+source+'-'+target,source:source,target:target,basis:c.basis,warnings:(c.sl.alloc.warnings||[]).slice()};var n=Object.assign({},db,{schemaVersion:Math.max(4,db.schemaVersion||0),sl_chuyenky:(db.sl_chuyenky||[]).concat([r])});validate(n,db,true);return r;
   }
   function payments(db,ky,bu,opts){if(!(db.sl_chuyenky||[]).some(function(r){return r.target===ky;}))return [];var d=deps(),E=d.E,H=d.H,target=period(ky),out=[],targetStaff=H.staffForPayroll(db,target.y,target.m).list;
     (db.sl_chuyenky||[]).filter(function(r){return r.target===ky;}).forEach(function(r){var p=period(r.source),c=collect(db,r.source),rate=E.hieuLuc(db.dm_luong||[],'Mã lương',target.y,target.m),dm=Object.keys(rate).map(function(k){return Object.assign({},rate[k],{'Hiệu lực từ':r.source+'-01','Hiệu lực đến':''});});

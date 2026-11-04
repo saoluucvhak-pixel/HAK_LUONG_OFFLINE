@@ -703,6 +703,12 @@
       var record, pays, temp, targetKy = target.value;
       try { record = C.productionCarry.draft(db, source, targetKy); temp = Object.assign({}, db, { sl_chuyenky: (db.sl_chuyenky || []).concat([record]) }); pays = C.productionCarry.payments(temp, targetKy, st.bu, { quyChe: quyChe() }).filter(function (p) { return p.id === record.id; }); } catch (e) { alert(e.message); return; }
       var detail = h("div", {}, [h("p", { text: "Phát sinh " + source + " → lương " + targetKy + ". Đơn giá và quy chế bù chính thức kỳ chi trả; công/người/ngày làm theo kỳ phát sinh. Khoản chuyển ghi vào Thu nhập khác và chịu xử lý thuế của kỳ chi trả. Kỳ nguồn không tính lại khoản SL/bù đã chuyển." })]);
+      var warningAck = null;
+      if ((record.warnings || []).length) {
+        detail.appendChild(h("div", { class: "warn", text: "Sản lượng đã phân bổ đủ nhưng còn cảnh báo cần đối chiếu:\n" + record.warnings.join("\n"), style: "white-space:pre-wrap" }));
+        warningAck = h("input", { type: "checkbox", "aria-label": "Đã kiểm tra cảnh báo phân bổ" });
+        detail.appendChild(h("label", {}, [warningAck, document.createTextNode(" Tôi đã kiểm tra các cảnh báo và xác nhận danh sách người nhận, công và phần sản lượng trong bảng dưới là đúng.")]));
+      }
       var taxInputs = Object.create(null);
       pays.filter(function (p) { return p.retired; }).forEach(function (p) { var select = h("select", { "aria-label": "Mã thuế chi trả " + p.ma }, [h("option", { value: "", text: "— Chọn mã thuế kỳ chi trả —" })].concat((db.dm_tncn || []).map(function (r) { return h("option", { value: r["Mã thuế TNCN"], text: r["Mã thuế TNCN"] + " — " + (r["Tên thuế TNCN"] || "") }); }))); taxInputs[p.ma] = select; detail.appendChild(h("div", { class: "fld" }, [h("label", { text: p.ma + " — đã nghỉ: cần chọn mã thuế khi chi trả khoản cũ" }), select])); });
       detail.appendChild(simpleTable(pays.map(function (p) { return { "Mã NV": p.ma, "Họ tên": p.name, "Tấn": p.quantity, "Lương SL": p.salary, "Bù SL": p.topup, "Tổng trước thuế": p.salary + p.topup, "Lưu ý": p.retired ? "Chỉ nhận khoản chuyển" : "Đang có HĐ" }; })));
@@ -711,8 +717,9 @@
         if (!need("payroll.calc")) return;
         if (dbRev !== revision) { alert("Dữ liệu đã đổi; hãy xem trước lại."); return; }
         var missingTax = Object.keys(taxInputs).filter(function (ma) { return !taxInputs[ma].value; }); if (missingTax.length) { alert("Chọn mã thuế chi trả cho " + missingTax.join(", ")); return; }
+        if (warningAck && !warningAck.checked) { alert("Hãy kiểm tra cảnh báo và xác nhận danh sách phân bổ trước khi chuyển kỳ."); return; }
         if (!backupOrBlock("truoc-chuyen-sl-" + source, "chuyển kỳ chi trả")) return;
-        if (!txn(["sl_chuyenky", "schemaVersion"], function () { var r = C.productionCarry.draft(db, source, targetKy); r.taxOverrides = Object.create(null); Object.keys(taxInputs).forEach(function (ma) { r.taxOverrides[ma] = taxInputs[ma].value; }); db.schemaVersion = Math.max(4, db.schemaVersion || 0); db.sl_chuyenky.push(r); C.productionCarry.validate(db, db); audit("Chuyển kỳ chi trả SL", source + " → " + targetKy + "; đơn giá/bù kỳ chi trả; người/công kỳ phát sinh"); })) { alert("Chưa chuyển: " + lastTxnError); return; }
+        if (!txn(["sl_chuyenky", "schemaVersion"], function () { var r = C.productionCarry.draft(db, source, targetKy); r.warningsAcknowledged = !!(warningAck && warningAck.checked); r.taxOverrides = Object.create(null); Object.keys(taxInputs).forEach(function (ma) { r.taxOverrides[ma] = taxInputs[ma].value; }); db.schemaVersion = Math.max(4, db.schemaVersion || 0); db.sl_chuyenky.push(r); C.productionCarry.validate(db, db); audit("Chuyển kỳ chi trả SL", source + " → " + targetKy + "; đơn giá/bù kỳ chi trả; người/công kỳ phát sinh"); })) { alert("Chưa chuyển: " + lastTxnError); return; }
         finish(); close(); after(); render(); toast("Đã chuyển kỳ chi trả; kiểm tra lại lương " + targetKy);
       })]; });
     })]; });
