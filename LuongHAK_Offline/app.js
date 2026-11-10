@@ -19,7 +19,7 @@
     dm_phucap: { ten: "Phụ cấp", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã phụ cấp", "Tên phụ cấp", "Loại công thức", "Số tiền", "Tỷ lệ", "Tham chiếu", "Cách tính", "Công chuẩn 2"], hint: "'Công chuẩn 2' (để trống = không đổi công chuẩn): nếu người có chấm công BT mang nhãn của mã này và mã có Công chuẩn 2 > 0 → công chuẩn của người đó = Công chuẩn 2 (ảnh hưởng lương thời gian, tăng ca) và mã này được tính 1 lần/kỳ (không nhân số ngày) · 'Loại công thức' (để trống = hành vi cũ, không đổi số liệu): CO_DINH = luôn tính cố định dù 'Cách tính' ghi gì · TYLE_KHONG_TRU = tỷ lệ theo công, không trừ gì khi dưới ngưỡng · TYLE_TRU_PHEP_TANGCA = tỷ lệ, dưới ngưỡng trừ phép+tăng ca (quy chế 2026/C6, đã đối chiếu CNHAK/HAKQN thật) · TYLE_TRU_LE_PHEP = tỷ lệ, dưới ngưỡng trừ lễ+phép (đối chiếu M thật HAK_DN — chỉ dùng khi đã xác nhận đúng cho mã/công ty đó)." },
     dm_tangca: { ten: "Tăng ca", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã tăng ca", "Nội dung tăng ca", "Loại công thức", "Hệ số tăng ca", "Tiền tăng ca (nếu tính cố định)", "Cách tính"], hint: "'Loại công thức': để trống = dùng đúng công thức của tên Mã tăng ca (TC1-TC6, như trước đây). Thêm mã MỚI muốn dùng lại 1 trong các công thức TC1/TC2/TC3/TC4/TC5/TC6 đã có — ghi đúng tên công thức đó vào đây, không cần sửa phần mềm." },
     dm_hotro: { ten: "Hỗ trợ", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã hỗ trợ", "Tên hỗ trợ", "Loại công thức", "Số tiền", "Cách tính"], hint: "'Loại công thức' (để trống = đúng công thức cũ theo vị trí gán — 'Mã hỗ trợ' = theo ngày, 'Mã hỗ trợ 2' = bù thiếu công chuẩn): HT_THEO_NGAY = Số tiền × số ngày (cơm...) · HT_THIEU_CHUAN = (Công chuẩn − Tổng công) × Số tiền khi thiếu công, 0 khi đủ/thừa. Cho phép 1 mã dùng công thức khác vị trí gán mặc định." },
-    dm_baohiem: { ten: "Bảo hiểm", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã bảo hiểm", "Nội dung", "DN.BHXH", "DN.BHYT", "DN.BHTN", "DN.KPCD", "NLD.BHXH", "NLD.BHYT", "NLD.BHTN", "NLD.KPCD"], hint: "Nhập tỷ lệ dạng 0.08 hoặc 8%. DN = công ty đóng, NLD = người lao động đóng." },
+    dm_baohiem: { ten: "Bảo hiểm", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã bảo hiểm", "Nội dung", "DN.BHXH", "DN.BHYT", "DN.BHTN", "DN.KPCD", "NLD.BHXH", "NLD.BHYT", "NLD.BHTN", "NLD.KPCD", "Trần lương đóng BHXH, BHYT", "Trần lương đóng BHTN"], hint: "Trần lương đóng: để trống cột BHXH, BHYT = 46.800.000đ (20 × lương cơ sở 2.340.000đ); nhập mức mới khi quy định đổi, nhập 0 = không áp trần. Trần BHTN (20 × lương tối thiểu vùng) để trống = không áp. Nhập tỷ lệ dạng 0.08 hoặc 8%. DN = công ty đóng, NLD = người lao động đóng." },
     dm_tncn: { ten: "Thuế TNCN", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã thuế TNCN", "Nội dung", "Phương pháp", "Mức thuế", "Trạng thái", "Loại HĐLĐ", "Đối tượng áp dụng", "Căn cứ", "Ghi chú"], hint: "DM_TNCN (bảng cha): mỗi dòng = 1 phiên bản của 1 mã thuế. 'Phương pháp': LUY_TIEN (lũy tiến từng phần) · LUY_TIEN_TRU_NHANH (lũy tiến rút gọn, dùng cột 'Trừ nhanh' của biểu thuế) · VANG_LAI (khấu trừ theo 'Mức thuế', mặc định 10%) · MIEN (không khấu trừ). Để trống Phương pháp = đọc theo 'Nội dung' như cũ. 'Trạng thái': Nháp (chưa dùng) · Hiệu lực · Ngừng. Biểu thuế (bảng con) nằm ngay bên dưới." },
     dm_bacthue: { ten: "Biểu thuế lũy tiến", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã thuế TNCN", "Bậc", "Thu nhập từ", "Thu nhập đến", "Tỷ lệ", "Trừ nhanh", "Số tiền cố định", "Điều kiện áp dụng", "Loại đối tượng", "Trạng thái", "Ghi chú"], hint: "DM_TNCN_BIEUTHUE (bảng con của Thuế TNCN). Bậc cao nhất để 'Thu nhập đến' = 0 hoặc trống (không giới hạn). Mỗi bộ biểu thuế có 'Hiệu lực từ/đến' riêng. 'Mã thuế TNCN' trỏ về bảng cha; để trống = áp dụng chung cho mọi mã lũy tiến. 'Trừ nhanh' chỉ dùng khi mã cha có Phương pháp LUY_TIEN_TRU_NHANH. 'Điều kiện áp dụng'/'Loại đối tượng' hiện chỉ để ghi chú, engine chưa đọc." },
     dm_giamtru: { ten: "Giảm trừ gia cảnh", cols: ["Hiệu lực từ", "Hiệu lực đến", "Mã giảm trừ", "Số người", "Số tiền"], hint: "Mã bắt đầu GTBT = bản thân, GTNPT = mỗi người phụ thuộc. Số người phụ thuộc lấy từ hồ sơ Nhân thân (Đăng ký phụ thuộc = Có)." },
@@ -1789,11 +1789,12 @@
     bar.appendChild(btn("🖨 In", "", function () { if (!need("export", "in")) return; window.print(); }));
     card.appendChild(bar);
     var nsf = function () { return (st.nsf = st.nsf || { pb: [], cv: [], hd: [], hh: "" }); };
-    var today = function () { return new Date().toISOString().slice(0, 10); };
+    var today = function () { return HRM.today(); };
+    var isoLocal = function (d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }; // ngày theo giờ máy (không dùng UTC)
     var rowsAll = function () { var ix = HRM.buildIndex(db); return db.nhanvien.map(function (r) { return { r: r, hh: HRM.hienHanh(db, r["Mã NV"], null, ix) }; }); };
     /** MỘT hàm chọn dòng cho bảng, Excel, PDF và in. */
     function nsRows() {
-      var qq = qOf("nhansu"), f = nsf(), t0 = today(), in30 = function (n) { return new Date(Date.now() + n * 864e5).toISOString().slice(0, 10); };
+      var qq = qOf("nhansu"), f = nsf(), t0 = today(), in30 = function (n) { return isoLocal(new Date(Date.now() + n * 864e5)); };
       var all = rowsAll(); lastN = { total: all.length, kept: 0 };
       var out = all.filter(function (x) {
         if (st.ft && x.r["Trạng thái"] !== st.ft) return false;
@@ -1839,7 +1840,7 @@
       var t = h("table"), tr = h("tr"); cols.forEach(function (c) { tr.appendChild(h("th", { class: c === "Lương thỏa thuận" ? "r" : "", text: c })); });
       t.appendChild(h("thead", {}, [tr])); var tb = h("tbody");
       rows.slice(pgN.start, pgN.end).forEach(function (x) {
-        var r = x.r, hd = x.hh.hd || {}, het = hd["Ngày hết hạn"] || "", soon = het && !hd["Ngày chấm dứt"] && het <= new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+        var r = x.r, hd = x.hh.hd || {}, het = hd["Ngày hết hạn"] || "", soon = het && !hd["Ngày chấm dứt"] && het <= isoLocal(new Date(Date.now() + 30 * 864e5));
         var e = h("tr", { class: "click", on: { click: function () { st.tab = "nv"; st.nv = r["Mã NV"]; st.nvTab = "canhan"; st.hd = null; render(); } } });
         [r["Mã NV"], r["Họ và tên"], x.hh.tenPB, x.hh.tenCV, hd["Hình thức HĐLĐ"] || "", het].forEach(function (v, i) { e.appendChild(h("td", { class: "t", text: v || "", style: i === 5 && soon ? "color:#c0362c;font-weight:600" : "" })); });
         if (seePay) e.appendChild(h("td", { class: "r", text: x.hh.ct ? fmt(E.money(x.hh.ct["Lương thỏa thuận"])) : "" }));
@@ -3598,7 +3599,7 @@
   }
   function payLap(ht, src) {
     if (!need("payment.record", "lập chứng từ thanh toán lương")) return;
-    var ky = kyStr(), pl = PLG.lapChungTu({ ky: ky, ht: ht, rows: src.kq.bangluong, lines: payLines(), nguoi: session ? session.tenDangNhap : "", ngay: new Date().toISOString().slice(0, 10), chot: src.chot, blockers: src.chot ? [] : GATE.blockers(src.kq).map(function (b) { return b.code; }) });
+    var ky = kyStr(), pl = PLG.lapChungTu({ ky: ky, ht: ht, rows: src.kq.bangluong, lines: payLines(), nguoi: session ? session.tenDangNhap : "", ngay: HRM.today(), chot: src.chot, blockers: src.chot ? [] : GATE.blockers(src.kq).map(function (b) { return b.code; }) });
     if (!pl.ok) { alert("⛔ " + pl.msg + (pl.boQua && pl.boQua.length ? "\n\nBỏ qua:\n" + pl.boQua.slice(0, 8).map(function (x) { return "• " + x.maNV + ": " + x.ly; }).join("\n") : "")); return; }
     if (!confirm("Lập chứng từ " + pl.so + " (" + ht + ") cho " + pl.dong.length + " người, tổng " + fmt(pl.tong) + " đ?" + (pl.boQua.length ? "\n\nBỏ qua " + pl.boQua.length + " người:\n" + pl.boQua.slice(0, 6).map(function (x) { return "• " + x.maNV + ": " + x.ly; }).join("\n") : ""))) return;
     var lapOk = txn(["ttluong"], function () {
@@ -3610,7 +3611,7 @@
   function payChuyen(so, to) {
     if (!need("payment.record", "xử lý chứng từ thanh toán lương")) return;
     var run = function (lyDo) {
-      var rs = PLG.chuyen(payLines(), so, to, { nguoi: session ? session.tenDangNhap : "", ngay: new Date().toISOString().slice(0, 10), lyDo: lyDo, admin: can("system.admin") });
+      var rs = PLG.chuyen(payLines(), so, to, { nguoi: session ? session.tenDangNhap : "", ngay: HRM.today(), lyDo: lyDo, admin: can("system.admin") });
       if (!rs.ok) { alert("⛔ " + rs.msg); return; }
       txn(["ttluong"], function () {
         ledgerSet(function (next) { next.forEach(function (l, i) { if (l["Số chứng từ"] === so) next[i] = Object.assign({}, l, rs.patch); }); });
@@ -4783,7 +4784,7 @@
     }
     c.appendChild(h("div", { class: "warn", text: "Trước khi cài lại Windows / đổi máy: bấm 'Sao lưu ra file' và cất file sang USB/Drive. Sang máy mới cài app rồi 'Khôi phục từ file'." }));
     var bar = h("div", { class: "bar" });
-    bar.appendChild(btn("⬇ Sao lưu ra file", "pri", function () { if (!need("backup.restore", "sao lưu toàn bộ dữ liệu ra file")) return; download("LuongHAK_backup_" + new Date().toISOString().slice(0, 10) + ".json", "application/json", JSON.stringify(db)); audit("Sao lưu ra file", ""); if (store && store.noteExternal) store.noteExternal(); }));
+    bar.appendChild(btn("⬇ Sao lưu ra file", "pri", function () { if (!need("backup.restore", "sao lưu toàn bộ dữ liệu ra file")) return; download("LuongHAK_backup_" + HRM.today() + ".json", "application/json", JSON.stringify(db)); audit("Sao lưu ra file", ""); if (store && store.noteExternal) store.noteExternal(); }));
     bar.appendChild(btn("⬆ Khôi phục từ file", "", function () {
       if (!need("backup.restore")) return;
       var f = h("input", { type: "file", accept: ".json" });
@@ -5542,7 +5543,7 @@
       m.appendChild(h("div", { class: "card" }, [h("h3", { text: "⚠ Có lỗi khi hiển thị màn hình này" }),
         h("div", { class: "warn", text: String(e && e.message || e) }),
         h("div", { class: "hint", text: "Dữ liệu KHÔNG bị mất. Hãy quay về Trang chủ; nếu lỗi lặp lại, bấm Sao lưu ra file và gửi file + ảnh màn hình cho người hỗ trợ." }),
-        h("div", { class: "bar" }, [btn("🏠 Về Trang chủ", "pri", function () { st.tab = "home"; render(); }), btn("⬇ Sao lưu ra file", "", function () { if (!need("backup.restore", "sao lưu toàn bộ dữ liệu ra file")) return; download("LuongHAK_backup_" + new Date().toISOString().slice(0, 10) + ".json", "application/json", JSON.stringify(db)); if (store && store.noteExternal) store.noteExternal(); })])]));
+        h("div", { class: "bar" }, [btn("🏠 Về Trang chủ", "pri", function () { st.tab = "home"; render(); }), btn("⬇ Sao lưu ra file", "", function () { if (!need("backup.restore", "sao lưu toàn bộ dữ liệu ra file")) return; download("LuongHAK_backup_" + HRM.today() + ".json", "application/json", JSON.stringify(db)); if (store && store.noteExternal) store.noteExternal(); })])]));
       if (window.console) console.error(e);
     }
   }

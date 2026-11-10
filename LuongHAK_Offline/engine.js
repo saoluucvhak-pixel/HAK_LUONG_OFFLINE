@@ -38,6 +38,37 @@
     n = isNaN(n) ? 0 : n;
     return neg ? -n : n;
   }
+  // [alpha.56:start] — đoạn thêm đã duyệt, khóa bằng mã băm trong scripts/check-consolidation.cjs
+  /** Ô tiền có nội dung nhưng KHÔNG đọc được thành số (money() sẽ trả 0) — phải báo lỗi, không lặng lẽ coi là 0. */
+  function moneyBad(v) {
+    if (v === "" || v == null || typeof v === "number") return typeof v === "number" && !isFinite(v);
+    var s = String(v).trim().replace(/\s|đ|VNĐ|VND/gi, ""); if (!s) return false;
+    s = s.replace(/^-/, ""); // "(200.000)" KHÔNG tự hiểu là số âm (ở cột khoản trừ sẽ thành cộng tiền) — báo lỗi để người dùng nhập lại
+    return !(/^[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(s) || /^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(s) || /^\d+([.,]\d+)?$/.test(s));
+  }
+  // Trần lương đóng BHXH, BHYT khi danh mục bảo hiểm để trống cột trần: 20 × lương cơ sở 2.340.000đ.
+  // Mức này đổi theo quy định → nhập mức mới vào cột "Trần lương đóng BHXH, BHYT" của Danh mục bảo hiểm (nhập 0 = không áp trần).
+  var TRAN_BHXH_BHYT_MAC_DINH = 46800000;
+  var COT_TRAN_BHXH = "Trần lương đóng BHXH, BHYT", COT_TRAN_BHTN = "Trần lương đóng BHTN";
+  function tranBH(bh, cot, macDinh) { var v = bh[cot]; if (v === "" || v == null) return macDinh; var n = money(v); return n > 0 ? n : 0; } // 0 = không trần
+  function tyLeBHLoi(bh) {
+    var bad = [];
+    ["DN.BHXH", "DN.BHYT", "DN.BHTN", "DN.KPCD", "NLD.BHXH", "NLD.BHYT", "NLD.BHTN", "NLD.KPCD"].forEach(function (c) {
+      var v = bh[c]; if (v === "" || v == null) return;
+      var t = String(v).trim(), ok = typeof v === "number" ? isFinite(v) : /^\d+([.,]\d+)?%?$/.test(t.replace(/\s/g, ""));
+      var n = pct(v);
+      if (!ok || n < 0 || n > 1) bad.push(c + " = " + t);
+    });
+    return bad;
+  }
+  /** Ghi nhận ô tiền không đọc được của các dòng thuộc kỳ (cùng điều kiện lọc với tongHopTheoMa). */
+  function tienLoiTheoMa(list, cotNgay, nam, thang, cols, bad) {
+    (list || []).forEach(function (r) {
+      if (!trongKy(r, cotNgay, nam, thang) || !r["Mã NV"]) return;
+      cols.forEach(function (c) { if (moneyBad(r[c])) bad.push(r["Mã NV"] + ": cột '" + c + "' ngày " + (r[cotNgay] || "") + " = \"" + r[c] + "\" không đọc được thành số tiền"); });
+    });
+  }
+  // [alpha.56:end]
   function tachCong(v) { // "1QC" -> {soCong:1, nhan:"QC"}
     if (v === "" || v == null) return { soCong: 0, nhan: "" };
     if (typeof v === "number") return { soCong: v, nhan: "" };
@@ -439,6 +470,13 @@
     var bd = tongHopTan(db.bandam, nam, thang);
     var ps = tongHopTheoMa(db.psluong, "Ngày hạch toán", nam, thang, ["Thưởng", "Thu nhập khác", "Trừ khác"]);
     var ung = tongHopTheoMa(db.ungluong, "Ngày hạch toán", nam, thang, ["Tạm ứng"]);
+    // [alpha.56:start] — đoạn thêm đã duyệt, khóa bằng mã băm trong scripts/check-consolidation.cjs
+    var loiDauVao = []; // ô tiền không đọc được / tỷ lệ BH sai → CHẶN chốt kỳ (INPUT_INVALID), không lặng lẽ coi là 0
+    tienLoiTheoMa(db.psluong, "Ngày hạch toán", nam, thang, ["Thưởng", "Thu nhập khác", "Trừ khác"], loiDauVao);
+    tienLoiTheoMa(db.ungluong, "Ngày hạch toán", nam, thang, ["Tạm ứng"], loiDauVao);
+    var bhLoi = {};
+    Object.keys(dmBH).forEach(function (k) { var b = tyLeBHLoi(dmBH[k]); if (b.length) { bhLoi[k] = true; loiDauVao.push("Danh mục bảo hiểm '" + k + "': tỷ lệ không hợp lệ (" + b.join("; ") + ") — nhập 0.08 hoặc 8%, không nhập 8"); } });
+    // [alpha.56:end]
     var comMap = {};
     (db.tiencom || []).forEach(function (r) { if (trongKy(r, "Ngày", nam, thang) && r["Mã NV"]) comMap[r["Mã NV"]] = (comMap[r["Mã NV"]] || 0) + num(r["Số suất cơm"]); });
 
@@ -668,6 +706,9 @@
       // BHXH
       var bh = dmBH[ns["Mã BHXH"]], luongBH = money(ns["Lương cơ bản"]) || (qc2026 ? 0 : luongTTMoi), bhNLD = 0, kpcdNLD = 0, truyThu = 0; // BH theo phụ lục đang hiệu lực (không chia theo Q-22)
       if (bh && luongBH > 0 && luongBH < 1000) out.canhbao.push(ma + ": lương đóng BH = " + luongBH + "đ — quá nhỏ, kiểm tra lại 'Lương cơ bản' trong phụ lục hợp đồng");
+      ["Lương thỏa thuận", "Lương cơ bản"].forEach(function (c0) { if (moneyBad(ns[c0])) loiDauVao.push(ma + ": '" + c0 + "' = \"" + ns[c0] + "\" không đọc được thành số tiền"); });
+      var bhSaiTyLe = !!(bh && bhLoi[ns["Mã BHXH"]]);
+      if (bhSaiTyLe) { bh = null; out.canhbao.push(ma + ": KHÔNG tính bảo hiểm vì tỷ lệ của mã '" + ns["Mã BHXH"] + "' sai — sửa Danh mục bảo hiểm rồi tính lại"); }
       var khongLCB = !!(bh && qc2026 && !(luongBH > 0));
       if (khongLCB) { bh = null; out.canhbao.push(ma + ": có mã BHXH nhưng chưa có Lương cơ bản (mức đóng) — quy chế 2026 không tính BH / truy thu (như bảng lương Excel)"); } // 2026 (C8)
       if (bh) {
@@ -675,9 +716,14 @@
         var ng = dmL ? num(dmL["Ngưỡng truy thu BH (công)"]) : 0;
         var du2 = !ng || c.tongCong >= ng;
         var nldParts = {}, dnParts = {};
+        // Trần lương đóng: BHXH, BHYT theo cột trần (trống = mặc định 20 × lương cơ sở); BHTN theo cột trần riêng (trống = không áp, vì phụ thuộc vùng).
+        var tranX = tranBH(bh, COT_TRAN_BHXH, TRAN_BHXH_BHYT_MAC_DINH), tranT = tranBH(bh, COT_TRAN_BHTN, 0);
+        var coSo = { BHXH: tranX > 0 ? Math.min(luongBH, tranX) : luongBH, BHTN: tranT > 0 ? Math.min(luongBH, tranT) : luongBH }; coSo.BHYT = coSo.BHXH;
+        if (coSo.BHXH < luongBH) out.canhbao.push(ma + ": lương đóng BH " + luongBH.toLocaleString("vi-VN") + "đ vượt trần — BHXH, BHYT tính trên " + coSo.BHXH.toLocaleString("vi-VN") + "đ" + (coSo.BHTN < luongBH ? ", BHTN trên " + coSo.BHTN.toLocaleString("vi-VN") + "đ" : " (BHTN chưa khai trần — tính trên toàn bộ; nhập cột '" + COT_TRAN_BHTN + "' nếu cần)"));
+        var dnV = {}, nldV = {};
         ["BHXH", "BHYT", "BHTN"].forEach(function (part) {
-          nldParts[part] = Math.round(luongBH * pct(bh["NLD." + part]));
-          dnParts[part] = Math.round(luongBH * pct(bh["DN." + part]));
+          nldParts[part] = nldV[part] = Math.round(coSo[part] * pct(bh["NLD." + part]));
+          dnParts[part] = dnV[part] = Math.round(coSo[part] * pct(bh["DN." + part]));
           bhNLD += nldParts[part];
         });
         kpcdNLD = Math.round(luongBH * pct(bh["NLD.KPCD"]));
@@ -686,16 +732,16 @@
         var bhRow = {
           "Mã NV": ma, "Họ và tên": ns["Họ và tên"], "Phòng ban": (pb[ns["Mã PB"]] || {})["Tên phòng ban"] || ns["Mã PB"] || "",
           "Số sổ BHXH": ns["Số sổ BHXH"] || "", // PV-7a: báo cáo BHXH thật (RP_BHXH) có cột này
-          "Lương đóng BHXH": luongBH,
-          "CTY.BHXH": Math.round(luongBH * pct(bh["DN.BHXH"])), "CTY.BHYT": Math.round(luongBH * pct(bh["DN.BHYT"])),
-          "CTY.BHTN": Math.round(luongBH * pct(bh["DN.BHTN"])), "CTY.KPCĐ": Math.round(luongBH * pct(bh["DN.KPCD"])),
+          "Lương đóng BHXH": coSo.BHXH,
+          "CTY.BHXH": dnV.BHXH, "CTY.BHYT": dnV.BHYT,
+          "CTY.BHTN": dnV.BHTN, "CTY.KPCĐ": Math.round(luongBH * pct(bh["DN.KPCD"])),
           "Cộng BH công ty đóng": ctyDong,
-          "NLĐ.BHXH": Math.round(luongBH * pct(bh["NLD.BHXH"])), "NLĐ.BHYT": Math.round(luongBH * pct(bh["NLD.BHYT"])),
-          "NLĐ.BHTN": Math.round(luongBH * pct(bh["NLD.BHTN"])), "Cộng BH NLĐ đóng": Math.round(luongBH * pct(bh["NLD.BHXH"])) + Math.round(luongBH * pct(bh["NLD.BHYT"])) + Math.round(luongBH * pct(bh["NLD.BHTN"])), "NLĐ.KPCĐ": kpcdNLD, "Truy thu bảo hiểm": truyThu,
+          "NLĐ.BHXH": nldV.BHXH, "NLĐ.BHYT": nldV.BHYT,
+          "NLĐ.BHTN": nldV.BHTN, "Cộng BH NLĐ đóng": nldV.BHXH + nldV.BHYT + nldV.BHTN, "NLĐ.KPCĐ": kpcdNLD, "Truy thu bảo hiểm": truyThu,
           "Ghi chú": du2 ? "Đủ ngưỡng" : "Chưa đủ ngưỡng (" + c.tongCong + "/" + ng + " công)"
         };
         out.bhxh.push(bhRow);
-      } else if (ns["Mã BHXH"] && !khongLCB) out.canhbao.push(ma + ": mã BHXH '" + ns["Mã BHXH"] + "' chưa có trong Danh mục bảo hiểm");
+      } else if (ns["Mã BHXH"] && !khongLCB && !bhSaiTyLe) out.canhbao.push(ma + ": mã BHXH '" + ns["Mã BHXH"] + "' chưa có trong Danh mục bảo hiểm");
 
       // TNCN
       var maT = ns["Mã TNCN"] || "", npt = num(ns["Người phụ thuộc"]);
@@ -772,6 +818,9 @@
         out.canhbao.push(ma + ": điều chuyển phòng ban trong kỳ (Q-19) — chi phí chia theo công: " + out.bangluong[out.bangluong.length - 1]["Phân bổ PB"].map(function (x) { return (x["Phòng ban"] || x["Mã PB"]) + " " + x["Công"] + " công (" + Math.round(x["Tỷ lệ"] * 1000) / 10 + "%)"; }).join(", "));
       }
     });
+    // [alpha.56:start] — đoạn thêm đã duyệt, khóa bằng mã băm trong scripts/check-consolidation.cjs
+    if (loiDauVao.length) { out.inputErrors = loiDauVao; loiDauVao.forEach(function (m) { out.canhbao.push("INPUT_INVALID — " + m); }); }
+    // [alpha.56:end]
     return out;
   }
 
