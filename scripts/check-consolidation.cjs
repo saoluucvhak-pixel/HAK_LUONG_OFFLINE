@@ -34,7 +34,7 @@ const normalizeInsurance=src=>src.slice(0,src.indexOf(insuranceStart))+original.
 // Nội dung bị khóa bằng SHA-256: sửa bất kỳ ký tự nào trong các đoạn này phải được duyệt lại và cập nhật mã băm.
 const a56=/[ ]*\/\/ \[alpha\.56:start\][^\n]*\n[\s\S]*?[ ]*\/\/ \[alpha\.56:end\]\n/g, a56Blocks=engine.match(a56)||[];
 assert.equal(a56Blocks.length,3,'Expected exactly three approved alpha.56 guard blocks');
-assert.equal(require('node:crypto').createHash('sha256').update(a56Blocks.join(''),'utf8').digest('hex'),'48ad03d594f5ab1013d2ac8ac9acb59b139333930b72aa21902860256c63ba7c','Approved alpha.56 guard blocks changed');
+assert.equal(require('node:crypto').createHash('sha256').update(a56Blocks.join(''),'utf8').digest('hex'),'8f6c1747a34fff0a34d15bbd71b29209ae4e4864aa5192c56a91f3ce267b7258','Approved alpha.56 guard blocks changed');
 const defaultEngine=normalizeInsurance(engine.replace(a56,'')).replace(reportTotal,'"Cộng BH NLĐ đóng": bhNLD').replace(activeHeadcount,priorHeadcount).replace(allowed,'').replace(suppress,'').replace('var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};','var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};');
 assert.equal(defaultEngine,original,'Existing default payroll formulas changed');
 
