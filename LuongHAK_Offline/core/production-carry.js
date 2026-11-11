@@ -73,5 +73,25 @@
     });
     return {source:source,target:target,rows:rows,moving:moving,token:JSON.stringify(all)};
   }
-  var api={reperiod:reperiod,draft:draft,validate:validate,payments:payments,prepare:prepare,annotate:annotate};if(node)module.exports=api;else root.HAKCore.productionCarry=api;
+  function previewReperiod(db, plan) {
+    var d = deps(), target = period(plan.target);
+    var allocation = d.H.sanLuongKy(Object.assign({}, db, { sanluong: plan.rows }), target.y, target.m, 'sanluong');
+    var byEmployee = new Map(), byReceipt = new Map(), names = new Map();
+    (db.nhanvien || []).forEach(function (r) { names.set(r['Mã NV'], r['Họ và tên']); });
+    allocation.rows.forEach(function (r) {
+      var code = r['Mã NV'], quantity = d.E.num(r['KL hàng (Tấn)']);
+      var employee = byEmployee.get(code) || { code: code, name: names.get(code) || code, quantity: 0 };
+      employee.quantity += quantity;
+      byEmployee.set(code, employee);
+    });
+    allocation.alloc.audit.forEach(function (r) { byReceipt.set(r.phieu, r); });
+    var receipts = plan.rows.map(function (r) {
+      var quantity = d.E.num(r['KL hàng (Tấn)']), assigned = r['Mã NV'], audit = byReceipt.get(r['Phiếu cân']);
+      var count = assigned ? 1 : audit ? audit.soNguoi : 0;
+      return { row: r, quantity: quantity, count: count, pending: count ? 0 : quantity,
+        note: assigned ? 'Giao trực tiếp' : audit ? audit.note : 'Chưa gán tổ hoặc nhân viên' };
+    });
+    return { employees: Array.from(byEmployee.values()), receipts: receipts, warnings: allocation.alloc.warnings };
+  }
+  var api={reperiod:reperiod,previewReperiod:previewReperiod,draft:draft,validate:validate,payments:payments,prepare:prepare,annotate:annotate};if(node)module.exports=api;else root.HAKCore.productionCarry=api;
 })(typeof window!=='undefined'?window:this);

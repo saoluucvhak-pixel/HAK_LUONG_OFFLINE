@@ -15,3 +15,20 @@ test('Move rejects closed periods, duplicate receipts, active payment carries an
  const e=fixture();e.sl_chuyenky=[{source:'2026-09',target:'2026-10'}];assert.throws(()=>C.reperiod(e,'2026-09','2026-10'),/sổ chuyển/);
  const f=fixture();f.sanluong[0]['Ngày cân']='2026-01-31';assert.throws(()=>C.reperiod(f,'2026-01','2026-02'),/ngày tương ứng/);
 });
+
+test('Transfer preview reports moved quantities by employee and pending receipts without writing data', () => {
+  const d = fixture();
+  const receipt = d.sanluong[0];
+  d.sanluong.push({ ...receipt, 'Phiếu cân': 'ABSENT', 'NV vắng': 'C' });
+  d.sanluong.push({ ...receipt, 'Phiếu cân': 'UNASSIGNED', 'Mã phòng ban': '' });
+  d.sanluong.push({ ...receipt, 'Phiếu cân': 'DIRECT', 'Mã NV': 'C', 'KL hàng (Tấn)': 2 });
+  d.sanluong.push({ ...receipt, 'Phiếu cân': 'EXISTING', 'Ngày cân': '2026-10-01' });
+  const before = JSON.stringify(d);
+  const plan = C.reperiod(d, '2026-09', '2026-10');
+  const preview = C.previewReperiod(d, plan);
+  assert.deepEqual(preview.employees, [{ code: 'C', name: 'C', quantity: 12 }]);
+  assert.deepEqual(preview.receipts.map(r => [r.row['Phiếu cân'], r.count, r.pending]), [
+    ['P9', 1, 0], ['ABSENT', 0, 10], ['UNASSIGNED', 0, 10], ['DIRECT', 1, 0]
+  ]);
+  assert.equal(JSON.stringify(d), before);
+});

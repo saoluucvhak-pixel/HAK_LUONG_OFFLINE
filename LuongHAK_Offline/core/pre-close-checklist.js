@@ -43,7 +43,9 @@
 
     // 6. Không có mã hết hiệu lực / trùng hiệu lực được dùng sai kỳ (danh mục nào cũng vậy, không riêng lương/tăng ca)
     var dupKhac = byArea(/Hiệu lực từ/, /^dm_(phucap|hotro|baohiem|tncn|giamtru|phongban|chucvu)$/);
-    add(6, "Không có mã hết hiệu lực / trùng hiệu lực được dùng sai kỳ", dupKhac.length ? "canhbao" : "ok", dupLuong.concat(dupTC, dupKhac));
+    var missingCodes = byMsg(/mã (phụ cấp|hỗ trợ).*chưa có hoặc hết hiệu lực|mã hỗ trợ chưa được tính/);
+    var catalogWarnings = dupLuong.concat(dupTC, dupKhac, maTCThieu, missingCodes);
+    add(6, "Không có mã hết hiệu lực / trùng hiệu lực được dùng sai kỳ", catalogWarnings.length ? "canhbao" : "ok", catalogWarnings);
 
     // 7-9. Sản lượng
     var slW = (ctx.slAlloc && ctx.slAlloc.warnings) || [], bdW = (ctx.bdAlloc && ctx.bdAlloc.warnings) || [];
@@ -74,18 +76,22 @@
 
     // 18-20. Đối chiếu độc lập từng người: Tổng thu nhập / Tổng giảm trừ / Thực lĩnh — không tính lại bằng
     // công thức khác, chỉ cộng dồn lại ĐÚNG các cột đã có trên bangluong để lộ ra sai lệch/làm tròn sai.
-    var saiTongTN = [], saiThucLinh = [];
+    var saiTongTN = [], saiThucLinh = [], saiGiamTru = [];
     (kq.bangluong || []).forEach(function (b) {
       var tong = (b["Lương thời gian"] || 0) + (b["Lương phụ"] || 0) + (b["Lương sản lượng"] || 0) + (b["Lương bù SL"] || 0) + (b["Lương bơm dăm"] || 0) +
         (b["Tiền tăng ca"] || 0) + (b["Phụ cấp"] || 0) + (b["Phụ cấp công tác"] || 0) + (b["Lương hỗ trợ"] || 0) + (b["Tiền cơm"] || 0) + (b["Thưởng"] || 0) + (b["Thu nhập khác"] || 0);
       if (Math.round(tong) !== Math.round(b["Tổng thu nhập"] || 0)) saiTongTN.push(b["Mã NV"] + ": cộng lại = " + Math.round(tong) + ", bảng lương = " + Math.round(b["Tổng thu nhập"] || 0));
       var giamTru = (b["Truy thu BH"] || 0) + (b["BH trừ NLĐ"] || 0) + (b["KPCĐ trừ NLĐ"] || 0) + (b["Thuế TNCN"] || 0) + (b["Trừ khác"] || 0) + (b["Tạm ứng"] || 0);
+      var tongGiamTru = b._ct && b._ct.tongGiamTru;
+      if (tongGiamTru != null && Math.abs(giamTru - tongGiamTru) > 0.000001) {
+        saiGiamTru.push(b["Mã NV"] + ": cộng lại = " + giamTru + ", bảng lương = " + tongGiamTru);
+      }
       var tl = (b["Tổng thu nhập"] || 0) - giamTru;
       var tlDung = tl >= 0 ? round1000(tl) : 0;
       if (tlDung !== Math.round(b["Thực lĩnh"] || 0)) saiThucLinh.push(b["Mã NV"] + ": tính lại = " + tlDung + ", bảng lương = " + Math.round(b["Thực lĩnh"] || 0));
     });
     add(18, "Tổng thu nhập đúng (cộng đủ các khoản, từng người)", saiTongTN.length ? "loi" : "ok", saiTongTN);
-    add(19, "Tổng giảm trừ hợp lệ (BH + KPCĐ + Truy thu BH + Thuế + Trừ khác + Tạm ứng)", "ok", []);
+    add(19, "Tổng giảm trừ hợp lệ (BH + KPCĐ + Truy thu BH + Thuế + Trừ khác + Tạm ứng)", saiGiamTru.length ? "loi" : "ok", saiGiamTru);
     add(20, "Thực lĩnh đúng (Tổng thu nhập − Tổng giảm trừ, làm tròn 1.000đ)", saiThucLinh.length ? "loi" : "ok", saiThucLinh);
 
     // 21. Công thức đang hiệu lực phải tính được (Master V5 P0-01): FORMULA_ERROR = BLOCKER, không dùng công thức mặc định thay thế

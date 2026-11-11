@@ -63,7 +63,7 @@
       { k: "Mức đóng bảo hiểm", t: "ref", ref: "dm_baohiem", req: 1 }, { k: "Thuế TNCN", t: "ref", ref: "dm_tncn", req: 1 },
       { k: "Mã GT_TNCN_BT", t: "ref", ref: "dm_giamtru", hint: "Để trống = app tự nhận mã GTBT trong Danh mục giảm trừ (PV-7b). Chỉ cần chọn khi có nhiều hơn 1 mã GTBT." },
       { k: "Mã GT_TNCN_PT", t: "ref", ref: "dm_giamtru", hint: "Để trống = app tự nhận mã GTNPT trong Danh mục giảm trừ (PV-7b). Chỉ cần chọn khi có nhiều hơn 1 mã GTNPT." },
-      { k: "Phụ cấp", t: "ref", ref: "dm_phucap" }, { k: "Hỗ trợ", t: "multi", ref: "dm_hotro" }, { k: "Tăng ca", t: "ref", ref: "dm_tangca" },
+      { k: "Phụ cấp", t: "ref", ref: "dm_phucap" }, { k: "Hỗ trợ", t: "multi", ref: "dm_hotro", maxChoices: 2, hint: "Chọn tối đa 2 mã hỗ trợ" }, { k: "Tăng ca", t: "ref", ref: "dm_tangca" },
       { k: "Ghi chú", t: "area" }],
       cols: ["Loại phụ lục", "Hiệu lực từ", "Phòng ban", "Chức vụ", "Mã lương", "Lương thỏa thuận", "Mức đóng bảo hiểm", "Thuế TNCN"],
       desc: "Mỗi lần tăng lương / đổi vị trí: thêm 1 dòng 'Phụ lục sửa đổi' với 'Hiệu lực từ' mới. Khi tính lương, app tự lấy dòng mới nhất có hiệu lực trong kỳ." },
@@ -333,7 +333,8 @@
     var gtPTCand = gtCodes.filter(function (c) { return /^GTNPT|^PT$/i.test(c); }), gtPTAuto = gtPTCand[0] || "";
     var gtBTAmbig = gtBTCand.filter(function (c, i) { return c !== gtBTCand[0] && gtBTCand.indexOf(c) === i; });
     var gtPTAmbig = gtPTCand.filter(function (c, i) { return c !== gtPTCand[0] && gtPTCand.indexOf(c) === i; });
-    var hotroInfo = {}; (db.dm_hotro || []).forEach(function (r) { hotroInfo[r["Mã hỗ trợ"]] = r; });
+    var E = typeof module !== "undefined" && module.exports ? require("./engine.js") : root.LuongEngine;
+    var hotroInfo = E.hieuLuc(db.dm_hotro, "Mã hỗ trợ", nam, thang);
     (db.nhanvien || []).forEach(function (nv) {
       var ma = nv["Mã NV"]; if (!ma) return;
       var hd = activeHD(db, ma, b.dau, b.cuoi, ix);
@@ -354,6 +355,8 @@
         var inf = hotroInfo[c] || {}, txt = String((inf["Cách tính"] || "") + " " + (inf["Tên hỗ trợ"] || ""));
         if (/công chuẩn|cơ giới|thiếu/i.test(txt) && !/cơm/i.test(txt)) { if (!ht2) ht2 = c; } else if (!ht1) ht1 = c; else if (!ht2) ht2 = c;
       });
+      var ignoredSupport = ht.filter(function (code) { return code !== ht1 && code !== ht2; });
+      if (ignoredSupport.length) warn.push(ma + ": mã hỗ trợ chưa được tính vì vượt hai vị trí trên bảng lương hoặc trùng loại hỗ trợ: " + ignoredSupport.join(", "));
       if (ml.length > 2) warn.push(ma + ": có " + ml.length + " mã lương, app chỉ dùng 2 mã đầu (" + ml.slice(0, 2).join(", ") + ")");
       if (tc.length > 1) warn.push(ma + ": có nhiều mã tăng ca, app dùng mã đầu " + tc[0]);
       var tk = latestBy(rowsOf(db, "thanhtoan", ma, ix), "Hiệu lực từ", b.cuoi);

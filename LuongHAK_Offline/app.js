@@ -694,13 +694,29 @@
     body.appendChild(h("p", { text: "Chuyển hẳn sản lượng " + source + " sang kỳ mới: người/tổ/công, đơn giá và bù đều theo kỳ mới. Giữ số ngày trong tháng (ví dụ 09/09 → 09/10), giữ ngày gốc để tra cứu. Kỳ nguồn không còn các phiếu này. Dữ liệu chuyển ở trạng thái Nháp, cần kiểm tra và Lưu để tính lương." }));
     body.appendChild(target);
     modal("Chuyển thành sản lượng kỳ mới", body, function (close) { return [btn("Đóng", "", close), btn("Xem trước", "pri", function () {
-      var plan; try { plan = C.productionCarry.reperiod(db, source, target.value); } catch (e) { alert(e.message); return; }
+      var plan, preview;
+      try {
+        plan = C.productionCarry.reperiod(db, source, target.value);
+        preview = C.productionCarry.previewReperiod(db, plan);
+      } catch (e) { alert(e.message); return; }
+      var revision = dbRev;
       var detail = h("div");
-      detail.appendChild(h("p", { text: "Chuyển " + plan.rows.length + " phiếu: " + source + " → " + plan.target + ". Chia theo công thực tế kỳ " + plan.target + ". Kiểm tra ngày phân bổ bên dưới trước khi xác nhận." }));
-      detail.appendChild(simpleTable(plan.rows.map(function (r, i) { return { "Phiếu": r["Phiếu cân"], "Ngày cũ": plan.moving[i]["Ngày cân"], "Ngày phân bổ mới": r["Ngày cân"], "Tấn": r["KL hàng (Tấn)"], "Tổ": r["Mã phòng ban"] || "", "Mã NV": r["Mã NV"] || "" }; })));
+      detail.appendChild(h("p", { text: "Chuyển " + plan.rows.length + " phiếu: " + source + " → " + plan.target + ". Kiểm tra ngày phân bổ và cột NV vắng trước khi xác nhận. Phiếu chờ phân bổ vẫn được chuyển ở trạng thái Nháp." }));
+      var pending = preview.receipts.filter(function (r) { return r.pending > 0; });
+      detail.appendChild(h("p", { text: pending.length + " phiếu chờ phân bổ · " + qtyText(pending.reduce(function (total, r) { return total + r.pending; }, 0)) + " tấn." }));
+      detail.appendChild(h("h3", { text: "Chi tiết phiếu và nhân viên vắng" }));
+      detail.appendChild(simpleTable(preview.receipts.map(function (entry) {
+        var r = entry.row;
+        return { "Phiếu": r["Phiếu cân"], "Ngày cân gốc": fmtDate(r["Ngày cân gốc"]), "Ngày phân bổ": fmtDate(r["Ngày cân"]), "Tấn": entry.quantity, "Tổ": r["Mã phòng ban"], "Mã NV trực tiếp": r["Mã NV"], "NV vắng": r["NV vắng"], "Số người nhận": entry.count, "Tấn chờ phân bổ": entry.pending, "Ghi chú": entry.note };
+      })));
+      if (preview.warnings.length) {
+        detail.appendChild(h("details", {}, [h("summary", { text: "Cảnh báo phân bổ (" + preview.warnings.length + ")" }), h("ul", {}, preview.warnings.map(function (warning) { return h("li", { text: warning }); }))]));
+      }
+      detail.appendChild(h("h3", { text: "Tổng khối lượng theo nhân viên" }));
+      detail.appendChild(simpleTable(preview.employees.map(function (r) { return { "Mã NV": r.code, "Họ tên": r.name, "Tấn": r.quantity }; })));
       modal("Xem trước chuyển hẳn sản lượng", detail, function (finish) { return [btn("Hủy", "", finish), btn("Xác nhận chuyển hẳn", "pri", function () {
         if (!need("input.edit")) return;
-        if (JSON.stringify(db.sanluong || []) !== plan.token) { alert("Dữ liệu đã đổi; hãy xem trước lại."); return; }
+        if (dbRev !== revision || JSON.stringify(db.sanluong || []) !== plan.token) { alert("Dữ liệu đã đổi; hãy xem trước lại."); return; }
         if (!backupOrBlock("truoc-chuyen-han-sl-" + source, "chuyển hẳn sản lượng")) return;
         if (!txn(["sanluong", "_inputReviews", "schemaVersion"], function () {
           var fresh = C.productionCarry.reperiod(db, source, plan.target);
@@ -1072,7 +1088,8 @@
       vis.forEach(function (c) {
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
-        var th = h("th", { class: cls, text: isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : c });
+        if (key === "sanluong" && c === "Ngày cân") trh.appendChild(h("th", { text: "Ngày cân gốc", style: "min-width:110px" }));
+        var th = h("th", { class: cls, text: isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : key === "sanluong" && c === "Ngày cân" ? "Ngày phân bổ" : c });
         if (COLW[c]) th.style.minWidth = COLW[c] + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
         trh.appendChild(th);
         if (c === "Mã NV" && def.showName) trh.appendChild(h("th", { text: "Họ tên", style: "min-width:150px" }));
@@ -1147,6 +1164,7 @@
           // Ngày không có trong tháng (VD 31/09): không cho nhập; nếu dữ liệu cũ có giá trị thì vẫn cho sửa để xóa
           if (isDay && key === "chamcong" && +c > VAL.daysInKy(r["Kỳ"]) && (r[c] === "" || r[c] == null)) { inp.disabled = true; inp.title = "Tháng này không có ngày " + c; cls += " dis"; }
           var td = h("td", { class: cls }, [inp]); if (inp._dl) td.appendChild(inp._dl);
+          if (key === "sanluong" && c === "Ngày cân") tr.appendChild(h("td", { class: "dis", text: fmtDate(r["Ngày cân gốc"] || r["Ngày cân"]) }));
           tr.appendChild(td);
           if (c === "Mã NV" && def.showName) { var nm = nameOf(r["Mã NV"]); nameTd = h("td", { class: "dis", text: nm || (r["Mã NV"] ? "⚠ chưa có trong Nhân sự" : "") }); tr.appendChild(nameTd); }
         });
@@ -1234,6 +1252,9 @@
   function missingReq(fields, data) {
     var miss = fields.filter(function (f) { return f.req && !data[f.k]; }).map(function (f) { return f.label || f.k; });
     fields.forEach(function (f) { if (f.t === "date" && data[f.k] && !/^\d{4}-\d{2}-\d{2}$/.test(String(data[f.k]))) miss.push((f.label || f.k) + " (ngày không hợp lệ — nhập dd/MM/yyyy)"); });
+    fields.forEach(function (f) {
+      if (f.maxChoices && HRM.split(data[f.k]).length > f.maxChoices) miss.push(f.k + " (chọn tối đa " + f.maxChoices + " mã)");
+    });
     return miss;
   }
 

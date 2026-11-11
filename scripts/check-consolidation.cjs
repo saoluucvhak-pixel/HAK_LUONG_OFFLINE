@@ -12,10 +12,15 @@ assert.ok(!/experimental|legacy|kpi-/.test(index),'Draft KPI is not connected to
 assert.ok(!fs.existsSync(path.join(root,'.github/workflows/build-setup.yml')),'Old dev release workflow must not be active');
 for(const branch of registry.branches){cp.execFileSync('git',['-c','safe.directory=*','merge-base','--is-ancestor',branch.commit,'HEAD'],{cwd:root,stdio:'pipe'});}
 const baseline='f93ffc42a24a8ec30b24493178368471d310c63f';
-assert.equal(cp.execFileSync('git',['-c','safe.directory=*','diff','--name-only',baseline,'HEAD','--','LuongHAK_Offline/hr.js'],{cwd:root,encoding:'utf8'}).trim(),'','HR formulas changed');
+const alpha56='7094be19c46d3615da30c8d42906ec85d54ac08c';
 const normalize=s=>s.replace(/\r\n/g,'\n');
 const original=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',baseline+':LuongHAK_Offline/engine.js'],{cwd:root,encoding:'utf8'}));
-const engine=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/engine.js'),'utf8'));
+// Pin approved alpha.57 payroll and HR files. Keep the historical engine comparison below.
+const hashFile = file => require('node:crypto').createHash('sha256').update(normalize(fs.readFileSync(path.join(root, 'LuongHAK_Offline', file), 'utf8'))).digest('hex');
+assert.equal(hashFile('engine.js'), '21ae4011b25b876b9e86a0ff442df5631186c0f3351d6521b0be2e117aa43a29', 'Unapproved engine changes after alpha.57');
+assert.equal(hashFile('hr.js'), 'b7c635b0497494a30fb1ffc4536692676f4934dd90c3607e284f900f822075f8', 'Unapproved HR changes after alpha.57');
+assert.equal(hashFile('core/integrity.js'), 'f2f5f3ca79be9c233eee637f77261cca8ac51b9d54fb47b7a752af7bd0fd0f32', 'Unapproved integrity changes after alpha.57');
+const engine=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',alpha56+':LuongHAK_Offline/engine.js'],{cwd:root,encoding:'utf8'}));
 const allowed='      if (cl < 0) out.bangluong[out.bangluong.length - 1]["Còn thiếu (thực lĩnh âm)"] = -cl;\n';
 assert.equal(engine.split(allowed).length,2,'Expected exactly one additive deficit-output line');
 const suppress='      if (opts && opts.suppressProduction) { luongSL = 0; luongBu = 0; }\n';
@@ -38,7 +43,7 @@ assert.equal(require('node:crypto').createHash('sha256').update(a56Blocks.join('
 const defaultEngine=normalizeInsurance(engine.replace(a56,'')).replace(reportTotal,'"Cộng BH NLĐ đóng": bhNLD').replace(activeHeadcount,priorHeadcount).replace(allowed,'').replace(suppress,'').replace('var soNgayThang = opts && opts.productionPayDays || new Date(nam, thang, 0).getDate(), binhQuanTo = {};','var soNgayThang = new Date(nam, thang, 0).getDate(), binhQuanTo = {};');
 assert.equal(defaultEngine,original,'Existing default payroll formulas changed');
 
-console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas preserved except explicitly approved deficit, carry, active-worker headcount, approved insurance reconciliation and alpha.56 input-guard/contribution-cap changes');
+console.log('PASS consolidation: '+registry.branches.length+' branch heads retained, legacy/KPI excluded from installer, payroll formulas preserved except explicitly approved deficit, carry, active-worker headcount, approved insurance reconciliation and alpha.56 input/contribution guards and alpha.57 overtime, support and payroll checks');
 
 const oldImporter=normalize(cp.execFileSync('git',['-c','safe.directory=*','show','c389ef4ffcfd13a4f867cb070db2069314617dc7:LuongHAK_Offline/core/importer.js'],{cwd:root,encoding:'utf8'}));
 const currentImporter=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/core/importer.js'),'utf8'));

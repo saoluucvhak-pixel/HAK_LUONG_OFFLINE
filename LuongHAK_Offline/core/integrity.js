@@ -150,7 +150,7 @@
       DAYS.forEach(function (d) {
         var v = r[d]; if (v === "" || v == null) return;
         var dc = V.dayCell(d, v, r["Kỳ"]), lab = r["Mã NV"] + " kỳ " + r["Kỳ"] + " (" + (r["Hình thức công"] || "BT") + ")";
-        if (dc.error) push("High", "chamcong", lab + ": " + dc.error + (+d > V.daysInKy(r["Kỳ"]) ? " — bảng lương hiện VẪN CỘNG ô này (Q-21), hãy xóa ô" : " — số công tính ra có thể sai, hãy sửa ô"));
+        if (dc.error) push("High", "chamcong", lab + ": " + dc.error + (+d > V.daysInKy(r["Kỳ"]) ? " — bảng lương bỏ qua ô này, hãy xóa ô trước khi chốt" : " — số công tính ra có thể sai, hãy sửa ô"));
         else if (dc.warn) push("Medium", "chamcong", lab + ": " + dc.warn);
       });
     });

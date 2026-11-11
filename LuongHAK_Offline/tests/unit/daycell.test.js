@@ -47,17 +47,17 @@ test("U-CC-15 nhập Excel: ô âm / chữ lạ / ngày 31/09 → dòng 'Lỗi d
   assert.equal(E.tongHopChamCong(db.chamcong, 2026, 9).NV001.tongCong, 8);
 });
 
-test("U-CC-16 dữ liệu CŨ đã có ô sai → Kiểm tra dữ liệu báo High (không tự xóa); ngày 31/09 nêu rõ đang bị cộng (Q-21)", () => {
+test("U-CC-16 dữ liệu CŨ đã có ô sai → Kiểm tra dữ liệu báo High (không tự xóa); ngày 31/09 nêu rõ đã loại khỏi tổng công", () => {
   const db = mkDb();
   db.chamcong.push(row("NV001", { "01": 1, "31": 1, "02": "-1" }), row("NV001", { "03": 5 }, "TC"));
   const snap = JSON.stringify(db.chamcong);
   const w = INT.check(db).filter((x) => x.area === "chamcong");
   assert.equal(JSON.stringify(db.chamcong), snap, "kiểm tra không được sửa dữ liệu");
-  assert.ok(w.some((x) => x.level === "High" && /Ngày 31 không tồn tại.*VẪN CỘNG/.test(x.msg)), JSON.stringify(w));
+  assert.ok(w.some((x) => x.level === "High" && /Ngày 31 không tồn tại.*bỏ qua ô này/.test(x.msg)), JSON.stringify(w));
   assert.ok(w.some((x) => x.level === "High" && /Ngày 02/.test(x.msg)));
   assert.ok(w.some((x) => x.level === "Medium" && /5 công — vượt 3/.test(x.msg)));
-  // engine KHÔNG đổi (chờ Q-21): ngày 31/09 hiện vẫn được cộng
-  assert.equal(E.tongHopChamCong(db.chamcong, 2026, 9).NV001.tongCong, 2 + 5);
+  // 31/09 được loại khỏi tổng công, dữ liệu nguồn vẫn còn để người dùng sửa.
+  assert.equal(E.tongHopChamCong(db.chamcong, 2026, 9).NV001.tongCong, 1 + 5);
 });
 
 test("U-CC-17 cùng ngày, khác hình thức công (BT + TC) → 2 dòng riêng, cộng đủ; chưa có khái niệm 'ca' (Q-18)", () => {
