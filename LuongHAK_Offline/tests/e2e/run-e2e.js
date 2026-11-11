@@ -1173,7 +1173,9 @@ async function launch(dataDir, opt) {
     const logs = qcLogs(d2);
     ok("Quy chế tính lương: mặc định 2026; đổi sang cách cũ / quay lại được, lưu vào dữ liệu, ghi nhật ký", q0 === "2026" && qcOf(d1) === "1.7" && qcOf(d2) === "2026" && logs >= 2, q0 + " · " + qcOf(d1) + "→" + qcOf(d2) + " · " + logs + " dòng nhật ký");
     ok("Không lỗi JavaScript ở chọn quy chế", errs.length === 0, errs.join(" | "));
-    await app.close();
+    // Both writes have been verified on disk. Dispose this test profile session
+    // before starting OCR without waiting on the interactive close flow.
+    await crashApp(app);
   }
 
   // α20: Đọc ảnh / PDF chấm công bằng OCR (offline) — ảnh mẫu GIẢ LẬP tests/fixtures/ocr; chỉ ghi qua màn hình xem trước
