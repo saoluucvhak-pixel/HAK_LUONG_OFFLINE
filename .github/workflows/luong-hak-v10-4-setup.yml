@@ -66,6 +66,38 @@ jobs:
           path: LuongHAK_Offline/dist/*Setup*.exe
           if-no-files-found: error
           retention-days: 30
+  electron-full-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: LuongHAK_Offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies and Electron test driver
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save playwright@1.56.1
+      - name: Run full Electron suite with isolated synthetic data
+        run: xvfb-run -a npm run test:e2e
+      - name: Measure shared OCR per-cell accuracy
+        run: xvfb-run -a npm run test:ocr-eval
+        env:
+          OCR_EVAL_REPORT: tests/e2e/shared-ocr-eval.json
+      - name: Upload full Electron and OCR test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: HAK-LUONG-V10.4-Full-Electron
+          path: |
+            LuongHAK_Offline/tests/e2e/last-e2e-result.json
+            LuongHAK_Offline/tests/e2e/shared-ocr-eval.json
+          retention-days: 14
+
   electron-e2e:
     runs-on: windows-latest
     timeout-minutes: 20
@@ -80,16 +112,8 @@ jobs:
       - name: Install dependencies and Electron test driver
         run: |
           npm ci --no-audit --no-fund
-          npm install --no-save --package-lock=false playwright --no-audit --no-fund
-      - name: Run Electron with isolated synthetic data
-        run: npm run test:e2e 2>&1 | Tee-Object -FilePath electron-e2e.log
-        env:
-          E2E_SHOTS: tests/e2e/screenshots
-      - name: Measure shared OCR per-cell accuracy on synthetic images and PDFs
-        run: npm run test:ocr-eval
-        env:
-          OCR_EVAL_REPORT: tests/e2e/shared-ocr-eval.json
-          OCR_EVAL_SHOTS: tests/e2e/screenshots
+          # Match the Playwright version used to verify the Windows-specific suites locally.
+          npm install --no-save playwright@1.64.1
       - name: Verify yearly archive lifecycle on synthetic records
         run: node tests/e2e/year-archive.cjs
         env:
@@ -104,12 +128,13 @@ jobs:
         run: node tests/e2e/production-carry.cjs
         env:
           E2E_SHOTS: tests/e2e/screenshots
-      - name: Verify stable contract editor while typing
+      - name: Verify editor stability and production transfer
         run: |
-          node tests/e2e/contract-edit-stability.cjs
-          node tests/e2e/hr-editor-stability.cjs
-          node tests/e2e/catalog-filter-stability.cjs
-          node tests/e2e/production-reperiod.cjs
+          $suites = @('contract-edit-stability', 'contract-scroll-stability', 'hr-editor-stability', 'catalog-filter-stability', 'production-reperiod')
+          foreach ($suite in $suites) {
+            node "tests/e2e/$suite.cjs"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Verify HR durable save and renderer crash exit
         run: node tests/e2e/hr-save-close.cjs
       - name: Verify input safety, pinned headers and safe window closing
@@ -129,9 +154,6 @@ jobs:
         with:
           name: HAK-LUONG-V10.4-Electron-E2E-${{ github.run_number }}
           path: |
-            LuongHAK_Offline/electron-e2e.log
-            LuongHAK_Offline/tests/e2e/last-e2e-result.json
-            LuongHAK_Offline/tests/e2e/shared-ocr-eval.json
             LuongHAK_Offline/tests/e2e/year-archive-result.json
             LuongHAK_Offline/tests/e2e/document-review-result.json
             LuongHAK_Offline/tests/e2e/screenshots/*.png
@@ -245,7 +267,7 @@ jobs:
 
   publish-release:
     if: github.ref == 'refs/heads/main'
-    needs: [windows-setup, electron-e2e, workspace-visual, inherited-quality, consolidation]
+    needs: [windows-setup, electron-full-e2e, electron-e2e, workspace-visual, inherited-quality, consolidation]
     runs-on: windows-latest
     permissions:
       contents: write

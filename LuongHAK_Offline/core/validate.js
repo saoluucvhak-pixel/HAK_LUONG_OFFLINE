@@ -5,7 +5,10 @@
 
   // ---------- Kiểu cột ----------
   // Cột TIỀN: nhập kiểu Việt Nam "1.500.000" hoặc "500.000" phải hiểu là hàng nghìn.
-  var MONEY_COLS = /^(Lương thỏa thuận|Lương cơ bản|Lương phụ|Số tiền|Số tiền khoán|Đơn giá bù lương|Đơn giá bơm dăm|Tiền tăng ca \(nếu tính cố định\)|Thưởng|Thu nhập khác|Trừ khác|Tạm ứng|Thanh toán TM|Giá trị tiền thưởng|Thu nhập từ|Thu nhập đến|Trừ nhanh|Số tiền cố định|Thu nhập tháng \(Min\)|Thu nhập tháng \(Max\))$/;
+  var MONEY_COLS = /^(Lương thỏa thuận|Lương cơ bản|Lương phụ|Số tiền|Số tiền khoán|Đơn giá bù lương|Đơn giá bơm dăm|Tiền tăng ca \(nếu tính cố định\)|Thưởng|Thu nhập khác|Trừ khác|Tạm ứng|Thanh toán TM|Giá trị tiền thưởng|Thu nhập từ|Thu nhập đến|Trừ nhanh|Số tiền cố định|Thu nhập tháng \(Min\)|Thu nhập tháng \(Max\)|Trần lương đóng BHXH, BHYT|Trần lương đóng BHTN)$/;
+  // Cột TỶ LỆ bảo hiểm: 0.08 hoặc 8% — không nhận số trần lớn hơn 1 (gõ "8" sẽ thành 800%)
+  var RATE_COLS = /^(DN|NLD)\.(BHXH|BHYT|BHTN|KPCD)$/;
+  var CAP_COLS = /^(Trần lương đóng BHXH, BHYT|Trần lương đóng BHTN)$/;
   var DATE_COLS = /^(Ngày|Hiệu lực|Từ ngày|Đến ngày)/;
   // Mã định danh: luôn là CHỮ, giữ số 0 ở đầu
   var ID_COLS = { "Số CCCD": 12, "Số CCCD nhân thân": 12, "Số điện thoại": 10, "Mã số thuế": 0, "Số tài khoản": 0, "Số sổ BHXH": 10, "Mã NV": 0, "Số HĐLĐ": 0, "Phiếu cân": 0 };
@@ -35,6 +38,25 @@
     if (v === "" || v == null) return "";
     var n = parseMoney(v);
     return isNaN(n) ? String(v) : String(Math.round(n * 1e6) / 1e6);
+  }
+
+  // ---------- Tỷ lệ ----------
+  /** "0.08" / "0,08" / "8%" → 0.08 · "" → 0. Trả NaN nếu không đọc được. Số trần "8" trả 8 (người gọi tự chặn > 1). */
+  function parseRate(v) {
+    if (v === "" || v == null) return 0;
+    if (typeof v === "number") return isFinite(v) ? v : NaN;
+    var s = String(v).trim().replace(/\s/g, ""); if (!s) return 0;
+    var p = /%$/.test(s); if (p) s = s.slice(0, -1);
+    if (!/^\d+([.,]\d+)?$/.test(s)) return NaN;
+    var n = parseFloat(s.replace(",", ".")); return p ? n / 100 : n;
+  }
+  function isRateCol(c) { return RATE_COLS.test(c); }
+  function rateError(v) {
+    var n = parseRate(v);
+    if (isNaN(n)) return "Tỷ lệ không đọc được (nhập 0.08 hoặc 8%)";
+    if (n < 0) return "Tỷ lệ không được âm";
+    if (n > 1) return "Tỷ lệ vượt 100% — nhập 0.08 hoặc 8% (không nhập 8)";
+    return "";
   }
 
   // ---------- Ngày ----------
@@ -81,7 +103,14 @@
   function normCell(col, v) {
     if (col === KY_COL) { var k = normKy(v); return k === null ? { value: String(v), error: "Kỳ không hợp lệ (cần dạng 2026-09)" } : { value: k }; }
     if (isDateCol(col)) { var d = normDate(v); return d === null ? { value: String(v), error: "Ngày không hợp lệ (cần dạng 2026-09-15 hoặc 15/09/2026)" } : { value: d }; }
+    if (CAP_COLS.test(col)) {
+      if (v == null || String(v).trim() === "") return { value: "" };
+      var cap = parseMoney(v);
+      if (!isFinite(cap) || cap < 0 || !/\d/.test(String(v))) return { value: String(v), error: "Trần lương đóng phải là số tiền không âm" };
+      return { value: String(cap) };
+    }
     if (isMoneyCol(col)) { if (v === "" || v == null) return { value: "" }; var n = parseMoney(v); return isNaN(n) ? { value: String(v), error: "Số tiền không đọc được" } : { value: String(Math.round(n * 1e6) / 1e6) }; }
+    if (isRateCol(col)) { var re = rateError(v); return re ? { value: String(v == null ? "" : v).trim(), error: re } : { value: String(v == null ? "" : v).trim().replace(/\s/g, "") }; }
     if (isIdCol(col)) return { value: normId(col, v) };
     if (col === "Hình thức công") return { value: String(v == null ? "" : v).trim().toUpperCase() };
     if (v == null) return { value: "" };
@@ -141,7 +170,7 @@
     return !!(ma && mb && parseFloat(ma[1]) === parseFloat(mb[1]) && ma[2].trim() === mb[2].trim());
   }
 
-  var api = { parseMoney: parseMoney, sameCell: sameCell, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
+  var api = { parseRate: parseRate, rateError: rateError, isRateCol: isRateCol, parseMoney: parseMoney, sameCell: sameCell, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
     dayCell: dayCell, daysInKy: daysInKy, MAX_CONG_NGAY: MAX_CONG_NGAY,
     isMoneyCol: isMoneyCol, isDateCol: isDateCol, isIdCol: isIdCol, rowPeriod: rowPeriod, PERIOD_FIELD: PERIOD_FIELD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

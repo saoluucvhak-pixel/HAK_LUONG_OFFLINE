@@ -1,7 +1,7 @@
 // Kiểm thử end-to-end trên ứng dụng Electron thật (bản đóng gói chạy từ mã nguồn).
 // Chạy: ELECTRON_PATH=<đường dẫn electron> PLAYWRIGHT_MODULE=<đường dẫn playwright> node tests/e2e/run-e2e.js
 // (Linux không màn hình: xvfb-run -a node tests/e2e/run-e2e.js)
-/* global document, DataTransfer, ClipboardEvent */ // dùng trong các hàm w.evaluate(...) chạy bên trong cửa sổ app
+/* global document, DataTransfer, ClipboardEvent, HTMLInputElement */ // dùng trong các hàm w.evaluate(...) chạy bên trong cửa sổ app
 // Dùng thư mục dữ liệu tạm (biến HAK_USER_DATA) — không đụng dữ liệu thật.
 "use strict";
 const fs = require("fs"), os = require("os"), path = require("path");
@@ -18,6 +18,28 @@ const ADMIN = { u: "admin", n: "Quản trị E2E", p: "Admin2026e2e" };
 const shotDir = process.env.E2E_SHOTS || "";
 const shotOf = async (pg, name) => { if (shotDir) { fs.mkdirSync(shotDir, { recursive: true }); await pg.screenshot({ path: path.join(shotDir, name + ".png") }).catch(() => {}); } };
 let dialogs = [], dismissConfirm = false; // dismissConfirm: bấm "Hủy" ở hộp xác nhận tiếp theo
+// Use the real OCR input and change handler without opening a native dialog on CI.
+async function chooseOcrFiles(page, paths) {
+  const input = page.locator('input[data-e2e-ocr-file]');
+  const proto = await page.evaluateHandle(() => HTMLInputElement.prototype);
+  await proto.evaluate(p => {
+    const click = p.click;
+    p.click = function () {
+      p.click = click;
+      if (this.type !== 'file') return click.call(this);
+      this.setAttribute('data-e2e-ocr-file', '');
+      document.body.appendChild(this);
+    };
+  });
+  try {
+    await page.locator('#main button:has-text("Chọn ảnh / PDF")').click({ timeout: 15000 });
+    await input.setInputFiles(paths, { timeout: 15000 });
+  } finally {
+    if (await input.count()) await input.evaluate(el => el.remove());
+    await proto.dispose();
+  }
+}
+
 // Đăng nhập (hoặc tạo Admin đầu tiên nếu dữ liệu chưa có tài khoản). Màn hình khôi phục (file hỏng) không cần đăng nhập.
 async function auth(w, who) {
   who = who || ADMIN;
@@ -1159,6 +1181,10 @@ async function launch(dataDir, opt) {
 
   // α21: Quy chế tính lương — chọn ở Tính lương, lưu theo dữ liệu (hồ sơ công ty), ghi nhật ký; đổi lại cách cũ được để đối chiếu
   {
+    // Prepare the OCR fixture before launching the profile shared by these two cases.
+    const f = path.join(DATA, "data.json"), data = JSON.parse(fs.readFileSync(f, "utf8"));
+    data.nhanvien.push({ _id: "ocn1", "Mã NV": "OC1", "Họ và tên": "Phạm Minh Khoa", "Trạng thái": "Đang làm việc" });
+    fs.writeFileSync(f, JSON.stringify(data));
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=luong]");
     const q0 = await w.locator('select[aria-label="Quy chế tính lương"]').inputValue();
@@ -1173,18 +1199,11 @@ async function launch(dataDir, opt) {
     const logs = qcLogs(d2);
     ok("Quy chế tính lương: mặc định 2026; đổi sang cách cũ / quay lại được, lưu vào dữ liệu, ghi nhật ký", q0 === "2026" && qcOf(d1) === "1.7" && qcOf(d2) === "2026" && logs >= 2, q0 + " · " + qcOf(d1) + "→" + qcOf(d2) + " · " + logs + " dòng nhật ký");
     ok("Không lỗi JavaScript ở chọn quy chế", errs.length === 0, errs.join(" | "));
-    await app.close();
-  }
-
-  // α20: Đọc ảnh / PDF chấm công bằng OCR (offline) — ảnh mẫu GIẢ LẬP tests/fixtures/ocr; chỉ ghi qua màn hình xem trước
-  {
-    const f = path.join(DATA, "data.json"), d0 = JSON.parse(fs.readFileSync(f, "utf8")), FX = path.join(APP, "tests/fixtures/ocr");
-    d0.nhanvien.push({ _id: "ocn1", "Mã NV": "OC1", "Họ và tên": "Phạm Minh Khoa", "Trạng thái": "Đang làm việc" });
-    fs.writeFileSync(f, JSON.stringify(d0));
-    ({ app, w, errs } = await launch());
+    // Continue in the same Electron session after checking both writes on disk.
+    console.log("E2E: chuyển từ quy chế sang OCR trong cùng phiên thử");
+    const FX = path.join(APP, "tests/fixtures/ocr");
     await w.click("#nav button[data-k=ocr]");
-    const [fc] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
-    await fc.setFiles([path.join(FX, "bang-cham-cong-mau.png"), path.join(FX, "bang-cham-cong-mau.pdf")]);
+    await chooseOcrFiles(w, [path.join(FX, "bang-cham-cong-mau.png"), path.join(FX, "bang-cham-cong-mau.pdf")]);
     let done = false;
     for (let i = 0; i < 300 && !done; i++) { await w.waitForTimeout(500); done = await w.evaluate(() => { const n = [...document.querySelectorAll(".subtabs button .n")].map((e) => e.textContent); return n.length === 2 && n.every((x) => /^\d+$/.test(x)); }); }
     const grid = () => w.evaluate(() => {
@@ -1261,8 +1280,7 @@ async function launch(dataDir, opt) {
     await shotOf(w, "v104-alpha38-ocr-controls");
     // Dừng đọc: chọn thêm 3 trang, bấm Dừng khi trang đầu đang đọc → trang sau không đọc (■), trang đã đọc giữ nguyên; Đọc lại từng trang được
     {
-      const [fc2] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
-      await fc2.setFiles([path.join(FX, "lich-lam-doc-mau.png"), path.join(FX, "bang-cham-cong-mau.png"), path.join(FX, "bang-cham-cong-mau-pdfjs.png")]);
+      await chooseOcrFiles(w, [path.join(FX, "lich-lam-doc-mau.png"), path.join(FX, "bang-cham-cong-mau.png"), path.join(FX, "bang-cham-cong-mau-pdfjs.png")]);
       await w.waitForSelector('#main button:has-text("Dừng đọc")', { timeout: 20000 });
       await w.click('#main button:has-text("Dừng đọc")');
       let ended = false;
@@ -1279,8 +1297,7 @@ async function launch(dataDir, opt) {
     // α22: Cách đọc ô "Dấu x (x = 1 công) · giờ / 8" — bảng tay của tổ, 2 khối ngày, mỗi người 1 cột
     {
       await w.selectOption('select[aria-label="Cách đọc ô cho file mới"]', "mark");
-      const [fc3] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
-      await fc3.setFiles([path.join(FX, "cham-cong-tay-x-mau.png")]);
+      await chooseOcrFiles(w, [path.join(FX, "cham-cong-tay-x-mau.png")]);
       let n6 = ""; for (let i = 0; i < 240 && !/^\d+$/.test(n6); i++) { await w.waitForTimeout(500); n6 = await w.locator(".subtabs button .n").nth(5).innerText().catch(() => ""); }
       await w.locator(".subtabs button").nth(5).click(); await w.waitForTimeout(200);
       const pm = await w.locator('select[aria-label="Cách đọc ô của trang"]').inputValue();
@@ -1293,8 +1310,7 @@ async function launch(dataDir, opt) {
     // V7: PDF có lớp chữ → lấy chữ trực tiếp (không OCR ảnh), tốc độ tức thì, số chính xác; thêm PDF scan vẫn đi đường OCR
     {
       await w.click('#main button:has-text("Xóa danh sách")');
-      const [fcT] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
-      await fcT.setFiles([path.join(FX, "bang-cham-cong-lop-chu.pdf")]);
+      await chooseOcrFiles(w, [path.join(FX, "bang-cham-cong-lop-chu.pdf")]);
       let gt = []; for (let i = 0; i < 120 && gt.length < 3; i++) { await w.waitForTimeout(500); gt = await w.evaluate(() => [...document.querySelectorAll(".ocrgrid tbody tr")].map((tr) => [tr.querySelector("input.i").value, tr.querySelector("input[data-day='4']").value, tr.children[tr.children.length - 2].textContent])); }
       const srcK = await w.locator('[data-src-kind="pdf-text"]').count();
       ok("PDF có lớp chữ: dựng bảng thẳng từ chữ trong PDF (hiện 'Nguồn: lớp chữ của PDF'), 3 người đúng số và tổng 8,5 / 10 / 5",
@@ -1311,8 +1327,7 @@ async function launch(dataDir, opt) {
       const xr = pdf.length; pdf += "xref\n0 " + (objs.length + 1) + "\n0000000000 65535 f \n" + offs.map((o) => String(o).padStart(10, "0") + " 00000 n \n").join("") + "trailer\n<< /Size " + (objs.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xr + "\n%%EOF\n";
       const big = path.join(DATA, "pdf-35-trang.pdf"); fs.writeFileSync(big, pdf);
       await w.click('#main button:has-text("Xóa danh sách")');
-      const [fc2] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Chọn ảnh / PDF")').click()]);
-      await fc2.setFiles([big]);
+      await chooseOcrFiles(w, [big]);
       let more = 0; for (let i = 0; i < 240 && !more; i++) { await w.waitForTimeout(500); more = await w.locator('#main button:has-text("Đọc tiếp")').count(); }
       const t1 = await w.locator(".subtabs button").count();
       ok("PDF 35 trang: lượt đầu 30 trang, hiện nút 'Đọc tiếp' (không âm thầm cắt)", more === 1 && t1 === 30, "tabs=" + t1 + " more=" + more);
