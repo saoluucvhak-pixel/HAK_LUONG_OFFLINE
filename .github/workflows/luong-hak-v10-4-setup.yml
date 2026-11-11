@@ -128,13 +128,13 @@ jobs:
         run: node tests/e2e/production-carry.cjs
         env:
           E2E_SHOTS: tests/e2e/screenshots
-      - name: Verify stable contract editor while typing
+      - name: Verify editor stability and production transfer
         run: |
-          node tests/e2e/contract-edit-stability.cjs
-          node tests/e2e/contract-scroll-stability.cjs
-          node tests/e2e/hr-editor-stability.cjs
-          node tests/e2e/catalog-filter-stability.cjs
-          node tests/e2e/production-reperiod.cjs
+          $suites = @('contract-edit-stability', 'contract-scroll-stability', 'hr-editor-stability', 'catalog-filter-stability', 'production-reperiod')
+          foreach ($suite in $suites) {
+            node "tests/e2e/$suite.cjs"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Verify HR durable save and renderer crash exit
         run: node tests/e2e/hr-save-close.cjs
       - name: Verify input safety, pinned headers and safe window closing
