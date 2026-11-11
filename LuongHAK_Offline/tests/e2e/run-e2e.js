@@ -1181,6 +1181,10 @@ async function launch(dataDir, opt) {
 
   // α21: Quy chế tính lương — chọn ở Tính lương, lưu theo dữ liệu (hồ sơ công ty), ghi nhật ký; đổi lại cách cũ được để đối chiếu
   {
+    // Prepare the OCR fixture before launching the profile shared by these two cases.
+    const f = path.join(DATA, "data.json"), data = JSON.parse(fs.readFileSync(f, "utf8"));
+    data.nhanvien.push({ _id: "ocn1", "Mã NV": "OC1", "Họ và tên": "Phạm Minh Khoa", "Trạng thái": "Đang làm việc" });
+    fs.writeFileSync(f, JSON.stringify(data));
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=luong]");
     const q0 = await w.locator('select[aria-label="Quy chế tính lương"]').inputValue();
@@ -1195,20 +1199,9 @@ async function launch(dataDir, opt) {
     const logs = qcLogs(d2);
     ok("Quy chế tính lương: mặc định 2026; đổi sang cách cũ / quay lại được, lưu vào dữ liệu, ghi nhật ký", q0 === "2026" && qcOf(d1) === "1.7" && qcOf(d2) === "2026" && logs >= 2, q0 + " · " + qcOf(d1) + "→" + qcOf(d2) + " · " + logs + " dòng nhật ký");
     ok("Không lỗi JavaScript ở chọn quy chế", errs.length === 0, errs.join(" | "));
-    // Both writes have been verified on disk. Dispose this test profile session
-    // before starting OCR without waiting on the interactive close flow.
-    console.log("E2E: đóng phiên thử quy chế");
-    await crashApp(app);
-    console.log("E2E: đã đóng phiên thử quy chế");
-  }
-
-  // α20: Đọc ảnh / PDF chấm công bằng OCR (offline) — ảnh mẫu GIẢ LẬP tests/fixtures/ocr; chỉ ghi qua màn hình xem trước
-  {
-    const f = path.join(DATA, "data.json"), d0 = JSON.parse(fs.readFileSync(f, "utf8")), FX = path.join(APP, "tests/fixtures/ocr");
-    d0.nhanvien.push({ _id: "ocn1", "Mã NV": "OC1", "Họ và tên": "Phạm Minh Khoa", "Trạng thái": "Đang làm việc" });
-    fs.writeFileSync(f, JSON.stringify(d0));
-    ({ app, w, errs } = await launch());
-    console.log("E2E: đã mở phiên thử OCR");
+    // Continue in the same Electron session after checking both writes on disk.
+    console.log("E2E: chuyển từ quy chế sang OCR trong cùng phiên thử");
+    const FX = path.join(APP, "tests/fixtures/ocr");
     await w.click("#nav button[data-k=ocr]");
     await chooseOcrFiles(w, [path.join(FX, "bang-cham-cong-mau.png"), path.join(FX, "bang-cham-cong-mau.pdf")]);
     let done = false;
