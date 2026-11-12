@@ -37,7 +37,7 @@
   }
 
   /** Kiểm tra toàn vẹn. Trả mảng { level: "Critical|High|Medium|Low", area, msg }. */
-  function check(db) {
+  function check(db, opts) {
     var out = [], push = function (level, area, msg) { out.push({ level: level, area: area, msg: msg }); };
     var nv = db.nhanvien || [], emp = {}, cntMa = {};
     nv.forEach(function (n) { cntMa[n["Mã NV"]] = (cntMa[n["Mã NV"]] || 0) + 1; emp[n["Mã NV"]] = n; });
@@ -157,7 +157,9 @@
     var order = { Critical: 0, High: 1, Medium: 2, Low: 3 };
     // V9.2: người phụ thuộc (CCCD/MST/ngày cấp/kỳ giảm trừ, đăng ký trùng/chồng kỳ) + cấu hình thuế TNCN (biểu thuế cha–con)
     var DEPM = (typeof module !== "undefined" && module.exports) ? require("./dependents.js") : root.HAKCore.dep;
-    DEPM.check(db, new Date().toISOString().slice(0, 10)).forEach(function (x) { out.push(x); });
+    // Ngày hôm nay theo GIỜ MÁY (không dùng UTC: trước 7 giờ sáng giờ Việt Nam, UTC còn là ngày hôm trước)
+    var d0 = (opts && opts.now) || new Date(), homNay = d0.getFullYear() + "-" + ("0" + (d0.getMonth() + 1)).slice(-2) + "-" + ("0" + d0.getDate()).slice(-2);
+    DEPM.check(db, homNay).forEach(function (x) { out.push(x); });
     var TCM = (typeof module !== "undefined" && module.exports) ? require("./tax-config.js") : (root.HAKCore && root.HAKCore.taxcfg);
     if (TCM) TCM.check(db).forEach(function (x) { out.push(x); });
     return out.sort(function (a, b) { return order[a.level] - order[b.level]; });

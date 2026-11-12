@@ -1,6 +1,6 @@
 {
   "name": "luong-hak",
-  "version": "2.0.0-alpha.57",
+  "version": "2.0.0-alpha.58",
   "description": "Tính lương HAK - chạy offline",
   "main": "main.js",
   "author": "HAK",
@@ -13,7 +13,7 @@
     "test:ocr-eval": "node tests/e2e/ocr-eval.js"
   },
   "devDependencies": {
-    "electron": "43.7.9",
+    "electron": "43.8.9",
     "electron-builder": "26.15.3",
     "jsdom": "30.1.3"
   },

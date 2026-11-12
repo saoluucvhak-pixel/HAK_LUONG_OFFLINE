@@ -19,7 +19,8 @@ const original=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',b
 const hashFile = file => require('node:crypto').createHash('sha256').update(normalize(fs.readFileSync(path.join(root, 'LuongHAK_Offline', file), 'utf8'))).digest('hex');
 assert.equal(hashFile('engine.js'), '21ae4011b25b876b9e86a0ff442df5631186c0f3351d6521b0be2e117aa43a29', 'Unapproved engine changes after alpha.57');
 assert.equal(hashFile('hr.js'), 'b7c635b0497494a30fb1ffc4536692676f4934dd90c3607e284f900f822075f8', 'Unapproved HR changes after alpha.57');
-assert.equal(hashFile('core/integrity.js'), 'f2f5f3ca79be9c233eee637f77261cca8ac51b9d54fb47b7a752af7bd0fd0f32', 'Unapproved integrity changes after alpha.57');
+// alpha.58 (chủ sở hữu duyệt): chỉ đổi cách lấy 'hôm nay' của kiểm tra người phụ thuộc sang giờ máy (trước là UTC).
+assert.equal(hashFile('core/integrity.js'), 'f40d5706a4957bfded548bb534b976bb9d1a3eac5bdb7e47ff098e45adc539ce', 'Unapproved integrity changes after alpha.58');
 const engine=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',alpha56+':LuongHAK_Offline/engine.js'],{cwd:root,encoding:'utf8'}));
 const allowed='      if (cl < 0) out.bangluong[out.bangluong.length - 1]["Còn thiếu (thực lĩnh âm)"] = -cl;\n';
 assert.equal(engine.split(allowed).length,2,'Expected exactly one additive deficit-output line');
