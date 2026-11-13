@@ -271,6 +271,19 @@
     var rows = direct.concat(al.shares.map(function (x) { return { "Phiếu cân": x.phieu, "Ngày cân": x.ngay, "KL hàng (Tấn)": x.kl, "Mã NV": x.ma, "Mã phòng ban": x.maPB, _chia: 1 }; }));
     return { rows: rows, direct: direct, alloc: al, chuaGan: chuaGan };
   }
+  function productionPayrollIssues(sanluong, bandam, payrollRows) {
+    var recipients = new Set(payrollRows.map(function (r) { return r["Mã NV"]; }));
+    var issues = [];
+    [["Sản lượng", sanluong, "tấn"], ["Bơm dăm", bandam, "xe"]].forEach(function (entry) {
+      var result = entry[1];
+      result.chuaGan.concat(result.rows.filter(function (r) { return !recipients.has(r["Mã NV"]); })).forEach(function (r) {
+        var recipient = r["Mã NV"];
+        issues.push(entry[0] + " — phiếu " + (r["Phiếu cân"] || "(thiếu số phiếu)") + ", " + r["Ngày cân"] +
+          ", " + r["KL hàng (Tấn)"] + " " + entry[2] + ": " + (recipient ? "mã " + recipient + " không có trong bảng lương kỳ này" : "chưa gán tổ hoặc nhân viên"));
+      });
+    });
+    return issues;
+  }
   /** Ô chấm công có công (> 0) không — "1", "0,5", "1QC"… */
   function coCong(v) { var x = parseFloat(String(v == null ? "" : v).replace(",", ".")); return x > 0; }
   var LEAVE_TAG = "[Nghỉ phép/ốm]";
@@ -719,7 +732,7 @@
     return seeded;
   }
 
-  var api = { dsNguoiPhuThuoc: dsNguoiPhuThuoc, HR: HR, BIEN_DONG: BIEN_DONG, NV_TABS: NV_TABS, HD_TABS: HD_TABS, REFS: REFS, refName: refName, hienHanh: hienHanh, buildIndex: buildIndex, isPayField: isPayField, PAY_HIDDEN: PAY_HIDDEN, staffForPayroll: staffForPayroll, sanLuongKy: sanLuongKy, nghiNgay: nghiNgay, leaveCheck: leaveCheck, LEAVE_TAG: LEAVE_TAG,
+  var api = { dsNguoiPhuThuoc: dsNguoiPhuThuoc, HR: HR, BIEN_DONG: BIEN_DONG, NV_TABS: NV_TABS, HD_TABS: HD_TABS, REFS: REFS, refName: refName, hienHanh: hienHanh, buildIndex: buildIndex, isPayField: isPayField, PAY_HIDDEN: PAY_HIDDEN, staffForPayroll: staffForPayroll, sanLuongKy: sanLuongKy, productionPayrollIssues: productionPayrollIssues, nghiNgay: nghiNgay, leaveCheck: leaveCheck, LEAVE_TAG: LEAVE_TAG,
     seedDanhMuc: seedDanhMuc, khoiTaoMoi: khoiTaoMoi, migrate: migrate, reports: reports, uid: uid, today: today, split: split, activeHD: activeHD };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.HRM = api;
 })(typeof window !== "undefined" ? window : this);

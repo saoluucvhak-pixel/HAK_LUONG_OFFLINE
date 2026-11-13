@@ -386,8 +386,15 @@
           continue;
         }
         tong += t.soCong;
-        if (t.nhan) r.nhanTheoNgay[ten] = t.nhan;
-        if (t.nhan && ht === "BT") r.nhanBTTheoNgay[ten] = t.nhan; // Công chuẩn 2 / 500k chỉ xét dòng công BT
+        if (t.nhan) {
+          var labels = r.nhanTheoNgay[ten] || (r.nhanTheoNgay[ten] = []);
+          if (labels.indexOf(t.nhan) < 0) labels.push(t.nhan);
+          if (ht === "BT") {
+            var btLabels = r.nhanBTTheoNgay[ten] || (r.nhanBTTheoNgay[ten] = []);
+            if (btLabels.indexOf(t.nhan) < 0) btLabels.push(t.nhan);
+          }
+        }
+        if (ht === "CC" && t.soCong > 0) (r.comDays || (r.comDays = new Set())).add(d); // Công chuẩn 2 / 500k chỉ xét dòng công BT
         if (!laTC && laCong) {
           var dt = new Date(nam, thang - 1, d);
           if (dt.getMonth() === thang - 1 && dt.getDay() === 0) r.congChuNhat += t.soCong;
@@ -483,8 +490,30 @@
     Object.keys(dmBH).forEach(function (k) { var b = kiemTraDanhMucBH(dmBH[k]); if (b.length) { bhLoi[k] = true; loiDauVao.push("Danh mục bảo hiểm '" + k + "': cấu hình không hợp lệ (" + b.join("; ") + ")"); } });
     // [alpha.56:end]
     loiDauVao.push.apply(loiDauVao, invalidDays);
-    var comMap = {};
-    (db.tiencom || []).forEach(function (r) { if (trongKy(r, "Ngày", nam, thang) && r["Mã NV"]) comMap[r["Mã NV"]] = (comMap[r["Mã NV"]] || 0) + num(r["Số suất cơm"]); });
+    var comMap = {}, comDays = new Map();
+    (db.tiencom || []).forEach(function (r) {
+      var ma = r["Mã NV"], date = ky(r, "Ngày"), quantity = num(r["Số suất cơm"]);
+      if (!ma || !date || date.y !== nam || date.m !== thang) return;
+      comMap[ma] = (comMap[ma] || 0) + quantity;
+      if (quantity > 0) {
+        if (!comDays.has(ma)) comDays.set(ma, new Set());
+        comDays.get(ma).add(date.d);
+      }
+    });
+    var checkedCatalog = new Set();
+    function checkCatalog(table, code, row, moneyCols, rateCols) {
+      if (!row) return;
+      var key = table + "|" + code;
+      if (checkedCatalog.has(key)) return;
+      checkedCatalog.add(key);
+      moneyCols.forEach(function (col) {
+        if (moneyBad(row[col]) || money(row[col]) < 0) loiDauVao.push(table + " " + code + ": " + col + " phải là số không âm");
+      });
+      rateCols.forEach(function (col) {
+        var value = String(row[col] == null ? "" : row[col]).trim();
+        if (value && !/^(?:\d+(?:[.,]\d+)?|[.,]\d+)%?$/.test(value)) loiDauVao.push(table + " " + code + ": " + col + " không hợp lệ");
+      });
+    }
 
     var out = { bangluong: [], bhxh: [], tncn: [], canhbao: [], loiCongThuc: [], loiThue: [], loiCongChuan: [] };
     var dauKy = new Date(nam, thang - 1, 1);
@@ -532,7 +561,7 @@
       var dmL = dmLuong[ns["Mã tiền lương 1"]] || dmLuong[ns["Mã tiền lương 2"]] || null;
       if (!dmL && maTL1) out.canhbao.push(ma + ": mã lương '" + maTL1 + "' chưa có trong Danh mục lương (hoặc hết hiệu lực)");
       // Công chuẩn 2 (Danh mục phụ cấp, cột "Công chuẩn 2"): nhãn công tác trên dòng BT có Công chuẩn 2 > 0 → công chuẩn của người này = Công chuẩn 2
-      var cc2Map = {}; Object.keys(c.nhanBTTheoNgay).forEach(function (k) { var n = c.nhanBTTheoNgay[k], v = dmPC[n] ? money(dmPC[n]["Công chuẩn 2"]) : 0; if (v > 0) cc2Map[n] = v; });
+      var cc2Map = {}; Object.keys(c.nhanBTTheoNgay).forEach(function (k) { var labels = c.nhanBTTheoNgay[k]; if (c.nhanTheoNgay[k].length !== 1 || labels.length !== 1) return; var n = labels[0], v = dmPC[n] ? money(dmPC[n]["Công chuẩn 2"]) : 0; if (v > 0) cc2Map[n] = v; });
       var ccV = Object.keys(cc2Map).map(function (n) { return cc2Map[n]; });
       var congChuan2 = ccV.length ? Math.max.apply(null, ccV) : 0;
       if (ccV.some(function (v) { return v !== congChuan2; })) out.canhbao.push(ma + ": có nhiều nhãn công tác BT với Công chuẩn 2 khác nhau (" + Object.keys(cc2Map).map(function (n) { return n + "=" + cc2Map[n]; }).join(", ") + ") — dùng mức lớn nhất " + congChuan2);
@@ -611,6 +640,8 @@
       var luongBD = Math.round(xe * giaBD);
 
       // Tăng ca
+      checkCatalog("Tăng ca", ns["Mã tăng ca"], dmT, ["Tiền tăng ca (nếu tính cố định)"], ["Hệ số tăng ca"]);
+      if (!ns["Mã tăng ca"] && c.congTangCa > 0) out.canhbao.push(ma + ": có " + c.congTangCa + " công tăng ca nhưng chưa gán mã tăng ca");
       var tienTC = 0, congTCQuyDoi = 0; var coSoTC = 0, nhanhTC = ""; fmlCtx.lastTC = null; // V10.2: cơ sở nhân tiền + nhánh tính (chỉ ghi nhận)
       if (!dmT && ns["Mã tăng ca"]) out.canhbao.push(ma + ": mã tăng ca '" + ns["Mã tăng ca"] + "' chưa có trong Danh mục tăng ca (hoặc hết hiệu lực) — Tiền tăng ca = 0đ, kiểm tra lại danh mục");
       if (cChuan > 0) {
@@ -627,6 +658,7 @@
       // thức tính thay vì để engine tự đoán qua nội dung "Cách tính" — để trống = hành vi CŨ, không đổi.
       var pc = dmPC[ns["Mã phụ cấp"]], tienPC = 0, pcVars = null, pcNhanh = ""; // V10.3: pcVars/pcNhanh chỉ ghi nhận để kiểm thử công thức, không ảnh hưởng kết quả
       if (!pc && ns["Mã phụ cấp"]) out.canhbao.push(ma + ": mã phụ cấp '" + ns["Mã phụ cấp"] + "' chưa có hoặc hết hiệu lực trong Danh mục phụ cấp");
+      checkCatalog("Phụ cấp", ns["Mã phụ cấp"], pc, ["Số tiền"], ["Tỷ lệ"]);
       if (pc) {
         var soPC = money(pc["Số tiền"]);
         var trongCT = !String(pc["Cách tính"] || "").trim();
@@ -665,6 +697,7 @@
       // thức khác với vị trí (Mã hỗ trợ / Mã hỗ trợ 2) gán nó; để trống = đúng công thức cũ theo vị trí.
       var htGhi = {}; // V10.3: ghi nhận biến + nhánh của từng vị trí (ht1 = Mã hỗ trợ/tiền cơm, ht2 = Mã hỗ trợ 2) cho kiểm thử công thức
       var hoTro = function (dm, macDinh, ngay, slot) {
+        checkCatalog("Hỗ trợ", dm["Mã hỗ trợ"], dm, ["Số tiền"], []);
         var loai = String(dm["Loại công thức"] || "").trim() || macDinh;
         htGhi[slot] = { ma: dm["Mã hỗ trợ"] || "", loai: loai, nhanh: loai === "HT_THIEU_CHUAN" ? "HT_THIEU_CHUAN" : "HT_THEO_NGAY", vars: { MUC_HO_TRO: money(dm["Số tiền"]), CONG_CHUAN: cChuan, CONG_THUC_TE: c.tongCong, SO_NGAY_COM: ngay, SO_NGAY_DUOC_HUONG: ngay } };
         if (loai === "HT_THIEU_CHUAN") return (cChuan > 0 && c.tongCong - cChuan <= 0) ? Math.round((cChuan - c.tongCong) * money(dm["Số tiền"])) : 0;
@@ -686,11 +719,19 @@
       [["Mã hỗ trợ", ht1], ["Mã hỗ trợ 2", ht2]].forEach(function (entry) {
         if (ns[entry[0]] && !entry[1]) out.canhbao.push(ma + ": mã hỗ trợ '" + ns[entry[0]] + "' chưa có hoặc hết hiệu lực trong Danh mục hỗ trợ");
       });
+      var overlapMeals = Array.from(comDays.get(ma) || []).filter(function (day) { return c.comDays && c.comDays.has(day); }).sort(function (a, b) { return a - b; });
+      if (overlapMeals.length) out.canhbao.push(ma + ": tiền cơm có cả công CC và suất ghi riêng ngày " + overlapMeals.join(", ") + " — đối chiếu suất bổ sung");
       var tienCom = ht1 ? hoTro(ht1, "HT_THEO_NGAY", ngayCom, "ht1") : 0;
       // Phụ cấp công tác theo nhãn chấm công
       var dem = {}, pcCT = 0;
       var moi1Ky = {};
-      Object.keys(c.nhanTheoNgay).forEach(function (k) { var n = c.nhanTheoNgay[k]; if (!n) return; if (dmPC[n] && money(dmPC[n]["Công chuẩn 2"]) > 0) moi1Ky[n] = true; else dem[n] = (dem[n] || 0) + 1; });
+      Object.keys(c.nhanTheoNgay).forEach(function (k) { var labels = c.nhanTheoNgay[k];
+        if (labels.length > 1) {
+          loiDauVao.push(ma + ": ngày " + k + " có nhiều nhãn công tác (" + labels.slice().sort().join(", ") + ")");
+          return;
+        }
+        var n = labels[0]; if (!n) return;
+        checkCatalog("Phụ cấp", n, dmPC[n], ["Số tiền"], ["Tỷ lệ"]); if (dmPC[n] && money(dmPC[n]["Công chuẩn 2"]) > 0) moi1Ky[n] = true; else dem[n] = (dem[n] || 0) + 1; });
       // v10.4: "Loại công thức" của mã công tác có thể trỏ tới công thức ALLOWANCE trong Danh mục công thức.
       // Biến: MUC_PHU_CAP = Số tiền; CONG_HUONG_PHU_CAP = số ngày có nhãn đó (BT với mã Công chuẩn 2).
       // Trống / CO_DINH / TYLE_* = cách tính mặc định bên dưới.
@@ -705,7 +746,7 @@
         return eN.ok ? Math.round(eN.v) : 0;
       };
       Object.keys(moi1Ky).forEach(function (n) {
-        var nBT = Object.keys(c.nhanBTTheoNgay).filter(function (k) { return c.nhanBTTheoNgay[k] === n; }).length;
+        var nBT = Object.keys(c.nhanBTTheoNgay).filter(function (k) { return c.nhanTheoNgay[k].length === 1 && c.nhanBTTheoNgay[k].length === 1 && c.nhanBTTheoNgay[k][0] === n; }).length;
         if (!nBT) return;
         var fN = tienCongTac(n, nBT); pcCT += fN !== null ? fN : money(dmPC[n]["Số tiền"]); // mã có Công chuẩn 2: 1 lần/kỳ nếu có ≥1 công BT mang nhãn
       });

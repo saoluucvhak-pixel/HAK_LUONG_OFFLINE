@@ -29,7 +29,7 @@ function computeKy(db, ky, opts) {
     row["Số HĐLĐ"] = x["Số HĐLĐ"] || ""; row["Mã PB"] = x["Mã PB"] || "";
   });
   kq.canhbao = sp.warn.concat(kq.canhbao);
-  const unalloc = [], allocErr = [];
+  const unalloc = HRM.productionPayrollIssues(slK, bdK, kq.bangluong), allocErr = [];
   [["Sản lượng", "sanluong", slK], ["Bơm dăm", "bandam", bdK]].forEach(([ten, loai, k]) => {
     try {
       const pbOf = (ma, d) => (HRM.hienHanh(db, ma, d).pb || "");
