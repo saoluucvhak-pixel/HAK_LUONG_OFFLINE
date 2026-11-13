@@ -109,8 +109,12 @@
           var act = h("td", { class: "t ot-act" });
           act.appendChild(btn("Xem chi tiết", "pri", function () { openModal(r.ma, { tab: "info" }); }));
           if (A.can("dm.edit")) act.appendChild(btn("Chỉnh sửa", "", function () { openModal(r.ma, { tab: "info", edit: true }); }));
-          if (A.can("dm.edit") && r.trangThai === "Đang hiệu lực") act.appendChild(btn("Ngừng sử dụng", "", function () { stopDialog(r.ma); }));
-          if (A.can("dm.edit")) act.appendChild(btn("Xóa", "red ghost", function () { deleteMa(r.ma); }, "Chỉ xóa được " + K.noun + " chưa áp dụng cho nhân viên nào")).setAttribute("data-ot-del", r.ma);
+          if (A.can("dm.edit")) {
+            var more = h("details", { class: "hak-row-actions" }, [h("summary", { text: "Thêm thao tác", "aria-label": "Thêm thao tác cho " + r.ma })]);
+            if (r.trangThai === "Đang hiệu lực") more.appendChild(btn("Ngừng sử dụng", "", function () { more.open = false; stopDialog(r.ma); }));
+            more.appendChild(btn("Xóa", "red ghost", function () { more.open = false; deleteMa(r.ma); }, "Chỉ xóa được " + K.noun + " chưa áp dụng cho nhân viên nào")).setAttribute("data-ot-del", r.ma);
+            act.appendChild(more);
+          }
           var apCls = r.nguonApDung === "cauhinh" ? "on" : (r.nguonApDung === "macdinh" || r.nguonApDung === "lichsu") ? "off" : "bad";
           t.appendChild(h("tr", { "data-ot-row": r.ma }, [
             h("td", { class: "t", html: "<b>" + esc(r.ma) + "</b>" }), h("td", { class: "t", text: r.ten })
@@ -150,7 +154,7 @@
             preview.appendChild(infoGrid);
             K.fields.forEach(function (fd) {
               var value = chosen.base && chosen.base[fd.col];
-              infoGrid.appendChild(h("div", { class: "hak-record-field" }, [h("small", { text: fd.label }), h("div", { text: value == null || value === "" ? "—" : String(value) })]));
+              infoGrid.appendChild(h("div", { class: "hak-record-field" }, [h("small", { text: fd.label }), h("div", { text: value == null || value === "" ? "—" : fd.type === "money" && Number.isFinite(root.HAKCore.validate.parseMoney(value)) ? A.fmt(root.HAKCore.validate.parseMoney(value)) : String(value) })]));
             });
             var editInfo = null;
             if (A.can("dm.edit")) { editInfo = btn("Chỉnh sửa thông tin", "pri hak-record-edit", function () { openModal(chosen.ma, { tab: "info", edit: true }); }); preview.appendChild(editInfo); }
@@ -259,14 +263,30 @@
       hd.appendChild(M.edit ? tag("Đang sửa", "bad") : tag("Chỉ xem", "off"));
       hd.appendChild(btn("✕", "ghost", function () { tryClose(); }, "Đóng"));
       d.appendChild(hd);
-      var tabs = h("div", { class: "bar ot-tabs", style: "padding:8px 20px 0;margin:0" });
+      var tabs = h("div", { class: "bar ot-tabs", role: "tablist", "aria-label": "Chi tiết " + K.short });
       [["info", "Thông tin " + K.short.toLowerCase()], ["ct", "Công thức tính"], ["test", "Kiểm thử thực tế"], ["ls", "Lịch sử phiên bản"]].forEach(function (t) {
         var dis = M.isNew && t[0] !== "info";
         var b = btn(t[1], M.tab === t[0] ? "pri" : "", function () { if (dis) { A.toast("Hãy lưu thông tin " + K.noun + " trước"); return; } M.tab = t[0]; draw(); });
-        b.setAttribute("data-ot-tab", t[0]); if (dis) b.disabled = true; tabs.appendChild(b);
+        b.setAttribute("data-ot-tab", t[0]);
+        b.setAttribute("role", "tab");
+        b.setAttribute("aria-selected", String(M.tab === t[0]));
+        b.setAttribute("aria-controls", "hak-detail-panel");
+        b.id = "hak-detail-tab-" + t[0];
+        b.tabIndex = M.tab === t[0] ? 0 : -1;
+        if (dis) b.disabled = true;
+        tabs.appendChild(b);
+      });
+      tabs.addEventListener("keydown", function (e) {
+        var keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+        if (keys.indexOf(e.key) < 0) return;
+        var enabled = Array.from(tabs.querySelectorAll("button:not(:disabled)")), i = enabled.indexOf(e.target);
+        if (i < 0) return;
+        e.preventDefault();
+        var next = e.key === "Home" ? 0 : e.key === "End" ? enabled.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + enabled.length) % enabled.length;
+        enabled[next].click();
       });
       d.appendChild(tabs);
-      var bd = h("div", { class: "bd ot-body" });
+      var bd = h("div", { class: "bd ot-body", id: "hak-detail-panel", role: "tabpanel", "aria-labelledby": "hak-detail-tab-" + M.tab });
       if (M.tab === "info") bd.appendChild(infoTab()); else if (M.tab === "ct") bd.appendChild(formulaTab()); else if (M.tab === "test") bd.appendChild(testTab()); else bd.appendChild(historyTab());
       d.appendChild(bd);
       var ft = h("footer", {}); footerFor(ft); d.appendChild(ft);

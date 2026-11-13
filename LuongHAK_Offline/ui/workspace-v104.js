@@ -1,7 +1,7 @@
 // Presentation adapter for the inherited app. No payroll state or storage bridge is accessed.
 (function () {
   'use strict';
-  const VERSION = 'V10.4 · v2.0.0';
+  const VERSION = 'V10.4 · v2.0.1';
   const NAV_KEY = 'luonghak_db_v1_nav_collapsed';
   const main = document.querySelector('#main'), nav = document.querySelector('#nav');
   if (!main || !nav) return;
@@ -28,17 +28,18 @@
     const page = main.querySelector('.hak-dashboard');
     if (!page || page.dataset.workspaceReady) return;
     page.dataset.workspaceReady = '1';
-    const heading = make('div', 'hak-page-heading'), title = make('div');
-    title.append(make('small', '', 'HAK WORKSPACE / TỔNG QUAN'), make('h1', '', 'Trung tâm điều hành lương'));
-    heading.append(title, make('span', 'hak-release', 'V10.4')); page.prepend(heading);
     const hero = page.querySelector('.hero');
     if (hero) {
       hero.classList.add('hak-period-overview');
-      const oldTitle = hero.querySelector('h1'), oldTotals = hero.querySelector('dl');
-      if (oldTitle) oldTitle.replaceWith(make('h2', '', 'Chuẩn bị và hoàn tất kỳ lương'));
-      if (oldTotals) oldTotals.remove(); // Four existing metrics remain the single summary.
-      const text = hero.querySelector('p');
-      if (text) text.textContent = 'Theo dõi hồ sơ, dữ liệu đầu vào và kết quả kỳ lương tại một nơi. Chọn bước cần làm để tiếp tục công việc.';
+      const title = hero.querySelector('h1'), period = hero.querySelector('.ey');
+      if (title && period) {
+        title.textContent = period.textContent.split(' · ')[0];
+        period.textContent = period.textContent.split(' · ')[1];
+        hero.querySelector('.htxt').prepend(title);
+      }
+      hero.querySelector('dl')?.remove(); // Four metrics below summarize this period.
+      hero.querySelector('p')?.remove();
+      hero.querySelector('.hbtns .b')?.classList.add('pri');
     }
     const flow = page.querySelector('.flow');
     if (flow) {
@@ -50,7 +51,7 @@
       const progress = make('progress'); progress.max = total || 1; progress.value = done; progress.setAttribute('aria-label', 'Số mốc đã có dữ liệu');
       flow.replaceWith(panel); panel.append(header, progress, flow);
     }
-    const quick = page.querySelector('.sec-title'); if (quick) quick.textContent = 'Không gian làm việc';
+    const quick = page.querySelector('.sec-title'); if (quick) quick.textContent = 'Mở nhanh';
   }
   function masterDetail() {
     const workspace = main.querySelector('[data-ot-master]'); if (!workspace) return;
@@ -85,11 +86,15 @@
     const rows = [...workspace.querySelectorAll('[data-ot-row]')];
     const active = rows.filter(row => row.textContent.includes('Đang hiệu lực')).length;
     const versions = rows.reduce((sum, row) => { const cells = [...row.children]; return sum + (Number(cells[cells.length - 2]?.textContent) || 0); }, 0);
-    const values = [['▤', 'Mã đang hiển thị', rows.length], ['✓', 'Đang hiệu lực', active], ['◷', 'Phiên bản công thức', versions], ['⇄', 'Không gian quản lý', 'Cha – con']];
+    const values = [['Mã đang hiển thị', rows.length], ['Đang hiệu lực', active], ['Phiên bản công thức', versions]];
     const signature = JSON.stringify(values);
     if (metrics && metrics.dataset.signature !== signature) {
       metrics.dataset.signature = signature; metrics.replaceChildren();
-      values.forEach(([icon, label, value], i) => { const card = make('div', 'hak-catalog-metric tone-' + i), copy = make('div'); copy.append(make('small', '', label), make('strong', '', String(value))); card.append(make('span', 'hak-metric-icon', icon), copy); metrics.append(card); });
+      values.forEach(([label, value]) => {
+        const card = make('div', 'hak-catalog-metric');
+        card.append(make('small', '', label), make('strong', '', String(value)));
+        metrics.append(card);
+      });
     }
   }
   function returnFocus() {
@@ -104,15 +109,19 @@
   function enhance() {
     scheduled = false; navigation(); dashboard(); masterDetail(); returnFocus();
     const top = document.querySelector('#top');
+    top?.classList.toggle('hak-dashboard-top', Boolean(main.querySelector('.hak-dashboard')));
     if (top?.querySelector('.srch') && !top.querySelector('.hak-skin-select')) {
       const skins = document.querySelector('#sidefoot .hak-skin-select');
       if (skins) top.insertBefore(skins, top.querySelector('.who'));
     }
     const search = top?.querySelector('.srch');
-    if (search && !search.dataset.referenceReady) { search.dataset.referenceReady = '1'; search.replaceChildren(make('span', '', '⌕ Tìm nhân viên, mã tăng ca, công thức…'), make('kbd', '', 'Ctrl K')); }
+    if (search && !search.dataset.referenceReady) { search.dataset.referenceReady = '1'; search.replaceChildren(make('span', '', 'Tìm kiếm'), make('kbd', '', 'Ctrl K')); }
 
-    const version = document.querySelector('#sidefoot .ver');
-    if (version && !version.textContent.startsWith(VERSION)) version.textContent = version.textContent.replace(/^V10\.4 · v[\w.-]+/, VERSION);
+    const version = document.querySelector('#sidefoot [data-storage-label]');
+    if (version) {
+      const label = [VERSION, version.dataset.storageLabel].filter(Boolean).join(' · ');
+      if (version.textContent !== label) version.textContent = label;
+    }
     const palette = document.querySelector('.hak-skin-select option[value="luxe"]');
     if (palette && palette.textContent !== 'Luxury · HAK Enterprise') palette.textContent = 'Luxury · HAK Enterprise';
   }

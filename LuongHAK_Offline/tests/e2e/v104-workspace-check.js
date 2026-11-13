@@ -51,6 +51,11 @@ async function fits(selector, name) {
       check(width + ': actual renderer viewport matches requested size', await w.evaluate(([width, height]) => innerWidth === width && innerHeight === height, [width, height]));
       await nav('home');
       await shot(width + '-01-dashboard');
+      check(width + ': toolbar fits on one row', await w.locator('#top').evaluate(el => {
+        const children = [...el.children].filter(child => child.getClientRects().length);
+        return Math.max(...children.map(child => child.getBoundingClientRect().top)) - Math.min(...children.map(child => child.getBoundingClientRect().top)) < 24;
+      }));
+      check(width + ': sidebar shows current stable version', (await w.locator('#sidefoot .ver').innerText()).includes(require('../../package.json').version));
       check(width + ': page has no horizontal overflow', await w.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
       check(width + ': approved luxe default retained', await w.evaluate(() => document.documentElement.dataset.skin === 'luxe'));
       if (!baseline) {
@@ -81,7 +86,7 @@ async function fits(selector, name) {
         for (const [label, slug] of [['Tăng ca', 'overtime'], ['Phụ cấp', 'allowance'], ['Hỗ trợ', 'support']]) {
           await nav('dm'); await w.locator('#main button', { hasText: label }).first().click();
           await w.waitForSelector('[data-ot-table]');
-          check(width + ': ' + slug + ' summary metrics', await w.locator('.hak-catalog-metric').count() === 4);
+          check(width + ': ' + slug + ' summary metrics', await w.locator('.hak-catalog-metric').count() === 3);
           check(width + ': ' + slug + ' parent and inspector side by side', await w.locator('.hak-workspace-grid').evaluate(el => { const [a, b] = el.children; return b.getBoundingClientRect().left >= a.getBoundingClientRect().right - 2; }));
           const rows = w.locator('[data-ot-row]');
           if (await rows.count() > 1) {

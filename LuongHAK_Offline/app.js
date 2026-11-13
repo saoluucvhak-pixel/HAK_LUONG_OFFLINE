@@ -4746,7 +4746,7 @@
       dl]));
     // Workspace overview: display only values already calculated by the current engine.
     var metrics = h("section", { class: "hak-dashboard-metrics", "aria-label": "Tổng quan kỳ lương" });
-    [["NHÂN SỰ", String((db.nhanvien || []).filter(function (x) { return x["Trạng thái"] !== "Đã nghỉ việc"; }).length), "Nhân viên đang làm việc"], ["KỲ ĐANG XEM", st.thang + "/" + st.nam, chot ? "Đã chốt" : "Chưa chốt"], ["CẦN XỬ LÝ", String(iss.length + het.length + (sp ? sp.warn.length : 0)), "Cảnh báo dữ liệu và hồ sơ"], ["THỰC LĨNH", !canSeePay() ? HRM.PAY_HIDDEN : tl == null ? "Chưa tính" : fmt(tl), "Số liệu hiện có · không tính lại"]].forEach(function (v) {
+    [["Nhân sự", String((db.nhanvien || []).filter(function (x) { return x["Trạng thái"] !== "Đã nghỉ việc"; }).length), "Nhân viên đang làm việc"], ["Đầu vào còn nháp", String(C.inputReview.pending(db, kyStr()).length), "Bảng hoặc chế độ phân bổ cần lưu"], ["Cần xử lý", String(iss.length + het.length + (sp ? sp.warn.length : 0)), "Cảnh báo dữ liệu và hồ sơ"], ["Thực lĩnh", !canSeePay() ? HRM.PAY_HIDDEN : tl == null ? "Chưa tính" : fmt(tl), chot ? "Bảng lương đã chốt" : "Lần tính gần nhất"]].forEach(function (v) {
       metrics.appendChild(h("div", { class: "hak-dashboard-metric" }, [h("small", { text: v[0] }), h("strong", { text: v[1] }), h("span", { text: v[2] })]));
     });
     w.appendChild(metrics);
@@ -5460,7 +5460,7 @@
     HAK_SKINS.forEach(function (v) { var o = h("option", { value: v[0], text: v[1] }); if (curSkin() === v[0]) o.selected = true; skinSelect.appendChild(o); });
     skinSelect.addEventListener("change", function () { setSkin(skinSelect.value); });
     f.appendChild(skinSelect);
-    f.appendChild(h("div", { class: "ver", text: ver }));
+    f.appendChild(h("div", { class: "ver", "data-storage-label": ver, text: ver }));
   }
   function fold(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase(); }
   /** Tìm nhanh (Ctrl+K): màn hình, nhân viên, báo cáo — gõ không dấu cũng được, Enter để mở. */
@@ -5578,7 +5578,7 @@
       $("#nav").innerHTML = ""; var t0 = $("#top"); t0.innerHTML = ""; t0.appendChild(h("h2", { text: !(db.nguoidung || []).length ? "Thiết lập ban đầu" : "Đăng nhập" }));
       var m0 = $("#main"); m0.innerHTML = "";
       m0.appendChild(!(db.nguoidung || []).length ? setupAdminScreen() : st.authView === "recover" ? recoverAdminScreen() : loginScreen());
-      sideFoot("V10.4 · v2.0.0-alpha.26"); return;
+      sideFoot(""); return;
     }
     if (!readOnly && can("input.edit")) C.inputReview.initialize(db);
     if (!tabAllowed(st.tab)) st.tab = "home";
@@ -5621,7 +5621,7 @@
       if (n[0] === "nhansu") b.appendChild(h("span", { class: "n", text: db.nhanvien.filter(function (r) { return r["Trạng thái"] !== "Đã nghỉ việc"; }).length }));
       nav.appendChild(b);
     });
-    sideFoot("V10.4 · v2.0.0-alpha.26 · " + (store ? "Tự lưu ra file trên máy" : "Dữ liệu lưu trong trình duyệt"));
+    sideFoot(store ? "Tự lưu ra file trên máy" : "Dữ liệu lưu trong trình duyệt");
     var bb = $(".brand small"); if (bb) bb.textContent = congTy()["Tên công ty"] || "Chạy offline";
     var top = $("#top"); top.innerHTML = "";
     var title = TITLES[st.tab] || (S[st.tab] && S[st.tab].ten) || "";

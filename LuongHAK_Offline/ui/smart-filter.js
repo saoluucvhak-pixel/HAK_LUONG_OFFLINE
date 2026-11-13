@@ -124,17 +124,22 @@
       if (opener && opener.setAttribute) opener.setAttribute("aria-expanded", "true");
       var body = h("div", { class: "sfd-body" });
       var fill = function () {
-        var hadFocus = body.contains(document.activeElement);
+        var previous = document.activeElement;
+        var controls = "input, select, button";
+        var index = Array.from(body.querySelectorAll(controls)).indexOf(previous);
+        var scrollTop = body.scrollTop;
         body.innerHTML = "";
         (cfg.advancedFields || []).forEach(function (k) { var n = drawerField(cfg, k, getS, setS, fill); if (n) body.appendChild(n); });
         body.appendChild(presetManager(cfg, getS, setS, fill));
-        if (hadFocus) { var target = body.querySelector("input, select, button"); if (target) target.focus(); }
+        var target = index >= 0 ? body.querySelectorAll(controls)[index] : null;
+        if (target) target.focus({ preventScroll: true });
+        body.scrollTop = scrollTop;
       };
       var close = function () { closeDrawer(true); };
       var apply = btn("Áp dụng", "pri", function () { var p = SF.dateProblem(draft); if (p) { A.toast("⚠ " + p); return; } cfg.state.set(draft); closeDrawer(true); onApplied(); }, "Áp dụng các điều kiện đang chọn"),
         cancel = btn("Hủy", "", close, "Đóng, không đổi gì"),
         reset = btn("Đặt lại", "ghost", function () { draft = SF.empty(); fill(); }, "Bỏ hết điều kiện trong ngăn này (bấm Áp dụng để dùng)");
-      el.appendChild(h("div", { class: "sfd-head hak-sfd-head" }, [h("div", {}, [h("small", { text: "HAK SMART FILTER · " + cfg.screenId }), h("b", { text: "Bộ lọc nâng cao" }), h("span", { text: "Thiết lập điều kiện rồi nhấn Áp dụng để lọc dữ liệu." })]), btn("✕", "ghost", close, "Đóng")]));
+      el.appendChild(h("div", { class: "sfd-head hak-sfd-head" }, [h("div", {}, [h("small", { text: (document.querySelector("#top h2") || {}).textContent || "Điều kiện lọc" }), h("b", { text: "Bộ lọc nâng cao" }), h("span", { text: "Thiết lập điều kiện rồi nhấn Áp dụng để lọc dữ liệu." })]), btn("✕", "ghost", close, "Đóng")]));
       el.appendChild(body); el.appendChild(h("div", { class: "sfd-foot" }, [reset, h("span", { class: "sp" }), cancel, apply]));
       fill();
       mask.addEventListener("mousedown", close);
