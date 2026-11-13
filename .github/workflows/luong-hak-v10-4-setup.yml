@@ -312,6 +312,8 @@ jobs:
           @{version=$appVersion; commit=$env:GITHUB_SHA; run=$env:GITHUB_RUN_ID; installer=$setupFiles[0].Name; sha256=$setupHash} | ConvertTo-Json | Set-Content -LiteralPath release/BUILD_INFO.json -Encoding utf8
           Copy-Item -LiteralPath $notesPath -Destination release/RELEASE_NOTES.md
           Add-Content -LiteralPath release/RELEASE_NOTES.md -Value "`nCommit: $env:GITHUB_SHA`nBuild: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
-          $releaseType = if ($appVersion -match "-") { @("--prerelease") } else { @("--latest") }
-          gh release create $releaseTag $setupFiles[0].FullName release/SHA256SUMS.txt release/BUILD_INFO.json --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA @releaseType --title "HAK Luong V10.4 - $appVersion" --notes-file release/RELEASE_NOTES.md
+          $releaseArgs = @('release', 'create', $releaseTag, $setupFiles[0].FullName, 'release/SHA256SUMS.txt', 'release/BUILD_INFO.json',
+            '--repo', $env:GITHUB_REPOSITORY, '--target', $env:GITHUB_SHA, '--title', "HAK Luong V10.4 - $appVersion", '--notes-file', 'release/RELEASE_NOTES.md')
+          if ($appVersion -match '-') { $releaseArgs += '--prerelease' }
+          gh @releaseArgs
           if ($LASTEXITCODE -ne 0) { throw 'Could not publish Windows release' }
