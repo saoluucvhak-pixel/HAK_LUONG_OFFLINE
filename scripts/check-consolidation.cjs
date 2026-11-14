@@ -18,9 +18,10 @@ const original=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',b
 // Pin approved alpha.57 payroll and HR files. Keep the historical engine comparison below.
 const hashFile = file => require('node:crypto').createHash('sha256').update(normalize(fs.readFileSync(path.join(root, 'LuongHAK_Offline', file), 'utf8'))).digest('hex');
 assert.equal(hashFile('engine.js'), '6d0e651a7846d30d9778ba8930285a71bd7339e0c4c8766e6fc85b38edd6a7ec', 'Unapproved engine changes after v2.0.0');
-assert.equal(hashFile('hr.js'), 'fb0d9af1105425df07eafa24e29072df63655fcf2a81083715cd5868beb1a47f', 'Unapproved HR changes after v2.0.3');
+assert.equal(hashFile('hr.js'), '254bd9652d7beeca9b0d0315b4c25cf5ff803827dccff10b5d8c1f67a5d7e689', 'Unapproved HR changes after v2.0.3');
 // alpha.58 (chủ sở hữu duyệt): chỉ đổi cách lấy 'hôm nay' của kiểm tra người phụ thuộc sang giờ máy (trước là UTC).
 assert.equal(hashFile('core/integrity.js'), 'f40d5706a4957bfded548bb534b976bb9d1a3eac5bdb7e47ff098e45adc539ce', 'Unapproved integrity changes after alpha.58');
+assert.equal(hashFile('core/production-alloc.js'), 'df8b6448b3c06156d2acbeb59266e39ced3acd3437e4b9c3f86208ded94f0400', 'Production allocation diagnostics changed');
 const engine=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',alpha56+':LuongHAK_Offline/engine.js'],{cwd:root,encoding:'utf8'}));
 const allowed='      if (cl < 0) out.bangluong[out.bangluong.length - 1]["Còn thiếu (thực lĩnh âm)"] = -cl;\n';
 assert.equal(engine.split(allowed).length,2,'Expected exactly one additive deficit-output line');

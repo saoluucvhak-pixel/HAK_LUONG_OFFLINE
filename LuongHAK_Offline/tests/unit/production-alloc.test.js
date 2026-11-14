@@ -247,3 +247,21 @@ test("Team topup excludes zero-BT staff but retains positive BT below threshold"
   db.chamcong = [];
   assert.ok(E.tinhBangLuong(db,2026,9,'to').bangluong.every(r=>r['Lương bù SL']===0));
 });
+
+test('Reports explicit zero attendance per receipt unless already listed absent', () => {
+  const db = hrDb();
+  db.chamcong = [{ "Kỳ": "2026-10", "Mã NV": "T1", "Hình thức công": "BT", "01": 1, "02": 0 },
+    { "Kỳ": "2026-10", "Mã NV": "T2", "Hình thức công": "BT", "01": "0,0" }];
+  const receipt = { "Ngày cân": "2026-10-01", "KL hàng (Tấn)": 12, "Mã phòng ban": "02.02" };
+  db.sanluong = [
+    { ...receipt, "Phiếu cân": "A" },
+    { ...receipt, "Phiếu cân": "B", "NV vắng": "Định" },
+    { ...receipt, "Phiếu cân": "C", "Ngày cân": "2026-10-02" },
+    { ...receipt, "Phiếu cân": "D", "Ngày cân": "2026-10-02", "NV vắng": "T1" }
+  ];
+  const { alloc } = HR.sanLuongKy(db, 2026, 10, "sanluong");
+  assert.deepEqual(alloc.attendanceReview.map(r => [r.phieu, r.soNguoi, r.employees.map(e => e.ma).sort()]), [["A", 1, ["T2"]], ["C", 0, ["T1"]]]);
+  assert.deepEqual(alloc.attendanceReview.map(r => [r.phieu, r.recipients.map(e => e.ma), r.excluded.map(e => e.ma)]),
+    [["A", ["T1"], ["T2", "T4"]], ["C", [], ["T1", "T2", "T4"]]]);
+  assert.deepEqual(alloc.shares.map(r => [r.phieu, r.ma, r.kl]), [["A", "T1", 12], ["B", "T1", 12]]);
+});
