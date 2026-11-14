@@ -67,7 +67,7 @@ function hrDb() {
   return db;
 }
 
-test("U-PA-04 tổ theo NGÀY CÂN từ hồ sơ: chưa vào làm / đã nghỉ việc / đã điều chuyển thì không nhận; phiếu ghi Mã NV giữ nguyên", () => {
+test("U-PA-04 tổ theo NGÀY CÂN từ hồ sơ: chưa vào làm / đã nghỉ việc / đã điều chuyển thì không nhận; phiếu giao trực tiếp cũng xét hiệu lực hợp đồng", () => {
   const db = hrDb();
   // Mục IX: phải có chấm công BT đúng ngày mới được chia (không còn tự coi cả tổ có mặt khi chưa
   // chấm công) — thêm chấm công BT cho mọi người ở các ngày phiếu dùng tới; người không đủ điều
@@ -82,8 +82,8 @@ test("U-PA-04 tổ theo NGÀY CÂN từ hồ sơ: chưa vào làm / đã nghỉ 
   ];
   const k = HR.sanLuongKy(db, 2026, 10, "sanluong"), by = {};
   k.rows.forEach((r) => { by[r["Mã NV"]] = (by[r["Mã NV"]] || 0) + Number(r["KL hàng (Tấn)"]); });
-  assert.deepEqual(by, { T4: 14, T1: 15, T2: 10, T3: 5 });
-  assert.equal(k.chuaGan.length, 1); assert.equal(k.direct.length, 1);
+  assert.deepEqual(by, { T4: 10, T1: 15, T2: 10, T3: 5 });
+  assert.equal(k.chuaGan.length, 1); assert.equal(k.direct.length, 0); assert.equal(k.invalidDirect[0]["Phiếu cân"], "P3");
   assert.equal(db.sanluong.length, 5, "không sửa dữ liệu gốc");
 });
 

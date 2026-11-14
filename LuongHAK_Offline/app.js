@@ -277,7 +277,7 @@
   function kyStr() { return st.nam + "-" + ky2(); }
   function rowInKy(r, def) {
     if (def.kyCol) return r[def.kyCol] === kyStr();
-    if (def.dateCol) { var m = String(r[def.dateCol] || "").match(/^(\d{4})-(\d{1,2})/); return !!m && +m[1] === +st.nam && +m[2] === +st.thang; }
+    if (def.dateCol) return (VAL.normDate(r[def.dateCol]) || "").slice(0, 7) === kyStr();
     return true;
   }
   function tenNV(ma) { for (var i = 0; i < db.nhanvien.length; i++) if (db.nhanvien[i]["Mã NV"] === ma) return db.nhanvien[i]["Họ và tên"] || ""; return ""; }
@@ -3121,7 +3121,7 @@
     var al = PA.withDirect(k.alloc, k.direct.map(function (r) { return { phieu: r["Phiếu cân"] || "", ngay: String(r["Ngày cân"] || "").slice(0, 10), kl: r["KL hàng (Tấn)"], ma: r["Mã NV"] }; }), pbOf, tenNV, tenPB);
     var sp = HRM.staffForPayroll(db, nam, thang), cnt = {};
     sp.list.forEach(function (x) { if (x["Mã PB"]) cnt[x["Mã PB"]] = (cnt[x["Mã PB"]] || 0) + 1; });
-    al.empCount = cnt; al.chuaGan = k.chuaGan; al.raw = (db[loai] || []).filter(function (r) { return String(r["Ngày cân"] || "").slice(0, 7) === kyKey(nam, thang); });
+    al.empCount = cnt; al.chuaGan = k.chuaGan; al.raw = (db[loai] || []).filter(function (r) { return VAL.rowPeriod(loai, r) === kyKey(nam, thang); });
     return al;
   }
   function bcSanLuong(nam, thang, loai) {

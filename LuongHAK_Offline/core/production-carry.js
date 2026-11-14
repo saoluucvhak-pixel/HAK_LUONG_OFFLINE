@@ -4,17 +4,19 @@
   'use strict';
   var node=typeof module!=='undefined'&&module.exports;
   function deps(){return node?{H:require('../hr.js'),E:require('../engine.js')}:{H:root.HRM||root.HRModule,E:root.LuongEngine};}
+  var V=node?require('./validate.js'):root.HAKCore.validate;
   function period(s){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(s||''))throw Error('Kỳ không hợp lệ');return{y:+s.slice(0,4),m:+s.slice(5,7)};}
   function closed(db,k){return(db.kyluong||[]).some(function(x){return x.ky===k;});}
-  function collect(db,source){var p=period(source),d=deps(),staff=d.H.staffForPayroll(db,p.y,p.m),sl=d.H.sanLuongKy(db,p.y,p.m,'sanluong'),cc=(db.chamcong||[]).filter(function(x){return x['Kỳ']===source;});return{staff:staff.list,sl:sl,cc:cc,basis:JSON.stringify([(db.sanluong||[]).filter(function(x){return String(x['Ngày cân']||'').slice(0,7)===source;}),cc,staff.list.map(function(n){return [n['Mã nhân viên'],n['Mã PB'],n['Mã tiền lương 1'],n['Mã tiền lương 2']];}),sl.rows.map(function(r){return [r['Mã NV'],r['Ngày cân'],r['KL hàng (Tấn)']];}),d.H.sanLuongKy(db,p.y,p.m,'bandam').rows])};}
+  function collect(db,source){var p=period(source),d=deps(),staff=d.H.staffForPayroll(db,p.y,p.m),sl=d.H.sanLuongKy(db,p.y,p.m,'sanluong'),cc=(db.chamcong||[]).filter(function(x){return x['Kỳ']===source;});return{staff:staff.list,sl:sl,cc:cc,basis:JSON.stringify([(db.sanluong||[]).filter(function(x){return V.rowPeriod('sanluong',x)===source;}),cc,staff.list.map(function(n){return [n['Mã nhân viên'],n['Mã PB'],n['Mã tiền lương 1'],n['Mã tiền lương 2']];}),sl.rows.map(function(r){return [r['Mã NV'],r['Ngày cân'],r['KL hàng (Tấn)']];}),d.H.sanLuongKy(db,p.y,p.m,'bandam').rows])};}
   function assertSource(db,source,c){
     (node?require("./input-review.js"):root.HAKCore.inputReview).assertReady(db,source);
     var problems=[];
     if(!c.sl.rows.length)problems.push('Không có dòng sản lượng đã phân bổ cho nhân viên');
+    if(c.sl.invalidDirect.length)problems.push('Có phiếu giao trực tiếp cho người không có hợp đồng hiệu lực ngày cân: '+c.sl.invalidDirect.map(function(r){return r['Phiếu cân'];}).join(', '));
     if(c.sl.chuaGan.length)problems.push('Còn '+c.sl.chuaGan.length+' phiếu chưa gán tổ hoặc nhân viên: '+JSON.stringify(c.sl.chuaGan.slice(0,5)));
     if(c.sl.alloc.unallocated>0.000001)problems.push('Còn '+c.sl.alloc.unallocated+' tấn chưa phân bổ');
     if(problems.length)throw Error('Kỳ nguồn chưa phân bổ sạch:\n'+problems.concat(c.sl.alloc.warnings||[]).join('\n'));
-    var seen={};(db.sanluong||[]).filter(function(r){return String(r['Ngày cân']||'').slice(0,7)===source;}).forEach(function(r){if(!(node?require('./validate.js'):root.HAKCore.validate).normDate(r['Ngày cân']))throw Error('Ngày cân nguồn không hợp lệ');var id=String(r['Phiếu cân']||'').trim(),key=id+'|'+String(r['Mã NV']||'');if(!(deps().E.num(r['KL hàng (Tấn)'])>0))throw Error('Khối lượng nguồn phải lớn hơn 0');if(!id||seen[key])throw Error('Phiếu nguồn thiếu số phiếu hoặc trùng khóa; đối soát trước khi chuyển');seen[key]=1;});
+    var seen={};(db.sanluong||[]).filter(function(r){return V.rowPeriod('sanluong',r)===source;}).forEach(function(r){if(!(node?require('./validate.js'):root.HAKCore.validate).normDate(r['Ngày cân']))throw Error('Ngày cân nguồn không hợp lệ');var id=String(r['Phiếu cân']||'').trim(),key=id+'|'+String(r['Mã NV']||'');if(!(deps().E.num(r['KL hàng (Tấn)'])>0))throw Error('Khối lượng nguồn phải lớn hơn 0');if(!id||seen[key])throw Error('Phiếu nguồn thiếu số phiếu hoặc trùng khóa; đối soát trước khi chuyển');seen[key]=1;});
     c.sl.rows.forEach(function(r){var dd=String(r['Ngày cân']).slice(8,10);if(!c.cc.some(function(cc){return cc['Mã NV']===r['Mã NV']&&!['PN','CL','CC'].includes(String(cc['Hình thức công']||'BT').trim().toUpperCase())&&parseFloat(String(cc[dd]||'').replace(',','.'))>0;}))throw Error('Thiếu công thực tế ngày cân của '+r['Mã NV']+' tại kỳ nguồn');});
   }
   function validate(db,previous,allowUnreviewed){var list=db.sl_chuyenky||[],seen={};if(db.sl_chuyenky!==undefined&&!Array.isArray(db.sl_chuyenky))throw Error('Sổ chuyển sản lượng sai cấu trúc');if(list.length&&!(db.schemaVersion>=4))throw Error('Sổ chuyển kỳ cần cấu trúc dữ liệu 4');

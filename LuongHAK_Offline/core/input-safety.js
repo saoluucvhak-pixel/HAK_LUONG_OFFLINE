@@ -9,6 +9,9 @@
       if(!p){out.push(label+'ngày/kỳ không hợp lệ — sửa hoặc xóa dòng lỗi trước khi tính lương');return;}
       if(p!==period||table==='chamcong')return;
       var id=String(r['Phiếu cân']||'').trim(),ma=String(r['Mã NV']||'').trim(),key=id+'|'+ma;
+      var quantity=String(r['KL hàng (Tấn)']==null?'':r['KL hàng (Tấn)']).trim();
+      if(!/^\d+(?:[.,]\d+)?$/.test(quantity)||!(Number(quantity.replace(',','.'))>0)||!Number.isFinite(Number(quantity.replace(',','.'))))
+        out.push(label+'phiếu '+(id||'(thiếu số)')+' có '+(table==='bandam'?'số xe':'khối lượng')+' không hợp lệ: '+(quantity||'(trống)'));
       if(!id)return;
       if(seen[key])out.push(label+'trùng khóa Phiếu cân + Mã NV ('+id+')');seen[key]=true;
       if(table==='bandam'&&receipt[id]!==undefined&&receipt[id]!==!!ma)out.push(label+'phiếu '+id+' bị trộn phân bổ theo tổ và trực tiếp');

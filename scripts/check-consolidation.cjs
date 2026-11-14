@@ -18,7 +18,7 @@ const original=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',b
 // Pin approved alpha.57 payroll and HR files. Keep the historical engine comparison below.
 const hashFile = file => require('node:crypto').createHash('sha256').update(normalize(fs.readFileSync(path.join(root, 'LuongHAK_Offline', file), 'utf8'))).digest('hex');
 assert.equal(hashFile('engine.js'), '6d0e651a7846d30d9778ba8930285a71bd7339e0c4c8766e6fc85b38edd6a7ec', 'Unapproved engine changes after v2.0.0');
-assert.equal(hashFile('hr.js'), '50aaec71e886bf792c6cbe73c64d32dfbe981668115c063a607ccb4b4829443d', 'Unapproved HR changes after v2.0.0');
+assert.equal(hashFile('hr.js'), 'fb0d9af1105425df07eafa24e29072df63655fcf2a81083715cd5868beb1a47f', 'Unapproved HR changes after v2.0.3');
 // alpha.58 (chủ sở hữu duyệt): chỉ đổi cách lấy 'hôm nay' của kiểm tra người phụ thuộc sang giờ máy (trước là UTC).
 assert.equal(hashFile('core/integrity.js'), 'f40d5706a4957bfded548bb534b976bb9d1a3eac5bdb7e47ff098e45adc539ce', 'Unapproved integrity changes after alpha.58');
 const engine=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',alpha56+':LuongHAK_Offline/engine.js'],{cwd:root,encoding:'utf8'}));
@@ -48,4 +48,6 @@ console.log('PASS consolidation: '+registry.branches.length+' branch heads retai
 
 const oldImporter=normalize(cp.execFileSync('git',['-c','safe.directory=*','show','c389ef4ffcfd13a4f867cb070db2069314617dc7:LuongHAK_Offline/core/importer.js'],{cwd:root,encoding:'utf8'}));
 const currentImporter=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/core/importer.js'),'utf8'));
-assert.equal(currentImporter.replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,'Importer changed beyond approved parent tax key');
+const productionPeriodGuard = "        var nextPeriod = V.rowPeriod(table, r);\n        if ((table === \"sanluong\" || table === \"bandam\") && p0 && nextPeriod && p0 !== nextPeriod) {\n          item.action = \"conflict\";\n          item.reason = \"Phiếu \" + r[\"Phiếu cân\"] + \" đổi kỳ từ \" + p0 + \" sang \" + nextPeriod + \". Hãy đối chiếu và xác nhận bằng thao tác chuyển kỳ hoặc sửa phiếu trên app.\";\n          return;\n        }\n";
+assert.equal(currentImporter.split(productionPeriodGuard).length, 2);
+assert.equal(currentImporter.replace(productionPeriodGuard, "").replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,'Importer changed beyond approved parent tax key');

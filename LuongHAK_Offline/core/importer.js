@@ -189,6 +189,12 @@
         var tgt = tgts[0];
         // khi cập nhật: kỳ của bản ghi hiện có cũng không được thuộc kỳ đã chốt
         var p0 = V.rowPeriod(table, tgt); if (p0 && locked[p0]) { item.action = "locked"; item.reason = "Bản ghi hiện có thuộc kỳ " + p0 + " đã chốt"; return; }
+        var nextPeriod = V.rowPeriod(table, r);
+        if ((table === "sanluong" || table === "bandam") && p0 && nextPeriod && p0 !== nextPeriod) {
+          item.action = "conflict";
+          item.reason = "Phiếu " + r["Phiếu cân"] + " đổi kỳ từ " + p0 + " sang " + nextPeriod + ". Hãy đối chiếu và xác nhận bằng thao tác chuyển kỳ hoặc sửa phiếu trên app.";
+          return;
+        }
         var d = diffRow(tgt, r, mode);
         item.target = tgt; item.diff = d;
         if (!d.set.length && !d.change.length && !d.clear.length) { item.action = "duplicate"; item.reason = d.keep.length ? "Đã có, không có ô mới (" + d.keep.length + " ô để trống trong file — giữ dữ liệu đang có)" : "Đã có, giống hệt"; }

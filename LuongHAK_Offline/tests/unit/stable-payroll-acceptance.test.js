@@ -49,3 +49,36 @@ test('Bad active catalog money and rates are reported with their code', () => {
   const result = E.tinhBangLuong(db, 2026, 10, 'to', { quyChe: '2026' });
   for (const text of ['Phụ cấp PC', 'Tăng ca TC4', 'Hỗ trợ HT']) assert.ok(result.inputErrors.some(x => x.includes(text)));
 });
+
+test('Legacy production dates allocate correctly and invalid quantities or contracts block closing', () => {
+  for (const table of ['sanluong', 'bandam']) {
+    const db = fixture();
+    const row = db.sanluong.pop();
+    row['Ngày cân'] = '01/09/2026';
+    row['Mã NV'] = 'A';
+    db[table].push(row);
+    const H = require('../../hr');
+    assert.equal(H.sanLuongKy(db, 2026, 9, table).rows[0]['Ngày cân'], '2026-09-01');
+    for (const quantity of ['abc', -3, 0]) {
+      row['KL hàng (Tấn)'] = quantity;
+      assert.ok(M.blockers(db, '2026-09', { bu: 'to' })[0].items.some(x => /P9.*không hợp lệ/.test(x)));
+    }
+    row['KL hàng (Tấn)'] = 10;
+    db.hopdong.find(x => x['Mã NV'] === 'A')['Ngày vào làm'] = '2026-09-15';
+    assert.equal(H.sanLuongKy(db, 2026, 9, table).rows.length, 0);
+    assert.ok(M.blockers(db, '2026-09', { bu: 'to' }).some(x => x.items.some(s => /P9.*hợp đồng hiệu lực ngày cân/.test(s))));
+  }
+});
+
+test('Excel rejects cross-period updates but can repair an existing blank date', () => {
+  const I = require('../../core/importer');
+  const db = fixture();
+  const row = db.sanluong[0];
+  const candidate = { ...row, 'Ngày cân': '2026-10-01' };
+  const plan = () => I.plan(db, 'sanluong', Object.keys(candidate), [candidate]).items[0];
+  assert.equal(plan().action, 'conflict');
+  assert.match(plan().reason, /2026-09.*2026-10/);
+  assert.equal(row['Ngày cân'], '2026-09-01');
+  row['Ngày cân'] = '';
+  assert.equal(plan().action, 'update');
+});

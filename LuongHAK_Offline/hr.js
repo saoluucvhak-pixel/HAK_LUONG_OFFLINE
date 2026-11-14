@@ -221,11 +221,18 @@
   function sanLuongKy(db, nam, thang, table) {
     var PA = (typeof module !== "undefined" && module.exports) ? require("./core/production-alloc.js") : root.HAKCore.palloc;
     var b = kyBounds(nam, thang), ky = b.dau.slice(0, 7), ix = buildIndex(db), direct = [], toRows = [], chuaGan = [];
+    var V = typeof module !== "undefined" && module.exports ? require("./core/validate.js") : root.HAKCore.validate;
+    var invalidDirect = [];
     (db[table] || []).forEach(function (r) {
-      if (!r || d10(r["Ngày cân"]).slice(0, 7) !== ky) return;
-      if (r["Mã NV"]) direct.push(r);
-      else if (String(r["Mã phòng ban"] || "").trim()) toRows.push({ phieu: r["Phiếu cân"] || "", ngay: d10(r["Ngày cân"]), kl: r["KL hàng (Tấn)"], maPB: String(r["Mã phòng ban"]).trim(), vang: r["NV vắng"] || "" });
-      else chuaGan.push(r);
+      var date = r && V.normDate(r["Ngày cân"]);
+      if (!date || date.slice(0, 7) !== ky) return;
+      var row = Object.assign({}, r, { "Ngày cân": date });
+      if (row["Mã NV"]) {
+        if (!activeHD(db, row["Mã NV"], date, date, ix)) invalidDirect.push(row);
+        else direct.push(row);
+      } else if (String(row["Mã phòng ban"] || "").trim()) {
+        toRows.push({ phieu: row["Phiếu cân"] || "", ngay: date, kl: row["KL hàng (Tấn)"], maPB: String(row["Mã phòng ban"]).trim(), vang: row["NV vắng"] || "" });
+      } else chuaGan.push(row);
     });
     var known = {}; (db.dm_phongban || []).forEach(function (p) { if (p && p["Mã phòng ban"]) known[String(p["Mã phòng ban"]).trim()] = p["Tên phòng ban"] || ""; });
     var cache = {};
@@ -269,13 +276,16 @@
     };
     var al = PA.allocate(toRows, membersOf, { donVi: table === "bandam" ? "xe" : "tấn", tenPB: function (pb) { return known[pb]; } });
     var rows = direct.concat(al.shares.map(function (x) { return { "Phiếu cân": x.phieu, "Ngày cân": x.ngay, "KL hàng (Tấn)": x.kl, "Mã NV": x.ma, "Mã phòng ban": x.maPB, _chia: 1 }; }));
-    return { rows: rows, direct: direct, alloc: al, chuaGan: chuaGan };
+    return { rows: rows, direct: direct, alloc: al, chuaGan: chuaGan, invalidDirect: invalidDirect };
   }
   function productionPayrollIssues(sanluong, bandam, payrollRows) {
     var recipients = new Set(payrollRows.map(function (r) { return r["Mã NV"]; }));
     var issues = [];
     [["Sản lượng", sanluong, "tấn"], ["Bơm dăm", bandam, "xe"]].forEach(function (entry) {
       var result = entry[1];
+      result.invalidDirect.forEach(function (r) {
+        issues.push(entry[0] + " — phiếu " + r["Phiếu cân"] + ", " + r["Ngày cân"] + ", " + r["KL hàng (Tấn)"] + " " + entry[2] + ": mã " + r["Mã NV"] + " không có hợp đồng hiệu lực ngày cân");
+      });
       result.chuaGan.concat(result.rows.filter(function (r) { return !recipients.has(r["Mã NV"]); })).forEach(function (r) {
         var recipient = r["Mã NV"];
         issues.push(entry[0] + " — phiếu " + (r["Phiếu cân"] || "(thiếu số phiếu)") + ", " + r["Ngày cân"] +
