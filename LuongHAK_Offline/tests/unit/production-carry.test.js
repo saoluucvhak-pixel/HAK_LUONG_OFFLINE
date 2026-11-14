@@ -47,3 +47,23 @@ test('Team carry excludes source zero-BT worker and uses target calendar days',(
  assert.deepEqual(p.map(x=>x.ma),['A','B']);
  for(const r of p) assert.equal(r.topup,Math.round(20000-2000/31/2));
 });
+
+test('Delete and replace production period also remove stored undated totals, retaining other receipts', () => {
+  const d = fixture();
+  const october = { ...d.sanluong[0], 'Phiếu cân': 'P10', 'Ngày cân': '2026-10-31' };
+  const total = { 'Phiếu cân': 'Total', 'Ngày cân': '', 'KL hàng (Tấn)': 11975.82, 'Cân lần 1': 0 };
+  const undatedReceipt = { ...october, 'Phiếu cân': 'P11', 'Ngày cân': '' };
+  d.sanluong.push(october, total, undatedReceipt);
+  const cols = Object.keys(october);
+  for (const raw of [null, [october, { ...total, 'Phiếu cân': 'TỔNG CỘNG' }]]) {
+    const plan = B.plan(d, 'sanluong', '2026-10', cols, raw);
+    assert.deepEqual(plan.remove, [october, total]);
+    assert.deepEqual(plan.totals, [total]);
+    assert.deepEqual(plan.unresolved, [undatedReceipt]);
+    assert.equal(plan.rows.length, raw ? 1 : 0);
+    assert.equal(plan.ignored.length, raw ? 1 : 0);
+    assert.deepEqual(d.sanluong.filter(r => !plan.remove.includes(r)), [d.sanluong[0], undatedReceipt]);
+  }
+  assert.throws(() => B.plan(d, 'sanluong', '2026-10', cols, [total]));
+  assert.throws(() => B.plan(d, 'sanluong', '2026-10', cols, [undatedReceipt]), /Thiếu Ngày cân/);
+});

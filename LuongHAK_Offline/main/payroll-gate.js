@@ -50,11 +50,8 @@ function blockers(db, ky, opts) {
   return GATE.blockers(r.kq, r.extra);
 }
 
-/** Tên file xuất có vẻ là bảng lương chính thức? (cùng quy tắc với app.js PAYROLL_FILE) */
-// "luong" trong "khối lượng / sản lượng / số lượng" KHÔNG phải bảng lương (báo cáo phân bổ khối lượng là công cụ để SỬA lỗi chặn chốt kỳ, không được chặn tải)
-const PAYROLL_FILE = /(?<!khoi[ _-]?)(?<!san[ _-]?)(?<!so[ _-]?)(?<!sl[ _-]?)luong|thanhtoan|payslip|phieu ?luong|bangtinh|tonghop ?luong|kechuyenkhoan|ke ?chuyen ?khoan|chuyenkhoan/i;
+const isPayrollFile = GATE.isPayrollFile;
 const slug = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
-function isPayrollFile(name) { return PAYROLL_FILE.test(String(name || "")) || PAYROLL_FILE.test(slug(name)); }
 /** Lấy kỳ YYYY-MM từ tên file (2026-09, 2026_09, 09-2026, 092026, T09_2026…) hoặc null */
 function kyFromName(name) {
   const s = String(name || "");
@@ -72,8 +69,7 @@ function isPaymentFile(name) { return PAYMENT_FILE.test(String(name || "")) || P
  */
 function checkExport(name, loadDb, opts) {
   // loại trừ tên thương hiệu "LuongHAK_…" (sao lưu), danh mục "Mã lương", file mẫu "Mau_…" — không phải báo cáo bảng lương
-  const base = slug(name).replace(/luong ?hak/ig, "").replace(/ma[ _-]?luong/ig, "");
-  if (/^mau[_ -]/i.test(slug(name)) || !isPayrollFile(base)) return { ok: true };
+  if (!GATE.requiresPayrollExportCheck(name)) return { ok: true };
   const ky = kyFromName(name);
   if (!ky) return { ok: false, code: "EXPORT_PERIOD_UNKNOWN", message: "Không xác định được kỳ lương từ tên file '" + name + "' — không thể kiểm tra, không cho xuất", blocked: [] };
   let d; try { d = loadDb(); } catch (e) { d = null; }

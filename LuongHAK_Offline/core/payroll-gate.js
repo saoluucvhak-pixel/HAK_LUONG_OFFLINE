@@ -23,6 +23,13 @@
     return out;
   }
   function summary(bl) { return (bl || []).map(function (b) { return b.code + " ×" + b.count; }).join(", "); }
-  var api = { blockers: blockers, summary: summary, RULES: RULES.map(function (r) { return { code: r.code, ten: r.ten }; }) };
+  var PAYROLL_FILE = /(?<!khoi[ _-]?)(?<!san[ _-]?)(?<!so[ _-]?)(?<!sl[ _-]?)luong|thanhtoan|payslip|phieu ?luong|bangtinh|tonghop ?luong|kechuyenkhoan|ke ?chuyen ?khoan|chuyenkhoan/i;
+  function slug(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D"); }
+  function isPayrollFile(name) { return PAYROLL_FILE.test(String(name || "")) || PAYROLL_FILE.test(slug(name)); }
+  function requiresPayrollExportCheck(name) {
+    var normalized = slug(name);
+    return !/^mau[_ -]/i.test(normalized) && isPayrollFile(normalized.replace(/luong ?hak/ig, "").replace(/ma[ _-]?luong/ig, ""));
+  }
+  var api = { isPayrollFile: isPayrollFile, requiresPayrollExportCheck: requiresPayrollExportCheck, blockers: blockers, summary: summary, RULES: RULES.map(function (r) { return { code: r.code, ten: r.ten }; }) };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else { root.HAKCore = root.HAKCore || {}; root.HAKCore.gate = api; }
 })(typeof window !== "undefined" ? window : this);

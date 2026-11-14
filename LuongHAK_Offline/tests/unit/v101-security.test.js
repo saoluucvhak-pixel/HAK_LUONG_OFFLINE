@@ -72,3 +72,14 @@ test("U-V101-GATE-02 đổi tên file không vượt được: tên có chữ 'l
   const bl = PG.blockers(bad, "2026-09", {});
   assert.ok(bl.length >= 1 && bl[0].code === "PAYROLL_RECALCULATION_FAILED", JSON.stringify(bl).slice(0, 200));
 });
+
+test("shared export classifier lets production reports through while payroll still uses its gate", () => {
+  const gate = require("../../core/payroll-gate.js");
+  const main = require("../../main/payroll-gate.js");
+  for (const name of ["Sanluong_2026-10.xlsx", "Bảng kê sản lượng tháng 10.pdf", "PhanBoKhoiLuong_2026-10.xlsx"]) {
+    assert.equal(gate.requiresPayrollExportCheck(name), false);
+    assert.deepEqual(main.checkExport(name, () => assert.fail("No payroll data needed")), { ok: true });
+  }
+  assert.equal(gate.requiresPayrollExportCheck("BangLuong_2026-10.xlsx"), true);
+  assert.equal(main.checkExport("BangLuong_2026-10.xlsx", () => null).code, "EXPORT_DATA_UNAVAILABLE");
+});

@@ -309,15 +309,14 @@
   function excelCell(col, v) { // số thì lưu số, còn lại lưu chữ
     if (v === "" || v == null) return "";
     if (typeof v === "number") return v;
-    if (NUMCOLS.test(col) && !DATECOLS.test(col) && /^[\d.,%\s-]+$/.test(String(v)) && String(v).indexOf("%") < 0) return E.num(v);
+    if (NUMCOLS.test(col) && !DATECOLS.test(col) && /^[\d.,%\s-]+$/.test(String(v)) && String(v).indexOf("%") < 0) return MONEYCOLS.test(col) ? E.money(v) : E.num(v);
     if (/^\d\d$/.test(col) && /^\d+([.,]\d+)?$/.test(String(v))) return E.num(v);
     return v;
   }
   /** V9: bảng lương CÓ FORMULA_ERROR (kỳ chưa chốt) không được xuất như bản chính thức — chặn xuất, yêu cầu sửa công thức trước. */
-  var PAYROLL_FILE = /luong|thanhtoan|payslip|phieu ?luong|bangtinh|tonghop ?luong/i;
   function formulaErrorsBlock(what) {
     try {
-      if (!PAYROLL_FILE.test(slug(String(what || "")) ) && !PAYROLL_FILE.test(String(what || ""))) return false;
+      if (!GATE.requiresPayrollExportCheck(what)) return false;
       if (!db.nhanvien || !db.nhanvien.length) return false;
       var src = kqKy(st.nam, st.thang); if (src.chot) return false;
       var bl = GATE.blockers(src.kq); if (!bl.length) return false;
@@ -828,6 +827,9 @@
     var preview = function (raw, name) {
       var plan; try { plan = C.inputBatch.plan(db, key, period, ALL[key].cols, raw); } catch (e) { alert(e.message); return; }
       var body = h("div", {}, [h("p", { text: ALL[key].ten + " — " + kyLabel(period) }), h("p", { text: "Sẽ xóa " + plan.remove.length + " dòng; thêm " + plan.rows.length + " dòng. Các kỳ khác giữ nguyên." }), h("p", { text: name || "Xóa dữ liệu của kỳ đã chọn" })]);
+      if (plan.totals.length) body.appendChild(h("p", { text: "Trong số dòng sẽ xóa có " + plan.totals.length + " dòng tổng không có ngày cân đang lưu: " + plan.totals.map(function (r) { return r["Phiếu cân"]; }).join(", ") }));
+      if (plan.unresolved.length) body.appendChild(h("p", { class: "warn", text: plan.unresolved.length + " phiếu đang lưu thiếu ngày hợp lệ vẫn cần đối chiếu. Các phiếu này chưa được xóa vì chưa xác định được kỳ." }));
+      if (plan.ignored.length) body.appendChild(h("p", { text: "Bỏ qua dòng tổng trong Excel — " + plan.ignored.map(function (r) { return "dòng " + r.line + " (" + r.label + ")"; }).join(", ") }));
       modal(replacing ? "Thay toàn bộ dữ liệu kỳ" : "Xóa dữ liệu kỳ", body, function (close) { return [btn("Hủy", "", close), btn("Xác nhận " + (replacing ? "thay dữ liệu" : "xóa kỳ"), "red", function () {
         if (!need("input.edit")) return;
         if (period !== kyStr() || JSON.stringify(db[key] || []) !== plan.token) { alert("Dữ liệu hoặc kỳ đã đổi — mở lại xem trước."); return; }
@@ -836,7 +838,7 @@
           var now = C.inputBatch.plan(db, key, period, ALL[key].cols, raw);
           for (var i = 0; i < now.remove.length; i++) if (!commit(REPO.plan("remove", key, now.remove[i], null), { audit: false })) return false;
           for (var j = 0; j < now.rows.length; j++) if (!commit(REPO.plan("insert", key, null, now.rows[j]), { audit: false })) return false;
-          audit("Thay/xóa dữ liệu kỳ", key + " " + period + ": xóa " + now.remove.length + ", thêm " + now.rows.length);
+          audit("Thay/xóa dữ liệu kỳ", key + " " + period + ": xóa " + now.remove.length + " (dòng tổng: " + now.totals.length + "), thêm " + now.rows.length);
         })) { alert("Chưa thay dữ liệu: " + lastTxnError); return; }
         close(); after(); toast("Đã lưu dữ liệu kỳ " + period);
       })]; });
@@ -929,7 +931,7 @@
       bar.appendChild(btn("🖨 In", "", function () { if (!need("export", "in")) return; window.print(); }));
     }
     if (pcMode) bar.appendChild(btn("⬇ PDF", "", function () { var rows = pcRows(); exportSheetsPdf({ title: def.ten + " (đã lọc)", ky: pcScopeText(key), sheets: [{ name: def.ten, rows: rows.map(function (r) { var o = {}; def.cols.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); return o; }) }] }, slug(def.ten) + "_loc.pdf"); }, "Xuất đúng các dòng đang lọc"));
-    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = scanRows(), loc = sfm && !SFC.isEmpty(sfm.cfg.state.get()); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + (loc && !pcMode && !inMode ? "_loc" : "") + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }], "pro"); }));
+    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = scanRows(), loc = sfm && !SFC.isEmpty(sfm.cfg.state.get()); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + (loc && !pcMode && !inMode ? "_loc" : "") + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }], key === "sanluong" || key === "bandam" ? undefined : "pro"); }));
     card.appendChild(bar);
     if (key === "sanluong") (db.sl_chuyenky || []).filter(function (r) { return r.source === kyStr() || r.target === kyStr(); }).forEach(function (r) { card.appendChild(h("div", { class: "warn", text: "Sản lượng phát sinh " + r.source + " → tính vào lương " + r.target + ". Người/công theo kỳ phát sinh; đơn giá/bù theo kỳ chi trả. Không tính hai lần." })); });
     if (inMode) INDEX_PB = null;
