@@ -16,6 +16,14 @@
   function rawTokens(s) { return s ? String(s).split(/[,;/\s]+/).map(low).filter(function (x) { return x && x !== "@"; }) : []; }
   /** Như rawTokens nhưng giữ nguyên cách viết trên phiếu (để hiện trong cảnh báo) */
   function shownTokens(s) { return s ? String(s).split(/[,;/\s]+/).map(function (x) { return x.trim(); }).filter(function (x) { return x && x !== "@"; }) : []; }
+  function absenceMatches(pool, t) {
+    var f = strip(t).toLowerCase();
+    // Mã NV khớp CHÍNH XÁC = định danh duy nhất (ưu tiên Mã NV), không bao giờ mơ hồ
+    var byCode = pool.filter(function (e) { return e.ma && strip(e.ma).toLowerCase() === f; });
+    var hit = byCode.length ? byCode : pool.filter(function (e) { return lastWordRaw(e.hoTen) === t; });
+    if (!hit.length) hit = pool.filter(function (e) { return lastWord(e.hoTen) === f; });
+    return { hit: hit, byCode: byCode };
+  }
   function num(v) { if (typeof v === "number") return v; var x = parseFloat(String(v == null ? "" : v).replace(",", ".")); return isNaN(x) ? 0 : x; }
 
   /**
@@ -26,7 +34,7 @@
   function allocate(rows, membersOf, opts) {
     opts = opts || {};
     var dv = opts.donVi || "tấn", tenPB = opts.tenPB || function (x) { return x; };
-    var shares = [], audit = [], warnings = [], byDept = {}, byEmp = {}, dates = {}, total = 0, unalloc = 0;
+    var shares = [], audit = [], attendanceReview = [], warnings = [], byDept = {}, byEmp = {}, dates = {}, total = 0, unalloc = 0;
     // Tên vắng không khớp / trùng tên: gộp 1 cảnh báo cho mỗi (tổ, tên) thay vì lặp lại ở từng phiếu (chi tiết từng phiếu vẫn ở audit[].note)
     var vangWarn = {}, vangOrder = [], nghiInfo = {}, nghiOrder = [], chuaCC = {}, chuaCCOrder = []; // nghiInfo: người có đơn nghỉ đã duyệt → không chia phiếu các ngày đó
     var noteVang = function (pb, t, kind, n, phieu, d) {
@@ -47,14 +55,12 @@
       }
       var vang = {}, notes = [], vangNghi = {}; // vangNghi: người đang nghỉ / không có công mà phiếu cũng ghi vắng
       var shown = shownTokens(r.vang), mo = []; // mo: tên vắng MƠ HỒ (trùng tên cuối ≥ 2 người, không ghi Mã NV) — V5 mục VII.1
+      var pool = mem.concat(mem.nghi || []), reviewPool = pool.concat(mem.roster || []), listed = new Set();
       rawTokens(r.vang).forEach(function (t, ti) {
         var tx = shown[ti] || t; // tên đúng như ghi trên phiếu
         // So trên CẢ người có mặt lẫn người đang nghỉ / không có công: có dấu trước ("Tưởng" ≠ "Tường"), không ai khớp mới so bỏ dấu
-        var pool = mem.concat(mem.nghi || []), f = strip(t).toLowerCase();
-        // Mã NV khớp CHÍNH XÁC = định danh duy nhất (ưu tiên Mã NV), không bao giờ mơ hồ
-        var byCode = pool.filter(function (e) { return e.ma && strip(e.ma).toLowerCase() === f; });
-        var hit = byCode.length ? byCode : pool.filter(function (e) { return lastWordRaw(e.hoTen) === t; });
-        if (!hit.length) hit = pool.filter(function (e) { return lastWord(e.hoTen) === f; });
+        var match = absenceMatches(pool, t), hit = match.hit, byCode = match.byCode;
+        absenceMatches(reviewPool, t).hit.forEach(function (e) { listed.add(e.ma); });
         var list = hit.filter(function (e) { return mem.indexOf(e) >= 0; }), nx = hit.filter(function (e) { return mem.indexOf(e) < 0; });
         list.forEach(function (e) { vang[e.ma] = 1; });
         nx.forEach(function (e) { vangNghi[e.ma] = 1; });
@@ -62,6 +68,17 @@
         if (!hit.length) { notes.push("\"" + tx + "\" không khớp ai đang làm trong tổ"); noteVang(pb, tx, "none", 0, r.phieu, d); }
         else if (hit.length > 1 && !byCode.length) mo.push({ t: tx, cands: hit }); // trùng tên: KHÔNG tự loại ai — giữ phiếu chờ xác nhận danh tính
       });
+      var present = mem.filter(function (e) { return !vang[e.ma]; });
+      var unconfirmed = reviewPool.filter(function (e) { return e.congBangKhong && !listed.has(e.ma); });
+      if (unconfirmed.length) {
+        var recipients = mo.length ? [] : present;
+        attendanceReview.push({
+          phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: recipients.length, vang: r.vang || "",
+          recipients: recipients,
+          excluded: reviewPool.filter(function (e) { return recipients.indexOf(e) < 0; }),
+          employees: unconfirmed
+        });
+      }
       if (mo.length) {
         // Master Prompt V5 mục VII.1 "NV vắng": trùng tên → đánh dấu mơ hồ, yêu cầu xác nhận danh tính, tạm giữ phiếu (không tự loại tất cả người trùng)
         var ds = mo.map(function (m) { return "\"" + m.t + "\" = " + m.cands.map(function (e) { return e.ma + " " + e.hoTen; }).join(" / "); }).join("; ");
@@ -69,7 +86,6 @@
         audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: 0, names: [], share: 0, note: "PENDING_IDENTITY — NV vắng trùng tên: " + ds, pending: true, pendingKind: "IDENTITY", mo: mo.map(function (m) { return { ten: m.t, ungVien: m.cands.map(function (e) { return { ma: e.ma, hoTen: e.hoTen }; }) }; }) });
         dp.unallocated += kl; unalloc += kl; return;
       }
-      var present = mem.filter(function (e) { return !vang[e.ma]; });
       if (mem.chuaCC) { var ck = pb; if (!chuaCC[ck]) { chuaCC[ck] = []; chuaCCOrder.push(ck); } if (chuaCC[ck].indexOf(d) < 0) chuaCC[ck].push(d); }
       (mem.nghi || []).forEach(function (e) { if (e.khongCong && vangNghi[e.ma]) return; /* phiếu đã ghi vắng → không đổi gì, khỏi báo */ var nk = e.ma + "|" + e.loai; if (!(nk in nghiInfo)) { nghiInfo[nk] = { ma: e.ma, hoTen: e.hoTen, loai: e.loai, khongCong: !!e.khongCong, ngay: [] }; nghiOrder.push(nk); } if (nghiInfo[nk].ngay.indexOf(d) < 0) nghiInfo[nk].ngay.push(d); });
       if (!present.length) {
@@ -101,7 +117,7 @@
     });
     chuaCCOrder.forEach(function (pb) { var ng = chuaCC[pb].sort(); warnings.push("Tổ " + pb + ": chưa có chấm công " + ng.length + " ngày có phiếu (" + ng.slice(0, 6).map(dm).join(", ") + (ng.length > 6 ? "…" : "") + ") — các ngày này đang CHỜ PHÂN BỔ (PENDING_ATTENDANCE), không tự chia theo NV vắng; nhập chấm công rồi tính lại"); });
     var nghi = nghiOrder.map(function (k) { var x = nghiInfo[k]; x.ngay.sort(); return x; });
-    return { nghi: nghi, shares: shares, audit: audit, warnings: warnings, byDept: byDept, byEmp: byEmp, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
+    return { nghi: nghi, shares: shares, audit: audit, attendanceReview: attendanceReview, warnings: warnings, byDept: byDept, byEmp: byEmp, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
   }
   /**
    * Gộp thêm các phiếu đã ghi Mã NV (giao trực tiếp) vào kết quả phân bổ — để báo cáo / file xuất có đủ mọi phiếu.

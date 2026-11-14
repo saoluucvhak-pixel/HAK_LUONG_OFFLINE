@@ -3131,7 +3131,16 @@
       .map(function (e) { var o = { "Mã phòng ban": e.maPB, "Mã NV": e.ma, "Họ và tên": e.hoTen, "Số ngày có SL": Object.keys(e.byDay).length }; o[dv] = r3_(e.total); return o; });
     var audit = al.audit.map(function (a) { return { "Phiếu": a.phieu, "Ngày": a.ngay, "Mã phòng ban": a.maPB, "KL / số xe": r3_(a.kl), "Số người nhận": a.soNguoi, "Mỗi người": a.share ? r3_(a.share) : "", "Người nhận": a.names.join(", "), "Ghi chú": a.note }; });
     var chuaGan = al.chuaGan.map(function (r) { return { "Phiếu cân": r["Phiếu cân"] || "", "Ngày cân": r["Ngày cân"] || "", "Biển số": r["Biển số"] || "", "KL": E.num(r["KL hàng (Tấn)"]) }; });
-    return { pb: addTotal(pb), nv: addTotal(nv), audit: audit, chuaGan: chuaGan, warnings: al.warnings, al: al };
+    function employeeLabels(people) {
+      return people.map(function (e) { return e.ma + " — " + e.hoTen; }).join(", ");
+    }
+    var attendanceReview = al.attendanceReview.map(function (r) {
+      return { "Phiếu cân": r.phieu, "Ngày cân": r.ngay, "Mã phòng ban": r.maPB, "KL / số xe": r.kl,
+        "App chia (người)": r.soNguoi, "Người được chia": employeeLabels(r.recipients) || "Không có",
+        "Người không được chia": employeeLabels(r.excluded) || "Không có", "NV vắng trên phiếu": r.vang,
+        "Người cần kiểm tra công": employeeLabels(r.employees) };
+    });
+    return { pb: addTotal(pb), nv: addTotal(nv), audit: audit, attendanceReview: attendanceReview, chuaGan: chuaGan, warnings: al.warnings, al: al };
   }
   /** File Excel "Phân bổ khối lượng tính lương" — bố cục như công cụ (ExcelJS). */
   function exportPBKL(nam, thang) {
@@ -3287,6 +3296,12 @@
       card.appendChild(h("div", { class: "fh", text: "Theo công nhân" })); card.appendChild(simpleTable(r3.nv));
       card.appendChild(h("div", { class: "fh", text: "Đối soát từng phiếu" })); card.appendChild(simpleTable(r3.audit));
       if (r3.chuaGan.length) { card.appendChild(h("div", { class: "warn", html: "<b>⚠ " + r3.chuaGan.length + " phiếu cân chưa có Mã NV hoặc Mã phòng ban</b> — chưa được tính lương cho ai:" })); card.appendChild(simpleTable(r3.chuaGan)); }
+      if (r3.attendanceReview.length) {
+        card.appendChild(h("div", { class: "fh", text: "Phiếu cần đối chiếu chấm công" }));
+        card.appendChild(h("p", { class: "hint", text: "Người có ô chấm công ghi bằng 0 và chưa có tên hoặc mã trong NV vắng. Kiểm tra chấm công trước khi điều chỉnh." }));
+        card.appendChild(simpleTable(r3.attendanceReview));
+        sheets.push({ name: "DoiChieuChamCong", rows: r3.attendanceReview });
+      }
       sheets.push({ name: "TheoPhongBan", rows: r3.pb }, { name: "TheoCongNhan", rows: r3.nv }, { name: "DoiSoatPhieu", rows: r3.audit }, { name: "ChuaGanNguoi", rows: r3.chuaGan });
     }
     else if (st.bcl === "hachtoan") {
