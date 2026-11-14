@@ -6,7 +6,7 @@ function env(initial,saveOK,hasFile=true){
   const c={db:initial,dirty:hasFile,session:null,readOnly:false,loadError:null,ALL:{nhanvien:{}},HRT:{},need:()=>true,
     SCH:{validate:()=>({fatal:[],errors:[]})},chotSummary:()=>({}),summarize:()=>"synthetic",confirm:()=>true,
     backupNow:()=>hasFile?"synthetic-backup.json":null,store:{hasDataFile:()=>hasFile},
-    HRM:{migrate:()=>[]},INT:{normalizeDataset:()=>({messages:[]})},ensureTables:()=>{if(!c.db.auditlog)c.db.auditlog=[];},
+    HRM:{migrate:()=>[]},INT:{normalizeDataset:()=>({messages:[]})},cleanImportedData:()=>[],ensureTables:()=>{if(!c.db.auditlog)c.db.auditlog=[];},
     PERM:{findUser:()=>null},audit:()=>c.db.auditlog.push({thaoTac:"Restore test"}),
     saveNow:()=>{writes.push(JSON.stringify(c.db));c.lastSaveError=saveOK?"":"SIMULATED_WRITE_FAILURE";return saveOK;},
     alert:m=>alerts.push(m),toast:m=>toasts.push(m),render:()=>{},st:{kq:{stale:true}}};

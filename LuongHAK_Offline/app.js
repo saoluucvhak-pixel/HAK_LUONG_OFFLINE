@@ -90,9 +90,19 @@
   }
   // Sao lưu TRƯỚC NÂNG CẤP: chụp nguyên trạng file dữ liệu của bản cũ trước khi chuyển đổi (1 lần cho mỗi lần nâng schema)
   if (!readOnly && store && store.backup && db && Object.keys(db).length && (!db.schemaVersion || db.schemaVersion < 2)) { try { store.backup("truoc-nang-cap"); } catch (e) { /* không chặn mở app */ } }
+  /** Làm sạch dữ liệu đưa vào từ hệ thống cũ: chữ "null" trong ô chấm công → ô trống; dòng Tổng (Total) lẫn trong Sản lượng / Bơm dăm → loại bỏ. Trả danh sách thông báo. */
+  function cleanImportedData(d) {
+    var msg = [], nulls = VAL.cleanNullCells(d), tot = C.inputBatch && C.inputBatch.removeTotals ? C.inputBatch.removeTotals(d) : [];
+    if (nulls) msg.push(nulls + " ô chấm công ghi chữ \"null\" (từ hệ thống cũ) đã chuyển thành ô trống");
+    if (tot.length) {
+      var tan = tot.reduce(function (s0, x) { return s0 + (parseFloat(String(x.row["KL hàng (Tấn)"]).replace(",", ".")) || 0); }, 0);
+      msg.push("Đã loại " + tot.length + " dòng tổng (\"" + tot.map(function (x) { return x.row["Phiếu cân"]; }).join("\", \"") + "\") không có ngày cân khỏi Sản lượng / Bơm dăm" + (tan ? " (cộng " + tan.toLocaleString("vi-VN", { maximumFractionDigits: 3 }) + " tấn — đây là số tổng, không phải phiếu thật)" : ""));
+    }
+    return msg;
+  }
   var migMsg = [];
   if (!readOnly) {
-    try { migMsg = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); }
+    try { migMsg = HRM.migrate(db).concat(INT.normalizeDataset(db).messages, cleanImportedData(db)); }
     catch (e) { loadError = { error: "Lỗi khi chuyển đổi dữ liệu cũ: " + e.message + " — dữ liệu KHÔNG bị ghi đè", backups: store && store.listBackups ? store.listBackups() : [] }; readOnly = true; }
   }
   // Chỉ TẠO bảng còn thiếu; bảng có nhưng sai kiểu đã bị chặn ở bước kiểm tra cấu trúc (không bao giờ thay bằng bảng rỗng)
@@ -4946,7 +4956,7 @@
       // File chỉ có bảng dữ liệu (xuất/nhập bảng, không phải Full Backup) thì không có tài khoản/công ty/nhật ký.
       // Chỉ lấy phần của máy khi FILE KHÔNG CÓ (file bản sao lưu đầy đủ thì dùng nguyên tài khoản/nhật ký trong file — cài lại Windows không mất).
       if (prev && !prevErr) ["nguoidung", "baomat", "congty", "auditlog", "kyluong", "kyluong_lichsu", "ttluong"].forEach(function (k) { if (o[k] === undefined && prev[k] !== undefined) o[k] = JSON.parse(JSON.stringify(prev[k])); });
-      try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages); readOnly = false; loadError = null; ensureTables(); }
+      try { db = o; var mm = HRM.migrate(db).concat(INT.normalizeDataset(db).messages, cleanImportedData(db)); readOnly = false; loadError = null; ensureTables(); }
       catch (e) { db = prev; readOnly = prevRO; loadError = prevErr; render(); if (opts.onFail) opts.onFail("Không nạp được dữ liệu: " + e.message); else alert("Không khôi phục được: " + e.message); return; }
       // Tài khoản lấy theo dữ liệu vừa khôi phục: người đang đăng nhập phải có trong đó, nếu không phải đăng nhập lại
       var me = session && PERM.findUser(db, session.tenDangNhap);

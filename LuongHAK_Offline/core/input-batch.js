@@ -36,5 +36,14 @@
     }
     return{key:key,period:period,remove:remove,totals:totals,unresolved:unresolved,rows:rows,ignored:ignored,token:JSON.stringify(db[key]||[])};
   }
-  var api={plan:plan};if(node)module.exports=api;else root.HAKCore.inputBatch=api;
+  /** Loại khỏi Sản lượng / Bơm dăm các dòng TỔNG (Total / Tổng cộng, không ngày cân, tổ, người) lẫn vào khi nhập file. Trả danh sách dòng đã loại. */
+  function removeTotals(db){
+    var out=[];
+    ['sanluong','bandam'].forEach(function(key){
+      var keep=[];(db[key]||[]).forEach(function(r){if(r&&isProductionTotal(r))out.push({table:key,row:r});else keep.push(r);});
+      if(keep.length!==(db[key]||[]).length)db[key]=keep;
+    });
+    return out;
+  }
+  var api={plan:plan,removeTotals:removeTotals};if(node)module.exports=api;else root.HAKCore.inputBatch=api;
 })(typeof window!=='undefined'?window:this);

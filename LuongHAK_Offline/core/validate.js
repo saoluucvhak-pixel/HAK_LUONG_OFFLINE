@@ -101,6 +101,7 @@
 
   /** Chuẩn hóa 1 giá trị theo tên cột. Trả { value, error } — error là mô tả lỗi nếu không đọc được. */
   function normCell(col, v) {
+    if (/^\d{2}$/.test(col) && isNullText(v)) return { value: "" }; // ô ngày chấm công mang chữ "null" = ô trống
     if (col === KY_COL) { var k = normKy(v); return k === null ? { value: String(v), error: "Kỳ không hợp lệ (cần dạng 2026-09)" } : { value: k }; }
     if (isDateCol(col)) { var d = normDate(v); return d === null ? { value: String(v), error: "Ngày không hợp lệ (cần dạng 2026-09-15 hoặc 15/09/2026)" } : { value: d }; }
     if (CAP_COLS.test(col)) {
@@ -130,9 +131,20 @@
    * @param day "01".."31"  @param v giá trị ô  @param ky kỳ của dòng ("2026-09") — để biết ngày có tồn tại không
    * @returns { error: mô tả lỗi | null, warn: cảnh báo | null, soCong, nhan }
    */
+  /** Chữ "null" / "undefined" / "NaN" do hệ thống cũ xuất ra thay cho ô trống — không phải dữ liệu thật. */
+  function isNullText(v) { return typeof v === "string" && /^(null|undefined|nan)$/i.test(v.trim()); }
+  /** Đổi các ô ngày chấm công mang chữ "null"… thành ô trống. Trả số ô đã đổi. */
+  function cleanNullCells(db) {
+    var n = 0;
+    (db && db.chamcong || []).forEach(function (r) {
+      if (!r || typeof r !== "object") return;
+      for (var d = 1; d <= 31; d++) { var k = ("0" + d).slice(-2); if (isNullText(r[k])) { r[k] = ""; n++; } }
+    });
+    return n;
+  }
   function dayCell(day, v, ky) {
     var res = { error: null, warn: null, soCong: 0, nhan: "" };
-    if (v === "" || v == null) return res;
+    if (v === "" || v == null || isNullText(v)) return res;
     var d = +day;
     if (!(d >= 1 && d <= 31)) { res.error = "Cột ngày " + day + " không hợp lệ"; return res; }
     if (ky && d > daysInKy(ky)) { res.error = "Ngày " + day + " không tồn tại trong tháng " + normKy(ky).slice(5) + "/" + normKy(ky).slice(0, 4) + " (\"" + v + "\")"; return res; }
@@ -170,7 +182,7 @@
     return !!(ma && mb && parseFloat(ma[1]) === parseFloat(mb[1]) && ma[2].trim() === mb[2].trim());
   }
 
-  var api = { parseRate: parseRate, rateError: rateError, isRateCol: isRateCol, parseMoney: parseMoney, sameCell: sameCell, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
+  var api = { isNullText: isNullText, cleanNullCells: cleanNullCells, parseRate: parseRate, rateError: rateError, isRateCol: isRateCol, parseMoney: parseMoney, sameCell: sameCell, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
     dayCell: dayCell, daysInKy: daysInKy, MAX_CONG_NGAY: MAX_CONG_NGAY,
     isMoneyCol: isMoneyCol, isDateCol: isDateCol, isIdCol: isIdCol, rowPeriod: rowPeriod, PERIOD_FIELD: PERIOD_FIELD };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
