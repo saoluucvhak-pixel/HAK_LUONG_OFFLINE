@@ -970,6 +970,9 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch(SD)); await app.close();
     const fb = path.join(SD, "data.json"), d3 = JSON.parse(fs.readFileSync(fb, "utf8"));
     d3.nhanvien.push({ _id: "o1", "Mã NV": "F1", "Họ và tên": "Trần Thị Bình", "Trạng thái": "Đang làm việc" }, { _id: "o2", "Mã NV": "F2", "Họ và tên": "Lê Văn Cường", "Trạng thái": "Đang làm việc" });
+    for (const code of ["F1", "F2"]) {
+      d3.hopdong.push({ _id: code + "-ops-hd", "Mã NV": code, "Số HĐLĐ": code + "/OPS", "Ngày vào làm": "2026-09-01" });
+    }
     d3.sanluong.push({ "Phiếu cân": "S1", "Ngày cân": "2026-09-02", "Biển số": "43C-1", "KL hàng (Tấn)": 3.13, "Mã NV": "F1" }, { "Phiếu cân": "S2", "Ngày cân": "2026-09-03", "Biển số": "43C-2", "KL hàng (Tấn)": 9.11, "Mã NV": "F2" }, { "Phiếu cân": "S3", "Ngày cân": "2026-09-15", "Biển số": "43C-3", "KL hàng (Tấn)": 28.5, "Mã NV": "F1" });
     d3.bandam.push({ "Phiếu cân": "B1", "Ngày cân": "2026-09-01", "KL hàng (Tấn)": 1, "Mã NV": "F1" }, { "Phiếu cân": "B2", "Ngày cân": "2026-09-01", "KL hàng (Tấn)": 1, "Mã NV": "F2" });
     d3.psluong.push({ "Ngày hạch toán": "2026-09-30", "Số chứng từ": "QĐ-1", "Mã NV": "F1", "Diễn giải": "Thưởng chuyên cần", "Thưởng": 500000, "Thu nhập khác": 0, "Trừ khác": 0 });
