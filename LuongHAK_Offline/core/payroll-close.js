@@ -40,6 +40,7 @@
     var dm = {}; DM.forEach(function (t) { dm[t] = clone(db[t] || []); });
     var result = clone({ bangluong: kq.bangluong, bhxh: kq.bhxh, tncn: kq.tncn, canhbao: kq.canhbao });
     var inp = { staff: clone(staff || []), data: input, danhmuc: dm };
+    if (meta.leaveReview) inp.leaveReview = clone(meta.leaveReview);
     if (meta.payrollReports) inp.payrollReports = clone(meta.payrollReports);
     return {
       ky: ky, version: history(db, ky).length + 1, ngayChot: meta.now || new Date().toISOString(), nguoiChot: meta.user || "", ghiChu: meta.note || "",

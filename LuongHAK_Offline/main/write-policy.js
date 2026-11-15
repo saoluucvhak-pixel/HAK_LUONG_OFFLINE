@@ -310,6 +310,22 @@ function createPolicy(opts) {
       const need = permsFor(t);
       if (!need.some(has)) return deny("vai trò hiện tại không có quyền sửa bảng '" + t + "' (cần " + need.join(" hoặc ") + ")");
     }
+    if (changed.includes("nghiphep") || changed.includes("nghiepvu_nhansu")) {
+      const prior = JSON.parse(readText() || "{}");
+      const leave = require("../core/leave-reconciliation.js");
+      for (const table of ["nghiphep", "nghiepvu_nhansu"].filter(t => changed.includes(t))) {
+        const previous = new Map();
+        for (const row of prior[table] || []) { const id = h(row); previous.set(id, (previous.get(id) || 0) + 1); }
+        for (const row of next[table] || []) {
+          const id = h(row);
+          if (previous.get(id)) { previous.set(id, previous.get(id) - 1); continue; }
+          if (!leave.isAnnual(row)) continue;
+          if (table === "nghiepvu_nhansu" && !["Nháp", "Chờ duyệt"].includes(row["Trạng thái"])) continue; // Approved requests are checked on the resulting leave record.
+          const reason = leave.checkRequest(next, row, table === "nghiphep" ? row : null);
+          if (reason) return deny(reason);
+        }
+      }
+    }
     return { ok: true };
   }
   /** Gọi sau khi storage.save thành công */

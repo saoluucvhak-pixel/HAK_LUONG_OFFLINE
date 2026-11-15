@@ -218,3 +218,23 @@ test("U-V101-CLOSE-01 main tính lại bản chốt: bảng lương bị sửa s
   const empty = clone(real); empty.bangluong = []; v = tryClose(mk(empty)); assert.equal(v.ok, false); assert.match(v.error, /thiếu trong bản chốt|không khớp/);
   const forged = mk(real); forged.kq.bangluong[0]["Thực lĩnh"] += 5; v = tryClose(forged); assert.equal(v.ok, false); assert.match(v.error, /checksum|lệch/);
 });
+
+
+test("Main rejects over-limit annual leave records and draft requests but accepts a different leave type", () => {
+  const { db, pol } = setup({
+    nhanvien: [{ "Mã NV": "NV001", "Họ và tên": "A" }],
+    hopdong: [{ "Mã NV": "NV001", "Số HĐLĐ": "H1", "Ngày vào làm": "2025-01-01" }],
+    quyenloiphep: [{ "Mã NV": "NV001", "Số HĐLĐ": "H1", "Năm áp dụng": "2026", "Số ngày được cấp": 1 }],
+    nghiphep: [{ "Mã NV": "NV001", "Số HĐLĐ": "H1", "Từ ngày": "2026-01-05", "Đến ngày": "2026-01-05", "Số ngày nghỉ": 1, "Trạng thái duyệt": "Đã duyệt" }]
+  });
+  const admin = who("admin", "admin");
+  const published = { "Mã NV": "NV001", "Số HĐLĐ": "H1", "Từ ngày": "2026-10-05", "Đến ngày": "2026-10-05", "Số ngày nghỉ": 0.5, "Trạng thái duyệt": "Đã duyệt" };
+  const d = clone(db);
+  d.nghiphep.push(published);
+  assert.match(pol.check(JSON.stringify(d), admin).error, /Vượt hạn mức phép năm/);
+  published["Loại nghỉ"] = "Nghỉ không hưởng lương";
+  assert.equal(pol.check(JSON.stringify(d), admin).ok, true);
+  const draft = clone(db);
+  draft.nghiepvu_nhansu = [{ "Mã phiếu": "NVNS001", "Người đề nghị": "admin", "Mã NV": "NV001", "Loại nghiệp vụ": "Nghỉ phép năm", "Từ ngày": "2026-10-05", "Đến ngày": "2026-10-05", "Số ngày": 0.5, "Trạng thái": "Nháp" }];
+  assert.match(pol.check(JSON.stringify(draft), admin).error, /Vượt hạn mức phép năm/);
+});

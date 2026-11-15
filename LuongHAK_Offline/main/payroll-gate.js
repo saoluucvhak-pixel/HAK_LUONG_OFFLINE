@@ -104,6 +104,11 @@ function verifySnapshot(db, snap) {
   ["bangluong", "bhxh", "tncn"].forEach((table) => {
     if (!equal(publicRows(r.kq[table]), publicRows(snap.kq[table]))) why.push("chi tiết " + table + " khác kết quả tính lại");
   });
+  // Khi kiểm tra bản chốt mới, lấy bảng công ứng viên đang ghi, không đọc snapshot do renderer gửi.
+  const active = Object.assign({}, db, { kyluong: (db.kyluong || []).filter(k => k.ky !== snap.ky) });
+  const leave = require("../core/leave-reconciliation.js").reconcile(active, snap.ky);
+  if (leave.blockers.length) why.push("công phép không khớp đơn nghỉ; hãy đối chiếu rồi tính lại");
+  if (leave.quotaBlockers.length) why.push("vượt hạn mức phép năm theo Quyền lợi phép: " + leave.quotaBlockers.map(x => x.ma + " (" + x.excess + " ngày)").join(", "));
   const p = parseKy(snap.ky);
   if (p) {
     const qc = E.quyCheBuChinhThuc(db.dm_quychebu, p.nam, p.thang);

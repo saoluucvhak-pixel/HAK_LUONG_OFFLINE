@@ -81,7 +81,18 @@ Không cần internet, không cần Google Sheet. Cài bằng file `TinhLuongHAK
   - **Ctrl+F**: vào ô tìm kiếm;
   - **Ctrl+V**: dán nhiều dòng từ Excel. Dán tiếp sang trang sau nếu dài hơn 1 trang.
 
+## Đối chiếu đơn nghỉ với chấm công
+
+- Vào **Chấm công → Đối chiếu đơn nghỉ** để xem theo nhân viên và ngày. Nếu đơn phép đã duyệt khớp công PN thì công chỉ tính một lần. Nửa ngày phép cùng nửa ngày làm được xem là khớp.
+- Chọn các ngày có trạng thái **Thiếu công phép** rồi bấm **Áp dụng phép đã duyệt**. Kiểm tra lại dòng PN, bấm **Lưu để tính lương** và tính lại. Đơn có lịch theo ngày chưa rõ, ngày lễ hoặc Chủ nhật cần kiểm tra tay trước khi chấm.
+- Hạn mức lấy từ **Hồ sơ nhân viên → Hợp đồng → Quyền lợi phép** theo năm và hợp đồng, gồm số ngày cấp và số ngày cộng dồn. App cộng số đã nghỉ và đơn đã duyệt trong năm, đối chiếu hạn mức khi lập, gửi và duyệt đơn. Phép vượt mức bị chặn. Tách phần vượt thành loại nghỉ phù hợp (không lương, ốm hoặc thai sản). Đơn qua năm cần tách theo năm.
+- Bảng đối chiếu liệt kê mọi hình thức công đã ghi, kể cả tăng ca và công cơm. Kiểm tra nghỉ ốm, không lương, thai sản và nghỉ có lương theo ngày. Công PN trùng, vượt hạn mức hoặc xung đột ảnh hưởng công tính lương sẽ chặn chốt. Kỳ đã chốt xem số đã lưu. Bản chốt cũ có thể chưa lưu kết quả đối chiếu.
+
 ## Thưởng / Trừ, Tạm ứng — Số chứng từ (từ 2.0-alpha.10)
+
+- Chọn kỳ hoặc bộ lọc, sau đó bấm **Đối soát theo nhân viên** để xem số dòng và tổng từng khoản. Cảnh báo chứng từ lặp là tín hiệu đối chiếu, vì một chứng từ có thể chứa nhiều khoản hợp lệ.
+- Bấm **Xem dòng gốc** trên từng nhân viên để kiểm tra chứng từ. Dòng thuộc kỳ đang mở có thể sửa nếu bạn có quyền nhập liệu.
+- Trong **Tính lương**, bấm dòng của nhân viên rồi chọn **Đối soát nguồn**. Màn hình hiển thị công theo hình thức, phân bổ sản lượng và bơm dăm, số đã tính và chênh lệch từng khoản thưởng, trừ, tạm ứng. Kỳ đã chốt dùng dữ liệu bản chốt.
 - Ghi **Số chứng từ** (số phiếu chi / số quyết định thưởng) cho mỗi dòng.
 - Nhập lại file có cùng số chứng từ thì app **cập nhật**, không cộng thêm. Ví dụ: sửa số tiền trong file rồi nhập lại.
 - Một phiếu chi cho nhiều người: mỗi người 1 dòng, cùng số chứng từ.

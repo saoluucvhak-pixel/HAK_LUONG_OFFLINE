@@ -384,6 +384,14 @@ async function launch(dataDir, opt) {
   await w.locator(".dlg textarea").fill("Kiểm thử mở chốt"); await w.click(".dlg footer button.pri"); await w.waitForSelector("button.big");
   await w.click("button.big"); await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');
   ok("Chốt lại sau khi mở chốt", true);
+  await w.locator("main tbody tr.click").first().click();
+  await w.getByRole("button", { name: "Đối soát nguồn", exact: true }).click();
+  const closedSources = w.locator('[data-payroll-source-review="closed"]');
+  await closedSources.waitFor();
+  ok("Đối soát kỳ đã chốt đọc nguồn bản chốt và không cho sửa chứng từ",
+    /Nguồn: Bản chốt v2/.test(await closedSources.innerText()) &&
+    await closedSources.getByRole("button", { name: "Sửa dòng" }).count() === 0);
+  await w.locator(".dlg").getByRole("button", { name: "Đóng", exact: true }).click();
   // xuất Excel trọn bộ
   await w.click('button:has-text("Xuất trọn bộ Excel")');
   let xf = null; for (let i = 0; i < 30 && !xf; i++) { await w.waitForTimeout(200); xf = fs.readdirSync(DL).filter((f) => /^KyLuong_2026-09\.xlsx$/.test(f))[0]; }
@@ -964,7 +972,7 @@ async function launch(dataDir, opt) {
     ok("V10: Nghiệp vụ nhân sự — gửi duyệt chuyển sang Chờ duyệt", /Chờ duyệt/.test(await w.locator("table.nvns tbody tr").first().innerText()));
     dialogs = [];
     await w.click('table.nvns button:has-text("Duyệt")'); await w.waitForTimeout(500);
-    ok("V10: Nghiệp vụ nhân sự — khi duyệt cảnh báo ngày vẫn có công trong chấm công (đối chiếu)", dialogs.some((d) => /vẫn có công thường 1 ngày/.test(d)), dialogs.join(" | ").slice(0, 200));
+    ok("V10: Nghiệp vụ nhân sự — khi duyệt cảnh báo ngày vẫn có công trong chấm công (đối chiếu)", dialogs.some((d) => /Có dữ liệu chấm công ở 1 ngày.*Đối chiếu đơn nghỉ/.test(d)), dialogs.join(" | ").slice(0, 200));
     await w.waitForTimeout(500);
     const nv2 = await w.locator("table.nvns tbody tr").first().innerText();
     ok("V10: Nghiệp vụ nhân sự — Đã duyệt, ghi vào Nghỉ phép của hợp đồng, không còn nút sửa/duyệt", /Đã duyệt/.test(nv2) && /Nghỉ phép/.test(nv2) && !(await w.locator('table.nvns button:has-text("Duyệt")').count()));
@@ -1110,18 +1118,56 @@ async function launch(dataDir, opt) {
     const fb = path.join(SD, "data.json"), db2 = JSON.parse(fs.readFileSync(fb, "utf8"));
     db2.nhanvien.push({ _id: "f1", "Mã NV": "F1", "Họ và tên": "Trần Thị Bình", "Trạng thái": "Đang làm việc" }, { _id: "f2", "Mã NV": "F2", "Họ và tên": "Lê Văn Cường", "Trạng thái": "Đang làm việc" });
     db2.psluong.push({ "Ngày hạch toán": "2026-10-05", "Số chứng từ": "T1", "Mã NV": "F1", "Diễn giải": "thưởng A", "Thưởng": "1000000" }, { "Ngày hạch toán": "2026-10-20", "Số chứng từ": "T2", "Mã NV": "F2", "Diễn giải": "thưởng B", "Thưởng": "500000" }, { "Ngày hạch toán": "2026-09-10", "Số chứng từ": "T3", "Mã NV": "F1", "Diễn giải": "thưởng C", "Thưởng": "200000" });
+    db2.psluong.push({ "Ngày hạch toán": "2026-10-21", "Số chứng từ": "T2", "Mã NV": "F2", "Diễn giải": "khấu trừ B", "Trừ khác": "400000" });
+    db2.ungluong.push({ "Ngày hạch toán": "2026-10-05", "Số chứng từ": "U1", "Mã NV": "F1", "Tạm ứng": "350000" });
+    db2.nghiphep.push({ "Mã NV": "F1", "Số HĐLĐ": "F1/HD", "Loại nghỉ": "Nghỉ hằng năm", "Từ ngày": "2026-10-05", "Đến ngày": "2026-10-05", "Số ngày nghỉ": "0,5", "Trạng thái duyệt": "Đã duyệt" });
+    db2.quyenloiphep.push({ "Mã NV": "F1", "Số HĐLĐ": "F1/HD", "Năm áp dụng": "2026", "Số ngày được cấp": "0,5" },
+      { "Mã NV": "F2", "Số HĐLĐ": "F2/HD", "Năm áp dụng": "2026", "Số ngày được cấp": "0" });
+    db2.nghiphep.push({ "Mã NV": "F2", "Số HĐLĐ": "F2/HD", "Loại nghỉ": "Nghỉ hằng năm", "Từ ngày": "2026-10-06", "Đến ngày": "2026-10-06", "Số ngày nghỉ": "0,5", "Trạng thái duyệt": "Đã duyệt" });
+    db2.nghiom.push({ "Mã NV": "F2", "Từ ngày": "2026-10-07", "Đến ngày": "2026-10-07", "Số ngày nghỉ": "1", "Trạng thái duyệt": "Đã duyệt" });
+    db2.chamcong.push({ "Kỳ": "2026-10", "Mã NV": "F2", "Hình thức công": "TC1", "07": "1" },
+      { "Kỳ": "2026-10", "Mã NV": "F2", "Hình thức công": "CC", "07": "1" });
     db2.tiencom.push({ "Ngày": "2026-10-03", "Mã NV": "F1", "Số suất cơm": "20" }, { "Ngày": "2026-10-04", "Mã NV": "F2", "Số suất cơm": "10" });
     fs.writeFileSync(fb, JSON.stringify(db2));
     ({ app, w, errs } = await launch(SD));
     await w.click("#nav button[data-k=psluong]"); await w.selectOption("#top select", "10"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
     const tot1 = await w.locator('[data-in-totals="psluong"]').innerText();
-    ok("V10: Thưởng/Trừ — bộ lọc có Phòng ban, Nhân viên, Kỳ lương, Từ–Đến; tổng theo kỳ đang chọn = 1.500.000 (2 dòng, bỏ tháng 9)", (await w.locator('[data-in-filter="psluong"] input.dateinp').count()) === 2 && /2 dòng/.test(tot1) && /1\.500\.000/.test(tot1), tot1);
+    ok("V10: Thưởng/Trừ — bộ lọc có Phòng ban, Nhân viên, Kỳ lương, Từ–Đến; tổng theo kỳ đang chọn = 1.500.000 (3 dòng, bỏ tháng 9)", (await w.locator('[data-in-filter="psluong"] input.dateinp').count()) === 2 && /3 dòng/.test(tot1) && /1\.500\.000/.test(tot1), tot1);
+    await w.getByRole("button", { name: "Đối soát theo nhân viên" }).click();
+    const bonusReview = w.locator('[data-money-input-review="psluong"]');
+    const employee = bonusReview.locator("tbody tr").filter({ hasText: "F2" });
+    ok("Đối soát Thưởng / Trừ gộp theo nhân viên và cảnh báo chứng từ lặp",
+      /chứng từ có nhiều dòng/.test(await bonusReview.innerText()) && /500\.000.*400\.000/s.test(await employee.innerText()));
+    await employee.getByRole("button", { name: "Xem dòng gốc" }).click();
+    ok("Mở đủ hai dòng nguồn của nhân viên", await w.locator(".dlg tbody tr").count() === 2);
+    await w.locator(".dlg").getByRole("button", { name: "Đóng", exact: true }).click();
+    await w.click("#nav button[data-k=ungluong]");
+    await w.getByRole("button", { name: "Đối soát theo nhân viên" }).click();
+    ok("Đối soát Tạm ứng hiện đúng số tiền theo nhân viên", /350\.000/.test(await w.locator('[data-money-input-review="ungluong"]').innerText()));
+    await w.locator(".dlg").getByRole("button", { name: "Đóng", exact: true }).click();
+    await w.click("#nav button[data-k=psluong]");
     await w.fill('input[placeholder*="Tìm"]', "tran thi binh"); await w.waitForTimeout(300);
     ok("V10: Thưởng/Trừ — tìm tên không dấu 'tran thi binh' chỉ còn phiếu của F1", (await w.locator("main tbody tr").count()) === 1);
     await w.fill('input[placeholder*="Tìm"]', "");
     await w.selectOption('[data-in-filter="psluong"] select[aria-label="Kỳ lương"]', "2026-09"); await w.waitForTimeout(300);
     const dtu = await w.locator('[data-in-filter="psluong"] input.dateinp').first().inputValue(), tot2 = await w.locator('[data-in-totals="psluong"]').innerText();
     ok("V10: chọn Kỳ lương 09/2026 tự điền Từ ngày–Đến ngày (hiển thị 01/09/2026) và tổng = 200.000", dtu === "01/09/2026" && /200\.000/.test(tot2) && /1 dòng/.test(tot2), dtu + " · " + tot2);
+    await w.click("#nav button[data-k=chamcong]");
+    await w.getByRole("button", { name: "Đối chiếu đơn nghỉ", exact: true }).click();
+    const leaveReview = w.locator("[data-leave-review]");
+    ok("Đối chiếu đơn nghỉ hiển thị thiếu công và vượt hạn mức hợp đồng",
+      /Thiếu công phép/.test(await leaveReview.innerText()) && /vượt 0,5 ngày/.test(await leaveReview.innerText()));
+    ok("Ngày nghỉ ốm hiện cả TC1 và CC; phép vượt hạn mức không được áp dụng",
+      /TC1: 1/.test(await leaveReview.innerText()) && /CC: 1/.test(await leaveReview.innerText()) &&
+      /Có công xung đột với Nghỉ ốm/.test(await leaveReview.innerText()) &&
+      await leaveReview.getByRole("checkbox", { name: "Áp dụng F2 ngày 2026-10-06" }).count() === 0);
+    await leaveReview.getByRole("checkbox", { name: "Áp dụng F1 ngày 2026-10-05" }).check();
+    await w.getByRole("button", { name: "Áp dụng phép đã duyệt" }).click();
+    await w.getByRole("button", { name: "Đối chiếu đơn nghỉ", exact: true }).click();
+    ok("Áp dụng nửa ngày PN đúng một lần và bảng chấm công chuyển Nháp",
+      /Khớp/.test(await leaveReview.innerText()) && await leaveReview.getByRole("checkbox").count() === 0 &&
+      /Nháp/.test(await w.locator('[data-input-review="chamcong"]').innerText()));
+    await w.locator(".dlg").getByRole("button", { name: "Đóng", exact: true }).click();
     await w.click("#nav button[data-k=tiencom]"); await w.waitForTimeout(300);
     const tc = await w.locator('[data-in-totals="tiencom"]').innerText();
     ok("V10: Suất cơm — cùng bộ lọc, tổng suất cơm kỳ 10/2026 = 30", /30/.test(tc), tc);
