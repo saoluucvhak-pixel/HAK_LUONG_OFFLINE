@@ -252,6 +252,19 @@ jobs:
           path: .comparison/shared-ocr
       - name: Verify pinned common OCR source parity
         run: node LuongHAK_Offline/scripts/verify-shared-ocr.cjs .comparison/shared-ocr
+      # Bộ lọc và design system dùng chung: commit ghim phải trùng shared-modules.lock.json (script báo lỗi nếu bản gốc khác mã băm đã ghi).
+      - uses: actions/checkout@v4
+        with:
+          repository: saoluucvhak-pixel/HAK_SMART_FILTER
+          ref: e99bb7e0fbf0835bf94aa5fb2077abeadbee5a73
+          path: .comparison/shared-modules/smart-filter
+      - uses: actions/checkout@v4
+        with:
+          repository: saoluucvhak-pixel/HAK-Enterprise-Design-System
+          ref: 69ac08a5fe8c2b4d6fcf3b630ffd9324b6008bb7
+          path: .comparison/shared-modules/design-system
+      - name: Verify shared filter and design-system files against lock and upstream
+        run: node scripts/verify-shared-modules.cjs .comparison/shared-modules
       # alpha.41: main/write-policy.js là ngoại lệ ĐÃ ĐƯỢC CHỦ SỞ HỮU DUYỆT (bỏ chốt "nhật ký chỉ được thêm") — xem docs/releases/v2.0.0-alpha.41.md
       # alpha.45: owner-approved period replacement/production deferral; default engine equality remains enforced by check-consolidation.cjs; 25 carry/batch tests plus real Electron cover the new boundaries.
       - name: Verify unmodified sources outside approved production carry boundaries

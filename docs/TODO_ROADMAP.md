@@ -15,7 +15,7 @@
 | Cài thử bộ cài mới nhất trên Windows; chạy *Kiểm tra dữ liệu* với dữ liệu thật | Chủ sở hữu / kế toán | Báo lại cảnh báo để nhập lại |
 | Xử lý dữ liệu thật: thiếu STK/ngân hàng, mã BH_KPCD, Quyền lợi phép chưa nhập, phiếu cân chưa gán người | Bên vận hành | Mục C của `CAU_HOI_CHO_CHU_SO_HUU.md` |
 | Duyệt thiết kế mã hóa file dữ liệu (RISK-07) và cung cấp chứng thư ký số bộ cài | Chủ sở hữu | Tạm dừng theo yêu cầu (15/11/2026) |
-| Duyệt đề xuất đồng bộ module dùng chung (`HAK_SMART_FILTER`, `HAK_ACCOUNTING_REPORT_STANDARD`, `HAK_CODE_QUALITY_TEST`, `HAK_AI_SKILLS`, `design-system`) | Chủ sở hữu | Đang lập bảng so sánh |
+| Duyệt đề xuất đồng bộ module dùng chung (`HAK_SMART_FILTER`, `HAK_ACCOUNTING_REPORT_STANDARD`, `HAK_CODE_QUALITY_TEST`, `HAK_AI_SKILLS`, `design-system`) | Chủ sở hữu | Đã có khóa và script kiểm tra (`shared-modules.lock.json`, `npm run check:shared`); còn chờ trả lời câu 2–5 trong `DONG_BO_MODULE_DUNG_CHUNG.md` §4 |
 | Thống nhất ngưỡng hiệu năng (thời gian tính lương, mở app) | Chủ sở hữu | Baseline ở `PERFORMANCE_REPORT.md` |
 
 ## Phase 1 — Audit & sửa lỗi nghiêm trọng ✅ (mã) / ⏳ (nghiệm thu Windows)

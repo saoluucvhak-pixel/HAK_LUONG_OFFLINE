@@ -1,0 +1,64 @@
+{
+  "description": "Khóa các file dùng chung với repo gốc. Kiểm tra bằng scripts/verify-shared-modules.cjs. Bối cảnh: docs/DONG_BO_MODULE_DUNG_CHUNG.md.",
+  "sources": [
+    {
+      "repository": "saoluucvhak-pixel/HAK_SMART_FILTER",
+      "commit": "e99bb7e0fbf0835bf94aa5fb2077abeadbee5a73",
+      "checkout": "smart-filter",
+      "files": [
+        {
+          "upstreamPath": "ui/filter-popover.js",
+          "localPaths": ["LuongHAK_Offline/ui/filter-popover.js"],
+          "status": "identical",
+          "normalizedSha256": "86355a0b6ae97229eb80d5f8400e7eba4c4c1bcd9d5fd7898ba07125df6642e8",
+          "upstreamSha256": "86355a0b6ae97229eb80d5f8400e7eba4c4c1bcd9d5fd7898ba07125df6642e8"
+        },
+        {
+          "upstreamPath": "core/smart-filter.js",
+          "localPaths": ["LuongHAK_Offline/core/smart-filter.js"],
+          "status": "diverged",
+          "note": "Repo gốc mới hơn: có discardCorrupt() và từ chối ghi khi kho bộ lọc đã lưu bị lỗi hoặc khác phiên bản. App chưa nhận thay đổi này.",
+          "normalizedSha256": "02d8b6f726f9a625f9968d9ba8806df470c4e80fe6910ab6b74831f1142b352c",
+          "upstreamSha256": "8024c3b23b5aad269e02e0d66396b97a2cfe43e2d13699f3b31abdca03f060d4"
+        },
+        {
+          "upstreamPath": "ui/smart-filter.js",
+          "localPaths": ["LuongHAK_Offline/ui/smart-filter.js"],
+          "status": "diverged",
+          "note": "App mới hơn: giữ focus và vị trí cuộn khi vẽ lại, tiêu đề lấy theo màn hình. Repo gốc chưa có.",
+          "normalizedSha256": "3d18d730707c093b72af4297f296f878f446470f330274ff214f54ba441308fb",
+          "upstreamSha256": "0255f6c0eb47ce57dc117c0f4013be5a8edb3326b907b30fc60687ddcfb8b44a"
+        }
+      ]
+    },
+    {
+      "repository": "saoluucvhak-pixel/HAK-Enterprise-Design-System",
+      "commit": "69ac08a5fe8c2b4d6fcf3b630ffd9324b6008bb7",
+      "checkout": "design-system",
+      "files": [
+        {
+          "upstreamPath": "design-system/hak-enterprise-components.css",
+          "localPaths": ["design-system/hak-enterprise-components.css", "LuongHAK_Offline/ui/hak-enterprise-components.css"],
+          "status": "identical",
+          "normalizedSha256": "515cf9d524a866a2de00b151750e20ff313ac4248eacb44aa305b5463155a020",
+          "upstreamSha256": "515cf9d524a866a2de00b151750e20ff313ac4248eacb44aa305b5463155a020"
+        },
+        {
+          "upstreamPath": "design-system/V10.4-LAYOUT.md",
+          "localPaths": ["design-system/V10.4-LAYOUT.md"],
+          "status": "identical",
+          "normalizedSha256": "f2e097723261b12f6f411e6913fbed9cc1e11ea3341d29c6868c1e18e2434f9f",
+          "upstreamSha256": "f2e097723261b12f6f411e6913fbed9cc1e11ea3341d29c6868c1e18e2434f9f"
+        },
+        {
+          "upstreamPath": "design-system/hak-workspace-layout.css",
+          "localPaths": ["design-system/hak-workspace-layout.css", "LuongHAK_Offline/ui/workspace-v104.css"],
+          "status": "diverged",
+          "note": "App mới hơn: có sửa tiêu đề màn hình không bị cắt chữ (v2.0.6/v2.0.7). Repo gốc chưa có.",
+          "normalizedSha256": "e11e0ae1f7852aa98542cc63c20de341a743b2c35eafef01d238793ea624cf64",
+          "upstreamSha256": "45754b8b65ede464be8fb781075fb729496c96f7d93c78e811fa819b2dacee29"
+        }
+      ]
+    }
+  ]
+}
