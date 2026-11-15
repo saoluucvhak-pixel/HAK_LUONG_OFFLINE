@@ -151,7 +151,7 @@ Mọi báo cáo xuất được Excel.
 - **Sáng / tối:** nút mặt trăng / mặt trời ở góc phải trên hoặc cuối menu trái (nhớ theo máy).
 - **Ctrl+K:** tìm nhanh màn hình, nhân viên (mã / tên, gõ không dấu), báo cáo — ↑ ↓ chọn, Enter mở.
 - **Sửa hồ sơ:** mở ở ngăn bên phải, khung *Sẽ lưu N thay đổi* cho thấy cũ → mới trước khi bấm Lưu. Thông tin cá nhân / tài khoản: *Thông tin mới* (đổi CCCD, địa chỉ, tài khoản — bản cũ giữ làm lịch sử) hoặc *Sửa lỗi nhập sai*.
-- **Tăng lương / biến động** (nút xanh trên hồ sơ): chọn loại, ngày hiệu lực, số quyết định, mức mới → app lập phụ lục mới, hiện % thay đổi. Không sửa phụ lục cũ.
+- **Lập phụ lục lương** (nút xanh trên hồ sơ): chọn loại, ngày hiệu lực, số quyết định, mức mới → app lập phụ lục mới, hiện % thay đổi. Không sửa phụ lục cũ.
 - **Lịch sử** (trên hồ sơ): quá trình lương + mọi thay đổi (ai, lúc nào, cũ → mới).
 
 ## File đã tải (từ 2.0-alpha.16)
