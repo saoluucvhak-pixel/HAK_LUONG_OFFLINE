@@ -54,3 +54,62 @@ test("diffDetailed: đổi phòng ban (chỉ tiêu dạng chữ) cũng phải ph
   const rows = CLS.diffDetailed(before, after);
   assert.ok(rows.some((r) => r["Chỉ tiêu"] === "Phòng ban" && r["Giá trị đang xem"] === "01.01" && r["Giá trị tính lại"] === "02.01"));
 });
+
+test("Closed-period reconciliation uses the snapshot period and top-up method", () => {
+  const fs = require("node:fs");
+  const vm = require("node:vm");
+  const source = fs.readFileSync(require.resolve("../../app.js"), "utf8");
+  const start = source.indexOf("  function doiChieu(chot)");
+  const handler = source.slice(start, source.indexOf("  function ", start + 3));
+  const calls = [];
+  const alerts = [];
+  const ctx = {
+    tinhLuong(...args) { calls.push(args); return { inputErrors: ["Dữ liệu lỗi"] }; },
+    kyLabel: String,
+    alert: message => alerts.push(message)
+  };
+  vm.runInNewContext(handler, ctx);
+  ctx.doiChieu({ ky: "2026-10", quyChe: "2026", buTheoNgay: "to" });
+  ctx.doiChieu({ ky: "2025-12" });
+  assert.deepEqual(calls, [[2026, 10, "2026", "to"], [2025, 12, "1.7", false]]);
+  assert.equal(alerts.length, 2);
+  assert.match(alerts[0], /2026-10.*\nDữ liệu lỗi/);
+});
+
+test("Production workbook preserves attendance review and identifies closed payroll sources", async () => {
+  const ExcelJS = require("../../exceljs.min.js");
+  const { report } = require("../../ui/pbkl-xlsx.js");
+  const empty = { byDept: {}, byEmp: {}, dateKeys: [], audit: [], empCount: {} };
+  const review = { "Phiếu cân": "PC1", "Người được chia": "NV1 — An", "Người không được chia": "NV2 — Bình" };
+  const workbook = report(ExcelJS, {
+    sl: empty, bd: empty, raw: {}, attendanceReview: [review],
+    ctx: { chot: true, giaKl: 987654 },
+    luong: { coChe: "to", note: "Bản chốt", rows: [{ maPB: "T1", ma: "NV1", soCong: null, tan: 1, luongSL: 5000, luongBD: 1000, xe: 1, bu: 0, tong: 6000 }] }
+  }, {});
+  const reopened = new ExcelJS.Workbook();
+  await reopened.xlsx.load(await workbook.xlsx.writeBuffer());
+  assert.deepEqual(reopened.getWorksheet("DoiChieuChamCong").getRow(2).values.slice(1), Object.values(review));
+  const pay = reopened.getWorksheet("Tien luong va bu luong");
+  assert.ok(pay.getColumn(9).values.includes(1000));
+  assert.ok(!pay.getColumn(5).values.includes(0));
+  const guide = reopened.getWorksheet("Huong dan su dung").getColumn(1).values.join(" ");
+  assert.match(guide, /từ bản chốt/);
+  assert.match(guide, /dữ liệu hiện tại/);
+  assert.doesNotMatch(guide, /987[.,]654/);
+});
+
+test("Closed-period comparison reports component changes with equal net pay", () => {
+  const source = require("node:fs").readFileSync(require.resolve("../../app.js"), "utf8");
+  const start = source.indexOf("  function doiChieu(chot)");
+  const before = kq([row({ "Tiền tăng ca": 0, "Trừ khác": 0 })]);
+  const after = kq([row({ "Tiền tăng ca": 100000, "Trừ khác": 100000 })]);
+  let table;
+  const ctx = {
+    CLS, tinhLuong: () => after, kyLabel: String,
+    h: () => ({ appendChild() {} }), modal() {},
+    simpleTable(rows) { table = rows; }
+  };
+  require("node:vm").runInNewContext(source.slice(start, source.indexOf("  function ", start + 3)), ctx);
+  ctx.doiChieu({ ky: "2026-10", kq: before });
+  assert.deepEqual(Array.from(table, r => r["Chỉ tiêu"]), ["Tiền tăng ca", "Trừ khác"]);
+});

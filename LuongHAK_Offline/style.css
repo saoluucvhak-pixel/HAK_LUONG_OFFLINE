@@ -688,3 +688,12 @@ td.ot-note{background:var(--th);color:var(--mut)}
 #modal.stable-modal>.dlg>header,#modal.stable-modal>.dlg>footer{flex-shrink:0}
 #modal.stable-modal>.dlg>.bd{min-height:0;overscroll-behavior:contain;scrollbar-gutter:stable;overflow-anchor:none}
 #modal.stable-modal>.dlg{animation:none}
+
+.attendance-review-table table{table-layout:fixed;width:100%;min-width:0}
+.attendance-review-table th,.attendance-review-table td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
+.attendance-review-table th:nth-child(n+6){width:14%}
+
+[data-pay-report="TONG_HOP_NV"] tr > th:last-child,[data-pay-report="TONG_HOP_NV"] tr > td:last-child:not([colspan]){position:sticky;right:0;box-shadow:-1px 0 var(--line)}
+[data-pay-report="TONG_HOP_NV"] tr > th:last-child{z-index:4}
+[data-pay-report="TONG_HOP_NV"] tr > td:last-child:not([colspan]){background:var(--card);z-index:1}
+[data-pay-report="TONG_HOP_NV"] .tr-sum > td:last-child{background:var(--th)}

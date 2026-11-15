@@ -40,18 +40,25 @@
   /** Nhiều bảng dạng mảng đối tượng (báo cáo lương, chuyển khoản…) → 1 trang HTML. vm: { title, ky, congTy, trangThai, loc[], ghiChu[], sheets:[{ name, rows }] } */
   function sheets(vm, opt) {
     opt = opt || {};
-    var h = "<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>" + esc(vm.title) + "</title><style>" + CSS + "table{margin-bottom:4mm}h2{font-size:10.5pt;margin:4mm 0 1.5mm}td.t{white-space:normal}</style></head><body>";
+    var h = "<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>" + esc(vm.title) + "</title><style>" + CSS + "table{margin-bottom:4mm}h2{font-size:10.5pt;margin:4mm 0 1.5mm}td.t{white-space:normal;overflow-wrap:anywhere}h2{break-after:avoid}</style></head><body>";
     h += "<h1>" + esc(String(vm.title || "").toLocaleUpperCase("vi-VN")) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>";
     if (vm.loc && vm.loc.length) h += "<div class=\"loc\"><b>Bộ lọc:</b> " + vm.loc.map(esc).join(" · ") + "</div>";
     (vm.ghiChu || []).forEach(function (g) { h += "<div class=\"loc\">" + esc(g) + "</div>"; });
     var any = false;
+    var sectionIndex = 0;
     (vm.sheets || []).forEach(function (sh) {
-      if (!sh.rows || !sh.rows.length) return; any = true;
+      var sectionStyle = opt.sectionPages && sectionIndex++ > 0 ? ' style="break-before:page"' : "";
+      if (opt.sectionPages) h += "<h2" + sectionStyle + ">" + esc(sh.name) + "</h2>";
+      if (!sh.rows || !sh.rows.length) {
+        if (opt.sectionPages) h += '<p>Không có dữ liệu trong kỳ.</p>';
+        return;
+      }
+      any = true;
       var cols = sh.cols && sh.cols.length ? sh.cols : Object.keys(sh.rows[0]).filter(function (k) { return k.charAt(0) !== "_"; });
       var num = {}; cols.forEach(function (c) { num[c] = sh.rows.some(function (r) { return typeof r[c] === "number"; }) && sh.rows.every(function (r) { return r[c] === "" || r[c] == null || typeof r[c] === "number"; }); });
-      if ((vm.sheets || []).length > 1 && sh.name) h += "<h2>" + esc(sh.name) + "</h2>";
+      if (!opt.sectionPages && (vm.sheets || []).length > 1 && sh.name) h += "<h2>" + esc(sh.name) + "</h2>";
       // V10.1: bảng RỘNG (> 16 cột) không ép nhỏ chữ vào 1 trang — tách thành các phần cột, mỗi phần lặp cột nhận diện (STT/Mã NV/Họ tên) và tiêu đề nhóm
-      var idN = 0; if (cols.length > 16) { var ix = cols.indexOf("Họ và tên"); idN = ix >= 0 && ix < 4 ? ix + 1 : 2; }
+      var idN = 0; if (cols.length > 16) { var ix = cols.indexOf("Họ và tên"); idN = sh.repeatColumns || (ix >= 0 && ix < 4 ? ix + 1 : 2); }
       var segs = []; if (idN) { var rest = cols.slice(idN), per = 11; for (var k = 0; k < rest.length; k += per) segs.push(cols.slice(0, idN).concat(rest.slice(k, k + per))); } else segs.push(cols);
       var grpOf = {}; (sh.groups || []).forEach(function (g) { for (var q = g.from; q <= g.to; q++) grpOf[cols[q]] = g.label; });
       segs.forEach(function (sc, si) {

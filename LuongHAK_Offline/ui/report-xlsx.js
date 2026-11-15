@@ -33,6 +33,37 @@
     vms.forEach(function (vm) { fill(wb, vm, o, vm.sheetName || vm.title); });
     return wb;
   }
+  function buildPayrollBundle(X, sheets, info) {
+    var sources = {
+      ThongTinKy: "Thông tin phiên bản và nguồn dữ liệu",
+      HachToan: "Bảng lương của kỳ và chứng từ đã thanh toán",
+      DoiChieuChiLuong: "Bảng lương của kỳ và sổ chứng từ tại thời điểm xuất"
+    };
+    var vms = sheets.map(function (sheet) {
+      var totals = {};
+      var cols = sheet.cols.map(function (label) {
+        var vals = sheet.rows.map(function (row) { return row[label]; }).filter(function (v) { return v != null && v !== ""; });
+        var quantity = /^(Tổng công|Công chuẩn|Số người|Số người phụ thuộc|Sản lượng|SL kỳ trước|Số xe|Công BT|KL \/ số xe|Mỗi người|Số ngày có SL|Bậc|STT)/i.test(label);
+        var money = !quantity && !TEXT_COLS.test(label) && (/^(BH|CTY\.|NLĐ\.|Cộng BH|Lương|Bù SL|Phụ cấp|Tiền|Thu nhập|Tổng thu nhập|Tổng giảm trừ|Thuế|TNCN|Thực lĩnh|Còn thiếu|Truy thu|KPCĐ|Tạm ứng|Trừ khác|Số tiền|Đơn giá|Mức sàn|Giảm trừ|Phải trả|Đã chi|Đang chờ chi|Còn phải trả)/i.test(label));
+        var numeric = vals.every(function (v) { return typeof v === "number" && Number.isFinite(v); });
+        var kind = /^\d{2}$/.test(label) ? "attendance" : numeric && money ? "money" : numeric && quantity ? (vals.some(function (v) { return v % 1 !== 0; }) ? "qty3" : "qty") : "text";
+        if (kind === "money" || (/^qty/.test(kind) && !/^(Công chuẩn|Số người|Bậc|STT|KL \/ số xe|Mỗi người)/.test(label))) {
+          totals[label] = vals.reduce(function (sum, v) { return sum + v; }, 0);
+        }
+        return { key: label, label: label, kind: kind, wrap: /^(Diễn giải|Nội dung|Giá trị|Ghi chú|Người nhận|Phương pháp bù)$/.test(label) };
+      });
+      var groups = new Map();
+      if (sheet.groupBy) sheet.rows.forEach(function (r) {
+        var label = r[sheet.groupBy], group = groups.get(label) || { ten: label, rows: [], tong: { "Tổng công": 0 } };
+        group.rows.push(r); group.tong["Tổng công"] += r["Tổng công"]; groups.set(label, group);
+      });
+      return Object.assign({}, info, { nhom: groups.size ? Array.from(groups.values()) : null, sheetName: sheet.name, title: sheet.title.toLocaleUpperCase("vi-VN"),
+        phamVi: "Toàn kỳ", source: sheet.source || sources[sheet.name] || "Kết quả lương của kỳ",
+        cols: cols, rows: sheet.rows, tong: totals, showTotal: sheet.name !== "ThongTinKy", preserveMoney: true,
+        chuKy: sheet.name === "ThongTinKy" ? [] : undefined });
+    });
+    return buildMany(X, vms);
+  }
   function fill(wb, vm, o, rawName) {
     var name = sheetName(wb, rawName);
     var ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 0 }] });
@@ -45,6 +76,7 @@
     put(r, vm.kyText || "", { font: { bold: true, size: 11 }, alignment: { horizontal: "center" } }); merge(r); r++;
     put(r, "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""), { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++;
     put(r, "Đơn vị tính: " + (vm.donVi || "Đồng (VND)") + (vm.ngayLap ? " · Ngày lập: " + vm.ngayLap : ""), { font: { size: 10 }, alignment: { horizontal: "center" } }); merge(r); r++;
+    if (vm.source) { put(r, "Nguồn: " + vm.source, { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++; }
     r++;
     if (vm.groups && vm.groups.length) { // tiêu đề hai tầng: nhóm cột ở hàng trên
       vm.groups.forEach(function (g) {
@@ -69,8 +101,9 @@
       vm.cols.forEach(function (c, i) {
         var cell = ws.getCell(r, i + 1), v = row[c.key];
         if (/^Ngày/.test(c.label) && isoToDate(v)) { cell.value = isoToDate(v); cell.numFmt = "dd/mm/yyyy"; cell.alignment = { horizontal: "center", vertical: "middle" }; }
-        else if (TEXT_COLS.test(c.label) || c.kind === "text") { cell.value = safeText(v); cell.numFmt = "@"; cell.alignment = { vertical: "middle", wrapText: c.label === "Nội dung" }; }
-        else if (c.kind === "money") { cell.value = v === "" || v == null ? null : Math.round(+v); cell.numFmt = "#,##0;[Red]-#,##0"; }
+        else if (TEXT_COLS.test(c.label) || c.kind === "text") { cell.value = safeText(v); cell.numFmt = "@"; cell.alignment = { vertical: "middle", wrapText: c.wrap || c.label === "Nội dung" }; }
+        else if (c.kind === "attendance") { cell.value = typeof v === "number" ? v : safeText(v); cell.numFmt = "0.###"; }
+        else if (c.kind === "money") { cell.value = v === "" || v == null ? null : (vm.preserveMoney ? +v : Math.round(+v)); cell.numFmt = "#,##0;[Red]-#,##0"; }
         else { cell.value = v === "" || v == null ? null : +v; cell.numFmt = q3(c) ? "#,##0.000" : decCols[i] ? "#,##0.00" : "#,##0"; if (/^STT$/i.test(c.label)) cell.alignment = { horizontal: "center" }; }
         cell.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
       });
@@ -81,7 +114,7 @@
       var iName = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
       vm.nhom.forEach(function (g) {
         if (nc > 1) ws.mergeCells(r, 1, r, nc);
-        var gc = ws.getCell(r, 1); gc.value = g.ten + " (" + g.rows.length + " người)"; gc.font = { bold: true }; gc.fill = FILL_G; gc.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER }; r++;
+        var gc = ws.getCell(r, 1); gc.value = g.ten + " (" + g.rows.length + (vm.sheetName === "ChamCongTheoHinhThuc" ? " dòng)" : " người)"); gc.font = { bold: true }; gc.fill = FILL_G; gc.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER }; r++;
         g.rows.forEach(writeRow);
         vm.cols.forEach(function (c, i) {
           var cell = ws.getCell(r, i + 1);
@@ -91,8 +124,8 @@
         r++;
       });
     } else vm.rows.forEach(writeRow);
-    var lastData = r - 1;
-    if (vm.rows.length) {
+    var lastData = r - 1, hasTotal = vm.rows.length && vm.showTotal !== false;
+    if (hasTotal) {
       vm.cols.forEach(function (c, i) {
         var cell = ws.getCell(r, i + 1);
         if (i === 0) cell.value = vm.tongNhan || "TỔNG CỘNG";
@@ -115,8 +148,16 @@
     // độ rộng cột theo nội dung
     vm.cols.forEach(function (c, i) {
       var mx = String(c.label).length; vm.rows.forEach(function (row) { var v = row[c.key]; var L = v == null ? 0 : (c.kind === "money" ? String(Math.round(+v || 0)).length + 3 : String(v).length); if (L > mx) mx = L; });
-      ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(c.label === "Nội dung" ? 44 : 32, mx + 2));
+      ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(c.wrap || c.label === "Nội dung" ? 48 : 32, mx + 2));
     });
+    if (vm.cols.some(function (c) { return c.wrap; }) && !vm.nhom) {
+      vm.rows.forEach(function (row, i) {
+        var lines = vm.cols.reduce(function (max, c, j) {
+          return c.wrap ? Math.max(max, Math.ceil(String(row[c.key] || "").length / Math.max(8, ws.getColumn(j + 1).width - 4))) : max;
+        }, 1);
+        if (lines > 1) ws.getRow(hr + 1 + i).height = 17 * lines;
+      });
+    }
     // Bảng > 20 cột: KHÔNG ép vào 1 trang (chữ sẽ quá nhỏ) → A3 ngang, chia ~18 cột/trang, lặp cột nhận diện (Mã NV, Họ tên) ở mọi trang
     var wide = nc > 20, pagesW = wide ? Math.ceil(nc / 18) : 1, idName = -1;
     vm.cols.forEach(function (c, i) { if (idName < 0 && /^Họ và tên$/i.test(c.label)) idName = i; });
@@ -126,10 +167,10 @@
     ws.pageSetup.printArea = "A1:" + last + sigEnd;
     ws.headerFooter = { oddFooter: "&L" + (vm.congTy || "") + " · " + vm.title + "&RTrang &P / &N" };
     ws.views = [{ state: "frozen", xSplit: nc > 8 && idName >= 0 ? idName + 1 : 0, ySplit: hr, topLeftCell: "A" + (hr + 1) }];
-    if (vm.rows.length && !(vm.nhom && vm.nhom.length)) ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: lastData - (vm.rows.length ? 1 : 0), column: nc } };
+    if (vm.rows.length && !(vm.nhom && vm.nhom.length)) ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: lastData - (hasTotal ? 1 : 0), column: nc } };
     ws.properties.defaultRowHeight = 18;
     return ws;
   }
-  var api = { build: build, buildMany: buildMany, colLetter: colLetter, safeText: safeText };
+  var api = { build: build, buildMany: buildMany, buildPayrollBundle: buildPayrollBundle, colLetter: colLetter, safeText: safeText };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else { root.HAKUi = root.HAKUi || {}; root.HAKUi.reportXlsx = api; }
 })(typeof window !== "undefined" ? window : this);

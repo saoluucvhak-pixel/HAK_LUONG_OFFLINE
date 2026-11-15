@@ -227,14 +227,13 @@ async function launch(dataDir, opt) {
     const waitPdf = async (re, before) => { let n = null; for (let i = 0; i < 100 && !n; i++) { await w.waitForTimeout(300); n = fs.readdirSync(DL).filter((f) => re.test(f) && !before.includes(f))[0]; } return n; };
     const isPdf = (n) => { const b = n ? fs.readFileSync(path.join(DL, n)) : Buffer.alloc(0); return b.slice(0, 5).toString() === "%PDF-" && /\/Type\s*\/Page(?![s\w])/.test(b.toString("latin1")) && b.length > 1500; };
     await w.click("#nav button[data-k=baocaoluong]");
-    await w.locator("main .bar button", { hasText: "Phiếu chi lương" }).first().click();
-    const pcAll = (await w.locator("main table").first().innerText()).replace(/\s+/g, " ");
-    await w.locator("[data-rf-key=tuKhoa]").fill("zzzkhongco"); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
-    ok("Báo cáo lương (Phiếu chi): bộ lọc dùng chung — từ khóa không khớp → hết dòng; xóa lọc → hiện lại", /Không có dữ liệu/.test(await w.locator("main").innerText()) && /PC-L/.test(pcAll));
-    await w.locator("main .bar button", { hasText: "Tổng hợp theo phòng ban" }).first().click();
-    const hint = await w.locator("[data-rf-hint]").innerText();
-    ok("Báo cáo không có cột Mã NV (theo phòng ban): báo rõ tiêu chí 'Từ khóa' không áp được, không âm thầm lọc mất dòng", /Không áp được/.test(hint) && /Từ khóa/.test(hint) && (await w.locator("main table tbody tr").count()) >= 1, hint);
-    await w.locator("[data-rf-key=tuKhoa]").fill(""); await w.locator("[data-rf-key=tuKhoa]").dispatchEvent("change");
+    await w.getByRole("button", { name: /Sổ chứng từ thanh toán/ }).last().click();
+    ok("Báo cáo lương dẫn tới sổ chứng từ", await w.locator("[data-pay-ledger]").count() === 1);
+    await w.click("#nav button[data-k=baocaoluong]");
+    await w.getByRole("button", { name: /Tổng hợp theo phòng ban/ }).last().click();
+    ok("Báo cáo lương dẫn tới báo cáo phòng ban duy nhất", await w.locator("[data-pay-report=TONG_HOP]").count() === 1);
+    await w.click("#nav button[data-k=baocaoluong]");
+    await w.getByRole("button", { name: /Tổng hợp công/ }).click();
     let before = fs.readdirSync(DL);
     await w.locator("main .card .bar button", { hasText: "Xuất PDF" }).first().click();
     const p1 = await waitPdf(/^BaoCao_.*\.pdf$/, before);
@@ -374,8 +373,8 @@ async function launch(dataDir, opt) {
     /1 dòng chênh lệch/.test(dcTxt) && /50\.000/.test(dcTxt) && /Thực lĩnh/.test(dcTxt), dcTxt.replace(/\s+/g, " ").slice(0, 400));
   await w.click("#nav button[data-k=luong]");
   await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
-  await w.locator(".dlg input").fill("Chốt bởi E2E"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
-  ok("Chốt kỳ lương (hộp nhập của app, không dùng window.prompt)", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
+  await w.locator(".dlg input").fill("Chốt bởi E2E"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');
+  ok("Chốt kỳ lương (hộp nhập của app, không dùng window.prompt)", (await w.locator('[data-payroll-closed="1"]').first().innerText()).toLowerCase().indexOf("đã chốt") >= 0);
   { const stt = await w.locator("[data-steps7] li").evaluateAll((els) => els.map((e) => e.getAttribute("data-step-state")));
     ok("V10.1: thanh 7 bước phản ánh trạng thái thật sau chốt (bước 1-5 xong, thanh toán đang làm)", stt.length === 7 && stt.slice(0, 5).every((x) => x === "xong") && stt[5] === "dang", stt.join(",")); }
   // mở chốt bắt buộc lý do → chốt lại = phiên bản 2
@@ -383,15 +382,16 @@ async function launch(dataDir, opt) {
   await w.click(".dlg footer button.pri");
   ok("Mở chốt không cho để trống lý do", await w.locator(".dlg").count() === 1);
   await w.locator(".dlg textarea").fill("Kiểm thử mở chốt"); await w.click(".dlg footer button.pri"); await w.waitForSelector("button.big");
-  await w.click("button.big"); await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
+  await w.click("button.big"); await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');
   ok("Chốt lại sau khi mở chốt", true);
   // xuất Excel trọn bộ
   await w.click('button:has-text("Xuất trọn bộ Excel")');
   let xf = null; for (let i = 0; i < 30 && !xf; i++) { await w.waitForTimeout(200); xf = fs.readdirSync(DL).filter((f) => /^KyLuong_2026-09\.xlsx$/.test(f))[0]; }
   if (xf) {
     const XLSX = require(path.join(APP, "xlsx.full.min.js")), wb = XLSX.read(fs.readFileSync(path.join(DL, xf)), { type: "buffer" });
-    const bl = XLSX.utils.sheet_to_json(wb.Sheets.BangLuong);
-    ok("Xuất Excel trọn bộ: đủ 4 sheet, số khớp bảng đã chốt", wb.SheetNames.join(",") === "BangLuong,BHXH,ThueTNCN,ChuyenKhoan" && bl[0]["Thực lĩnh"] === 11370000, wb.SheetNames.join(",") + " · thực lĩnh " + bl[0]["Thực lĩnh"]);
+    const header = XLSX.utils.sheet_to_json(wb.Sheets.BangLuong, { header: 1 }).findIndex(row => row.includes("Thực lĩnh"));
+    const bl = XLSX.utils.sheet_to_json(wb.Sheets.BangLuong, { range: header });
+    ok("Xuất Excel trọn bộ: đủ 11 sheet kế toán, số khớp bảng đã chốt", wb.SheetNames.join(",") === "ThongTinKy,BangLuong,BHXH,ThueTNCN,PhanBoPhongBan,HachToan,DoiChieuChiLuong,ChamCongTheoHinhThuc,PhanBoSanLuong,DoiSoatPhieuCan,BuSanLuong" && bl[0]["Thực lĩnh"] === 11370000, wb.SheetNames.join(",") + " · thực lĩnh " + bl[0]["Thực lĩnh"]);
   } else ok("Xuất Excel trọn bộ kỳ đã chốt", false, "không thấy file");
   // α16: tải xong → thẻ báo [Mở file] [Mở thư mục] + tự mở thư mục chọn sẵn file (HAK_NO_SHELL: chỉ ghi lại thao tác, không mở Explorer thật)
   await w.waitForSelector("#dlcard");
@@ -411,6 +411,12 @@ async function launch(dataDir, opt) {
   const sh4 = await w.evaluate(() => window.hakFiles.info().lastShell);
   ok("Nút Mở thư mục mở thư mục lưu", sh4.kind === "open" && sh4.name === path.basename(DL), JSON.stringify(sh4));
   await w.click('.dlg footer button:has-text("Đóng")');
+  await w.getByRole("button", { name: "In trọn bộ PDF kỳ lương", exact: true }).click();
+  let bundlePdf;
+  for (let i = 0; i < 100 && !bundlePdf; i++) { await w.waitForTimeout(300); bundlePdf = fs.readdirSync(DL).find((f) => /^KyLuong_2026-09\.pdf$/.test(f)); }
+  const bundlePages = bundlePdf ? (fs.readFileSync(path.join(DL, bundlePdf), "latin1").match(/\/Type\s*\/Page(?![s\w])/g) || []).length : 0;
+  ok("Kỳ lương đã chốt: có PDF trọn kỳ, ít nhất 11 trang báo cáo", bundlePages >= 11, String(bundlePdf) + " · " + bundlePages);
+  if (bundlePdf && shotDir) fs.copyFileSync(path.join(DL, bundlePdf), path.join(shotDir, bundlePdf));
   const n0 = fs.readdirSync(DL).length;
   await w.click('button:has-text("Xuất trọn bộ Excel")');
   let dup = null; for (let i = 0; i < 30 && !dup; i++) { await w.waitForTimeout(200); dup = fs.readdirSync(DL).filter((f) => f === "KyLuong_2026-09 (1).xlsx")[0]; }
@@ -488,12 +494,16 @@ async function launch(dataDir, opt) {
     const ttAfter = await (async () => { await w.click("#nav button[data-k=rp_thanhtoan]"); return w.locator("[data-pay-report]").innerText(); })();
     ok("V9.4: xuất file KHÔNG làm đổi trạng thái thanh toán (vẫn 'Chưa thanh toán')", /Chưa thanh toán/.test(ttAfter) && !/Đã thanh toán\s*\n?\s*[1-9]/.test(ttAfter.replace(/Đã thanh toán\n/, "")));
     await w.click("#nav button[data-k=rp_tm]");
-    ok("V9.4: có sổ chứng từ thanh toán lương trên màn hình tiền mặt", (await w.locator("[data-pay-ledger]").count()) === 1);
+    ok("V9.4: màn tiền mặt dẫn đến sổ chứng từ", await w.locator("[data-pay-ledger]").count() === 0 && await w.getByRole("button", { name: "Mở sổ chứng từ" }).count() === 1);
     for (const [nav, btnTxt, pre] of [["rp_ck", "Lập chứng từ chuyển khoản", "UNC-202609-001"], ["rp_tm", "Lập phiếu chi tiền mặt", "PC-202609-001"]]) {
       await w.click("#nav button[data-k=" + nav + "]");
       const hasRows = (await w.locator("[data-pay-report] tbody tr").count()) > 1, hasErr = (await w.locator("[data-pay-errors]").count()) > 0;
       if (!hasRows || hasErr) { ok("V9.4: " + nav + " — " + (hasErr ? "có lỗi nên không lập chứng từ" : "không có người thuộc hình thức này (bỏ qua lập chứng từ)"), true); continue; }
-      await w.click('button:has-text("' + btnTxt + '")'); await w.waitForTimeout(500);
+      await w.getByRole("button", { name: "Mở Bảng thanh toán lương để lập chứng từ" }).click();
+      await w.click('button:has-text("' + btnTxt + '")');
+      await w.waitForSelector("[data-pay-preview]");
+      await w.getByRole("button", { name: "Lập chứng từ", exact: true }).click();
+      await w.getByRole("button", { name: "Mở sổ chứng từ" }).click();
       const lg = await w.locator("[data-pay-ledger]").innerText();
       await shotOf(w, "05-so-chung-tu-thanh-toan");
       ok("V9.4: lập chứng từ → xuất hiện trong sổ với trạng thái 'Đã lập' (" + nav + ")", lg.includes(pre) && /Đã lập/.test(lg), lg.replace(/\s+/g, " ").slice(0, 200));
@@ -503,8 +513,10 @@ async function launch(dataDir, opt) {
       await w.click("#modal button:has-text('Đóng')");
       dialogs = []; await w.locator('[data-pay-ledger] button:has-text("Duyệt")').click(); await w.waitForTimeout(300);
       ok("V9.4: người lập không tự duyệt chứng từ (tách nhiệm vụ)", dialogs.some((d) => /khác người lập/.test(d)), dialogs.join(" | "));
+      await w.click("#nav button[data-k=rp_thanhtoan]");
       dialogs = []; await w.click('button:has-text("' + btnTxt + '")'); await w.waitForTimeout(300);
       ok("V9.4: không lập trùng chứng từ cho người đã có chứng từ chờ chi", dialogs.some((d) => /Không có khoản nào cần lập/.test(d)), dialogs.join(" | ").slice(0, 200));
+      await w.getByRole("button", { name: "Mở sổ chứng từ" }).click();
       await w.locator('[data-pay-ledger] button:has-text("Hủy")').click(); await w.waitForSelector(".dlg"); await w.locator(".dlg input, .dlg textarea").first().fill("Hủy thử e2e"); await w.click(".dlg footer button.pri"); await w.waitForTimeout(400);
       ok("V9.4: hủy chứng từ có lý do → trả lại khoản phải thanh toán", /Đã hủy/.test(await w.locator("[data-pay-ledger]").innerText()));
     }
@@ -524,7 +536,7 @@ async function launch(dataDir, opt) {
     const ps = await waitPdf(/^PhieuLuong_.*\.pdf$/, bf);
     ok("Phiếu lương: nút PDF ra file PDF thật", isPdf(ps), String(ps));
     await w.click("#nav button[data-k=kyluong]"); bf = fs.readdirSync(DL);
-    await w.locator('main tbody button:has-text("PDF")').first().click();
+    await w.locator("main tbody").getByRole("button", { name: /^\s*(?:⬇\s*)?PDF\s*$/ }).first().click();
     const pk = await waitPdf(/^BangLuongDaChot_.*\.pdf$/, bf);
     ok("Kỳ lương đã chốt: nút PDF ra file PDF thật (bảng lương như lúc chốt)", isPdf(pk), String(pk));
     await w.click("#nav button[data-k=slips]"); await w.waitForSelector("[data-slips]");
@@ -618,7 +630,7 @@ async function launch(dataDir, opt) {
       cn.map((r) => r["Hiệu lực từ"] + ":" + r["Số điện thoại"]).join(" | ") + " · " + diffTxt.replace(/\n/g, " "));
     // Tăng lương: lập phụ lục mới (không sửa phụ lục cũ), có % thay đổi
     const nPL0 = (await dbNow()).chitiethd.length;
-    await w.click('#main button:has-text("Tăng lương / biến động")'); await w.waitForSelector("#modal.drawer .dlg");
+    await w.click('#main button:has-text("Lập phụ lục lương")'); await w.waitForSelector("#modal.drawer .dlg");
     await w.locator('.dlg label.chip', { hasText: "Tăng lương" }).click();
     await D("Hiệu lực từ").locator("input").fill("2026-11-01");
     await D("Lương thỏa thuận").locator("input").fill("13.200.000"); await D("Lương thỏa thuận").locator("input").dispatchEvent("input");
@@ -895,7 +907,7 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=luong]"); await w.selectOption('select[aria-label="Cách bù lương sản lượng"]', "daihiep");
     await w.click("#nav button[data-k=baocaoluong]"); await w.click('#main button:has-text("Phân bổ sản lượng")'); await w.waitForTimeout(300);
     const pbTxt = await w.locator("main").first().innerText();
-    await w.click('#main button:has-text("mẫu công cụ phân bổ")');
+    await w.click('#main button:has-text("Xuất bộ phân bổ toàn kỳ")');
     let xf2 = null; for (let i = 0; i < 40 && !xf2; i++) { await w.waitForTimeout(200); xf2 = fs.readdirSync(DL).filter((x) => /^Phan_bo_khoi_luong_2026-10\.xlsx$/.test(x))[0]; }
     let tan = {}, bu = {}, sheets = "", buNgay = {};
     if (xf2) {
@@ -1154,7 +1166,7 @@ async function launch(dataDir, opt) {
     ok("Tính lương: chưa có Quy chế bù sản lượng CHÍNH THỨC → cảnh báo ngay trên màn hình (lựa chọn hiện tại chỉ để xem thử)", /Chưa có Phương pháp bù sản lượng CHÍNH THỨC/.test(warnNoPolicy));
     await w.click("button.big"); await w.waitForTimeout(200);
     dialogs = []; await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForTimeout(200);
-    ok("Chốt kỳ có sản lượng cần bù mà CHƯA có Quy chế bù sản lượng hợp lệ → chặn cứng (mục VIII), không chốt được", dialogs.some((d) => /KHÔNG THỂ CHỐT/.test(d) && /Phương pháp bù sản lượng/.test(d)) && !(await w.locator(".locked").count()), dialogs.join(" | "));
+    ok("Chốt kỳ có sản lượng cần bù mà CHƯA có Quy chế bù sản lượng hợp lệ → chặn cứng (mục VIII), không chốt được", dialogs.some((d) => /KHÔNG THỂ CHỐT/.test(d) && /Phương pháp bù sản lượng/.test(d)) && !(await w.locator('[data-payroll-closed="1"]').count()), dialogs.join(" | "));
     // Chọn phương pháp CHÍNH THỨC = "daihiep" (BÙ SẢN LƯỢNG THEO NGÀY), khác lựa chọn đang xem ("to" — mặc định màn hình Tính lương)
     await w.click("#nav button[data-k=caidat]"); await w.click('#main button:has-text("Phương pháp bù sản lượng")');
     await w.locator('.bu-method', { hasText: "BÙ SẢN LƯỢNG THEO NGÀY" }).locator('button:has-text("Áp dụng từ kỳ")').click();
@@ -1176,8 +1188,8 @@ async function launch(dataDir, opt) {
     await w.selectOption('select[aria-label="Cách bù lương sản lượng"]', "daihiep");
     await w.click("button.big"); await w.waitForTimeout(200);
     await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
-    await w.locator(".dlg input").fill("Chốt E2E mục VIII"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
-    ok("Chốt thành công sau khi có Quy chế bù sản lượng CHÍNH THỨC hợp lệ", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
+    await w.locator(".dlg input").fill("Chốt E2E mục VIII"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');
+    ok("Chốt thành công sau khi có Quy chế bù sản lượng CHÍNH THỨC hợp lệ", (await w.locator('[data-payroll-closed="1"]').first().innerText()).toLowerCase().indexOf("đã chốt") >= 0);
     ok("Không lỗi JavaScript ở Quy chế bù sản lượng (mục VIII)", errs.length === 0, errs.join(" | "));
     await app.close();
   }
@@ -1535,7 +1547,7 @@ async function launch(dataDir, opt) {
     ok("Còn LỖI (BLOCKER mục XIV) → KHÔNG có nút vượt qua, chỉ có nút đóng để sửa dữ liệu",
       (await w.locator('.dlg footer button:has-text("tiếp tục chốt")').count()) === 0 && (await w.locator('.dlg footer button:has-text("Vẫn chốt dù còn LỖI")').count()) === 0 && /KHÔNG thể vượt qua/.test(ckTxt));
     await w.click('.dlg footer button:has-text("Đóng")'); await w.waitForTimeout(150);
-    ok("Đóng checklist khi còn BLOCKER → kỳ 10/2026 vẫn CHƯA chốt", !(await w.locator(".locked").count()));
+    ok("Đóng checklist khi còn BLOCKER → kỳ 10/2026 vẫn CHƯA chốt", !(await w.locator('[data-payroll-closed="1"]').count()));
     await app.close();
 
     // Kỳ 2027-01 (sạch, không có sản lượng chưa phân bổ) → chỉ còn cảnh báo tăng ca, chốt được sau khi xác nhận
@@ -1549,8 +1561,8 @@ async function launch(dataDir, opt) {
       /0 lỗi/.test(ckTxt2) && /XYZ/.test(ckTxt2) && (await w.locator('.dlg footer button:has-text("Đã kiểm tra, tiếp tục chốt")').count()) === 1);
     await w.click('.dlg footer button:has-text("Đã kiểm tra, tiếp tục chốt")'); await w.waitForSelector(".dlg");
     ok("Sau khi xác nhận checklist, vào đúng hộp xác nhận chốt kỳ như cũ", /Chốt Tháng 1\/2027|Chốt kỳ/.test(await w.locator(".dlg header h3").innerText()));
-    await w.locator(".dlg input").fill("Chốt E2E checklist"); await w.click(".dlg footer button.pri"); await w.waitForSelector(".locked");
-    ok("Chốt được kỳ sạch (chỉ cảnh báo) sau khi xem checklist", (await w.locator(".locked").first().innerText()).indexOf("đã chốt") >= 0);
+    await w.locator(".dlg input").fill("Chốt E2E checklist"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');
+    ok("Chốt được kỳ sạch (chỉ cảnh báo) sau khi xem checklist", (await w.locator('[data-payroll-closed="1"]').first().innerText()).toLowerCase().indexOf("đã chốt") >= 0);
     await app.close();
   }
 

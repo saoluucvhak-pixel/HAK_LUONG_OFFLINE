@@ -9,6 +9,35 @@ Không cần internet, không cần Google Sheet. Cài bằng file `TinhLuongHAK
 > - Hướng dẫn từng màn hình;
 > - Câu hỏi thường gặp.
 
+## Làm việc theo kỳ lương
+
+1. Vào **Tính lương theo kỳ** và chọn tháng, năm. Màn hình hiển thị phương pháp bù, trạng thái và phiên bản khi kỳ đã chốt.
+2. Mở các bảng **Nháp** từ đầu màn hình. Kiểm tra Chấm công, Sản lượng và từng kiểu phân bổ Bơm dăm, rồi bấm **Lưu để tính lương** ở bảng tương ứng.
+3. Tính lương và mở **Kiểm tra bảng lương**. Chọn **Lỗi** hoặc **Cảnh báo**. Dùng **Đi tới dữ liệu** để mở màn liên quan, rồi quay lại kiểm tra. Khi dữ liệu thay đổi, tính lại trước khi chốt.
+4. Chốt kỳ. Dùng **Đối chiếu với dữ liệu hiện tại** để xem chênh lệch theo từng khoản, cố định kỳ, quy chế và phương pháp bù của bản chốt.
+5. Mở **Bảng thanh toán lương** để lập chứng từ, lọc danh sách và xem trước từng người, hình thức chi và tổng tiền. Lập chứng từ rồi chuyển sang **Sổ chứng từ** để duyệt và ghi nhận đã chi. Chứng từ chuyển khoản đã duyệt có nút xuất bảng kê Excel.
+
+## Điều chuyển hoặc đổi chức vụ
+
+1. Vào **Nghiệp vụ nhân sự → Lập đề nghị**. Chọn nhân viên, loại nghiệp vụ, ngày hiệu lực, tổ hoặc chức vụ mới và lý do. **Lưu nháp → Gửi duyệt**.
+2. Người có cả quyền duyệt và quyền sửa hồ sơ kiểm tra ngày, tổ hoặc chức vụ trước và sau, cùng kỳ lương bị ảnh hưởng. Khi duyệt, app ghi phiếu, quá trình công tác và phụ lục lương trong cùng một lần lưu.
+3. Ví dụ điều chuyển ngày 16/11: phiếu cân trước ngày 16 theo tổ cũ, từ ngày 16 theo tổ mới. Kiểm tra phụ lục hiện hành, phần **Sắp hiệu lực** và lịch sử trong hồ sơ nhân viên. Nếu đã có phụ lục hiệu lực cùng ngày hoặc sau ngày đề nghị, xử lý lịch phụ lục trước khi duyệt.
+4. Đổi mức lương dùng **Hồ sơ nhân viên → Lập phụ lục lương**. Chọn ngày hiệu lực và cách áp dụng trong tháng theo quy chế. Kỳ đã chốt dùng báo cáo đã lưu để đối chiếu.
+
+## Hạch toán và xuất bộ báo cáo kỳ
+
+- **Xuất trọn bộ Excel** từ kỳ đã chốt gồm thông tin phiên bản, bảng lương, bảo hiểm, thuế TNCN chi tiết, chấm công theo hình thức, sản lượng theo người và phiếu cân, bù sản lượng, phân bổ phòng ban, hạch toán và đối chiếu chi lương. Bản chốt cũ có thể thiếu chi tiết theo phiếu hoặc mã số thuế. Xem dòng Nguồn trên sheet.
+- **In trọn bộ PDF kỳ lương** dùng cùng nguồn số liệu với Excel. Mỗi báo cáo bắt đầu ở trang mới. Tại danh sách kỳ đã chốt, chọn **PDF trọn kỳ** trên dòng tương ứng.
+- Hạch toán dùng tài khoản chi phí theo danh mục trong bản chốt nếu có. Với bản cũ thiếu dữ liệu này, file ghi rõ nguồn là danh mục hiện tại.
+- Các dòng **Đã chi** lấy từ chứng từ đã ghi nhận thanh toán. Khoản đang chờ chi được trình bày riêng trong bảng đối chiếu. Bảng kê để thực hiện chuyển khoản được xuất từ chi tiết chứng từ đã duyệt.
+- Trong hồ sơ nhân viên, nút **Đề nghị điều chuyển** và **Đề nghị nghỉ việc** mở phiếu đã chọn sẵn nhân viên.
+
+## Báo cáo sản lượng và chấm công
+
+- **Phiếu gốc sản lượng / bơm dăm** mở bảng kê nguồn. Bấm **Xem kết quả phân bổ** để xem người nhận theo tổ và ngày cân.
+- **Phiếu cần đối chiếu chấm công** chỉ liệt kê trường hợp ô công bằng 0 và chưa ghi tên hoặc mã trong **NV vắng**. Dùng bộ lọc tìm theo phiếu, tổ hoặc người cần kiểm tra. Dòng phiếu vẫn hiện đủ người được chia và người không được chia.
+- **Xuất báo cáo đang xem** giữ loại đang chọn và bộ lọc bảng đối chiếu. **Xuất bộ phân bổ toàn kỳ** lấy cả sản lượng và bơm dăm. Trong file kỳ đã chốt, kiểm tra phần hướng dẫn để biết bảng nào lấy từ bản chốt và bảng nào phản ánh dữ liệu hiện tại.
+
 ## Đăng nhập & người dùng (từ 2.0-alpha.2)
 
 **Lần đầu mở app** (cài mới, hoặc nâng cấp từ bản cũ)
@@ -113,7 +142,7 @@ Theo kỳ (chọn ở ô Kỳ lương; kỳ đã chốt lấy số đã lưu, ch
 - Tổng hợp công (BT, phép, lễ, tăng ca, Chủ nhật, ngày cơm, ngày có nhãn công tác)
 - Phân bổ sản lượng / bơm dăm theo phòng ban, theo công nhân, phiếu cân chưa gán người
 - Bảng hạch toán lương (Nợ 622/627/641/642 – Có 334, 338, 3335, 141, 1388, 1111/1121) — TK chi phí khai ở Danh mục → Phòng ban
-- Phiếu chi lương / tạm ứng
+- Phiếu chi và chứng từ thanh toán xem trong **Sổ chứng từ thanh toán**.
 - So sánh với kỳ trước (chênh lệch thực lĩnh từng người)
 Cả năm (chỉ cộng các kỳ đã chốt): Lương 12 tháng · Thu nhập năm theo nhân viên (chọn chỉ tiêu) · Thuế TNCN cả năm (hỗ trợ quyết toán).
 Mọi báo cáo xuất được Excel.

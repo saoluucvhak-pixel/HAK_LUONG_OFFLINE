@@ -31,5 +31,5 @@ test("U-PAY-02 vai trò được thấy lương = có Xem bảng lương HOẶC 
   const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
   assert.match(src, /function canSeePay\(\) \{ return can\("payroll\.view"\) \|\| can\("hr\.edit"\); \}/);
   assert.equal((src.match(/HRM\.reports\(db, \{ hidePay: !canSeePay\(\) \}\)/g) || []).length, 2, "báo cáo nhân sự + xuất sổ lao động");
-  assert.match(src, /HRM\.isPayField\(key, c\) && !canSeePay\(\)/); assert.match(src, /hh\.ct && canSeePay\(\)/);
+  assert.match(src, /HRM\.isPayField\(key, c\) && !canSeePay\(\)/); assert.match(src, /active && effective && canSeePay\(\)/);
 });
