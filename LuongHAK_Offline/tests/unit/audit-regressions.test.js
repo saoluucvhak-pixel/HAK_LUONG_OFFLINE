@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const test=require('node:test'),assert=require('node:assert/strict');
 const E=require('../../engine'),I=require('../../core/importer'),G=require('../../main/payroll-gate'),CLS=require('../../core/payroll-close');
 const {baseDb,staff,ccRow}=require('../fixtures/build');
 test('Percent insurance equals fractional insurance',()=>{
@@ -17,8 +17,11 @@ test('Snapshot rejects altered detail with recomputed checksum',()=>{
  const base=CLS.buildSnapshot(d,'2026-10',r,[],{buTheoNgay:'daihiep',quyChe:'2026'});assert.deepEqual(G.verifySnapshot(d,base),[]);
  for(const table of ['bangluong','bhxh','tncn']){const s=JSON.parse(JSON.stringify(base));if(!s.kq[table].length)s.kq[table].push({'Mã NV':'C'});s.kq[table][0]['Lương thời gian']=99999999;s.checksum=CLS.checksum(s.kq);assert.ok(G.verifySnapshot(d,s).some(x=>x.includes('chi tiết '+table)));}
 });
-test('Close mismatch cannot change method or recalculate',()=>{
- const s=fs.readFileSync(path.join(__dirname,'../../app.js'),'utf8'),start=s.indexOf('if (String(buChinhThuc) !== String(st.bu))'),end=s.indexOf('\n      }',start),block=s.slice(start,end);
- assert.ok(start>0);assert.match(block,/return;/);assert.doesNotMatch(block,/st\.bu\s*=|tinhLuong\(|saveUi\(/);
+test('Close rejects a snapshot computed before the official top-up method changed',()=>{
+ const d=require('../fixtures/production-carry').fixture();
+ const r=G.computeKy(d,'2026-10',{quyChe:'2026',bu:'daihiep'}).kq;
+ const snap=CLS.buildSnapshot(d,'2026-10',r,[],{buTheoNgay:'daihiep',quyChe:'2026'});
+ assert.deepEqual(G.verifySnapshot(d,snap),[]);
+ d.dm_quychebu=[{"Hiệu lực từ":"2026-10-01","Trạng thái":"Hiệu lực","Cách bù":"to"}];
+ assert.ok(G.verifySnapshot(d,snap).some(msg=>msg.includes("khác phương pháp chính thức (to)")));
 });
-

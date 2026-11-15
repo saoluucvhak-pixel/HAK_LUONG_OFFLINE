@@ -3116,10 +3116,35 @@
         : [btn("Hủy, để tôi kiểm tra lại", "", close), btn("Đã kiểm tra, tiếp tục chốt", "pri", function () { close(); onContinue(); })];
     });
   }
+  function checkCloseTopup(result, ky) {
+    var parts = ky.split("-").map(Number);
+    var policy = E.quyCheBuChinhThuc(db.dm_quychebu, parts[0], parts[1]);
+    var official = policy && String(policy["Cách bù"] || "").trim();
+    var used = result.cheDoBu;
+    var production = result.bangluong.some(function (row) { return row._ct && row._ct.laSanLuong; });
+    if (official !== "daihiep" && official !== "to") {
+      if (production) {
+        alert("⛔ KHÔNG THỂ CHỐT — kỳ " + kyLabel(ky) + " có sản lượng cần bù nhưng chưa có Phương pháp bù sản lượng chính thức hợp lệ. Vào Cài đặt → Phương pháp bù sản lượng, áp dụng phương pháp cho kỳ rồi bấm Tính lương lại.");
+        return false;
+      }
+    } else if (used !== official) {
+      alert("⛔ KHÔNG THỂ CHỐT — phương pháp bù đang xem đã dùng để tính: " + buLabel(used) +
+        ". Cài đặt kỳ " + kyLabel(ky) + ": " + buLabel(official) +
+        ". Chọn đúng phương pháp, bấm Tính lương lại rồi kiểm tra bảng trước khi chốt.");
+      return false;
+    }
+    if (used !== String(st.bu)) {
+      alert("⛔ KHÔNG THỂ CHỐT — phương pháp bù vừa chọn khác phương pháp đã dùng để tính bảng lương. Bấm Tính lương lại rồi chốt.");
+      return false;
+    }
+    return true;
+  }
   function chotKy() {
     if (!st.kq || !need("payroll.close")) return;
     var ky = kyStr();
     if (kyChot(ky)) { alert(kyLabel(ky) + " đã chốt."); return; }
+    if (st.kq.ky !== ky || !checkCloseTopup(st.kq, ky)) return;
+    var method = st.bu;
     // P0 (BLOCKER — mục IV.2): lỗi dữ liệu NGHIÊM TRỌNG phải CHẶN CỨNG, không cho chốt bằng 1 hộp
     // thoại xác nhận như cảnh báo thường — gồm mức "Critical" (Mã NV trùng) VÀ các dòng "High" mà
     // core/integrity.js đã tự xác định là tiền bị CỘNG TRÙNG (phiếu cân / số chứng từ trùng khóa
@@ -3137,7 +3162,7 @@
     // Luôn tính lại từ dữ liệu mới nhất: tránh chốt nhầm bảng lương cũ đang hiển thị.
     // P0: so sánh TỪNG chỉ tiêu của TỪNG nhân viên (CLS.diffDetailed), không chỉ tổng thực lĩnh/số NV —
     // 2 người đổi lương ngược dấu nhau (A +1tr, B -1tr) làm tổng & số NV y nguyên nhưng bảng lương đã khác.
-    var fresh = tinhLuong(), now2 = CLS.totals(fresh), diffRows = CLS.diffDetailed(st.kq, fresh);
+    var fresh = tinhLuong(st.nam, st.thang, undefined, method), now2 = CLS.totals(fresh), diffRows = CLS.diffDetailed(st.kq, fresh);
     if (diffRows.length) {
       st.kq = fresh; render();
       var dBody = h("div");
@@ -3166,35 +3191,19 @@
         "\n\nSửa Mã BHXH hoặc bổ sung mã vào Danh mục bảo hiểm rồi tính lại.");
       return;
     }
-    // P0 (BLOCKER — mục VIII "CompanyID → PolicyVersion → PayrollMethod"): phương pháp bù sản lượng
-    // CHÍNH THỨC khi chốt KHÔNG được quyết định bởi lựa chọn tự do (st.bu) trên màn hình Tính lương —
-    // phải lấy từ bản "Hiệu lực" trong Danh mục → Quy chế bù sản lượng. Chỉ chặn khi kỳ này THỰC SỰ
-    // có sản lượng cần bù (laSanLuong) — công ty không dùng lương sản phẩm không bị ảnh hưởng.
-    var VALID_BU = { daihiep: 1, to: 1 };
-    var coSanLuong = fresh.bangluong.some(function (b) { return b["_ct"] && b["_ct"].laSanLuong; });
-    if (coSanLuong) {
-      var qcBuChot = E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang);
-      var maChinhThuc = qcBuChot && String(qcBuChot["Cách bù"] || "").trim();
-      if (!qcBuChot || !VALID_BU[maChinhThuc]) {
-        alert("⛔ KHÔNG THỂ CHỐT — kỳ " + kyLabel(ky) + " có sản lượng cần bù lương nhưng CHƯA có Phương pháp bù sản lượng CHÍNH THỨC hợp lệ (Trạng thái = Hiệu lực) cho kỳ này.\nVào Cài đặt → Phương pháp bù sản lượng để chọn phương pháp chính thức, rồi chốt lại.\nMàn hình Tính lương vẫn dùng được để xem tạm/so sánh nhiều phương pháp.");
-        return;
-      }
-      var buChinhThuc = maChinhThuc === "true" ? true : maChinhThuc === "false" ? false : maChinhThuc;
-      if (String(buChinhThuc) !== String(st.bu)) {
-        alert("⛔ KHÔNG THỂ CHỐT — phương pháp bù đang xem khác phương pháp chính thức của kỳ. Hãy chủ động chọn đúng phương pháp, bấm Tính lương và kiểm tra lại bảng trước khi chốt. App không tự đổi phương pháp hoặc tính lại để chốt.");
-        return;
-      }
-    }
-    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2); }); // hộp thoại dùng chung #modal nên bấm đúp không mở 2 hộp; chống chốt 2 lần nằm trong chotKyTiep (kyChot) và ở main (kỳ trùng)
+    var revision = dbRev;
+    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2, method, revision); });
   }
-  function chotKyTiep(ky, fresh, now2) {
+  function chotKyTiep(ky, fresh, now2, method, revision) {
     var w = fresh.canhbao.length;
     askText("Chốt " + kyLabel(ky), now2.soNV + " nhân viên · Tổng thực lĩnh " + fmt(now2.thucLinh) + " đ" +
       (w ? "\n⚠ Còn " + w + " cảnh báo dữ liệu chưa xử lý (xem trên màn hình Tính lương)." : "") +
       "\nSau khi chốt: lưu bảng lương + dữ liệu đầu vào của kỳ, khóa chấm công/sản lượng/thưởng/tạm ứng của kỳ.", { label: "Ghi chú (không bắt buộc)", okText: "🔒 Chốt kỳ lương" }, function (note) {
     if (w && !confirm("Xác nhận CHỐT dù còn " + w + " cảnh báo?")) return;
     if (kyChot(ky)) { alert(kyLabel(ky) + " đã được chốt (có thể do bấm 2 lần) — không chốt lại."); return; } // V9: chống chốt 2 lần
-    var snap = CLS.buildSnapshot(db, ky, fresh, fresh._staff, { note: note, payrollReports: payrollReportDetails(st.nam, st.thang, fresh.bangluong), buTheoNgay: st.bu, quyChe: fresh.quyChe || quyChe(), engineVersion: E.ENGINE_VERSION, user: currentUser() });
+    if (kyStr() !== ky || !checkCloseTopup(fresh, ky)) return;
+    if (revision !== dbRev) { alert("Dữ liệu đã thay đổi. Bấm Tính lương lại trước khi chốt."); return; }
+    var snap = CLS.buildSnapshot(db, ky, fresh, fresh._staff, { note: note, payrollReports: payrollReportDetails(st.nam, st.thang, fresh.bangluong), buTheoNgay: method, quyChe: fresh.quyChe || quyChe(), engineVersion: E.ENGINE_VERSION, user: currentUser() });
     CLS.close(db, snap); audit("Chốt kỳ lương", ky + " v" + snap.version + " — " + now2.soNV + " NV, thực lĩnh " + now2.thucLinh);
     if (!saveNow()) { CLS.rollbackClose(db, snap); db.auditlog.pop(); alert("CHỐT KHÔNG THÀNH CÔNG: chưa lưu được dữ liệu xuống đĩa. Kỳ lương vẫn ở trạng thái chưa chốt."); render(); return; }
     // Bản sao lưu SAU CHỐT KỲ: giữ vĩnh viễn, tự chép sang thư mục sao lưu thứ hai nếu đã chọn (main/storage.js)
@@ -3773,7 +3782,7 @@
       var invalid = C.inputSafety.problems(db, kyStr()); if (invalid.length) { alert("Chưa tính lương: " + invalid.join("; ")); return; }
       var reviewMessage = C.inputReview.message(db, kyStr()); if (reviewMessage) { alert("Chưa tính lương: " + reviewMessage + " còn Nháp. Mở bảng và bấm Lưu để tính lương."); return; }
       if (st.dangTinh) return; st.dangTinh = true;
-      try { st.kq = tinhLuong(); } finally { st.dangTinh = false; }
+      try { st.kq = tinhLuong(); st.kqStale = false; } finally { st.dangTinh = false; }
       render(); toast("Đã tính xong " + st.kq.bangluong.length + " nhân viên");
     }));
     bar.appendChild(sel);
@@ -3787,7 +3796,7 @@
     });
     bar.appendChild(qs); bar.appendChild(btn("Xem quy chế", "", function () { xemQuyChe(qs.value); })); card.appendChild(bar);
     // Mục VIII: lựa chọn "Cách bù lương sản lượng" ở trên chỉ để XEM THỬ/so sánh — khi Chốt kỳ, app
-    // tự dùng đúng bản "Hiệu lực" trong Danh mục → Quy chế bù sản lượng (nếu có), không theo lựa chọn này.
+    // kiểm tra phương pháp đã dùng để tính khớp bản "Hiệu lực" trong Cài đặt.
     // Chỉ hiện khi công ty này có dùng lương sản phẩm (mã hình thức lương chứa SP) — không làm phiền
     // công ty không bù sản lượng.
     if (db.dm_luong.some(function (l) { return /SP/.test(l["Mã hình thức lương"] || ""); })) {

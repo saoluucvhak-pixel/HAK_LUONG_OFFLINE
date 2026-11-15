@@ -1186,10 +1186,18 @@ async function launch(dataDir, opt) {
       await w.locator("main").first().innerText() === beforeClose &&
       await w.locator(".dlg").count() === 0);
     await w.selectOption('select[aria-label="Cách bù lương sản lượng"]', "daihiep");
+    dialogs = [];
+    await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForTimeout(200);
+    ok("Chọn đúng phương pháp nhưng chưa tính lại: chặn chốt bằng phương pháp thực sự đã tính",
+      dialogs.some((x) => /phương pháp bù đang xem đã dùng để tính.*Cài đặt kỳ.*Tính lương lại/.test(x)) &&
+      await w.locator(".dlg").count() === 0);
     await w.click("button.big"); await w.waitForTimeout(200);
     await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
     await w.locator(".dlg input").fill("Chốt E2E mục VIII"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');
     ok("Chốt thành công sau khi có Quy chế bù sản lượng CHÍNH THỨC hợp lệ", (await w.locator('[data-payroll-closed="1"]').first().innerText()).toLowerCase().indexOf("đã chốt") >= 0);
+    ok("Kỳ đã chốt khóa phương pháp bù và nút tính lại",
+      await w.locator('select[aria-label="Cách bù lương sản lượng"]').count() === 0 &&
+      await w.getByRole("button", { name: /Tính lương tháng/ }).count() === 0);
     ok("Không lỗi JavaScript ở Quy chế bù sản lượng (mục VIII)", errs.length === 0, errs.join(" | "));
     await app.close();
   }
