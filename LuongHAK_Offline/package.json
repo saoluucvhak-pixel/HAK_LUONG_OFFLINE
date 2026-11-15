@@ -1,10 +1,11 @@
 {
   "name": "luong-hak",
-  "version": "2.0.13",
+  "version": "2.0.14",
   "description": "Tính lương HAK - chạy offline",
   "main": "main.js",
   "author": "HAK",
   "scripts": {
+    "lint": "eslint . --max-warnings 0",
     "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
     "test:e2e": "node tests/e2e/run-e2e.js",
     "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
@@ -15,6 +16,7 @@
   "devDependencies": {
     "electron": "43.8.9",
     "electron-builder": "26.15.3",
+    "eslint": "9.39.5",
     "jsdom": "30.1.3"
   },
   "build": {
