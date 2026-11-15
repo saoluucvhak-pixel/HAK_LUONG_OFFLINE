@@ -1,6 +1,13 @@
 // ===== GIAO DIỆN APP TÍNH LƯƠNG HAK (offline) =====
+// FILE NÀY ĐƯỢC GHÉP TỪ app-src/*.js — KHÔNG SỬA TRỰC TIẾP. Sửa trong app-src/ rồi chạy: npm run build:app
 (function () {
   "use strict";
+  // Hàm trợ giúp không dùng trạng thái của app: định nghĩa ở ui/app-helpers.js (nạp trước file này).
+  var APPH = window.HAKAppHelpers;
+  var cleanImportedData = APPH.cleanImportedData, applyTheme = APPH.applyTheme, $ = APPH.$, toast = APPH.toast, qtyText = APPH.qtyText, fmt = APPH.fmt, esc = APPH.esc, sheetName = APPH.sheetName, slug = APPH.slug, pwWeak = APPH.pwWeak, dateFix = APPH.dateFix, dateIso = APPH.dateIso;
+  var moneyText = APPH.moneyText, moneyLive = APPH.moneyLive, catPass = APPH.catPass, missingReq = APPH.missingReq, retroText = APPH.retroText, thueIsCha = APPH.thueIsCha, ctVarFromRow = APPH.ctVarFromRow, ctRefVars = APPH.ctRefVars, kyLabel = APPH.kyLabel, fmtTime = APPH.fmtTime, kyKey = APPH.kyKey, n0 = APPH.n0;
+  var addTotal = APPH.addTotal, pdfFallbackPrint = APPH.pdfFallbackPrint, opsFmtCell = APPH.opsFmtCell, loadScript = APPH.loadScript, canvasOf = APPH.canvasOf, attRecordId = APPH.attRecordId, grayOf = APPH.grayOf, grayCanvas = APPH.grayCanvas, titleName = APPH.titleName, ocrRef = APPH.ocrRef, libEnrich = APPH.libEnrich, layoutCheck = APPH.layoutCheck;
+  var markStopped = APPH.markStopped, ocrImportedCells = APPH.ocrImportedCells, summarize = APPH.summarize, chotSummary = APPH.chotSummary, fold = APPH.fold, fmtSize = APPH.fmtSize, fileGone = APPH.fileGone;
   var KEY = "luonghak_db_v1";
   var E = window.LuongEngine, C = window.HAKCore, VAL = C.validate, IMP = C.importer, INT = C.integrity, ID = C.identity, CLS = C.close, GRD = C.guard, SCH = C.schema, PERM = C.perm, RP = C.repo, ALLOC = C.alloc, BHR = C.bh, RC = C.reconcile, PCC = C.preClose, FML = C.formula, FAP = C.formulaApproval, RF = C.reportFilter, IPAY = C.internalPayroll, RH = C.reportHtml, TCFG = C.taxcfg, GATE = C.gate, HDD = C.hdld, LF = C.lf, CMP = C.company;
   var DAYS = []; for (var i = 1; i <= 31; i++) DAYS.push(("0" + i).slice(-2));
@@ -91,15 +98,6 @@
   // Sao lưu TRƯỚC NÂNG CẤP: chụp nguyên trạng file dữ liệu của bản cũ trước khi chuyển đổi (1 lần cho mỗi lần nâng schema)
   if (!readOnly && store && store.backup && db && Object.keys(db).length && (!db.schemaVersion || db.schemaVersion < 2)) { try { store.backup("truoc-nang-cap"); } catch (e) { /* không chặn mở app */ } }
   /** Làm sạch dữ liệu đưa vào từ hệ thống cũ: chữ "null" trong ô chấm công → ô trống; dòng Tổng (Total) lẫn trong Sản lượng / Bơm dăm → loại bỏ. Trả danh sách thông báo. */
-  function cleanImportedData(d) {
-    var msg = [], nulls = VAL.cleanNullCells(d), tot = C.inputBatch && C.inputBatch.removeTotals ? C.inputBatch.removeTotals(d) : [];
-    if (nulls) msg.push(nulls + " ô chấm công ghi chữ \"null\" (từ hệ thống cũ) đã chuyển thành ô trống");
-    if (tot.length) {
-      var tan = tot.reduce(function (s0, x) { return s0 + (parseFloat(String(x.row["KL hàng (Tấn)"]).replace(",", ".")) || 0); }, 0);
-      msg.push("Đã loại " + tot.length + " dòng tổng (\"" + tot.map(function (x) { return x.row["Phiếu cân"]; }).join("\", \"") + "\") không có ngày cân khỏi Sản lượng / Bơm dăm" + (tan ? " (cộng " + tan.toLocaleString("vi-VN", { maximumFractionDigits: 3 }) + " tấn — đây là số tổng, không phải phiếu thật)" : ""));
-    }
-    return msg;
-  }
   var migMsg = [];
   if (!readOnly) {
     try { migMsg = HRM.migrate(db).concat(INT.normalizeDataset(db).messages, cleanImportedData(db)); }
@@ -240,7 +238,6 @@
   function saveUi() { try { localStorage.setItem(KEY + "_ui", JSON.stringify({ tab: st.tab === "nv" ? "nhansu" : st.tab === "slips" && st.kqFull ? "luong" : st.tab, dm: st.dm, nam: st.nam, thang: st.thang, bu: st.bu, compact: st.compact, qs: st.qs, pageSize: st.pageSize })); } catch (e) {} }
   // Giao diện sáng / tối (2.0-α15): ghi nhớ theo máy, mặc định sáng
   function curTheme() { try { return localStorage.getItem(KEY + "_theme") === "dark" ? "dark" : "light"; } catch (e) { return "light"; } }
-  function applyTheme(t) { document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light"); }
   function toggleTheme() { var t = curTheme() === "dark" ? "light" : "dark"; try { localStorage.setItem(KEY + "_theme", t); } catch (e) { /* vẫn đổi cho phiên này */ } applyTheme(t); render(); }
   var HAK_SKINS = [["luxe", "Luxury V10.3"], ["classic", "Xanh ngọc"], ["neutral", "Trung tính"], ["champagne", "Vàng champagne"]];
   function curSkin() { try { var k = localStorage.getItem(KEY + "_skin"); return HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"; } catch (e) { return "luxe"; } }
@@ -266,7 +263,6 @@
   }
 
   // ---------- Tiện ích ----------
-  function $(s, r) { return (r || document).querySelector(s); }
   function h(tag, attrs, kids) {
     var el = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {
@@ -278,11 +274,7 @@
     return el;
   }
   function btn(text, cls, fn, title) { return h("button", { class: "b " + (cls || ""), text: text, title: title || "", on: { click: fn } }); }
-  function toast(m) { var t = $("#toast"); t.textContent = m; t.className = "show"; clearTimeout(toast.t); toast.t = setTimeout(function () { t.className = ""; }, 2800); }
   /** Số lượng (tấn…): làm tròn 3 số lẻ, dấu phẩy thập phân, dấu chấm hàng nghìn — không để lộ sai số dấu phẩy động (17.049999999999997). */
-  function qtyText(v) { if (v === "" || v == null) return ""; var x = +v; return isFinite(x) ? (Math.round(x * 1000) / 1000).toLocaleString("vi-VN", { maximumFractionDigits: 3 }) : String(v); }
-  function fmt(n) { return typeof n === "number" ? n.toLocaleString("vi-VN") : (n == null ? "" : n); }
-  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
   function ky2() { return ("0" + st.thang).slice(-2); }
   function kyStr() { return st.nam + "-" + ky2(); }
   function rowInKy(r, def) {
@@ -369,8 +361,6 @@
     }, function (e) { alert("Không tạo được file: " + e.message); });
     return true;
   }
-  function sheetName(t) { return t.replace(/[\\\/\?\*\[\]:]/g, "").replace(/\s+/g, " ").trim().slice(0, 31); }
-  function slug(t) { return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, ""); }
   function templateSheet(key) { var d = ALL[key]; return { name: d.ten, cols: d.cols, rows: SAMPLES[key] || [] }; }
   function downloadTemplate(key) {
     var d = ALL[key];
@@ -555,12 +545,6 @@
     setTimeout(function () { p1.focus(); }, 30);
     return closeFn;
   }
-  function pwWeak(v) { // cùng quy tắc với main/backup-crypt.js (main kiểm lại lần nữa)
-    if (v.length < 10) return "Mật khẩu tối thiểu 10 ký tự";
-    if (/^(.)\1+$/.test(v)) return "Mật khẩu không được lặp một ký tự";
-    var k = 0; [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].forEach(function (r) { if (r.test(v)) k++; });
-    return k < 2 ? "Mật khẩu cần kết hợp ít nhất 2 loại: chữ thường, chữ hoa, số, ký tự đặc biệt" : "";
-  }
   function countOf(k) { return db[k] ? db[k].length : 0; }
 
   // ---------- Ô nhập dùng chung ----------
@@ -585,28 +569,10 @@
     i.addEventListener("change", function () { dateFix(i); });
     return i;
   }
-  function dateFix(i) {
-    var t = i.value.trim(), n = t ? VAL.normDate(t) : "";
-    if (n === null) { i.classList.add("invalid"); i.setAttribute("aria-invalid", "true"); i.title = "Ngày không hợp lệ — nhập dd/MM/yyyy (ví dụ 29/02/2028)"; return; }
-    i.classList.remove("invalid"); i.removeAttribute("aria-invalid"); i.title = i.getAttribute("aria-label") || "";
-    if (n) i.value = n.slice(8, 10) + "/" + n.slice(5, 7) + "/" + n.slice(0, 4);
-  }
   /** "" nếu trống · "YYYY-MM-DD" nếu đúng · null nếu SAI (ngày không tồn tại). */
-  function dateIso(i) { var t = i.value.trim(); return t ? VAL.normDate(t) : ""; }
   // Cột tiền: hiển thị 15.000.000 / 1.250,5 (dấu chấm phân nghìn, phẩy thập phân), canh phải; lưu số thuần
   var MONEYCOLS = /^(Thưởng|Thu nhập (khác|từ|đến)|Trừ khác|Tạm ứng|Số tiền.*|Đơn giá.*|Lương (phụ|thỏa thuận)|Trừ nhanh|Tiền tăng ca.*|Mức tiền)$/;
-  function moneyText(v) { var t = String(v == null ? "" : v).trim(); if (!t) return ""; var n = VAL.parseMoney(t); return isNaN(n) ? t : n.toLocaleString("vi-VN", { maximumFractionDigits: 4 }); }
   /** Gõ tới đâu chèn dấu chấm phân nghìn tới đó (giữ vị trí con trỏ). Chỉ đụng chuỗi chỉ gồm chữ số, hoặc đã nhóm 3 chữ số vừa gõ thêm 1 chữ số; "1.5" (thập phân) giữ nguyên. */
-  function moneyLive(inp) {
-    var v = inp.value, m = /^(-?)([\d.]+)(,\d*)?$/.exec(v); if (!m) return;
-    var g = m[2].split("."), okGroups = g.length === 1 || (g.slice(1, -1).every(function (x) { return x.length === 3; }) && (g[g.length - 1].length === 3 || g[g.length - 1].length === 4) && g[0].length >= 1 && g[0].length <= 3);
-    if (!okGroups) return;
-    var digits = g.join(""), out = m[1] + digits.replace(/\B(?=(\d{3})+$)/g, ".") + (m[3] || "");
-    if (out === v) return;
-    var pos = inp.selectionStart, before = v.slice(0, pos == null ? v.length : pos).replace(/[^\d,]/g, "").length;
-    inp.value = out;
-    try { var c = 0, i = 0; while (i < out.length && c < before) { if (/[\d,]/.test(out.charAt(i))) c++; i++; } inp.setSelectionRange(i, i); } catch (e) {}
-  }
   var dlId = 0;
   function makeInput(col, value, onchange, opts, tableKey) {
     var isDate = DATECOLS.test(col), inp = isDate ? dateField(value == null ? "" : value) : h("input", { value: value == null ? "" : value });
@@ -650,17 +616,6 @@
   function plfOf(key) { st.plf = st.plf || {}; return st.plf[key] = st.plf[key] || { pb: [], tu: "", den: "", thang: "", ky: "" }; }
   function catF(key) { st.catf = st.catf || {}; return st.catf[key] = st.catf[key] || { tt: "", hl: "" }; }
   /** Danh mục: lọc theo Trạng thái và Hiệu lực (đang / chưa / đã hết) tại ngày hôm nay — chỉ chọn dòng hiển thị. */
-  function catPass(def, r, cf) {
-    if (cf.tt && String(r["Trạng thái"] == null ? "" : r["Trạng thái"]).trim() !== cf.tt) return false;
-    if (cf.hl) {
-      var t = new Date(), today = t.getFullYear() + "-" + ("0" + (t.getMonth() + 1)).slice(-2) + "-" + ("0" + t.getDate()).slice(-2);
-      var from = LF.isoDay(r["Hiệu lực từ"]), to = LF.isoDay(r["Hiệu lực đến"]);
-      if (cf.hl === "dang" && !((!from || from <= today) && (!to || to >= today))) return false;
-      if (cf.hl === "chua" && !(from && from > today)) return false;
-      if (cf.hl === "het" && !(to && to < today)) return false;
-    }
-    return true;
-  }
   var INPUT_FILTER = { psluong: "Ngày hạch toán", ungluong: "Ngày hạch toán", tiencom: "Ngày" };
   var INPUT_SUM = { psluong: ["Thưởng", "Thu nhập khác", "Trừ khác"], ungluong: ["Tạm ứng"], tiencom: ["Số suất cơm"] };
   function moneySourceTable(key, rows, editable, after) {
@@ -1422,17 +1377,8 @@
     });
     return function () { var o = {}; Object.keys(getters).forEach(function (k) { o[k] = getters[k](); }); return o; };
   }
-  function missingReq(fields, data) {
-    var miss = fields.filter(function (f) { return f.req && !data[f.k]; }).map(function (f) { return f.label || f.k; });
-    fields.forEach(function (f) { if (f.t === "date" && data[f.k] && !/^\d{4}-\d{2}-\d{2}$/.test(String(data[f.k]))) miss.push((f.label || f.k) + " (ngày không hợp lệ — nhập dd/MM/yyyy)"); });
-    fields.forEach(function (f) {
-      if (f.maxChoices && HRM.split(data[f.k]).length > f.maxChoices) miss.push(f.k + " (chọn tối đa " + f.maxChoices + " mã)");
-    });
-    return miss;
-  }
 
   // ---------- Kiểm soát thay đổi ảnh hưởng kỳ lương đã chốt (core/period-guard.js) ----------
-  function retroText(imp) { return RP.retroText(imp); }
   /** Hỏi trước khi ghi 1 thay đổi. Trả true nếu được phép ghi. */
   function guardChange(table, before, after, what) {
     var imp = GRD.impactChange(db, table, before, after);
@@ -2574,7 +2520,6 @@
   }
 
   // ---------- Thuế TNCN cha–con (V9.2): DM_TNCN → DM_TNCN_BIEUTHUE ----------
-  function thueIsCha(r) { return r["Mã thuế TNCN"] && (r["Bậc"] === "" || r["Bậc"] == null); }
   function thueBo(ma, tu) { return db.dm_bacthue.filter(function (r) { return r["Mã thuế TNCN"] === ma && String(r["Hiệu lực từ"] || "") === String(tu || ""); }); }
   /** Master–Detail dạng cửa sổ: DM_TNCN (cha) → DM_TNCN_BIEUTHUE (con). Mã thuế & hiệu lực tự gán theo bảng cha. */
   function thueChiTietModal(cha) {
@@ -2805,30 +2750,6 @@
     }
     return null;
   }
-  function ctVarFromRow(name, b, nam, thang) {
-    var c = (b && b["_ct"]) || {};
-    switch (name) {
-      case "CONG_CHUAN": return c.congChuan;
-      case "CONG_CHUAN_2": return c.congChuan2;
-      case "CONG_TINH_LUONG": case "CONG_HUONG_PHU_CAP": case "CONG_THUC_TE": return b && b["Tổng công"];
-      case "CONG_BT": return c.congBT;
-      case "CONG_TC": return c.congTangCa;
-      case "CONG_CHU_NHAT": return c.congChuNhat;
-      case "CONG_LE": return c.congLe;
-      case "CONG_PHEP": return c.congPhep;
-      case "CONG_DI_CHUYEN": return c.congDiChuyen;
-      case "CONG_TRUNG_CHUYEN": return c.congTrungChuyen;
-      case "LUONG_THOA_THUAN": return b && b["Lương thỏa thuận"];
-      case "DON_GIA_CONG": return c.donGiaTG;
-      case "SL_TAN": return b && b["Sản lượng (tấn)"];
-      case "SO_XE": return b && b["Số xe bơm dăm"];
-      case "LUONG_SAN_LUONG": return b && b["Lương sản lượng"];
-      case "LUONG_BU": return b && b["Lương bù SL"];
-      case "SO_NGAY_COM": case "SO_NGAY_DUOC_HUONG": return b && b["Ngày cơm"];
-      case "SO_NGAY_THANG": return new Date(nam, thang, 0).getDate();
-      default: return null;
-    }
-  }
   function ctDefaultVar(name, b, loai, ma, nam, thang) {
     var vc = ctVarFromCode(name, loai, ma, nam, thang);
     if (vc != null) return { value: Math.round(vc * 1000) / 1000, source: "Danh mục " + ctLoaiTen(loai) + " (mã " + ma + ")" };
@@ -2837,13 +2758,6 @@
     return { value: 0, source: "chưa có nguồn tự động — nhập tay" };
   }
   /** Tên biến có trong formula-variables.js xuất hiện trong 1 biểu thức (để biết cần hỏi giá trị biến nào). */
-  function ctRefVars(expr) {
-    var found = [], seen = {};
-    (String(expr || "").match(/[A-Za-zÀ-ỹ_][A-Za-zÀ-ỹ0-9_]*/g) || []).forEach(function (w) {
-      if (FML.variables.isKnown(w) && !seen[w]) { seen[w] = 1; found.push(w); }
-    });
-    return found;
-  }
   /** Tab "Kiểm tra công thức" (mục VII, tab 6 / mục VII.2-3) — chạy thử KHÔNG ghi vào bảng lương thật. */
   function ctTestPanel() {
     st.ctTest = st.ctTest || { nam: st.nam, thang: st.thang, loai: "OVERTIME", ma: "", maNV: "", maCT: "", expr: "", vars: {} };
@@ -3108,8 +3022,6 @@
   }
   // ---------- Chốt kỳ lương ----------
   function kyChot(ky) { return db.kyluong.filter(function (k) { return k.ky === ky; })[0] || null; }
-  function kyLabel(ky) { var m = String(ky).split("-"); return "Tháng " + (+m[1]) + "/" + m[0]; }
-  function fmtTime(isoS) { var d = new Date(isoS); return isNaN(d) ? "" : d.toLocaleString("vi-VN"); }
   function excelSheets(r, ky) {
     var mm = String(ky).split("-");
     var ck = r.bangluong.filter(function (x) { return x["HTTT"] === "Chuyển khoản" && x["Thực lĩnh"] > 0; }).map(function (x, i) { return { "STT": i + 1, "Mã NV": x["Mã NV"], "Họ và tên": x["Họ và tên"], "Số tài khoản": x["Số tài khoản"], "Ngân hàng": x["Ngân hàng"], "Số tiền": x["Thực lĩnh"], "Nội dung": "Luong T" + (+mm[1]) + "/" + mm[0] + " " + x["Mã NV"] }; });
@@ -3482,7 +3394,6 @@
     return c;
   }
   // ---------- BÁO CÁO LƯƠNG ----------
-  function kyKey(nam, thang) { return nam + "-" + ("0" + thang).slice(-2); }
   // Kết quả lương của 1 kỳ: kỳ đã chốt lấy bản đã lưu, chưa chốt thì tính tạm
   var kqMemo = null;
   function kqKy(nam, thang) {
@@ -3493,17 +3404,6 @@
     var mk = [nam, thang, dbRev, st.bu, quyChe()].join("|");
     if (!kqMemo || kqMemo.key !== mk) kqMemo = { key: mk, val: tinhLuong(nam, thang) };
     return { kq: kqMemo.val, chot: false };
-  }
-  function n0(v) { return +v || 0; }
-  function addTotal(rows, label) {
-    if (!rows.length) return rows;
-    var t = {}, keys = Object.keys(rows[0]);
-    keys.forEach(function (k, i) {
-      if (i === 0) { t[k] = label || "TỔNG"; return; }
-      var allNum = rows.every(function (r) { return typeof r[k] === "number" || r[k] === "" || r[k] == null; }) && rows.some(function (r) { return typeof r[k] === "number"; });
-      t[k] = allNum && !/STT|Bậc|Số người phụ thuộc/.test(k) ? Math.round(rows.reduce(function (a, r) { return a + n0(r[k]); }, 0) * 1000) / 1000 : "";
-    });
-    return rows.concat([t]);
   }
   function tkChiPhi(maPB, tenPB, catalog) {
     var r = catalog.filter(function (x) { return (maPB && x["Mã phòng ban"] === maPB) || (!maPB && tenPB && x["Tên phòng ban"] === tenPB); })[0];
@@ -4070,10 +3970,6 @@
     };
     var m = sfUi.mount(cfg); m.cfg = cfg; return m.el;
   }
-  function pdfFallbackPrint(html) {
-    var f = document.createElement("iframe"); f.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px"; document.body.appendChild(f);
-    f.srcdoc = html; f.onload = function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { toast("Không mở được hộp thoại in"); } setTimeout(function () { f.remove(); }, 60000); };
-  }
   /** Xuất PDF: bản cài (.exe) → file PDF thật trong thư mục xuất; chạy bằng trình duyệt → hộp thoại In (chọn "Lưu thành PDF"). */
   function exportPdf(vm, fileName, opt) {
     if (!need("export", "xuất PDF")) return;
@@ -4318,12 +4214,6 @@
   /** Xuất bảng dạng mảng đối tượng (báo cáo nhân sự có sẵn) theo mẫu chung: tiêu đề công ty / TÊN IN HOA / chữ ký / A4 ngang. */
   function opsRowsVm(title, rows, file) {
     return OPS.fromRows(title, rows, { tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", file: file, kyKey: HRM.today(), kyText: "Tính đến ngày " + new Date().toLocaleDateString("vi-VN") });
-  }
-  function opsFmtCell(c, v) {
-    if (v === "" || v == null) return "";
-    if (c.kind === "money") return fmt(+v);
-    if (c.kind === "qty" || c.kind === "qty3") { var x = +v; return isFinite(x) ? x.toLocaleString("vi-VN", { maximumFractionDigits: 3 }) : String(v); }
-    return /^Ngày/.test(c.label) && /^\d{4}-\d{2}-\d{2}/.test(String(v)) ? String(v).slice(8, 10) + "/" + String(v).slice(5, 7) + "/" + String(v).slice(0, 4) : String(v);
   }
   function opsTable(attr, type, cols, groups, rows, tong, tongNhan) {
     var t = h("table", { "data-ops-report": attr }), hr = h("tr");
@@ -4719,8 +4609,6 @@
   // Cách đọc ô ngày (α22, chủ sở hữu duyệt): số công viết tay · dấu x = 1 công (xx = 2, xxx = 3), ô ghi giờ = giờ / 8 · lịch ca: 1 ca = 1 công, "1+2" = 2 công
   var OCR_MODES = [["so", "Số công (1, 0,5…)"], ["mark", "Dấu x (x = 1 công) · giờ / 8"], ["ca", "Số ca (1 ca = 1 công, 1+2 = 2)"]];
   var OCR_KIND = [["Công", "Chấm công — BT"], ["Tăng ca", "Chấm công — TC"], ["Cơm", "Suất cơm"], ["", "(bỏ qua dòng)"]];
-  function loadScript(src) { return new Promise(function (ok, bad) { if (document.querySelector('script[src="' + src + '"]')) return ok(); var sc = document.createElement("script"); sc.src = src; sc.onload = ok; sc.onerror = function () { bad(new Error("Không nạp được " + src)); }; document.head.appendChild(sc); }); }
-  function canvasOf(w, h) { var c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
   var OCR_CHUNK = 30; // số trang PDF dựng ảnh mỗi lượt (giữ bộ nhớ ổn định); phần còn lại đọc tiếp bằng nút "Đọc tiếp" — KHÔNG bỏ trang nào
   function renderPdfPages(src) {
     var pdf = src.pdf, end = Math.min(pdf.numPages, src.next + OCR_CHUNK - 1), out = [], chainP = Promise.resolve();
@@ -4755,7 +4643,6 @@
   // ===== Liên kết ô chấm công ↔ chứng từ gốc (V8): AttendanceRecordID → DocumentID → PageNumber → CellKey → OCRRunID (→ SampleID tra theo CellKey) =====
   // AttendanceRecordID là khóa tự nhiên ổn định: CC|kỳ|mã NV|hình thức công (chấm công) hoặc SC|ngày|mã NV (suất cơm). Lưu trong db.chungtu_lienket nên đi cùng dữ liệu & Full Backup.
   // Nhập lại ô đó từ chứng từ khác: liên kết cũ được GIỮ (current=false) làm lịch sử, liên kết mới là hiện hành.
-  function attRecordId(table, r) { return C.attLinks.recordId(table, r); }
   function linkMapNow() { return C.attLinks.mapOf(db.chungtu_lienket); }
   function recordCellLinks(cells, batchId) { db.chungtu_lienket = db.chungtu_lienket || []; return C.attLinks.record(db.chungtu_lienket, cells, { batchId: batchId, by: currentUser(), makeId: function (n) { return "LK-" + Date.now().toString(36) + "-" + n; } }); }
   /** Mở lại ảnh/PDF gốc của 1 ô chấm công, khoanh đúng vị trí ô OCR đã đọc. */
@@ -4803,17 +4690,13 @@
       return r.id;
     }, function (e) { toast("Chưa lưu được bản gốc: " + e.message); return ""; });
   }
-  function grayOf(cv) { var d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height); return { g: C.grid.toGray(d.data, cv.width, cv.height), w: cv.width, h: cv.height }; }
-  function grayCanvas(g, w, h) { var cv = canvasOf(w, h), cx = cv.getContext("2d"), im = cx.createImageData(w, h); for (var i = 0, j = 0; i < g.length; i++, j += 4) { im.data[j] = im.data[j + 1] = im.data[j + 2] = g[i]; im.data[j + 3] = 255; } cx.putImageData(im, 0, 0); return cv; }
   function nvChoices() { return db.nhanvien.filter(function (n) { return n["Trạng thái"] !== "Đã nghỉ việc"; }).concat(db.nhanvien.filter(function (n) { return n["Trạng thái"] === "Đã nghỉ việc"; })).map(function (n) { return { ma: n["Mã NV"], ten: n["Họ và tên"] || "" }; }); }
-  function titleName(title) { var t = (title || []).filter(function (x) { return /lịch|lich/i.test(C.tsparse.fold(x)); })[0] || ""; return t.replace(/^.*?(lịch làm|lich lam)\s*/i, "").trim(); }
   // Tự học từ chỉnh sửa (V7): mỗi ô OCR người dùng sửa tự ghi 1 mẫu "chờ duyệt"; duyệt khi ghi bảng vào Chấm công
   var OCRL = null;
   function ocrLearn() { if (!OCRL && window.hakOcrLib && C.ocrLearn) OCRL = C.ocrLearn.createService({ api: window.hakOcrLib, user: function () { return session ? session.tenDangNhap : currentUser(); }, cfg: function () { return { saveConfirmed: !!congTy()["OCR lưu mẫu xác nhận"] }; }, ocrVersion: "tsocr-v10.4+mnist-cnn-v1" }); if (OCRL && !OCRL._restored) { OCRL._restored = true; OCRL.restoreQueue().then(function (r) { if (r && r.restored) { toast("⚠ Có " + r.restored + " mẫu học từ lần trước chưa ghi vào thư viện — đã nạp lại, bấm \"Thử lại\" ở màn OCR"); } }); } return OCRL; }
   // ---- Trạng thái lưu mẫu OCR hiển thị cho người dùng (V9.4) ----
   var OCR_ST = { saved: ["lrn-saved", "Đã ghi mẫu — chờ xác minh (PENDING_VERIFICATION)"], missing: ["lrn-miss", "Thiếu ảnh nguồn — chỉ ghi lịch sử sửa, chưa tạo mẫu"], queued: ["lrn-q", "Chưa ghi được — đang giữ để thử lại"], error: ["lrn-err", "Lỗi lưu mẫu — hãy bấm Thử lại"] };
   /** Khóa ổn định của ô: dòng chưa ghép NV vẫn có khóa riêng theo vị trí dòng (không trùng nhau). */
-  function ocrRef(L, li, d) { return (L.ma || "#" + li) + "|" + d; }
   function ocrMark(inp, ref) {
     var lr = ocrLearn(), e = lr && lr.stateOf ? lr.stateOf(ref) : null; if (!e || !inp) return;
     Object.keys(OCR_ST).forEach(function (k) { inp.classList.remove(OCR_ST[k][0]); });
@@ -4829,24 +4712,7 @@
     box.appendChild(btn("Mở thư viện mẫu", "ghost", function () { OLS.tab = "cho"; OLS.page = 0; OLS.loaded = false; st.tab = "ocrlib"; render(); }, "Xem các mẫu vừa ghi trong Thư viện mẫu OCR"));
   }
   /** Tra cứu thư viện mẫu cho các ô số: AUTO_ACCEPT → dùng nhãn thư viện (ghi rõ nguồn); SUGGESTED → đánh dấu "không chắc" + gợi ý; còn lại giữ nguyên kết quả OCR. */
-  function libEnrich(lr, res, pg) {
-    if (pg.mode && pg.mode !== "so") return Promise.resolve();
-    var items = [], refs = {};
-    ((res.table && res.table.lines) || []).forEach(function (l, li) { Object.keys(l.cells || {}).forEach(function (d) { if (!/^\d+$/.test(d)) return; var c = l.cells[d]; if (c && c.ink && c.bb) { var k = li + "|" + d; items.push({ cell: c, key: k }); refs[k] = { l: l, d: d, c: c }; } }); });
-    return lr.lookupCells(res, items, "so").then(function (m) {
-      Object.keys(m).forEach(function (k) {
-        var r = m[k], x = refs[k]; if (!r || !x) return;
-        if (r.status === "AUTO_ACCEPT") { var n = parseFloat(String(r.label).replace(",", ".")); if (isFinite(n)) { if (x.l.values[x.d] !== n) x.c.libFrom = x.l.values[x.d]; x.l.values[x.d] = n; x.c.valSrc = "thư viện mẫu"; x.c.libStatus = "AUTO"; x.c.libScore = r.score; x.c.unsure = false; } }
-        else if (r.status === "SUGGESTED") { x.c.libStatus = "SUG"; x.c.libLabel = r.label; x.c.libScore = r.score; if (String(x.l.values[x.d]) !== String(r.label).replace(",", ".")) x.c.unsure = true; }
-      });
-    });
-  }
   /** So khớp bố cục bảng với thư viện bố cục: MISMATCH → không tự nhận ô bằng thư viện và không học từ trang này (trừ khi người dùng xác nhận bố cục mới) */
-  function layoutCheck(res, pg) {
-    pg.layoutSig = C.ocrLayout && window.hakOcrLib && window.hakOcrLib.layoutMatch ? C.ocrLayout.signature(res) : null; pg.layoutStatus = ""; pg.layoutInfo = "";
-    if (!pg.layoutSig) return Promise.resolve();
-    return window.hakOcrLib.layoutMatch(pg.layoutSig).then(function (r) { if (r && r.ok && r.match) { pg.layoutStatus = r.match.status; pg.layoutId = r.match.id; pg.layoutInfo = r.match.reason || (r.match.status === "MATCH" ? "khớp bố cục \"" + r.match.name + "\" (" + Math.round(r.match.score * 100) + "%)" : ""); } }, function () {});
-  }
   function analyzePage(pg, rot) {
     pg.status = "Đang đọc…"; pg.err = ""; pg.stopped = false; OCRS.busy = true; render();
     var t0 = Date.now();
@@ -4879,7 +4745,6 @@
       if (window.console && res.table.warnings && res.table.warnings.length) console.info("OCR:", res.table.warnings.join(" | "));
   }
   var OCR_STOP = { stop: true };
-  function markStopped(pg) { pg.stopped = true; pg.status = "Đã dừng — bấm Đọc lại để đọc trang này"; }
   /** Đọc lần lượt các trang chưa đọc; bấm Dừng đọc → trang đang đọc dừng sau lô ô hiện tại, các trang sau không đọc */
   function readQueue(single) {
     OCRS.stop = false; OCRS.reading = true; render();
@@ -4945,11 +4810,6 @@
     return n;
   }
   /** Ô OCR đã THỰC SỰ nằm trong dữ liệu vừa ghi (dòng add/update/merged của kế hoạch nhập đã commit) — dòng lỗi/bỏ qua/trùng/khóa không tính. */
-  function ocrImportedCells(plans, meta) {
-    var out = [], seen = {};
-    (plans || []).forEach(function (p) { var m = meta[p.table]; if (!m) return; p.items.forEach(function (it) { if (it.action !== "add" && it.action !== "update" && it.action !== "merged") return; var mm = m[(it.line || 0) - 1]; if (mm) mm.cells.forEach(function (c) { if (!seen[c.key]) { seen[c.key] = 1; out.push(c); } }); }); });
-    return out;
-  }
   function ocrApply(pages) {
     if (!need("input.edit", "ghi chấm công / suất cơm")) return;
     var rr = ocrRows(pages);
@@ -5496,8 +5356,6 @@
     return card;
   }
   // ---------- Khôi phục / sao lưu / kiểm tra dữ liệu ----------
-  function summarize(o) { return "Nhân viên: " + ((o.nhanvien || []).length) + " · Chấm công: " + ((o.chamcong || []).length) + " dòng · Kỳ đã chốt: " + ((o.kyluong || []).length); }
-  function chotSummary(o) { var m = {}; (o.kyluong || []).forEach(function (k) { if (k && k.ky) m[k.ky] = "v" + (k.version || 1) + " · " + fmt((k.totals && k.totals.thucLinh) || 0); }); return m; }
   // opts.quarantine: cất file dữ liệu hỏng hiện tại (chỉ làm SAU khi người dùng đã xác nhận khôi phục)
   function restoreFromText(text, label, opts) {
     opts = opts || {};
@@ -6069,7 +5927,6 @@
     f.appendChild(skinSelect);
     f.appendChild(h("div", { class: "ver", "data-storage-label": ver, text: ver }));
   }
-  function fold(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase(); }
   /** Tìm nhanh (Ctrl+K): màn hình, nhân viên, báo cáo — gõ không dấu cũng được, Enter để mở. */
   function quickSearch() {
     if (!session || loadError) return;
@@ -6103,8 +5960,6 @@
   }
   // ---------- File đã tải (2.0-α16): Excel / báo cáo / phiếu lương lưu vào 1 thư mục, mở file hoặc mở thư mục ngay trong app ----------
   var FILES = window.hakFiles || null; // chỉ có ở bản cài (.exe); trình duyệt thì tải file theo cách của trình duyệt
-  function fmtSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
-  function fileGone() { toast("Không còn file này trong thư mục lưu (đã bị xóa / đổi tên / chuyển đi)"); }
   function openFile(name) { if (!FILES.open(name)) fileGone(); }
   function showFile(name) { if (!FILES.show(name)) fileGone(); }
   /** Thẻ báo sau mỗi lần tải: tên file + nơi lưu + [Mở file] [Mở thư mục] */

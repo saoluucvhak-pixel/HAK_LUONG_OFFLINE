@@ -70,3 +70,23 @@ Mỗi dòng là **một PR riêng**, cùng quy trình: chạy `npm ci`, `npm tes
 4. Có ưu tiên màn hình nào tách trước không (theo thứ tự dùng nhiều nhất)?
 
 **Lưu ý nghiệm thu:** mọi bước tách chỉ được coi là xong sau khi bộ E2E đạt và có ảnh chụp trước/sau. Chưa nghiệm thu trên máy Windows thật.
+
+## 8. Đã làm (cập nhật 15/11/2026)
+
+**Bước 1 — chuyển hàm trợ giúp sang `ui/app-helpers.js`.** Chỉ di chuyển, nội dung từng hàm giữ nguyên từng ký tự.
+
+- Đã chuyển **43 hàm** (152 dòng, ~19 KB): `$`, `toast`, `esc`, `fmt`, `qtyText`, `moneyText`, `moneyLive`, `dateFix`, `dateIso`, `kyLabel`, `kyKey`, `n0`, `sheetName`, `slug`, `loadScript`, các hàm ảnh/OCR thuần (`canvasOf`, `grayOf`, `grayCanvas`, `layoutCheck`…) và một số hàm định dạng khác. `app.js` lấy lại chúng qua `window.HAKAppHelpers` ở đầu file; `index.html` nạp `ui/app-helpers.js` ngay trước `app.js`.
+- Con số 134 hàm ở §6 là ước lượng quá rộng. Đo lại bằng phân tích phạm vi biến (eslint-scope): chỉ **56 hàm** không đọc/ghi biến nào của `app.js` ngoài các bí danh module (`C`, `VAL`, `RP`, `FML`, `LF`). Trong đó **13 hàm được giữ lại** vì có test cắt mã nguồn `app.js` quanh chúng (ví dụ `h`, `ocrNum`, `tkChiPhi`) hoặc vì chúng gọi hàm bị giữ lại (`btn`, `simpleTable`… gọi `h`).
+- Vì không hàm nào bị test cắt nguồn bị di chuyển, **16 file test đọc `app.js` không phải sửa** và hàm đọc nguồn chung ở §4 chưa cần đến.
+- Kiểm chứng: `npm test` 900/900, lint sạch, `test:ui-dom` đạt, `check-consolidation` đạt, E2E Electron đầy đủ 275/275 (chạy trên Linux dưới xvfb). Chưa nghiệm thu trên Windows thật. Chưa chụp ảnh màn hình trước/sau vì giao diện không đổi và E2E đã bao phủ.
+- Chưa tăng phiên bản: các bước tách sẽ phát hành chung một bản khi xong đợt.
+
+**Bước 2 — chia `app.js` thành 28 file trong `LuongHAK_Offline/app-src/`, ghép lại lúc build** (chủ sở hữu chọn ngày 15/11/2026; là dạng đơn giản của cách B ở §3, không cần esbuild).
+
+- Mỗi file là một đoạn liên tiếp của hàm bao, cắt tại các tiêu đề mục `// ---------- … ----------` có sẵn: lưu trữ, đăng nhập và phân quyền, Excel, danh mục, bảng nhập liệu, nhân sự, HĐLĐ, kiểm tra bảng lương, công thức lương, tính lương, chốt kỳ, báo cáo lương, OCR, sao lưu và khôi phục, khung điều hướng… Điểm cắt đã được kiểm bằng cây cú pháp: không điểm nào nằm giữa một câu lệnh.
+- `scripts/build-app.cjs` (`npm run build:app`) ghép các file theo thứ tự tên thành `app.js`. `app.js` vẫn được commit và là file duy nhất Electron, bộ cài và các test đọc. So với trước khi chia, `app.js` chỉ thêm đúng một dòng chú thích "không sửa trực tiếp" ở đầu file.
+- `tests/unit/app-parts.test.js` (3 test) bắt trường hợp `app.js` lệch với `app-src/`. `app-src/` không vào bộ cài và không được lint riêng (lint chạy trên `app.js` đã ghép).
+- Hạn chế: các file trong `app-src/` không phải module độc lập, vẫn dùng chung một phạm vi biến. Cách này giúp tìm, đọc và xem diff theo từng màn hình; chưa tạo ranh giới phụ thuộc giữa các màn hình. Muốn có ranh giới thật thì vẫn cần PR 4 ở §6.
+- Kiểm chứng: `npm test` 903/903, lint sạch, `test:ui-dom`, `check-consolidation` đạt.
+
+**Còn lại của nhóm 4:** gom bốn đường ghi (nhập Excel, gộp chấm công, thêm và xóa nhân viên) vào `core/repository.js` (§5); chuyển báo cáo `bc*` sang `core/reporting` kèm test.

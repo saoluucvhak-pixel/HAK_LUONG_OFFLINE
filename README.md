@@ -4,7 +4,7 @@
 
 ## Bố trí mã nguồn
 
-- `LuongHAK_Offline/`: app chính — tính/chốt kỳ, danh mục cha–con, OCR, kho năm, Full Backup.
+- `LuongHAK_Offline/`: app chính — tính/chốt kỳ, danh mục cha–con, OCR, kho năm, Full Backup. Giao diện sửa trong `LuongHAK_Offline/app-src/` rồi chạy `npm --prefix LuongHAK_Offline run build:app` để ghép lại `app.js` (xem `app-src/README.md`).
 - `design-system/`, `HAK_SMART_FILTER/`, `HAK_AI_SKILLS/`, `HAK_CODE_QUALITY_TEST/`, `HAK_ACCOUNTING_REPORT_STANDARD/`: tài nguyên dùng chung đã có trong dòng V10.4.
 - `experimental/kpi/`: mô-đun, test và dự thảo KPI được giữ riêng. Chưa nạp vào app hoặc dùng để trả lương.
 - `legacy/dev-reference/`: bản tham chiếu của nhánh dev đã hardening, không đóng gói vào app chính. Không chạy HAKDocs hay workflow phát hành trong bản tham chiếu.
