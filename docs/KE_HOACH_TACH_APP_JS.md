@@ -1,0 +1,72 @@
+# Kế hoạch tách `app.js` (nhóm việc 4)
+
+Phân tích ngày 15/11/2026 trên `main` (2.0.16). **Chỉ lập kế hoạch, chưa di chuyển dòng mã nào.** Theo prompt: chỉ di chuyển mã, không viết lại logic; mỗi PR tách một nhóm; mỗi PR kèm toàn bộ test, E2E và ảnh chụp màn hình trước/sau ở 1366×768 và 1920×1080.
+
+## 1. Hiện trạng đo được
+
+- `LuongHAK_Offline/app.js`: **6.274 dòng, ~659 KB**, một hàm IIFE duy nhất. 327 hàm khai báo cấp 1 và 129 biến cấp 1.
+- Nạp bằng một thẻ `<script src="app.js">` (dòng 97 của `index.html`, cùng hơn 70 thẻ script khác). Không có bundler; trình duyệt chạy script thường, không dùng module ES.
+- Nhóm hàm lớn nhất: các màn hình `tab*` (21 hàm, ~1.300 dòng), lưới dữ liệu `grid` (1 hàm, 357 dòng), `tabOCR` (243 dòng), danh mục công thức `ct*` (18 hàm, ~330 dòng), thẻ `card*` (10 hàm, ~320 dòng), báo cáo `bc*` (7 hàm, ~116 dòng).
+- Màn hình (hàm `tab*`): `tabNhanVien`, `tabNhanSu`, `tabBaoCao`, `tabHuongDan`, `tabDanhMuc`, `tabKiemTra`, `tabNghiepVuNS`, `tabCaiDat`, `tabKyLuong`, `tabBaoCaoLuong`, `tabDoiChieu`, `tabLuong`, `tabPayReport`, `tabOpsReport`, `tabBangTinhNoiBo`, `tabSlips`, `tabOcrLib`, `tabOCR`, `tabHome`, `tabSaoLuu`, `tabAllowed`.
+- Báo cáo `bc*`: `bcCong`, `bcSanLuong`, `bcHachToan`, `bcSoSanh`, `bc12Thang`, `bcNVNam`, `bcThueNam`.
+
+## 2. Biến dùng chung giữa các màn hình (phải xử lý trước khi tách)
+
+Số hàm cấp 1 tham chiếu tới từng biến (đo bằng phân tích cú pháp, không phải đoán):
+
+| Biến | Số hàm dùng | Bị gán lại? | Ghi chú |
+|---|---:|---|---|
+| `db` | 127 | **Có, 7 chỗ** | Toàn bộ dữ liệu lương. Gán lại khi mở file, khôi phục, hoàn tác lưu lỗi. |
+| `st` | 104 | Không (đổi tại chỗ) | Trạng thái giao diện (màn hình, kỳ, bộ lọc). Có thể chia sẻ như đối tượng ổn định. |
+| `session` | 29 | **Có, 12 chỗ** | Người đăng nhập và phiên. |
+| `C`, `E`, `VAL`, `REPO`, `HR`, `PERM`, `AUTH`, `INT`, `GATE`, `RF`, … | 8–37 | Không | Hằng tham chiếu module `core/*`; chuyển được như tham số. |
+| `store`, `ALL` | 20, 19 | Không | Lưu trữ và danh sách bảng. |
+| `lastTxnError`, `lastSaveError` | 18, 5 | Có (4, 4) | Trạng thái lỗi lưu. |
+| `dbRev`, `dirty`, `readOnly`, `loadError` | 12, 11, 5, – | Có (4, 8, 10, 10) | Cờ vòng đời lưu/đọc. |
+| `now`, `winUser`, `lastActive`, `saveTimer`, `fromLocal`, … | – | Có (một số) | Chủ yếu trong khối khởi động/lưu. |
+
+**Biến cấp 1 bị gán lại sau khai báo (23 biến):** `session`×12, `loadError`×10, `readOnly`×10, `dirty`×8, `db`×7, `lastSaveError`×4, `lastTxnError`×4, `dbRev`×4, `INDEX_PB`×3, `saveTimer`×2, `lastActive`×2, `impBusy`×2, và 11 biến chỉ gán một lần (`fromLocal`, `schemaReport`, `migMsg`, `sessionActivityAt`, `dlId`, `kqMemo`, `STEP_CACHE`, `RFCTX_KEY`, `RFCTX_LAST`, `OCRL`, `sessChecked`).
+
+Khó khăn cốt lõi: vì app là **một closure**, hàm đưa sang file khác **mất quyền truy cập** `db`, `st`, `session`… Biến bị gán lại thì không thể chỉ "truyền tham số" một lần.
+
+## 3. Các cách làm và đề xuất
+
+| Cách | Mô tả | Ưu | Nhược |
+|---|---|---|---|
+| A. Đối tượng ngữ cảnh | Một file `ui/app-context.js` giữ trạng thái chung; các file màn hình nhận `ctx`. | Không cần công cụ build. | Phải **đổi cách truy cập** trong mã đã chuyển (`db` → `ctx.db`) — chạm vào hầu hết các dòng, trái với "không viết lại logic". |
+| B. Bundler lúc build (esbuild) | Mã nguồn chia nhiều module; bước build ghép lại **một IIFE `app.js`** như hiện nay. | Giữ nguyên một closure nên **không đổi cách truy cập biến**; khớp mục 5 của Phase 2. | Thêm công cụ build; các test đọc `app.js` trực tiếp cần chỉnh (xem §4); phải bảo đảm chạy được không cần mạng (esbuild chỉ dùng lúc build). |
+| C. Hai bước (đề xuất) | Bước 1: chuyển các hàm **không đụng trạng thái dùng chung** sang `ui/*.js` thường. Bước 2: chuyển các màn hình bằng cách đổi 7 + 12 chỗ gán lại `db`/`session` thành **cập nhật tại chỗ** (đối tượng ổn định), rồi chia sẻ đối tượng qua `ctx` mà không đổi cách đọc ở các màn hình. | Rủi ro thấp ở bước 1; bước 2 chỉ chạm vài chục dòng gán lại. | Bước 2 đòi hỏi test khóa hành vi hoàn tác/khôi phục trước (xem §5). |
+
+**Đề xuất: cách C**, chia thành các PR nhỏ theo §6. Cách B để sau, nếu chủ sở hữu muốn dùng module ES.
+
+## 4. Rủi ro riêng của repo này: test đọc nguồn `app.js`
+
+**16 file test** đọc trực tiếp văn bản `app.js` và kiểm tra bằng biểu thức chính quy (ví dụ `cccd-duplicate`, `employee-save-error`, `icons`, `modal-selection`, `pay-privacy`, `payroll-close`, `payroll-deficit`, `pending-save-boundaries`, `permissions`, `repository`, `restore-atomic-ui`, `security-save-atomic`, `session-activity`, `shared-ocr-import`, `v104-design-contract`, `v94-payroll-reports`). Khi một đoạn chuyển sang file mới, các test này sẽ hỏng dù hành vi không đổi.
+
+Cách xử lý, **không nới lỏng test**: thêm một hàm đọc nguồn chung (ví dụ `readAppSource()` ghép `app.js` và các file `ui/app-*.js`) và để 16 test dùng hàm đó. Kiểm tra giữ nguyên nội dung; chỉ đổi nơi đọc. Việc này làm trong PR đầu tiên, trước khi di chuyển mã.
+
+## 5. Gom bốn đường ghi còn lại vào `core/repository.js`
+
+Theo roadmap: nhập Excel, gộp chấm công, thêm nhân viên, xóa nhân viên. Prompt yêu cầu **test khóa hành vi trước khi chuyển**. Kế hoạch: PR riêng cho mỗi đường, mỗi PR gồm (1) test đặc tả hành vi hiện tại (kể cả đường lỗi và hoàn tác), (2) chuyển ghi qua repository, (3) chạy lại E2E nhập liệu. Làm sau khi tách xong bước 1 của §6 để diff nhỏ hơn.
+
+## 6. Thứ tự PR đề xuất
+
+Mỗi dòng là **một PR riêng**, cùng quy trình: chạy `npm ci`, `npm test`, lint, `test:ui-dom`, E2E, chụp màn hình trước/sau ở 1366×768 và 1920×1080, `check-consolidation`, và so sánh kết quả engine không đổi.
+
+| PR | Nội dung | Phạm vi |
+|---|---|---|
+| 1 | Hàm đọc nguồn chung cho 16 test (§4). Không đổi mã chạy. | Chỉ test |
+| 2 | Chuyển **134 hàm không dùng trạng thái chung** (~1.044 dòng): trợ giúp DOM (`$`, `h`, `btn`, `toast`), định dạng (`qtyText`, `fmt`, `esc`, `moneyText`, `moneyLive`), tiện ích Excel (`saveXlsx`, `readWorkbook`, `templateSheet`…), ô nhập (`dateField`, `dateFix`, `dateIso`), hộp thoại (`askText`, `askPassword`) sang `ui/app-helpers.js`. | Thấp rủi ro |
+| 3 | Chuyển báo cáo `bc*` (7 hàm) và các bộ dựng báo cáo thuần sang `core/reporting/` kèm test so sánh đầu ra trước/sau trên dữ liệu tổng hợp. | Trung bình |
+| 4 | Đổi 7 chỗ gán lại `db` và 12 chỗ gán lại `session` thành cập nhật tại chỗ (đối tượng ổn định) + test khóa hoàn tác/khôi phục/đăng xuất. Dừng nếu test phát hiện nơi giữ tham chiếu `db` cũ. | **Cao** — chạm vòng đời lưu |
+| 5 → n | Mỗi PR một nhóm màn hình, đi từ ít phụ thuộc nhất: `tabHuongDan`, `tabHome`, `tabAllowed` → `tabKiemTra`, `tabSaoLuu` → các màn hình báo cáo (`tabBaoCao`, `tabBaoCaoLuong`, `tabPayReport`, `tabOpsReport`, `tabSlips`) → nhân sự (`tabNhanVien`, `tabNhanSu`, `tabNghiepVuNS`) → lương và kỳ (`tabLuong`, `tabKyLuong`, `tabDoiChieu`) → OCR (`tabOCR`, `tabOcrLib`) → cài đặt và danh mục (`tabCaiDat`, `tabDanhMuc`, `ct*`). Hàm `grid` (357 dòng) để cuối cùng. | Tăng dần |
+| sau | Gom bốn đường ghi vào repository (§5). | Từng đường một PR |
+
+## 7. Câu hỏi cần chủ sở hữu quyết định
+
+1. Chọn cách C (hai bước, đề xuất) hay cách B (bundler)?
+2. Đồng ý PR 4 (đổi `db`/`session` thành cập nhật tại chỗ) hay giữ nguyên và chỉ tách phần không đụng trạng thái?
+3. Chấp nhận đổi cách các test đọc `app.js` (§4) không?
+4. Có ưu tiên màn hình nào tách trước không (theo thứ tự dùng nhiều nhất)?
+
+**Lưu ý nghiệm thu:** mọi bước tách chỉ được coi là xong sau khi bộ E2E đạt và có ảnh chụp trước/sau. Chưa nghiệm thu trên máy Windows thật.
