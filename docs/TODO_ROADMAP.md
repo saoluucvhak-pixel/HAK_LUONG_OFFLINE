@@ -2,9 +2,10 @@
 
 > File này là "bộ nhớ" của dự án: phiên làm việc sau đọc file này để tiếp tục mà không mất ngữ cảnh.
 
-## Trạng thái hiện tại (15/11/2026)
-- Nhánh phát hành: `main` · phiên bản **2.0.16** (engine 1.8.x, quy chế lương HAK Group 2026). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`.
-- Đã xong từ 2.0.0 đến 2.0.16: đăng nhập và phân quyền, chốt kỳ an toàn, sao lưu theo năm và Full Backup, OCR chấm công (CNN chữ số tay, ý kiến thứ hai Umi-OCR tùy chọn), phân bổ sản lượng theo tổ và công BT (R-66/R-73), bộ báo cáo kỳ lương Excel/PDF, đối chiếu đơn nghỉ với chấm công và hạn mức phép năm, CI một luồng duy nhất (`.github/workflows/luong-hak-v10-4-setup.yml`), Electron 45.3.2, SheetJS 0.20.3.
+## Trạng thái hiện tại (16/11/2026)
+- Nhánh phát hành: `main` · phiên bản **2.0.17** (engine 1.8.x, quy chế lương HAK Group 2026). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`.
+- Đã xong từ 2.0.0 đến 2.0.17: đăng nhập và phân quyền, chốt kỳ an toàn, sao lưu theo năm và Full Backup, OCR chấm công (CNN chữ số tay, ý kiến thứ hai Umi-OCR tùy chọn), phân bổ sản lượng theo tổ và công BT (R-66/R-73), bộ báo cáo kỳ lương Excel/PDF, đối chiếu đơn nghỉ với chấm công và hạn mức phép năm, CI một luồng duy nhất (`.github/workflows/luong-hak-v10-4-setup.yml`), Electron 45.3.2, SheetJS 0.20.3.
+- Mới ở 2.0.17: `app.js` được ghép từ `app-src/` (28 đoạn + 21 màn hình trong `app-src/screens/`, `npm run build:app`); hàm trợ giúp ở `ui/app-helpers.js`; 7 báo cáo kỳ lương ở `core/reporting/period-reports.js`; bốn đường ghi (nhập Excel, gộp chấm công, thêm và xóa nhân viên) đi qua `core/repository.js` có hoàn tác; báo cáo kỳ đã chốt lấy số liệu lưu lúc chốt; file dùng chung với `HAK_SMART_FILTER` và design system được khóa bằng `shared-modules.lock.json`.
 - Kiến trúc đích: theo sơ đồ của chủ sở hữu (Giao diện → HRM/PAYROLL/REPORTS → Core Engine → Database & Integrations) — `ARCHITECTURE.md`.
 - Nghiệm thu: mọi bản đã kiểm tra trên Linux (unit, integration, regression, E2E Electron) và build bộ cài Windows trong CI. **Chưa nghiệm thu trên máy Windows thật** theo `LuongHAK_Offline/docs/V10_1_WINDOWS_UAT.md`.
 
@@ -63,11 +64,12 @@
 - [x] Q-19 chia chi phí theo phòng ban (R-53, alpha.12)
 - [x] Q-04/Q-23/Q-25 BH dưới ngưỡng: giữ công thức, ngưỡng khai ở Danh mục Mã lương (R-57)
 - [x] Sao lưu ra ngoài máy A + B + D (alpha.13, R-58); C (mã hóa bản sao lưu) — chưa làm theo quyết định chủ sở hữu
-- Tiếp theo: gom 4 đường ghi còn lại (nhập Excel, gộp chấm công, thêm NV, xóa NV) vào repository → SQLite ghi theo dòng
+- [x] Gom 4 đường ghi còn lại (nhập Excel, gộp chấm công, thêm NV, xóa NV) vào repository (2.0.17)
+- Tiếp theo: SQLite ghi theo dòng (`MIGRATION_PLAN.md` §2)
 
 ## Phase 2 — Chuẩn hóa kiến trúc (bước tiếp theo)
 0. (Đã khảo sát khi app dùng Electron 43; nay Electron 45.3.2 — kiểm lại khi làm) SQLite qua `node:sqlite` có sẵn trong Node đi kèm Electron, không cần module native. App hiện **chưa** dùng SQLite.
-1. *(Đang làm — xong: 43 hàm trợ giúp sang `ui/app-helpers.js`; `app.js` chia thành 28 file trong `app-src/`, ghép bằng `npm run build:app`; xem `KE_HOACH_TACH_APP_JS.md` §8.)* Tách `app.js` theo `ARCHITECTURE.md` §2: `src/renderer/pages/*` (mỗi trang 1 file), `src/modules/payroll/reports.js` (chuyển `bc*` ra khỏi UI, có test), `src/modules/hrm/*` (từ `hr.js`).
+1. ✅ (2.0.17) Tách `app.js`: hàm trợ giúp sang `ui/app-helpers.js`, mã giao diện chia theo màn hình trong `app-src/` và `app-src/screens/`, báo cáo kỳ lương sang `core/reporting`. Các đoạn vẫn dùng chung một phạm vi biến; chưa phải module độc lập (xem `KE_HOACH_TACH_APP_JS.md` §8).
 2. Tầng repository: mọi truy cập `db.<bảng>` qua `repo.list/get/insert/update/remove` (kiểm tra khóa, khóa kỳ, nhật ký trước/sau tại 1 chỗ). Viết test cho repository trước khi chuyển.
 3. ~~PERF-01~~ ✅ alpha.5 (22 ms / 5.000 NV).
 4. SQLite theo `MIGRATION_PLAN.md` §2 (chạy song song JSON/SQLite, so sánh kết quả = 0 khác biệt).

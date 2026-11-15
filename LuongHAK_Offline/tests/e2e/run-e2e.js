@@ -174,6 +174,22 @@ async function launch(dataDir, opt) {
     ok("V10.4: Tab vẫn ở trong Smart Filter sau khi Đặt lại vẽ lại nội dung", await w.evaluate(() => !!document.activeElement.closest("[data-sf-drawer]")));
     await w.keyboard.press("Escape");
     ok("V10.4: Escape đóng Smart Filter và trả focus về nút mở", await w.locator("[data-sf-adv]").evaluate((el) => document.activeElement === el && el.getAttribute("aria-expanded") === "false"));
+    { // v2.0.17: kho bộ lọc đã lưu bị lỗi — app báo, không ghi đè; chỉ tạo kho mới khi người dùng bấm nút, bản cũ được giữ nguyên văn
+      const KEY = "hak.sf.presets", BAD = "{kho-loi-e2e";
+      const goodBefore = await w.evaluate((k) => localStorage.getItem(k), KEY);
+      await w.evaluate(([k, v]) => localStorage.setItem(k, v), [KEY, BAD]);
+      await w.locator("[data-sf-adv]").click(); await w.waitForSelector("[data-sf-drawer]");
+      const warned = await w.locator("[data-sf-drawer] [data-sf-corrupt]").count();
+      ok("Kho bộ lọc lỗi: ngăn bộ lọc báo và có nút sao lưu", warned === 1 && /bị lỗi/.test(await w.locator("[data-sf-drawer] [data-sf-presets]").innerText()));
+      ok("Kho bộ lọc lỗi: mở ngăn bộ lọc không tự ghi đè kho", (await w.evaluate((k) => localStorage.getItem(k), KEY)) === BAD);
+      await w.locator("[data-sf-drawer] button:has-text('Sao lưu kho cũ và tạo kho mới')").click();
+      const after = await w.evaluate((k) => ({ now: localStorage.getItem(k), baks: Object.keys(localStorage).filter((x) => x.indexOf(k + ".bak") === 0).map((x) => localStorage.getItem(x)) }), KEY);
+      let fresh = null; try { fresh = JSON.parse(after.now); } catch (e) { /* để fresh = null → test đỏ */ }
+      ok("Kho bộ lọc lỗi: bấm nút → bản cũ còn nguyên văn ở khóa sao lưu, kho mới trống và đọc được", after.baks.indexOf(BAD) >= 0 && !!fresh && fresh.screens && Object.keys(fresh.screens).length === 0, JSON.stringify(after).slice(0, 160));
+      ok("Kho bộ lọc lỗi: sau khi tạo kho mới, cảnh báo biến mất", (await w.locator("[data-sf-drawer] [data-sf-corrupt]").count()) === 0);
+      await w.keyboard.press("Escape");
+      await w.evaluate(([k, v]) => { Object.keys(localStorage).filter((x) => x.indexOf(k + ".bak") === 0).forEach((x) => localStorage.removeItem(x)); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }, [KEY, goodBefore]);
+    }
     ok("Bộ lọc V9.4/V10.3: thanh nhanh là nút (không còn dropdown details) ≥2 nhóm; bộ lọc nâng cao có ≥3 nhóm", keys.length >= 2 && advGroups >= 3 && (await w.locator("details.msel").count()) === 0, keys.join(",") + " · nâng cao=" + advGroups);
     await w.locator('[data-fkey="' + keys[0] + '"]').click(); const p1 = await pops();
     await w.locator('[data-fkey="' + keys[1] + '"]').click(); const p2 = await pops(), id2 = await w.locator("[data-fpop]").getAttribute("data-fpop");

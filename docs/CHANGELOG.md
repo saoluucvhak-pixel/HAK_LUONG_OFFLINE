@@ -3,6 +3,10 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.17. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [Chưa phát hành]
+- CI: bộ quét bảo mật không còn báo nhầm `regex.exec()` là "thực thi mã động" (trước đây 39 lỗi mức cao, đều là báo nhầm), bỏ qua thư viện đã nén và dòng chú thích, và nay là bước bắt buộc trên mã đi vào bộ cài.
+- Test: thêm 4 kiểm tra Electron cho luồng kho bộ lọc đã lưu bị lỗi (báo, không ghi đè, nút sao lưu tạo kho mới, bản cũ còn nguyên).
+
 ## [2.0.17] — 16/11/2026
 - Tách `app.js`, bước 1: chuyển 43 hàm trợ giúp không dùng trạng thái sang `ui/app-helpers.js` (chỉ di chuyển, không đổi nội dung hàm). Không đổi hành vi, không đổi kết quả tính lương.
 - Tách `app.js`, bước 2: mã nguồn giao diện chia thành 28 file theo màn hình trong `LuongHAK_Offline/app-src/`; `npm run build:app` ghép lại thành `app.js`. Nội dung `app.js` chỉ thêm một dòng chú thích.

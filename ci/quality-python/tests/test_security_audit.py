@@ -23,4 +23,30 @@ class SecurityAuditTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             pathlib.Path(d,"api.py").write_text("requests.get(url, verify=False)",encoding="utf-8")
             self.assertEqual(module.scan(pathlib.Path(d))["findings"][0]["rule"],"SEC004")
+    def scan_text(self, name, text):
+        with tempfile.TemporaryDirectory() as d:
+            pathlib.Path(d,name).write_text(text,encoding="utf-8")
+            return module.scan(pathlib.Path(d))
+    def test_regex_exec_and_other_exec_methods_are_not_dynamic_execution(self):
+        report=self.scan_text("a.js","var m = /^(\\d+)$/.exec(String(v));\nvar n = re.exec(s); stmt.exec(sql);\nobj.eval(x);\n")
+        self.assertEqual(report["high"],0)
+    def test_real_dynamic_execution_is_still_flagged(self):
+        for text in ("eval(code)\n","x = eval (code)\n","exec(cmd)\n","var f = new Function('a', body);\n","child_process.exec(cmd)\n","cp.execSync(cmd)\n","window.setTimeout(function(){ eval(s) })\n"):
+            self.assertEqual(self.scan_text("a.js",text)["high"],1,text)
+    def test_comment_lines_are_not_findings(self):
+        report=self.scan_text("a.js","// KHÔNG dùng eval()/new Function()\n  * eval(x) trong chú thích khối\n# exec(cmd)\n")
+        self.assertEqual(report["findings"],[])
+    def test_minified_vendor_files_and_bundle_fragments_are_skipped(self):
+        with tempfile.TemporaryDirectory() as d:
+            pathlib.Path(d,"lib.min.js").write_text("eval(x)",encoding="utf-8")
+            parts=pathlib.Path(d,"app-src"); parts.mkdir(); (parts/"01-a.js").write_text("el.innerHTML = x;",encoding="utf-8")
+            pathlib.Path(d,"app.js").write_text("el.innerHTML = x;",encoding="utf-8")
+            report=module.scan(pathlib.Path(d))
+            self.assertEqual(report["scannedFiles"],1)
+            self.assertEqual(len(report["findings"]),1)
+    def test_extra_folders_can_be_excluded(self):
+        with tempfile.TemporaryDirectory() as d:
+            tests=pathlib.Path(d,"tests"); tests.mkdir(); (tests/"t.js").write_text("cp.execSync(cmd)",encoding="utf-8")
+            self.assertEqual(module.scan(pathlib.Path(d))["high"],1)
+            self.assertEqual(module.scan(pathlib.Path(d),exclude=["tests"])["scannedFiles"],0)
 if __name__=="__main__":unittest.main()
