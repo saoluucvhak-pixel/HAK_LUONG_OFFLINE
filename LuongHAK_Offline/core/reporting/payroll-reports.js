@@ -107,7 +107,7 @@
       groups = CT_NV_GROUPS; cols = flat(groups);
       rows = f.rows.map(function (r, i) { var o = { "STT": i + 1 }; cols.forEach(function (c) { if (c[0] !== "STT") o[c[0]] = c[1] === "text" ? s(r[c[0]]) : (r[c[0]] == null || r[c[0]] === "" ? 0 : n(r[c[0]])); }); return o; });
       f.rows.forEach(function (r) {
-        if (n(r["Tổng thu nhập"]) < n(r["Thực lĩnh"])) loi.push(r["Mã NV"] + ": thực lĩnh lớn hơn tổng thu nhập");
+        if (n(r["Tổng thu nhập"]) + 500 < n(r["Thực lĩnh"])) loi.push(r["Mã NV"] + ": thực lĩnh lớn hơn tổng thu nhập");
       });
       if (f.rows.some(function (r) { return !s(r["Phòng ban"]); })) canhbao.push("Có người chưa gán phòng ban.");
     } else if (type === "CHI_TIET_TT") {
