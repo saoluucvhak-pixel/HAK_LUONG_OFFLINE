@@ -101,10 +101,17 @@
       });
       var save = btn("💾 Lưu bộ lọc hiện tại", "ghost", function () {
         if (SF.isEmpty(getS())) { A.toast("Chưa chọn điều kiện lọc nào"); return; }
-        A.askText("Lưu bộ lọc", "Tên bộ lọc (chỉ dùng cho màn hình này):", {}, function (name) { var r = ps.save(cfg.screenId, name, getS()); A.toast(r.ok ? "Đã lưu bộ lọc “" + String(name).trim() + "”" : "⚠ " + r.msg); rerender(); });
+        A.askText("Lưu bộ lọc", "Tên bộ lọc (chỉ dùng cho màn hình này):", {}, function (name) { var r = ps.save(cfg.screenId, name, getS()); A.toast(r.ok ? "Đã lưu bộ lọc “" + String(name).trim() + "”" : r.corrupt ? "⚠ Chưa lưu: kho bộ lọc đã lưu trên máy này bị lỗi. Bấm “Sao lưu kho cũ và tạo kho mới” rồi lưu lại." : "⚠ " + r.msg); rerender(); });
       }, "Lưu trên máy này, riêng cho màn hình này");
-      var del = btn("🗑 Xóa", "ghost", function () { if (!sel.value) { A.toast("Chọn bộ lọc cần xóa"); return; } if (sel.value.charAt(0) === "l") { A.toast("Bộ lọc cũ chỉ để dùng, không xóa ở đây"); return; } ps.remove(cfg.screenId, sel.value.slice(2)); A.toast("Đã xóa"); rerender(); });
+      var del = btn("🗑 Xóa", "ghost", function () { if (!sel.value) { A.toast("Chọn bộ lọc cần xóa"); return; } if (sel.value.charAt(0) === "l") { A.toast("Bộ lọc cũ chỉ để dùng, không xóa ở đây"); return; } A.toast(ps.remove(cfg.screenId, sel.value.slice(2)) ? "Đã xóa" : "⚠ Chưa xóa được bộ lọc"); rerender(); });
       box.appendChild(h("div", { class: "sfd-l", text: "Bộ lọc đã lưu" })); box.appendChild(h("div", { class: "bar", style: "margin:0" }, [sel, save, del])); box.appendChild(note);
+      // Kho bộ lọc đã lưu bị lỗi hoặc do phiên bản khác ghi: không ghi đè; cho người dùng tự quyết định sao lưu rồi tạo kho mới.
+      if (ps.isCorrupt()) {
+        note.textContent = "⚠ Kho bộ lọc đã lưu trên máy này bị lỗi hoặc do phiên bản khác tạo, nên chưa lưu hay xóa bộ lọc được. Dữ liệu lương không bị ảnh hưởng.";
+        box.appendChild(h("div", { class: "bar", style: "margin:4px 0 0", "data-sf-corrupt": "1" }, [btn("Sao lưu kho cũ và tạo kho mới", "ghost", function () {
+          var r = ps.discardCorrupt(); A.toast(r.ok ? "Đã sao lưu kho bộ lọc cũ và tạo kho mới" : "⚠ " + r.msg); rerender();
+        }, "Bản cũ được giữ nguyên ở một khóa sao lưu trên máy này")]));
+      }
       return box;
     }
 

@@ -2,7 +2,7 @@
 
 Starter quality gate for HAK applications. Contains a Python static scanner, integration skill and CI workflow.
 
-Run: `python HAK_CODE_QUALITY_TEST/audit.py HAK_SMART_FILTER --fail-on-high`.
+Run: `python ci/quality-python/audit.py HAK_SMART_FILTER --fail-on-high`.
 
 Future adapters: browser UI, offline Python, Apps Script, accounting report parity.
 

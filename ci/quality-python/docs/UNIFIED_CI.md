@@ -13,9 +13,9 @@ The workflow is enabled on pull requests, manual dispatch, and pushes to its dev
 
 Local equivalent:
 ```bash
-python HAK_CODE_QUALITY_TEST/quality_gate.py --config HAK_CODE_QUALITY_TEST/config/luong-hak.json --root .
-python HAK_CODE_QUALITY_TEST/security_audit.py --root .
-python HAK_CODE_QUALITY_TEST/architecture_analyzer.py --root .
+python ci/quality-python/quality_gate.py --config ci/quality-python/config/luong-hak.json --root .
+python ci/quality-python/security_audit.py --root .
+python ci/quality-python/architecture_analyzer.py --root .
 ```
 
 Task Observer and Project Memory are not yet connected to artifact persistence or approval workflows; do not assume they are automatically collecting results. No CI execution has been confirmed merely by creating these files.

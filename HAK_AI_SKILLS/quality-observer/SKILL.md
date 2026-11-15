@@ -5,7 +5,7 @@ description: Compare commit-scoped HAK quality results and maintain sanitized hi
 
 # HAK Quality Observer
 
-Use `HAK_CODE_QUALITY_TEST/ci_observer.py`, `project_memory.py` and the dashboard already in this repository. Read `HAK_CODE_QUALITY_TEST/docs/CI_OBSERVER_V2.md` and `HAK_CODE_QUALITY_TEST/dashboard/AUTO_V3_2.md` for their limitations.
+Use `ci/quality-python/ci_observer.py`, `project_memory.py` and the dashboard already in this repository. Read `ci/quality-python/docs/CI_OBSERVER_V2.md` and `ci/quality-python/dashboard/AUTO_V3_2.md` for their limitations.
 
 Consume the executed quality, security and architecture JSON reports. Run `ci_observer.py --quality <quality-json> --security <security-json> --architecture <architecture-json> --project LUONG_HAK --branch <branch> --commit <sha> --memory <work-dir>/hak-project-memory.jsonl --out <work-dir>/hak-skill-proposals.json`. Keep only the allowlisted metadata; no source snippets, credentials or payroll records belong in memory.
 

@@ -5,7 +5,7 @@ description: Map dependencies and change impact in HAK repositories with the inh
 
 # HAK Architecture Analyzer
 
-Read `HAK_CODE_QUALITY_TEST/docs/ARCHITECTURE_ANALYZER.md`. Use `python HAK_CODE_QUALITY_TEST/architecture_analyzer.py --root <source-dir> --changed <relative-file> --out <work-dir>/hak-architecture-results.json`; repeat `--changed` for each relevant file.
+Read `ci/quality-python/docs/ARCHITECTURE_ANALYZER.md`. Use `python ci/quality-python/architecture_analyzer.py --root <source-dir> --changed <relative-file> --out <work-dir>/hak-architecture-results.json`; repeat `--changed` for each relevant file.
 
 Report module count, resolved dependency graph, cycles and impacted modules with the exact source commit. Validate material edges against code before proposing a refactor. The analyzer does not resolve dynamic imports, Apps Script global calls, TypeScript aliases, or renderer globals loaded through HTML. For Electron, supplement its graph with the order in `index.html` and the `main.js` → `preload.js` → renderer IPC boundary. Never interpret an empty cycle list as proof of architectural safety.
 
