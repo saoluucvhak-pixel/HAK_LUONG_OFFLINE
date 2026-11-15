@@ -1,24 +1,13 @@
 name: LUONG HAK V10.4 Windows Setup
+# Luồng CI/phát hành duy nhất (v2.0.15 gộp build-exe.yml, build-windows.yml, luong-offline-quality-audit.yml vào đây).
+# Mọi PR chạy đủ bộ kiểm tra. Push lên main chỉ khi đổi mã/cấu hình (đổi riêng tài liệu thì không phát hành).
+# Thứ tự: check (cú pháp, lint, unit/integration/regression, ui-dom, phụ thuộc) -> E2E/visual/inherited-quality/consolidation -> build bộ cài -> phát hành (chỉ main).
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - 'LuongHAK_Offline/**'
-      - '.github/workflows/luong-hak-v10-4-setup.yml'
-      - 'scripts/check-consolidation.cjs'
-      - 'docs/releases/**'
   push:
     branches:
       - main
-      - release/alpha38-excel-ocr-controls
-      - integration/main-v104-consolidation
-      - feature/luong-hak-v10-4-enterprise-ui
-      - feature/luong-v104-shared-ocr
-      - feature/luong-v104-handwritten-cnn
-      - feature/luong-v104-year-archive
-      - feature/ocr-page-rectify
-      - feature/ocr-umi-second-opinion
-      - fix/cccd-duplicate-block
     paths:
       - 'LuongHAK_Offline/**'
       - '.github/workflows/luong-hak-v10-4-setup.yml'
@@ -32,10 +21,45 @@ on:
       - 'scripts/check-consolidation.cjs'
       - 'docs/CONSOLIDATED_BRANCHES.json'
       - 'package.json'
+env:
+  # Một phiên bản Playwright duy nhất cho mọi job E2E (chỉ là bộ điều khiển Electron khi test, không đi vào bộ cài).
+  PLAYWRIGHT_VERSION: '1.64.1'
 permissions:
   contents: read
 jobs:
+  check:
+    name: Cú pháp · Lint · Unit/Integration/Regression · Phụ thuộc
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: LuongHAK_Offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Kiểm tra cú pháp
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in app.js engine.js hr.js main.js preload.js; do node --check "$f"; done
+          find core main ui tests -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f"; done
+      - name: Lint (eslint, không chấp nhận cảnh báo)
+        run: npm run lint
+      - name: Unit + Integration + Regression
+        run: npm test
+      - name: Kiểm tra DOM giao diện (focus, ngăn kéo)
+        run: npm run test:ui-dom
+      - name: Kiểm tra phụ thuộc — phần chạy trong app (bắt buộc sạch)
+        run: npm audit --omit=dev --audit-level=low
+      - name: Kiểm tra phụ thuộc — công cụ build (chỉ báo cáo, xem docs/AUDIT_REPORT.md)
+        run: npm audit --audit-level=high || echo "::warning::Có lỗ hổng trong công cụ build — xem báo cáo"
+        continue-on-error: true
   windows-setup:
+    name: Build bộ cài Windows
+    needs: [check, electron-full-e2e, electron-e2e, workspace-visual, inherited-quality, consolidation]
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
@@ -58,6 +82,14 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Verify handwriting runtime and weights in packaged app
         run: node scripts/verify-packaged-handwriting.cjs
+      - name: Tự kiểm OCR trong bản đóng gói (asarUnpack, worker, dữ liệu ngôn ngữ)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist/win-unpacked -Filter *.exe | Where-Object { $_.Name -notmatch 'Uninstall' } | Select-Object -First 1
+          $env:HAK_OCR_SELFTEST = "$PWD/ocr-selftest.json"
+          $p = Start-Process -FilePath $exe.FullName -PassThru -Wait
+          Get-Content ocr-selftest.json
+          if ($p.ExitCode -ne 0) { throw "OCR selftest thất bại (exit $($p.ExitCode))" }
       - name: Upload installer EXE
         uses: actions/upload-artifact@v4
         continue-on-error: true # evidence upload only; tests/build remain mandatory
@@ -67,6 +99,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   electron-full-e2e:
+    name: E2E trên Electron thật
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -80,7 +114,7 @@ jobs:
       - name: Install dependencies and Electron test driver
         run: |
           npm ci --no-audit --no-fund
-          npm install --no-save playwright@1.56.1
+          npm install --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
       - name: Run full Electron suite with isolated synthetic data
         run: xvfb-run -a npm run test:e2e
       - name: Measure shared OCR per-cell accuracy
@@ -99,6 +133,7 @@ jobs:
           retention-days: 14
 
   electron-e2e:
+    needs: check
     runs-on: windows-latest
     timeout-minutes: 20
     defaults:
@@ -112,8 +147,7 @@ jobs:
       - name: Install dependencies and Electron test driver
         run: |
           npm ci --no-audit --no-fund
-          # Match the Playwright version used to verify the Windows-specific suites locally.
-          npm install --no-save playwright@1.64.1
+          npm install --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
       - name: Verify yearly archive lifecycle on synthetic records
         run: node tests/e2e/year-archive.cjs
         env:
@@ -159,6 +193,7 @@ jobs:
             LuongHAK_Offline/tests/e2e/screenshots/*.png
           retention-days: 14
   workspace-visual:
+    needs: check
     runs-on: windows-latest
     timeout-minutes: 15
     defaults:
@@ -176,7 +211,7 @@ jobs:
       - name: Install visual test dependencies
         run: |
           npm ci --no-audit --no-fund
-          npm install --no-save --package-lock=false playwright --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright@${{ env.PLAYWRIGHT_VERSION }} --no-audit --no-fund
       - name: Capture V10.3 reference with identical synthetic data
         run: npm run test:workspace
         env:
