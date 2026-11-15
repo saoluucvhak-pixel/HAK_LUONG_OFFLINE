@@ -238,3 +238,13 @@ test("Main rejects over-limit annual leave records and draft requests but accept
   draft.nghiepvu_nhansu = [{ "Mã phiếu": "NVNS001", "Người đề nghị": "admin", "Mã NV": "NV001", "Loại nghiệp vụ": "Nghỉ phép năm", "Từ ngày": "2026-10-05", "Đến ngày": "2026-10-05", "Số ngày": 0.5, "Trạng thái": "Nháp" }];
   assert.match(pol.check(JSON.stringify(draft), admin).error, /Vượt hạn mức phép năm/);
 });
+
+
+test("Main rejects attendance writes during approved full sick leave and accepts clearing old entries", () => {
+  const row = { _id: "A", "Mã NV": "NV", "Kỳ": "2026-10", "Hình thức công": "TC1", "05": 1 };
+  const { db, pol } = setup({ chamcong: [row], nghiom: [{ "Mã NV": "NV", "Từ ngày": "2026-10-05", "Đến ngày": "2026-10-05", "Số ngày nghỉ": 1, "Trạng thái duyệt": "Đã duyệt" }] });
+  const admin = who("admin","admin");
+  assert.match(pol.check(JSON.stringify({ ...db, chamcong: [{ ...row, "05": 2 }] }), admin).error, /Không thể nhập công TC1/);
+  assert.match(pol.check(JSON.stringify({ ...db, chamcong: [row, { ...row, _id: "B", "Hình thức công": "CC" }] }), admin).error, /Không thể nhập công CC/);
+  assert.equal(pol.check(JSON.stringify({ ...db, chamcong: [{ ...row, "05": "" }] }), admin).ok, true);
+});

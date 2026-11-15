@@ -48,6 +48,7 @@
         var total = Number(raw.replace(",", "."));
         var span = end ? Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1 : 0;
         var amount = raw && total > 0 && total <= 1 && span === 1 ? total : raw && span > 1 && total === span ? 1 : null;
+        if (table === "nghiom" && !raw && span === 1) amount = 1;
         var first = start < year + "-01-01" ? year + "-01-01" : start;
         var last = end && end < bounds.cuoi ? end : bounds.cuoi;
         var annual = table === "nghiphep" && (!row["Loại nghỉ"] || row["Loại nghỉ"] === "Nghỉ hằng năm");
@@ -100,15 +101,15 @@
       var occupied = item.pn + item.work + item.holiday;
       var restDay = item.holiday || new Date(item.date + "T00:00:00").getDay() === 0;
       if (item.pnCount > 1) { item.status = "Nhiều dòng PN cùng ngày"; item.block = true; }
-      else if (orders.length > 1) { item.status = "Nhiều đơn đã duyệt cùng ngày"; item.block = occupied > 1; }
+      else if (orders.length > 1) { item.status = "Nhiều đơn đã duyệt cùng ngày"; item.block = orders.some(function (o) { return paidLeave(o.type) ? item.work || item.holiday || item.extra : occupied || item.extra; }); }
       else if (item.pn > 0 && occupied > 1.000001) { item.status = "Công làm, lễ và phép vượt 1 công/ngày"; item.block = true; }
       else if (item.other.length && !paidOther) {
-        var other = item.other[0], full = other.amount === 1;
-        item.block = item.pn > 0 || (other.amount !== null && occupied + other.amount > 1.000001) || (full && item.extra > 0);
-        item.status = item.block ? "Có công xung đột với " + other.type : occupied || item.extra ?
-          "Có ghi công — kiểm tra nửa ngày hoặc lịch nghỉ" : "Không phát sinh công";
+        var other = item.other[0];
+        item.block = occupied > 0 || item.extra > 0;
+        item.status = item.block ? "Có công xung đột với " + other.type : "Không phát sinh công";
       } else if (paidOrder) {
-        if (expected === null) item.status = "Đơn chưa xác định số công theo ngày";
+        if (item.work || item.holiday || item.extra) { item.status = "Ngày nghỉ có lương chỉ được ghi PN"; item.block = true; }
+        else if (expected === null) item.status = "Đơn chưa xác định số công theo ngày";
         else if (item.pn && Math.abs(item.pn - expected) > 0.000001) { item.status = "Lệch số công nghỉ có lương"; item.block = true; }
         else if (occupied - item.pn + expected > 1.000001 || (expected === 1 && item.extra > 0)) { item.status = "Công xung đột với nghỉ có lương"; item.block = true; }
         else if (item.pn) item.status = "Khớp";
@@ -199,7 +200,43 @@
     return "";
   }
 
-  var api = { reconcile: reconcileLeave, isAnnual: isAnnual, checkRequest: checkRequest };
+  function attendanceLeaveRanges(db, ma) {
+    return ["nghiphep", "nghiom"].flatMap(function (table) {
+      return (db[table] || []).filter(function (r) {
+        return r["Mã NV"] === ma && r["Trạng thái duyệt"] === "Đã duyệt";
+      }).map(function (r) {
+        var start = V.normDate(r["Từ ngày"]), end = V.normDate(r["Đến ngày"]) || "9999-12-31";
+        var type = table === "nghiom" ? "Nghỉ ốm" : r["Loại nghỉ"] || "Nghỉ hằng năm";
+        return start && end >= start ? { start: start, end: end, type: type, paid: table !== "nghiom" && paidLeave(type) } : null;
+      }).filter(Boolean);
+    });
+  }
+
+  function paidLeave(type) {
+    return type === "Nghỉ hằng năm" || type === "Nghỉ việc riêng có hưởng lương";
+  }
+
+  function attendanceMutation(db, before, after) {
+    if (!after || !after["Mã NV"]) return "";
+    var ky = V.normKy(after["Kỳ"]), ma = after["Mã NV"];
+    if (!ky) return "";
+    var ranges = attendanceLeaveRanges(db, ma);
+    if (!ranges.length) return "";
+    var kind = function (r) { return String(r["Hình thức công"] || "BT").trim().toUpperCase(); };
+    var same = before && before["Mã NV"] === ma && V.normKy(before["Kỳ"]) === ky && kind(before) === kind(after);
+    var end = +kyBounds(+ky.slice(0, 4), +ky.slice(5)).cuoi.slice(8);
+    for (var d = 1; d <= end; d++) {
+      var field = String(d).padStart(2, "0"), date = ky + "-" + field;
+      var prev = same ? E.tachCong(before[field]).soCong : 0;
+      if (E.tachCong(after[field]).soCong <= Math.max(0, prev)) continue;
+      var conflict = ranges.find(function (r) { return date >= r.start && date <= r.end && (!r.paid || kind(after) !== "PN"); });
+      if (conflict) return ma + " · " + date + ": đã duyệt " + conflict.type.toLowerCase() +
+        ". Không thể nhập công " + kind(after) + "." + (conflict.paid ? " Ngày này chỉ ghi công PN." : "");
+    }
+    return "";
+  }
+
+  var api = { reconcile: reconcileLeave, isAnnual: isAnnual, checkRequest: checkRequest, attendanceMutation: attendanceMutation };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.HAKCore.leaveReconciliation = api;
 })(typeof window !== "undefined" ? window : this);

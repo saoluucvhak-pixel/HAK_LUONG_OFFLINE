@@ -70,6 +70,9 @@
       if (inputSafety) { var unsafe = inputSafety.mutation(db, table, target, after); if (unsafe) return deny('input', unsafe); }
       // 2. ô ngày chấm công
       if (table === "chamcong" && after) {
+        var leave = isNode ? require("./leave-reconciliation.js") : root.HAKCore.leaveReconciliation;
+        var leaveError = leave && leave.attendanceMutation(db, before, after);
+        if (leaveError) return deny("leave", leaveError);
         for (var d = 1; d <= 31; d++) {
           var c = ("0" + d).slice(-2);
           if (before && before[c] === after[c]) continue; // không chặn vì ô CŨ sai mà người dùng không sửa

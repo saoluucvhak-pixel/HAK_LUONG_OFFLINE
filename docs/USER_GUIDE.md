@@ -83,10 +83,11 @@ Không cần internet, không cần Google Sheet. Cài bằng file `TinhLuongHAK
 
 ## Đối chiếu đơn nghỉ với chấm công
 
-- Vào **Chấm công → Đối chiếu đơn nghỉ** để xem theo nhân viên và ngày. Nếu đơn phép đã duyệt khớp công PN thì công chỉ tính một lần. Nửa ngày phép cùng nửa ngày làm được xem là khớp.
+- Vào **Chấm công → Đối chiếu đơn nghỉ** để xem theo nhân viên và ngày. Nếu đơn phép đã duyệt khớp công PN thì công chỉ tính một lần. Khi ngày đã nằm trong đơn nghỉ có lương, chỉ ghi PN theo số được duyệt.
 - Chọn các ngày có trạng thái **Thiếu công phép** rồi bấm **Áp dụng phép đã duyệt**. Kiểm tra lại dòng PN, bấm **Lưu để tính lương** và tính lại. Đơn có lịch theo ngày chưa rõ, ngày lễ hoặc Chủ nhật cần kiểm tra tay trước khi chấm.
 - Hạn mức lấy từ **Hồ sơ nhân viên → Hợp đồng → Quyền lợi phép** theo năm và hợp đồng, gồm số ngày cấp và số ngày cộng dồn. App cộng số đã nghỉ và đơn đã duyệt trong năm, đối chiếu hạn mức khi lập, gửi và duyệt đơn. Phép vượt mức bị chặn. Tách phần vượt thành loại nghỉ phù hợp (không lương, ốm hoặc thai sản). Đơn qua năm cần tách theo năm.
 - Bảng đối chiếu liệt kê mọi hình thức công đã ghi, kể cả tăng ca và công cơm. Kiểm tra nghỉ ốm, không lương, thai sản và nghỉ có lương theo ngày. Công PN trùng, vượt hạn mức hoặc xung đột ảnh hưởng công tính lương sẽ chặn chốt. Kỳ đã chốt xem số đã lưu. Bản chốt cũ có thể chưa lưu kết quả đối chiếu.
+- Ngày nghỉ ốm, không lương và thai sản đã duyệt chặn nhập thêm mọi hình thức công, kể cả nhập Excel. Ngày nghỉ có lương chỉ được ghi PN. Nếu đã có công sai từ trước, hãy mở dòng nguồn để xóa hoặc giảm số công.
 
 ## Thưởng / Trừ, Tạm ứng — Số chứng từ (từ 2.0-alpha.10)
 

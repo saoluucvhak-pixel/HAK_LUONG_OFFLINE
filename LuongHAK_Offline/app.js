@@ -431,6 +431,10 @@
       p.items.forEach(function (it) {
         if (it.action !== "add" && it.action !== "update") return;
         if (!okT) { it.action = "locked"; it.reason = "Vai trò của bạn không có quyền ghi bảng này (" + PERM.PERMS[perm] + ")"; return; }
+        if (p.table === "chamcong") {
+          var leaveError = C.leaveReconciliation.attendanceMutation(db, it.target || null, Object.assign({}, it.target || {}, it.row));
+          if (leaveError) { it.action = "locked"; it.reason = leaveError; return; }
+        }
         if (it.action === "update" && p.table === "chitiethd" && GRD.frozenAppendix(db, it.target).length) { it.action = "locked"; it.reason = "Phụ lục đã dùng tính lương kỳ đã chốt " + GRD.frozenAppendix(db, it.target).map(GRD.label).join(", ") + " — không sửa được, hãy thêm phụ lục mới (Q-15)"; return; }
         if (!can("retro.edit")) {
           var imp0 = GRD.impactChange(db, p.table, it.target || null, Object.assign({}, it.target || {}, it.row));

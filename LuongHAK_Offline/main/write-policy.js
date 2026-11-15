@@ -310,6 +310,21 @@ function createPolicy(opts) {
       const need = permsFor(t);
       if (!need.some(has)) return deny("vai trò hiện tại không có quyền sửa bảng '" + t + "' (cần " + need.join(" hoặc ") + ")");
     }
+    if (changed.includes("chamcong")) {
+      const prior = JSON.parse(readText() || "{}").chamcong || [];
+      const leave = require("../core/leave-reconciliation.js");
+      const unchanged = new Map();
+      const byId = new Map(prior.filter(row => row._id).map(row => [row._id, row]));
+      for (const row of prior) { const key = h(row); unchanged.set(key, (unchanged.get(key) || 0) + 1); }
+      for (const row of next.chamcong || []) {
+        const key = h(row);
+        if (unchanged.get(key)) { unchanged.set(key, unchanged.get(key) - 1); continue; }
+        const sameLegacy = row._id ? [] : prior.filter(old => !old._id && old["Mã NV"] === row["Mã NV"] &&
+          old["Kỳ"] === row["Kỳ"] && old["Hình thức công"] === row["Hình thức công"]);
+        const reason = leave.attendanceMutation(next, row._id ? byId.get(row._id) : sameLegacy.length === 1 ? sameLegacy[0] : null, row);
+        if (reason) return deny(reason);
+      }
+    }
     if (changed.includes("nghiphep") || changed.includes("nghiepvu_nhansu")) {
       const prior = JSON.parse(readText() || "{}");
       const leave = require("../core/leave-reconciliation.js");

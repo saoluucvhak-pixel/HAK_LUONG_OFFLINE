@@ -1,14 +1,14 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { reconcile, checkRequest } = require("../../core/leave-reconciliation");
+const { reconcile, checkRequest, attendanceMutation } = require("../../core/leave-reconciliation");
 const approval = (date, amount, extra = {}) => ({
   "Mã NV": "A", "Số HĐLĐ": "H1", "Từ ngày": date, "Đến ngày": date, "Số ngày nghỉ": amount, "Trạng thái duyệt": "Đã duyệt", ...extra
 });
 const champ = (month, kind, values) => ({ "Kỳ": month, "Mã NV": "A", "Hình thức công": kind, ...values });
 
-test("A half-day leave plus half-day work matches; entitlement counts the approved and posted leave once", () => {
-  const db = { nghiphep: [approval("2026-10-05", 0.5)], chamcong: [champ("2026-10", "PN", {"05": "0,5"}), champ("2026-10", "BT", {"05": "0,5"})],
+test("A half-day PN matches the approval; entitlement counts it once", () => {
+  const db = { nghiphep: [approval("2026-10-05", 0.5)], chamcong: [champ("2026-10", "PN", {"05": "0,5"})],
     quyenloiphep: [{ "Năm áp dụng": 2026, "Mã NV": "A", "Số HĐLĐ": "H1", "Số ngày được cấp": 0.25 }] };
   const r = reconcile(db, "2026-10");
   assert.equal(r.entries[0].status, "Khớp");
@@ -64,7 +64,7 @@ test("Proposal reserves approved annual days, including undivided dates, and rej
 
 test("Paid personal leave matching PN does not deplete the annual allowance", () => {
   const db = { nghiphep:[approval("2026-10-05",0.5,{"Loại nghỉ":"Nghỉ việc riêng có hưởng lương"})],
-    chamcong:[champ("2026-10","PN",{"05":0.5}),champ("2026-10","BT",{"05":0.5})],
+    chamcong:[champ("2026-10","PN",{"05":0.5})],
     quyenloiphep:[{"Mã NV":"A","Số HĐLĐ":"H1","Năm áp dụng":2026,"Số ngày được cấp":0}] };
   const result = reconcile(db,"2026-10");
   assert.equal(result.entries[0].status,"Khớp");
@@ -82,4 +82,34 @@ test("Historical excess stays visible and blocks a new request, without blocking
   assert.match(checkRequest(db,approval("2026-10-05",0.5)),/Vượt hạn mức phép năm/);
   db.chamcong.push(champ("2026-10","PN",{"05":0.5}));
   assert.equal(reconcile(db,"2026-10").quotaBlockers[0].excess,1);
+});
+
+
+test("Approved sickness blocks attendance in every form and permits corrections", () => {
+  const db = { nghiom: [approval("2026-10-05", 2, { "Đến ngày": "2026-10-06" }), approval("2026-10-07", 0.5), approval("2026-10-08", 1, { "Trạng thái duyệt": "Chờ duyệt" })] };
+  for (const type of ["BT","PN","CL","TC1","CC","TRCH"]) {
+    const before = champ("2026-10", type, { "05": 1 });
+    assert.match(attendanceMutation(db, null, before), /đã duyệt nghỉ ốm/);
+    assert.match(attendanceMutation(db, before, { ...before, "06": 0.5 }), /2026-10-06/);
+    assert.equal(attendanceMutation(db, before, { ...before, "05": "" }), "");
+    assert.match(attendanceMutation(db, before, { ...before, "07": 0.5 }), /2026-10-07/);
+    assert.equal(attendanceMutation(db, before, { ...before, "08": 1 }), "");
+  }
+});
+
+
+test("Paid leave permits PN only and unpaid and maternity days reject PN too", () => {
+  const db = { nghiphep: [
+    approval("2026-10-05", 0.5),
+    approval("2026-10-06", 1, {"Loại nghỉ":"Nghỉ việc riêng có hưởng lương"}),
+    approval("2026-10-07", 1, {"Loại nghỉ":"Nghỉ không hưởng lương"}),
+    approval("2026-10-08", 1, {"Loại nghỉ":"Nghỉ thai sản"})
+  ] };
+  assert.equal(attendanceMutation(db, null, champ("2026-10","PN",{"05":0.5,"06":1})), "");
+  for (const type of ["BT","CC","TC1","CL"]) {
+    assert.match(attendanceMutation(db, null, champ("2026-10",type,{"05":0.5})), /chỉ ghi công PN/);
+  }
+  assert.match(attendanceMutation(db, null, champ("2026-10","PN",{"07":1})), /nghỉ không hưởng lương/);
+  assert.match(attendanceMutation(db, null, champ("2026-10","PN",{"08":1})), /nghỉ thai sản/);
+  assert.equal(reconcile({...db,chamcong:[champ("2026-10","BT",{"05":0.5})]},"2026-10").blockers[0].status, "Ngày nghỉ có lương chỉ được ghi PN");
 });

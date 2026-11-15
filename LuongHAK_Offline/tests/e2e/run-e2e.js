@@ -1161,6 +1161,13 @@ async function launch(dataDir, opt) {
       /TC1: 1/.test(await leaveReview.innerText()) && /CC: 1/.test(await leaveReview.innerText()) &&
       /Có công xung đột với Nghỉ ốm/.test(await leaveReview.innerText()) &&
       await leaveReview.getByRole("checkbox", { name: "Áp dụng F2 ngày 2026-10-06" }).count() === 0);
+    await leaveReview.getByRole("button", { name: "Mở dòng TC1", exact: true }).click();
+    await w.locator(".dlg").getByRole("textbox", { name: "07", exact: true }).fill("2");
+    dialogs = [];
+    await w.locator(".dlg").getByRole("button", { name: "Lưu thay đổi" }).click();
+    ok("Ngày nghỉ ốm trọn ngày chặn ghi tăng công ngay khi lưu dòng", dialogs.some(d => /Không thể nhập công TC1/.test(d)));
+    await w.locator(".dlg").getByRole("button", { name: "Hủy", exact: true }).click();
+    await w.getByRole("button", { name: "Đối chiếu đơn nghỉ", exact: true }).click();
     await leaveReview.getByRole("checkbox", { name: "Áp dụng F1 ngày 2026-10-05" }).check();
     await w.getByRole("button", { name: "Áp dụng phép đã duyệt" }).click();
     await w.getByRole("button", { name: "Đối chiếu đơn nghỉ", exact: true }).click();
