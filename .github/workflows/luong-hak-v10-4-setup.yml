@@ -294,9 +294,9 @@ jobs:
           restore-keys: hak-observer-v104-
       - name: Execute inherited quality gate and library tests
         run: python ci/quality-python/quality_gate.py --config ci/quality-python/config/luong-hak.json --root . --out hak-quality-results.json
-      - name: Record static security findings for review
-        continue-on-error: true
-        run: python ci/quality-python/security_audit.py --root LuongHAK_Offline --out hak-security-results.json
+      # Quét mã đi vào bộ cài (bỏ thư mục tests). Bắt buộc: có phát hiện mức high (eval, new Function, child_process.exec...) thì job đỏ.
+      - name: Static security scan of shipped code (high findings fail the job)
+        run: python ci/quality-python/security_audit.py --root LuongHAK_Offline --exclude tests --out hak-security-results.json
       - name: Analyze dependencies with inherited analyzer
         run: python ci/quality-python/architecture_analyzer.py --root LuongHAK_Offline --changed app.js --changed ui/formula-master.js --out hak-architecture-results.json
       - name: Update sanitized Observer memory
