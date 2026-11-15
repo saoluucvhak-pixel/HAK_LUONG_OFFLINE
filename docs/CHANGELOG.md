@@ -1,5 +1,373 @@
 # CHANGELOG
 
+> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.16. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
+> Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
+
+## [2.0.16] — 15/11/2026
+- Nâng Electron 43.8.9 → 45.3.2, đi lần lượt qua 44.11.3 (mỗi bước chạy đủ unit test và E2E). Đã đối chiếu danh sách thay đổi phá vỡ tương thích của Electron 44 và 45: app không dùng `safeStorage`, `node:sqlite`, module `clipboard` của Electron; preload chỉ dùng `contextBridge` và `ipcRenderer`; bộ cài chỉ đóng gói x64. Bộ E2E 275/275 đạt trên Linux ở cả hai bản. Chưa nghiệm thu bản đóng gói trên máy Windows thật.
+- Nâng `electron-builder` 26.15.3 → 26.18.0 và `jsdom` 30.1.3 → 31.0.1 (jsdom chỉ dùng cho test).
+- `npm audit --omit=dev`: 0 lỗ hổng (phần chạy trong app). `npm audit` đầy đủ còn 6 mức moderate, cùng một gốc là `minimatch` (từ chối dịch vụ qua mẫu glob) nằm trong `app-builder-lib` của electron-builder, chỉ dùng lúc build, không đi vào bộ cài. Cách "sửa" duy nhất `npm audit` đề xuất là hạ electron-builder về 24.13.3, nên không áp dụng.
+- Giữ `tesseract.js` 5.1.1, không nâng lên 7.0.0: với bản 7.0.0 bộ `test:ocr-eval` không chạy được (dừng ở bước mở hộp chọn tệp, hết thời gian chờ) và `npm test` treo ở phần OCR thật, trong khi bản 5.1.1 đạt 4/4 ca, mỗi ca 90/90 ô (100%). Chưa tìm nguyên nhân sâu hơn; nâng tesseract cần một đợt chỉnh mã OCR riêng.
+- Không đổi công thức lương, thuế, bảo hiểm hay dữ liệu đã lưu.
+
+## [2.0.15] — 15/11/2026
+- Gộp bốn workflow CI thành một luồng duy nhất `luong-hak-v10-4-setup.yml`. Xóa `build-exe.yml`, `build-windows.yml` và `luong-offline-quality-audit.yml` (hai file sau chỉ chạy khi push lên nhánh cũ, phần việc của chúng đã nằm trong luồng chung).
+- Thứ tự chạy: `check` (cú pháp, lint, unit/integration/regression, kiểm tra DOM giao diện, kiểm tra phụ thuộc) → E2E Electron, kiểm tra giao diện, chất lượng thừa kế và đối chiếu hợp nhất → build bộ cài Windows → phát hành (chỉ nhánh `main`). Build bộ cài nay chỉ chạy khi các bước trước đã đạt.
+- Mọi pull request đều chạy đủ bộ kiểm tra (không còn lọc theo thư mục). Push lên `main` vẫn chỉ chạy khi đổi mã hoặc cấu hình, để đổi riêng tài liệu không kích hoạt phát hành trùng phiên bản.
+- Dùng một phiên bản Playwright duy nhất, 1.64.1, ghi cố định trong biến `PLAYWRIGHT_VERSION` của workflow (trước đây 1.56.1 trên Linux, 1.64.1 trên Windows, và bản mới nhất ở kiểm tra giao diện). Bộ E2E 275/275 đạt trên Linux với 1.64.1.
+- Bước tự kiểm OCR trong bản đóng gói của job build cũ được chuyển vào job build bộ cài. Tên các check còn lại giữ nguyên; job `audit` (trùng với `check`) không còn.
+- Không đổi app, công thức lương, thuế, bảo hiểm hay dữ liệu đã lưu.
+
+## [2.0.14] — 15/11/2026
+- Thêm `eslint` 9.39.5 vào `devDependencies` và script `npm run lint` (`eslint . --max-warnings 0`) để máy lập trình viên và CI dùng cùng một phiên bản. Chỉ thêm gói dùng lúc phát triển; không gói nào trong app thay đổi phiên bản.
+- `scripts/check-consolidation.cjs` nay kiểm tra lịch sử git trước khi đối chiếu. Khi repo là bản clone nông hoặc thiếu commit, script báo rõ các commit thiếu và cách khắc phục (`git fetch --unshallow`, hoặc `fetch-depth: 0` trong CI) thay vì dừng với lỗi "Not a valid commit name".
+- Không đổi app, công thức lương, thuế, bảo hiểm hay dữ liệu đã lưu.
+
+## [2.0.13] — 15/11/2026
+- Khôi phục quy tắc của v2.0.7 cho mục "Phiếu cần đối chiếu chấm công": ô công **để trống** được xem như ô ghi **0**. Người không có công đi làm (BT) vào ngày có phiếu cân, kể cả ô trống, không có dòng chấm công hoặc chỉ có PN, CL, CC, đều được báo nếu chưa ghi trong "NV vắng". Từ v2.0.9 chỉ ô ghi đúng số 0 mới được báo.
+- Cách chia tấn không đổi: người không có công vẫn không được chia. Chỉ khôi phục cảnh báo.
+- Cập nhật chữ giải thích ở màn hình, sheet DoiChieuChamCong và hướng dẫn sử dụng.
+- Không đổi công thức lương, thuế, bảo hiểm hay phân quyền.
+
+Tạo Full Backup trước khi nâng cấp.
+
+## [2.0.12] — 15/11/2026
+- Ngày nghỉ có lương đã duyệt chỉ ghi PN.
+- Ngày nghỉ ốm, không lương và thai sản đã duyệt chặn ghi mọi hình thức công. Kiểm tra khi nhập tay, dán, nhập Excel và lưu dữ liệu.
+- Giữ đường sửa để xóa hoặc giảm số công sai có từ trước. Nếu còn xung đột, bước chốt kỳ sẽ báo để xử lý.
+
+## [2.0.11] — 15/11/2026
+- Đối soát thưởng, khoản trừ và tạm ứng theo từng nhân viên. Mở chứng từ nguồn, xem cảnh báo số chứng từ lặp và chênh lệch với bảng lương. Kỳ đã chốt dùng bản chốt.
+- Đối chiếu đơn nghỉ với các hình thức công đã ghi theo từng ngày, kể cả tăng ca và công cơm. Xem trước và áp dụng công phép đã duyệt vào bảng chấm công ở trạng thái nháp.
+- Kiểm tra phép năm theo hợp đồng, số ngày cấp và phép cộng dồn. Chặn đơn vượt hạn mức khi lập, gửi và duyệt. Nếu kỳ đang chốt có phát sinh phép làm vượt hạn mức, phải xử lý trước khi chốt. Phần vượt từ kỳ trước vẫn hiển thị để đối chiếu.
+- Cập nhật hướng dẫn sử dụng. Công thức tính lương giữ nguyên.
+
+## [2.0.10] — 15/11/2026
+- Khi phương pháp bù đã dùng để tính bảng lương khác phương pháp có hiệu lực, hộp thoại chốt kỳ hiển thị cả hai và có nút **Dùng phương pháp trong Cài đặt**.
+- Nút chỉ chọn phương pháp. Kế toán vẫn phải bấm **Tính lương** lại, kiểm tra kết quả rồi chốt. Kỳ đã chốt tiếp tục khóa phương pháp và chức năng tính lại.
+- Hướng dẫn sử dụng ghi rõ các bước xử lý. Công thức tính lương và dữ liệu kỳ đã chốt giữ nguyên.
+
+## [2.0.9] — 15/11/2026
+- Xuất 11 báo cáo kỳ lương bằng Excel hoặc PDF, gồm chấm công theo hình thức, phân bổ và đối soát sản lượng theo phiếu, bù sản lượng, thuế TNCN chi tiết, bảo hiểm, hạch toán và đối chiếu chi lương.
+- Khi xuất kỳ đã chốt, báo cáo dùng số liệu của bản chốt. Đối chiếu chi lương cập nhật theo sổ chứng từ tại thời điểm xuất. Kỳ cũ hiển thị lưu ý nếu bản chốt thiếu dữ liệu chi tiết.
+- Cập nhật luồng thao tác kỳ lương, nghiệp vụ nhân sự, hạch toán, chi trả và hướng dẫn sử dụng.
+- Khi chốt, kiểm tra phương pháp bù đã dùng để tính khớp Cài đặt của kỳ. Đổi lựa chọn rồi phải bấm Tính lương lại trước khi chốt.
+
+## [2.0.8] — 15/11/2026
+- Sửa báo cáo "Chi tiết nhân viên" báo sai lỗi chặn "thực lĩnh lớn hơn tổng thu nhập". Thực lĩnh được làm tròn đến 1.000đ nên có thể lớn hơn tổng thu nhập tới 500đ; đây là kết quả hợp lệ. Nay chỉ chặn khi chênh quá 500đ (cùng dung sai với báo cáo "Chi tiết thanh toán"). Trước đây lỗi sai này làm báo cáo không đạt điều kiện xuất chính thức.
+- Ô nhập tiền nay hiện dấu chấm phân nghìn ngay khi gõ (gõ 1500000 thấy 1.500.000), giữ nguyên vị trí con trỏ; số thập phân như 1.5 hoặc 1.250,5 giữ nguyên.
+- Các cột tiền `Lương cơ bản`, `Thanh toán TM`, `Giá trị tiền thưởng`, `Số tiền khoán`, `Trần lương đóng BHXH/BHTN`... trước đây được kiểm tra là tiền nhưng ô nhập không hiện dấu phân nghìn; nay dùng chung một danh sách cột tiền.
+- Ô "KL hàng (Tấn)": báo đỏ khi gõ chữ; khi gõ dạng 12,345 hoặc 12.345 sẽ nhắc rằng ô được hiểu là 12,345 tấn (dấu , hoặc . là dấu thập phân). Cách đọc số không đổi.
+- Không đổi công thức lương, thuế, bảo hiểm hay phân quyền.
+
+Tạo Full Backup trước khi nâng cấp.
+
+## [2.0.7] — 14/11/2026
+- **Đối chiếu chấm công theo phiếu cân báo cả ô công để trống.** Trước đây chỉ người có ô công ghi "0" vào ngày cân (và chưa được ghi trong "NV vắng") mới được đưa vào mục "Phiếu cần đối chiếu chấm công" và sheet DoiChieuChamCong; người để ô trống vẫn bị loại khỏi phần chia tấn nhưng không có cảnh báo nào. Nay cả hai trường hợp đều được báo, đúng quy tắc R-73 "công = 0 / trống → cảnh báo".
+  - Ô trống được xem đúng như ô ghi 0: người không có dòng chấm công nào trong kỳ, hoặc chỉ có dòng PN (nghỉ phép), CL (nghỉ lễ), CC (tiền cơm) vào ngày đó, cũng được báo, vì không có công đi làm (BT) ngày đó.
+  - Người đã ghi trong "NV vắng" của phiếu vẫn không bị báo; có công đi làm thì hết báo.
+  - Cách chia tấn không đổi: người không có công vẫn không được chia. Chỉ thêm cảnh báo.
+  - Mỗi phiếu liệt kê riêng, nên một người trống nhiều ngày sẽ xuất hiện ở nhiều phiếu (một ngày có thể có nhiều phiếu).
+- Sửa tiêu đề màn hình ở đầu trang bị cắt chữ khi cửa sổ hẹp (khoảng 1100 px): "Nhân sự" chỉ còn hiện "Nhân…". Tiêu đề nay giữ tối thiểu 150 px, tối đa 480 px; khi thanh đầu trang chật, các nút tự xuống hàng. Chỉ đổi CSS (`ui/workspace-v104.css` và bản dùng chung `design-system/hak-workspace-layout.css`).
+- Không đổi công thức lương, thuế, bảo hiểm hay phân quyền. `engine.js` giữ nguyên; `hr.js` chỉ đổi phần nhận diện người cần đối chiếu.
+
+Tạo Full Backup trước khi nâng cấp. OCR chữ tay vẫn chưa nghiệm thu đầy đủ trên hồ sơ thật.
+
+## [2.0.5] — 14/11/2026
+- Chữ "null" (và "undefined", "NaN") do hệ thống cũ xuất ra thay cho ô trống trong bảng chấm công được coi là ô trống khi nhập hoặc khôi phục dữ liệu, và khi nhập Excel / gõ tay. Trước đây app coi đó là nhãn công tác: sinh lỗi "ngày 31 không tồn tại" cho tháng 30 ngày, cảnh báo nhãn công tác lạ, báo xung đột nhãn trong cùng ngày (làm mất phụ cấp công tác của ngày đó) và chặn chốt kỳ. Số ô đã đổi được báo cho người dùng sau khi nhập.
+- Khi nhập hoặc khôi phục dữ liệu, các dòng Tổng (Total / Tổng cộng) không có ngày cân, tổ, người nhận và biển số lẫn trong Sản lượng hoặc Bơm dăm được loại bỏ và báo rõ số tấn của dòng tổng. Dòng này trước đây làm cả việc tính lương dừng với lỗi "ngày/kỳ không hợp lệ". Phiếu thật thiếu ngày cân, hoặc dòng có tổ, vẫn được giữ lại để xử lý.
+- Không đổi công thức lương, thuế, bảo hiểm hay phân quyền. engine.js, hr.js và core/integrity.js giữ nguyên.
+
+Tạo Full Backup trước khi nâng cấp. OCR chữ tay vẫn chưa nghiệm thu đầy đủ trên hồ sơ thật.
+
+## [2.0.4] — 14/11/2026
+- Bổ sung mục Phiếu cần đối chiếu chấm công trong báo cáo sản lượng và sheet DoiChieuChamCong khi xuất Excel báo cáo.
+- Chỉ đưa vào đối chiếu người có ô công ghi bằng 0 vào ngày cân và chưa được ghi trong NV vắng.
+- Hiển thị số người nhận, mã và họ tên người được chia, người không được chia và người cần kiểm tra công trên từng phiếu.
+
+## [2.0.3] — 14/11/2026
+- Chuẩn hóa ngày cân khi đọc phiếu cũ để phiếu hợp lệ được đưa vào đúng kỳ.
+- Chặn tính và chốt khi khối lượng hoặc số xe sai định dạng, bằng 0 hoặc âm.
+- Báo phiếu giao trực tiếp khi nhân viên không có hợp đồng hiệu lực vào ngày cân.
+- Nhập Excel báo xung đột khi cập nhật phiếu sang kỳ khác. Đối chiếu rồi dùng chuyển kỳ hoặc sửa phiếu có xác nhận.
+
+## [2.0.2] — 14/11/2026
+- Xóa kỳ và thay toàn bộ kỳ Sản lượng liệt kê và dọn các dòng tổng không có ngày cân. Phiếu thiếu ngày cần đối chiếu được giữ lại và báo trong bản xem trước.
+- Khi thay toàn bộ kỳ, bỏ qua các dòng Total hoặc Tổng cộng nhận diện được và vẫn kiểm tra từng phiếu.
+- Xuất bảng Sản lượng và Bơm dăm ở dạng dữ liệu Excel để đối chiếu và nhập lại. Lỗi bảng lương không chặn xuất Sản lượng.
+- Khi xuất bảng, số tiền định dạng hàng nghìn được chuyển đúng sang ô số Excel.
+
+## [2.0.1] — 13/11/2026
+- Dashboard hiển thị số đầu vào còn nháp của kỳ đang xem và phiên bản ứng dụng hiện tại.
+- Danh mục Tăng ca, Phụ cấp và Hỗ trợ có bảng gọn hơn, số tiền định dạng thống nhất và menu thao tác phụ.
+- Ngăn chi tiết giữ tiêu đề, bốn tab và chân nút trong tầm nhìn. Điều hướng tab bằng phím mũi tên, Home và End.
+- Bộ lọc nâng cao hiện tên màn hình và giữ vị trí khi dựng lại nội dung.
+
+## [2.0.0] — 13/11/2026
+- Chặn chốt khi phiếu Sản lượng hoặc Bơm dăm chưa gán hoặc được phân cho người không có trong bảng lương kỳ đó.
+- Chặn chốt khi nhiều nhãn công tác xung đột trong cùng ngày. Hiện mã nhân viên, ngày và các nhãn cần đối chiếu.
+- Cảnh báo công tăng ca thiếu mã và tiền cơm ghi ở cả hai nguồn cùng ngày. Suất bổ sung vẫn được tính theo dữ liệu đã nhập.
+- Báo lỗi cấu hình số tiền hoặc hệ số không hợp lệ ở các mã Tăng ca, Phụ cấp và Hỗ trợ được sử dụng.
+- Kế thừa các bản sửa của alpha.58.
+
+## [2.0.0-alpha.58] — 12/11/2026
+- Nâng Electron 43.7.9 → 43.8.9 (bản vá cùng dòng 43): hết cảnh báo bảo mật mức cao về chứng chỉ trung gian bị lộ. Không đổi tính năng.
+- Kiểm tra dữ liệu (người phụ thuộc: "Ngày cấp CCCD ở tương lai") lấy ngày hôm nay theo giờ máy thay cho giờ UTC — trước 7 giờ sáng giờ Việt Nam không còn tính lệch một ngày.
+- Cập nhật thư viện phụ của công cụ build (fast-uri 3.1.9, undici 6.29.1 / 7.30.2) qua `npm audit fix`: hết cảnh báo mức cao; còn 6 cảnh báo mức trung bình trong chuỗi electron-builder (minimatch), chỉ dùng lúc đóng gói, không nằm trong app đã cài.
+- Không đổi công thức lương, thuế, bảo hiểm hay phân quyền.
+
+Tạo Full Backup trước khi nâng cấp. OCR chữ tay vẫn chưa nghiệm thu đầy đủ trên hồ sơ thật.
+
+## [2.0.0-alpha.57] — 11/11/2026
+- Mã dùng công thức TC5 loại công tăng ca khỏi lương thời gian cùng quy tắc với mã TC5.
+- Hỗ trợ dùng danh mục đúng kỳ. Kiểm tra trước khi chốt hiển thị mã phụ cấp hoặc hỗ trợ thiếu, hết hiệu lực hoặc chưa được tính.
+- Ô công ở ngày không tồn tại được loại khỏi phép tính và báo lỗi trước khi chốt.
+- KT-19 đối chiếu tổng giảm trừ với các thành phần trước làm tròn thực lĩnh.
+- Sản lượng hiện ngày cân gốc và ngày phân bổ. Xem trước chuyển kỳ hiện NV vắng, tổng tấn theo người và phiếu chờ phân bổ.
+
+## [2.0.0-alpha.56] — 10/11/2026
+Ngày: 10/11/2026. Kế thừa alpha.55 / cc51ff8.
+
+- **Trần lương đóng bảo hiểm:** BHXH/BHYT mặc định 46.800.000đ trước 07/2026 và 50.600.000đ từ 07/2026. Danh mục có hai cột trần để cấu hình theo hiệu lực. Giá trị trần âm hoặc sai định dạng bị chặn. Với BHTN, cần khai trần vùng khi lương đóng vượt mức trần thấp nhất trong các vùng.
+- **Tỷ lệ bảo hiểm:** ô nhập chỉ nhận 0.08 / 0,08 / 8%; gõ "8" (thành 800%) bị từ chối. Dữ liệu cũ có tỷ lệ > 100%: không tính bảo hiểm bằng số sai và chặn chốt kỳ (INPUT_INVALID) cho đến khi sửa.
+- **Ô tiền không đọc được** (chữ, "(200.000)", "1.5.2"…) ở Thưởng / Thu nhập khác / Trừ khác / Tạm ứng / Lương thỏa thuận / Lương cơ bản: không còn lặng lẽ coi là 0 — báo rõ dòng lỗi và chặn chốt kỳ.
+- **Ngày theo giờ máy:** ngày chứng từ thanh toán, tên file "Sao lưu ra file" và mốc cảnh báo hợp đồng sắp hết hạn không còn lấy theo giờ UTC (trước 7 giờ sáng bị lùi 1 ngày).
+- **Chi tiết hợp đồng:** ổn định vùng cuộn, bỏ hiệu ứng làm mờ nền và giữ form khi kéo chọn chữ.
+- Kỳ đã chốt giữ nguyên số đã lưu. Không đổi thuế TNCN, công chuẩn, tăng ca, phân quyền.
+
+Thuế vãng lai theo danh mục do người dùng cấu hình. Tạo Full Backup trước khi nâng cấp. OCR chữ tay vẫn chưa nghiệm thu đầy đủ trên hồ sơ thật.
+
+## [2.0.0-alpha.55] — 04/11/2026
+- Chốt kỳ không tự đổi phương pháp bù rồi tính lại. Nếu phương pháp xem thử khác quy chế chính thức, chặn chốt và yêu cầu chủ động chọn, tính và kiểm tra lại.
+- Xác minh đầy đủ các cột công khai của bảng lương, bảo hiểm và thuế tại tiến trình chính.
+- Tỷ lệ bảo hiểm dạng 8% / 1,5% được hiểu đúng như 0.08 / 0.015; nhập bậc thuế phân biệt mã thuế cha.
+- Chuyển thành SL kỳ mới: chuyển hẳn phiếu sang tháng nhận, phân bổ theo người/tổ/công tháng nhận và dùng đơn giá/bù tháng nhận. Giữ số ngày trong tháng, lưu ngày/kỳ gốc; xem trước và xác nhận, cần Lưu để tính lương lại ở hai kỳ. Chỉ hỗ trợ cùng năm; ngày không tồn tại, kỳ chốt, phiếu trùng hoặc sổ chuyển chi trả đang tồn tại đều bị chặn.
+- Chỉ đổi kỳ chi trả SL: giữ công kỳ nguồn; cảnh báo phân bổ đủ được hiển thị để xác nhận, lỗi chưa phân bổ báo chi tiết.
+- Ổn định form hợp đồng, hồ sơ cơ bản, biến động lương, danh mục cha–con và bộ lọc. Bổ sung hướng dẫn công tính lương, tăng ca và hai cách chuyển sản lượng.
+
+Kiểm chứng trước phát hành: 848 test unit/integration/regression; bộ Electron chung 264 kiểm tra trước thay đổi chuyển hẳn kỳ, cùng test Electron chuyển hẳn kỳ và các test ổn định form/danh mục. CI chạy lại các bộ kiểm tra trên commit phát hành.
+
+Tạo Full Backup trước cập nhật. Bản cập nhật không tự sửa bảng lương đã chốt và không tự chuyển dữ liệu sản lượng.
+
+## [2.0.0-alpha.54] — 03/11/2026
+Sửa KT-20 bỏ sót Truy thu BH khi cộng tổng giảm trừ, gây chặn chốt sai dù thực lĩnh engine đã đúng. Giữ kiểm tra độc lập: thu nhập − BH NLĐ − KPCĐ − truy thu BH − thuế − trừ khác − tạm ứng; làm tròn nghìn khi không âm, âm thì thực lĩnh 0. Không thay đổi công thức engine hoặc số tiền đã tính.
+
+Thêm test tái hiện 186.300 − 62.100 − 124.200 = 0 và vẫn chặn số thực lĩnh sai 124.000. Tạo Full Backup trước cập nhật.
+
+## [2.0.0-alpha.53] — 03/11/2026
+BH NLĐ và KPCĐ NLĐ luôn khấu trừ theo mức đóng, không phụ thuộc ngưỡng công. Không đạt ngưỡng thì truy thu phần công ty đã đóng khi có cả phần BH NLĐ và công ty đóng. Giữ truy thu trong phép trừ thực lĩnh. Tổng bảo hiểm cộng từ các khoản đã làm tròn. Đồng bộ tổng hợp, theo phòng ban và phần giải thích giảm trừ; không cộng truy thu lặp vào tổng BH phải nộp.
+
+Bao gồm mẫu Excel bảo hiểm bốn sheet từ alpha.52 (bản alpha.52 chưa phát hành do người dùng yêu cầu dừng).
+
+Tạo Full Backup trước khi cập nhật. Kỳ đã chốt không tự thay đổi; đối soát trước khi mở chốt và tính lại.
+
+## [2.0.0-alpha.52] — 03/11/2026
+Định dạng lại bốn sheet Excel bảo hiểm: tiêu đề công ty/kỳ/phạm vi/ngày lập, đầu cột xanh đậm, số tiền phân cách hàng nghìn, dòng tổng nổi bật, độ rộng cột, chữ ký, cố định tiêu đề và in A4 ngang. Mã nhân viên/sổ BH giữ dạng chữ. Sheet không có biến động vẫn hiện thông báo. Không đổi số liệu và công thức lương.
+
+Tạo Full Backup trước khi cập nhật.
+
+## [2.0.0-alpha.51] — 03/11/2026
+Cộng BH NLĐ đóng luôn bằng tổng ba khoản BHXH, BHYT, BHTN đã làm tròn ở các cột chi tiết, kể cả người chưa đủ ngưỡng công. Quy tắc khấu trừ lương và truy thu giữ nguyên; tổng hợp trừ lương tiếp tục chỉ lấy người đủ điều kiện. KPCĐ là khoản riêng.
+
+Tạo Full Backup trước khi cập nhật; kỳ đã chốt giữ nguyên.
+
+## [2.0.0-alpha.50] — 03/11/2026
+- Bù tổ chỉ tính số người hưởng lương sản phẩm có công BT trong tháng > 0. Người nghỉ cả tháng không làm giảm bình quân tổ.
+- Người có công dưới ngưỡng vẫn tham gia mẫu số nhưng chưa nhận bù; mức sàn và ngưỡng giữ theo mã lương.
+- Tên phương pháp: BÙ THEO ĐƠN GIÁ BÌNH QUÂN TỔ CỐ ĐỊNH NGÀY CÔNG THÁNG.
+- Chuyển kỳ giữ công/người kỳ nguồn và đơn giá/ngày lịch kỳ chi trả. Cập nhật hướng dẫn.
+
+Kiểm thử: 827/827 unit, integration, regression đạt; lint các tệp sửa đạt. Kiểm thử Electron và đóng gói Windows được xác nhận bởi CI của bản phát hành.
+
+Tạo Full Backup trước khi cập nhật. Các kỳ đã chốt giữ kết quả; không mở chốt hoặc tính lại lịch sử nếu chưa đối soát.
+
+## [2.0.0-alpha.49] — 29/10/2026
+- Hồ sơ nhân sự trong form chỉ đóng và báo thành công sau khi ghi đĩa xác nhận thành công. Lỗi ghi hoàn tác dữ liệu và giữ nội dung form để thử lại; lần thử lại không tạo trùng hoặc dùng tham chiếu bản ghi cũ.
+- Áp dụng cùng cơ chế cho sửa thông tin cơ bản, đổi Mã NV nhiều bảng và lập phụ lục biến động. Hủy xác nhận hồi tố không làm thay đổi dữ liệu hoặc báo nhầm lỗi ghi đĩa.
+- Khi giao diện bị crash, không phản hồi hoặc không thể thực hiện lệnh xác nhận lưu, đóng cửa sổ cho chọn Giữ cửa sổ hoặc Thoát ứng dụng. Mặc định giữ cửa sổ; thoát cưỡng bức có thể mất thay đổi chưa lưu, không ghi đè file đã lưu.
+- Xử lý cả trường hợp renderer ngừng hoạt động trong lúc đang chờ xác nhận đóng; phản hồi cũ không tự đóng cửa sổ sau khi người dùng chọn giữ lại.
+- Vẫn chặn đóng khi thao tác lưu trữ năm đang chạy, và vẫn giữ cửa sổ khi ghi đĩa thất bại nhưng renderer đang hoạt động bình thường.
+- Bổ sung unit/Electron regression bằng dữ liệu giả, cập nhật hướng dẫn trong app.
+
+Không đổi công thức/đơn giá lương hay schema 5. Tạo Full Backup trước khi cập nhật.
+
+## [2.0.0-alpha.48] — 29/10/2026
+- Chặn phiếu Sản lượng/Bơm dăm trùng ở tầng repository khi sửa ô/dán dữ liệu. Kiểm lại trước xác nhận đầu vào và tại tiến trình chính trước tính/chốt/xuất lương; không chỉ kiểm trong form.
+- Không cho xóa trống hoặc ghi ngày cân không hợp lệ. Dòng lỗi cũ được hiển thị riêng với Sửa/Xóa; không bị biến khỏi màn hình rồi tính thiếu sản lượng. Ngày/kỳ không xác định chặn tính lương cho đến khi sửa/xóa, vì không thể xác định kỳ chịu ảnh hưởng.
+- Chặn việc xóa/thêm Mã NV để ngầm đổi cách phân bổ Bơm dăm. Đổi cách phân bổ cần xóa phiếu và tạo lại đúng tab. Giữ một nút tạo phiếu theo ngữ cảnh, bỏ nút thêm trùng chức năng.
+- Khi đóng cửa sổ Windows, tiến trình chính yêu cầu renderer ghi xong và xác nhận thành công trước khi đóng. Nếu ghi thất bại thì giữ cửa sổ và dữ liệu đang sửa; có thể thử lưu lại. Trình duyệt cũng có bảo vệ beforeunload.
+- Nâng lớp tiêu đề cột Thao tác cố định để các tiêu đề cuộn ngang không che lên, kiểm thử ở viewport 1024×768.
+- Bổ sung test từ các tình huống lỗi đã tái hiện; cập nhật hướng dẫn trong app.
+
+Không thay đổi công thức hoặc đơn giá lương, không thay đổi schema 5. Dữ liệu thử hoàn toàn giả; không đưa dữ liệu lương/backup thật vào repo. Tạo Full Backup trước khi cập nhật.
+
+## [2.0.0-alpha.47] — 29/10/2026
+## Nháp → Lưu để tính lương
+
+- Chấm công, Sản lượng và Bơm dăm có nút **Lưu để tính lương**. Nhập Excel, thêm, sửa, dán hoặc xóa tạo thay đổi Nháp, vẫn được giữ trên máy để tiếp tục sau khi mở lại.
+- Khi còn Nháp, không chạy tính lương/chốt/xuất bảng lương chính thức của kỳ đó. Tiến trình chính cũng kiểm tra, không chỉ ẩn nút trên giao diện. Sản lượng chuyển kỳ phải lưu cả đầu vào kỳ nguồn.
+- Nút Lưu xác nhận toàn bộ kỳ đang chọn của bảng/tab, không chỉ các dòng đang lọc. Lỗi ghi đĩa hoàn tác trạng thái xác nhận; không báo đã lưu thành công.
+- Dữ liệu có trước nâng cấp được giữ là đã lưu. Kỳ đã chốt vẫn giữ nguyên bản chốt. Full Backup giữ cả Nháp và trạng thái xác nhận, không phụ thuộc nhật ký trên máy cũ.
+- Cấu trúc dữ liệu 5 bảo vệ dữ liệu có trạng thái Nháp khỏi bị bản app cũ tự dùng tính lương. Sao lưu đầy đủ trước khi cập nhật; dùng alpha.47 hoặc mới hơn để mở dữ liệu đã nâng cấp.
+
+## Bơm dăm tách hai tab
+
+- **Phân bổ theo tổ**: phiếu, ngày cân, số xe, tổ/phòng ban và NV vắng; mẫu Excel chia tổ.
+- **Phân bổ trực tiếp nhân viên**: phiếu, ngày cân, số xe và Mã NV; mẫu Excel giao trực tiếp giữ số 0 đầu mã.
+- Danh sách, cột nhập, tổng theo bộ lọc và xác nhận Lưu tách riêng cho từng cách. File nhập sai cách phân bổ bị báo, không ghi lẫn.
+- Sửa phiếu giữ đúng cách phân bổ hiện tại. Nếu chọn sai cách, xóa phiếu rồi tạo lại ở tab đúng và Lưu để tính lương.
+- Bỏ cột nút ✕ trùng ở cuối ba bảng; chỉ giữ Sửa/Xóa trong cột Thao tác ở đầu.
+
+Không đổi đơn giá hoặc công thức lương. Kiểm thử chỉ dùng dữ liệu giả.
+
+## [2.0.0-alpha.46] — 29/10/2026
+## Bơm dăm: chọn rõ cách phân bổ
+- Thêm dòng hoặc Giao trực tiếp cho Mã NV mở form phiếu, chọn Trực tiếp theo Mã NV / Chia theo tổ.
+- Trực tiếp: chọn nhân viên, nhập số xe được giao; dữ liệu Mã phòng ban/NV vắng được bỏ khi lưu, không chia thêm cho tổ.
+- Theo tổ: giữ cách chia người có mặt/NV vắng hiện tại, bỏ Mã NV của cách trực tiếp.
+- Nút Sửa/Xóa rõ ở đầu dòng; sửa phiếu không tạo thêm một dòng mới.
+- Mẫu Excel giao trực tiếp: Phiếu cân, Ngày cân, Biển số, Số xe, Mã NV. Dùng Nhập Excel tại Bơm dăm. Bảng trống để điền dữ liệu thật, không chứa dòng nhân viên mẫu; cột Mã NV, số phiếu và biển số đặt dạng Chữ để giữ số 0 đầu.
+- Cột hiển thị Số xe giữ tương thích trường lưu KL hàng (Tấn) cũ; hỗ trợ phần xe lẻ như cách tính hiện có.
+- Chặn trùng cùng phiếu/người nhận hoặc trộn một phiếu chia tổ với dòng giao trực tiếp trong form. Kỳ đã chốt/quyền nhập liệu vẫn được kiểm tra; giao dịch hoàn tác và giữ form khi ghi đĩa thất bại.
+
+Không đổi công thức/đơn giá bơm dăm, thuật toán chia tổ, sổ chuyển SL hay cấu trúc dữ liệu. Logic nhận Mã NV vốn đã có được đưa thành lựa chọn UI rõ ràng. Khôi phục máy mới không phụ thuộc nhật ký.
+
+Kiểm thử chỉ dùng hồ sơ giả: 14 test mới, Electron nhập trực tiếp/đổi cách chia/đổi lại/chặn trùng, kiểm tra giá trị lương và nhập Excel trực tiếp. CI kiểm toàn bộ hồi quy và đóng gói Windows theo commit phát hành.
+
+## [2.0.0-alpha.45] — 28/10/2026
+## Nhập liệu
+- Bảng Chấm công và Sản lượng có nút Sửa/Xóa rõ ở đầu dòng.
+- Thay toàn bộ kỳ từ Excel: xem trước số xóa/thêm, chỉ chấp nhận dòng đúng kỳ và hợp lệ, sao lưu trước, giao dịch hoàn tác khi ghi đĩa thất bại. Không tác động kỳ khác.
+- Xóa dữ liệu kỳ: xem trước và xác nhận riêng; kỳ đã chốt vẫn khóa.
+
+## Sản lượng kỳ trước trả kỳ sau
+Trong Sản lượng, chọn kỳ phát sinh (ví dụ 09/2026) → Chuyển kỳ chi trả SL → chọn 10/2026 → xem trước → xác nhận.
+- Giữ phiếu/ngày cân, tổ và chấm công tháng 9; người vào tháng 10 không nhận phiếu tháng 9.
+- Dùng mã lương sản lượng của hồ sơ kỳ phát sinh, tra đơn giá và quy chế bù CHÍNH THỨC hiệu lực kỳ chi trả. Công/ngày làm và Chủ nhật theo kỳ phát sinh; chia bình quân tổ dùng số ngày kỳ chi trả.
+- Chuyển toàn bộ sản lượng của một kỳ, một lần, trong cùng năm. Chưa hỗ trợ chuyển một phần phiếu hoặc chuyển qua năm.
+- Người đã nghỉ trước kỳ trả vẫn nhận khoản chuyển; phải chọn rõ mã thuế kỳ chi trả trong xem trước. Không tự trả thêm lương thời gian/BH cho người chỉ nhận khoản chuyển.
+- Tiền SL và bù chuyển được cộng một lần vào Thu nhập khác của kỳ trả, xử lý thuế cùng kỳ; có cột đối soát riêng Kỳ nguồn/Tấn/Lương SL/Bù SL kỳ trước.
+- Kỳ phát sinh không tính lại SL/bù đã chuyển. Khi kỳ nguồn đã chốt có tiền SL/bù hoặc thiếu đối soát: chặn, yêu cầu mở chốt và đối soát; không sửa bản chốt đã trả.
+- Chặn kỳ trả đã chốt, chuyển trùng, chưa phân bổ hết, thiếu công nguồn/đơn giá/quy chế. Muốn sửa công/phiếu/hồ sơ nguồn đang chuyển: hủy chuyển rồi lập lại (khi chưa chốt).
+- Main tự kiểm sổ chuyển và tính lại trước chốt. Hồ sơ năm lưu cả sổ chuyển. Không thay các công thức mặc định cho dữ liệu không dùng chuyển kỳ; chỉ thêm nhánh tách kỳ được chủ sở hữu yêu cầu.
+
+Khôi phục không phụ thuộc nhật ký trên máy mới. Không chứa hồ sơ thật.
+
+Khi xác nhận chuyển, dữ liệu lên cấu trúc 4; các bản cũ chỉ hỗ trợ tới cấu trúc 3 sẽ từ chối mở để tránh tính trùng. Hồ sơ năm giữ nguyên số cấu trúc khi đóng kho. Tệp chưa dùng chuyển kỳ không tự nâng lên 4.
+
+## [2.0.0-alpha.44] — 28/10/2026
+- Đăng xuất thủ công lưu các thay đổi và nhật ký trước khi thu hồi phiên. Nếu ghi thất bại, giữ phiên và nội dung, báo nguyên nhân để thử lại.
+- Tự khóa sau 30 phút vẫn khóa đúng hạn ngay cả khi không ghi được; giữ dữ liệu chưa lưu trong RAM và cảnh báo đăng nhập lại. Đóng app khi còn lỗi lưu vẫn có thể mất các thay đổi chưa được ghi.
+- Sao lưu thông thường dừng nếu không ghi được thay đổi hiện tại, tránh tạo bản sao cũ nhưng tưởng đã bao gồm nội dung mới.
+- Không dùng ngoại lệ máy mới để bỏ qua lỗi lưu dữ liệu đang chỉnh sửa.
+- Nạp danh mục chuẩn dùng giao dịch: lỗi ghi hoàn tác danh mục và nhật ký, không báo thành công.
+
+10 test mới kiểm tra thứ tự lưu/thu hồi phiên, tự khóa, sao lưu và hoàn tác nạp danh mục. Test máy mới mô phỏng đúng trạng thái sạch khi chưa có tệp dữ liệu; có test riêng cho máy chưa có tệp nhưng còn thay đổi chưa lưu.
+
+Khôi phục dữ liệu máy mới không phụ thuộc nhật ký tồn tại hoặc trùng khớp. Công thức lương không thay đổi; kiểm thử chỉ dùng dữ liệu giả. Kết quả kiểm thử/build xem workflow gắn với commit phát hành.
+
+## [2.0.0-alpha.43] — 27/10/2026
+Các thao tác quản trị chỉ báo thành công sau khi dữ liệu được ghi xuống đĩa.
+
+- Tạo/sửa tài khoản: ghi thất bại giữ form, hoàn tác tài khoản và nhật ký phát sinh, hiện nguyên nhân.
+- Đổi mật khẩu và cấp lại mã khôi phục: ghi thất bại giữ mật khẩu/mã cũ, không hiện mã mới chưa lưu.
+- Khôi phục quyền Admin: cập nhật mật khẩu và mã khôi phục trong một giao dịch; thất bại hoàn tác trạng thái.
+- Xóa toàn bộ: thất bại ghi đĩa trả lại dữ liệu trong RAM, vẫn có bản sao lưu trước thao tác.
+- Giao dịch thất bại giữ trạng thái chỉnh sửa chưa lưu từ trước và đồng bộ lại tham chiếu phiên người dùng.
+- Bổ sung 10 test giao dịch và ca Electron riêng cho dữ liệu 1.3 có kỳ lương đã chốt.
+
+Khôi phục dữ liệu trên máy mới không yêu cầu nhật ký tồn tại hoặc khớp. Công thức tính lương không thay đổi. Không chứa dữ liệu thật.
+
+Kiểm chứng tại máy phát triển: 751/751 unit/integration/regression; 3/3 first-run restore; DOM Smart Filter và 3 danh mục; ca legacy độc lập đạt. Electron đầy đủ đạt 264/264 tại máy phát triển. Build Windows xem workflow đi kèm commit.
+
+## [2.0.0-alpha.42] — 27/10/2026
+Ngày: 27/10/2026. Kế thừa main alpha.41 / 276351e.
+
+- Khôi phục JSON không báo thành công hoặc chạy bước tiếp theo nếu chưa ghi được xuống đĩa. Trả lại dữ liệu trước khôi phục trên giao diện và hiện lý do lỗi. Trạng thái trước thao tác không bị sửa qua tham chiếu chung của nhật ký/tài khoản.
+- Khi kiểm tra sau khôi phục không đạt, trả lại trạng thái cũ và báo riêng nếu việc ghi lại trạng thái cũ cũng thất bại.
+- Đồng bộ hoạt động gõ/bấm thật với phiên tại tiến trình chính (tối đa một lần/phút). Nhập liệu lâu không còn tự hết phiên chỉ vì chưa bấm Lưu. Không có tác vụ nền tự giữ phiên; không thao tác vẫn hết hạn sau 30 phút; phiên hết hạn, tài khoản khóa/thu hồi không tự được phục hồi.
+- **Giữ chính sách khôi phục độc lập nhật ký của alpha.41 theo yêu cầu chủ sở hữu. Không yêu cầu khớp, không dùng nhật ký để chặn khôi phục trên máy mới.** File có tài khoản dùng tài khoản cũ; file chỉ có bảng dữ liệu cho tạo Admin sau khi khôi phục. Không thay main/write-policy.js.
+- Thêm kiểm thử máy mới: file có nhật ký cũ, nhật ký rỗng, hoặc không có cả tài khoản lẫn nhật ký; dữ liệu nhân viên vẫn còn sau đăng nhập/tạo Admin.
+
+Không đổi công thức lương, kiểm tra CCCD hay các quyền nghiệp vụ. Không chứa dữ liệu thật.
+
+Tạo Full Backup trước khi nâng cấp. Giữ SHA256SUMS.txt và BUILD_INFO.json cùng Setup để truy vết. OCR chữ tay vẫn chưa nghiệm thu đầy đủ trên hồ sơ thật.
+
+## [2.0.0-alpha.41] — 27/10/2026
+Ngày: 27/10/2026. Kế thừa alpha.40 / 457ada8.
+
+- Màn thiết lập ban đầu có 2 lựa chọn rõ ràng: (1) tạo dữ liệu và tài khoản mới; (2) khôi phục từ dữ liệu cũ. File có sẵn tài khoản thì đăng nhập bằng tài khoản cũ; file chỉ có bảng dữ liệu thì giữ dữ liệu và yêu cầu tạo tài khoản Admin.
+- Khôi phục / nhập file chỉ có bảng dữ liệu không còn bị chặn ghi xuống đĩa: giữ tài khoản, bảo mật, thông tin công ty, nhật ký, kỳ lương đã chốt và chứng từ thanh toán của máy khi file không có các phần này. File có sẵn các phần đó thì dùng nguyên trong file (cài lại Windows không mất nhật ký/tài khoản).
+- Máy mới chưa có file dữ liệu: không coi "chưa có gì để sao lưu" là lỗi sao lưu trước khi khôi phục.
+- **Thay đổi chính sách ghi (main/write-policy.js):** bỏ chốt "nhật ký thao tác chỉ được thêm, không được sửa/xóa" theo yêu cầu của chủ sở hữu. Nhật ký không còn chặn ghi nhưng cũng không còn là bằng chứng chống sửa; đối chiếu lịch sử dựa vào các bản sao lưu. Các chốt khác (quyền theo bảng, kỳ đã chốt, chứng từ đã thanh toán, tài khoản) giữ nguyên.
+- Hộp thoại "Đã nạp dữ liệu nhưng CHƯA lưu được xuống đĩa" hiện thêm dòng **Lý do**.
+- Màn Công ty & Sao lưu: bảng "vị trí dữ liệu" không tràn khung ở cửa sổ hẹp (nút thao tác tự xuống dòng, bảng cuộn ngang).
+- Sao lưu theo năm `nam-YYYY` (alpha.35) giữ nguyên.
+- Không thay công thức lương, phân quyền theo bảng hay kiểm tra CCCD.
+
+Tạo Full Backup trước khi nâng cấp. Giữ SHA256SUMS.txt và BUILD_INFO.json cùng Setup. OCR chữ tay vẫn chưa nghiệm thu đầy đủ trên hồ sơ thật.
+
+## [2.0.0-alpha.40] — 27/10/2026
+Ngày: 27/10/2026. Kế thừa alpha.39 / d134d31.
+
+- Form nhập liệu thông thường không tự đóng khi click nền ngoài; chỉ đóng bằng nút × / Hủy / hoàn tất thao tác. Tránh mất bản nháp khi kéo bôi đen từ ô nhập ra ngoài form.
+- Khi thêm nhân viên không lưu được, hiện lý do gốc từ tiến trình lưu (quyền ghi, phiên đăng nhập, lỗi ổ đĩa…) ngay trong thông báo. Không chỉ hiện cảnh báo chung.
+- Giao dịch thất bại vẫn hoàn tác các bảng nhân viên/cá nhân/hợp đồng/phụ lục/thanh toán/học vấn và nhật ký; form giữ nguyên để sửa hoặc thử lại.
+- Không thay công thức lương, phân quyền, kiểm tra CCCD hay dữ liệu thật.
+
+Lưu ý: sửa việc che mất lý do lỗi không đồng nghĩa đã xác định nguyên nhân mọi máy bị từ chối lưu. Nếu vẫn gặp lỗi, giữ form và gửi phần **Lý do**; không tắt các kiểm tra bảo vệ để ép ghi.
+
+Tạo Full Backup trước khi nâng cấp. Giữ SHA256SUMS.txt và BUILD_INFO.json cùng Setup. OCR chữ tay vẫn chưa nghiệm thu đầy đủ trên hồ sơ thật.
+
+## [2.0.0-alpha.39] — 23/10/2026
+Ngày chuẩn bị: 23/10/2026. Kế thừa main bd293d7 và Setup alpha.38.
+
+- Chặn 1 người có 2 Mã NV (cùng Số CCCD) bị trả lương 2 lần (PR #7):
+  - Chốt kỳ bị chặn cứng (như Mã NV trùng) khi 2 nhân viên CÓ TRONG bảng lương kỳ đó dùng chung Số CCCD. Người đã nghỉ trước kỳ không tính.
+  - Sửa ô, dán nhiều dòng, form hồ sơ: không cho gán Số CCCD đã thuộc nhân viên khác.
+  - Nhập Excel: dòng gán CCCD của người khác (đã có trong dữ liệu, hoặc dòng khác trong cùng file) được đánh dấu "Xung đột (không ghi)"; chính người đang giữ CCCD vẫn cập nhật được.
+  - CCCD được chuẩn hóa trước khi so (bỏ khoảng trắng / dấu, bù số 0 đầu bị Excel làm mất).
+- Logic nằm trong mô-đun mới core/identity.js. Không đổi engine.js, hr.js, repository, importer hay công thức tính lương.
+- Giữ nguyên toàn bộ nội dung alpha.38 (Excel SheetJS 0.20.3, công tắc Umi-OCR, tiến độ / dừng đọc OCR).
+
+Dữ liệu ĐANG có 2 người trong bảng lương cùng Số CCCD sẽ không chốt được cho tới khi gộp về 1 Mã NV hoặc sửa CCCD nhập sai — chạy Công ty & Sao lưu → Kiểm tra dữ liệu trước kỳ chốt.
+
+OCR chữ tay và ảnh chụp thật chưa nghiệm thu đầy đủ. Trước khi cài: tạo Full Backup. Giữ SHA256SUMS.txt và BUILD_INFO.json kèm Setup để truy vết. Không ghi đè release alpha.37 / alpha.38.
+
+## [2.0.0-alpha.38] — 23/10/2026
+Ngày chuẩn bị: 23/10/2026. Kế thừa main 83a2b8d và Setup alpha.37.
+
+- Nâng thư viện nhập Excel SheetJS từ 0.18.5 lên 0.20.3 (nguồn CDN chính thức); giữ giới hạn file 20 MB.
+- Bao gồm Umi-OCR tùy chọn từ PR #6. Thêm công tắc trong trang Đọc ảnh chấm công; thiết lập áp dụng trong phiên mở app. HAK_UMI_OCR=0 vẫn tắt bắt buộc.
+- Hiển thị tiến độ theo ô; Dừng đọc ngừng sau ô hiện tại, bỏ lô đang đọc dở, giữ trang đã hoàn thành. Không tự nhập dữ liệu.
+- Giảm gọi Umi-OCR lặp bằng SHA-256 của PNG giống hệt nhau; tối đa 512 kết quả trong RAM, xóa khi đổi công tắc, không lưu ảnh xuống đĩa. Đây là tối ưu ô trùng, chưa ghép nhiều ô vào một ảnh.
+- Giữ nguyên mô-đun OCR dùng chung được ghim và công thức tính lương.
+
+OCR chữ tay và ảnh chụp thật chưa nghiệm thu đầy đủ. Umi-OCR do người dùng tự cài/chạy trên máy; chỉ cung cấp gợi ý, không thay kết quả tự động. Không tuyên bố mức tăng độ chính xác trên hồ sơ thật.
+
+Trước khi cài: tạo Full Backup. Giữ SHA256SUMS.txt và BUILD_INFO.json kèm Setup để truy vết. Không ghi đè release alpha.37.
+
+## [2.0.0-alpha.37] — 22/10/2026
+Ngày chuẩn bị phát hành: 22/10/2026. Đây là bản alpha, chưa coi OCR chữ tay là đã nghiệm thu đầy đủ.
+
+## Thay đổi
+
+- Hợp nhất quản lý repo về main, lấy LuongHAK_Offline làm app chính; bảo toàn lịch sử 11 nhánh nguồn.
+- Giữ mã dev đã hardening tại legacy/dev-reference và các mô-đun KPI chưa duyệt tại experimental/kpi; không đưa hai vùng này vào bộ cài.
+- Tích hợp nắn trang ảnh OCR từ feature/ocr-page-rectify.
+- Giữ giá trị Còn thiếu (thực lĩnh âm) khi khấu trừ vượt thu nhập. Ví dụ 800.000đ thu nhập, 5.000.000đ tạm ứng: thực lĩnh 0đ, còn thiếu 4.200.000đ. Cột hiện trong bảng và Excel, giữ trong bản chốt mới; không tự trừ tháng sau, không sửa bản chốt cũ.
+- Phiếu lương phân biệt khoản thiếu với tiền làm tròn.
+- Đã kiểm tra chuỗi tiền 20.800.000 được đọc thành 20800000 trên app chính.
+- Cấu hình lint phù hợp môi trường Electron/Node, không thay quy tắc lương CĐ hay tự kích hoạt tiền KPI.
+
+## Cài đặt và dữ liệu
+
+Tên Setup chứa phiên bản 2.0.0-alpha.37. Giữ tệp SHA256SUMS.txt và BUILD_INFO.json kèm bản cài để truy vết đúng commit/build. Tạo Full Backup trước khi nâng cấp, đặc biệt khi đã có kho hồ sơ năm. Không hạ về bản không hỗ trợ schema 3 sau khi đã lưu trữ năm.
+
+## Kế thừa
+
+Phiên bản app, package-lock và nhãn UI phải khớp. Mỗi bản tiếp theo tăng phiên bản và thêm ghi chú phát hành riêng. Workflow main chỉ phát hành sau khi các kiểm tra đạt, không ghi đè tag hoặc release đã tồn tại. Lịch sử các nhánh gốc: docs/CONSOLIDATED_BRANCHES.json.
+
 ## [2.0.0-alpha.25] — pre-release V9.4 (chưa phải bản ổn định; chưa nghiệm thu thực địa trên Windows → `WINDOWS_UAT_PENDING`)
 ### Chức năng mới / thay đổi
 - **OCR chấm công tự ghi mẫu sửa**: mỗi ô sửa/dán hiện trạng thái lưu (đã lưu chờ duyệt / hàng đợi / lỗi) ngay trên ô và ở thanh trạng thái; dòng chưa ghép nhân viên có khóa mẫu riêng (không trùng nhau); dán nhiều ô được ghi mẫu.
