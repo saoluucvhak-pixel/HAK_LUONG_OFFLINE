@@ -2,6 +2,22 @@
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..'),registry=require('../docs/CONSOLIDATED_BRANCHES.json'),pkg=require('../LuongHAK_Offline/package.json');
 assert.equal(registry.canonicalApp,'LuongHAK_Offline');
+// Script đối chiếu với lịch sử git (merge-base, git show). Clone nông (--depth) làm mất các commit này và git chỉ báo "Not a valid commit name".
+// Kiểm tra trước để báo lỗi rõ cách khắc phục thay vì dừng giữa chừng.
+{
+  const git = args => cp.execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  let shallow;
+  try { shallow = git(['rev-parse', '--is-shallow-repository']); }
+  catch (e) { console.error('Không chạy được git trong ' + root + ' — script này cần chạy trong bản clone có thư mục .git.\n' + e.message); process.exit(1); }
+  const need = [...new Set([...registry.branches.map(b => b.commit), 'f93ffc42a24a8ec30b24493178368471d310c63f', '7094be19c46d3615da30c8d42906ec85d54ac08c', 'c389ef4ffcfd13a4f867cb070db2069314617dc7'])];
+  const missing = need.filter(c => { try { git(['cat-file', '-e', c + '^{commit}']); return false; } catch (e) { return true; } });
+  if (missing.length) {
+    console.error('Thiếu ' + missing.length + ' commit cần để đối chiếu lịch sử: ' + missing.map(c => c.slice(0, 7)).join(', ') + '.\n' +
+      (shallow === 'true' ? 'Repo đang là bản clone NÔNG. Chạy: git fetch --unshallow (hoặc clone đầy đủ). Trong CI: actions/checkout với fetch-depth: 0.'
+        : 'Hãy chạy git fetch --all --tags để lấy đủ lịch sử, hoặc kiểm tra docs/CONSOLIDATED_BRANCHES.json.'));
+    process.exit(1);
+  }
+}
 for(const f of pkg.build.files){assert.ok(!/legacy|experimental|\.\./.test(f),'Reference or draft source must not be shipped: '+f);}
 const lock=require('../LuongHAK_Offline/package-lock.json');
 assert.equal(lock.version,pkg.version,'Package lock version mismatch');assert.equal(lock.packages[''].version,pkg.version,'Root lock entry mismatch');
