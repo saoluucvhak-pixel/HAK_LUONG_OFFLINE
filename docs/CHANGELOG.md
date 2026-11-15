@@ -1,9 +1,10 @@
 # CHANGELOG
 
-> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.17. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
+> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.18. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
-## [Chưa phát hành]
+## [2.0.18] — 16/11/2026
+- OCR: nâng `tesseract.js` 5.1.1 → 7.0.0. `ocr/worker.js` chạy được với cả hai bản; thêm `ocr/tesseract-compat.js` để việc đoán chiều ảnh cả trang vẫn đếm được từ (bản 7 không còn trả `data.words`). Không sửa `main/ocr-service.js` dùng chung. Đánh giá OCR theo ô: 4/4 ca, mỗi ca 90/90 ô, bằng bản 5.1.1.
 - CI: bộ quét bảo mật không còn báo nhầm `regex.exec()` là "thực thi mã động" (trước đây 39 lỗi mức cao, đều là báo nhầm), bỏ qua thư viện đã nén và dòng chú thích, và nay là bước bắt buộc trên mã đi vào bộ cài.
 - Test: thêm 4 kiểm tra Electron cho luồng kho bộ lọc đã lưu bị lỗi (báo, không ghi đè, nút sao lưu tạo kho mới, bản cũ còn nguyên).
 
