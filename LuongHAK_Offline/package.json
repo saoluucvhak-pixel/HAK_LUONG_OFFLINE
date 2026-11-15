@@ -1,6 +1,6 @@
 {
   "name": "luong-hak",
-  "version": "2.0.15",
+  "version": "2.0.16",
   "description": "Tính lương HAK - chạy offline",
   "main": "main.js",
   "author": "HAK",
@@ -14,10 +14,10 @@
     "test:ocr-eval": "node tests/e2e/ocr-eval.js"
   },
   "devDependencies": {
-    "electron": "43.8.9",
-    "electron-builder": "26.15.3",
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0",
     "eslint": "9.39.5",
-    "jsdom": "30.1.3"
+    "jsdom": "31.0.1"
   },
   "build": {
     "appId": "vn.hak.luong",
