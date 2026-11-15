@@ -3116,6 +3116,13 @@
         : [btn("Hủy, để tôi kiểm tra lại", "", close), btn("Đã kiểm tra, tiếp tục chốt", "pri", function () { close(); onContinue(); })];
     });
   }
+  function selectTopupMethod(value) {
+    st.bu = value === "true" ? true : value === "false" ? false : value;
+    st.kqStale = true;
+    saveUi();
+    render();
+  }
+
   function checkCloseTopup(result, ky) {
     var parts = ky.split("-").map(Number);
     var policy = E.quyCheBuChinhThuc(db.dm_quychebu, parts[0], parts[1]);
@@ -3128,9 +3135,21 @@
         return false;
       }
     } else if (used !== official) {
-      alert("⛔ KHÔNG THỂ CHỐT — phương pháp bù đang xem đã dùng để tính: " + buLabel(used) +
-        ". Cài đặt kỳ " + kyLabel(ky) + ": " + buLabel(official) +
-        ". Chọn đúng phương pháp, bấm Tính lương lại rồi kiểm tra bảng trước khi chốt.");
+      var body = h("div", { class: "warn" }, [
+        h("p", { text: "Đã tính bảng lương theo: " + buLabel(used) }),
+        h("p", { text: "Cài đặt kỳ " + kyLabel(ky) + ": " + buLabel(official) }),
+        h("p", { text: "Bấm Tính lương lại sau khi chọn đúng phương pháp, rồi kiểm tra bảng trước khi chốt." })
+      ]);
+      modal("Phương pháp bù chưa khớp", body, function (close) {
+        var actions = [btn("Đóng", "", close)];
+        if (String(st.bu) !== official) actions.push(btn("Dùng phương pháp trong Cài đặt", "pri", function () {
+          close();
+          if (kyStr() !== ky || kyChot(ky)) return;
+          selectTopupMethod(official);
+          toast("Đã chọn phương pháp trong Cài đặt. Bấm Tính lương lại.");
+        }));
+        return actions;
+      });
       return false;
     }
     if (used !== String(st.bu)) {
@@ -3775,7 +3794,7 @@
     }
     var sel = h("select", { "aria-label": "Cách bù lương sản lượng" }); BU_OPTS.forEach(function (o) { sel.appendChild(h("option", { value: o[0], text: o[1] })); });
     if (!buMethodOf(st.bu)) sel.appendChild(h("option", { value: String(st.bu), text: buLabel(st.bu) }));
-    sel.value = String(st.bu); sel.addEventListener("change", function () { st.bu = sel.value === "true" ? true : sel.value === "false" ? false : sel.value; st.kqStale = true; saveUi(); render(); });
+    sel.value = String(st.bu); sel.addEventListener("change", function () { selectTopupMethod(sel.value); });
     bar.appendChild(btn("▶ Tính lương tháng " + st.thang + "/" + st.nam, "pri big", function () {
       if (!need("payroll.calc")) return;
       if (!db.nhanvien.length) { alert("Chưa có nhân viên. Hãy nhập ở mục Nhân sự trước."); return; }

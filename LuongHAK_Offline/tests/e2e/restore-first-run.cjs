@@ -11,7 +11,7 @@ async function run(withAccounts,journal){
   fs.writeFileSync(file,JSON.stringify(incoming));
   let app;
   try{
-    app=await _electron.launch({executablePath:require("electron"),args:["--no-sandbox",APP],env:{...process.env,HAK_USER_DATA:dir,HAK_DOWNLOAD_DIR:path.join(dir,"downloads"),HAK_NO_SHELL:"1"}});
+    app=await _electron.launch({executablePath:process.env.HAK_PACKAGED_EXE||require("electron"),args:process.env.HAK_PACKAGED_EXE?["--no-sandbox"]:["--no-sandbox",APP],env:{...process.env,HAK_USER_DATA:dir,HAK_DOWNLOAD_DIR:path.join(dir,"downloads"),HAK_NO_SHELL:"1"}});
     const page=await app.firstWindow();page.on("dialog",d=>d.accept());await page.waitForSelector("#main > *");
     await page.getByRole("button",{name:"2. Khôi phục từ dữ liệu cũ",exact:true}).click();
     const chooser=page.waitForEvent("filechooser");await page.getByRole("button",{name:/Chọn file dữ liệu cũ/}).click();await(await chooser).setFiles(file);

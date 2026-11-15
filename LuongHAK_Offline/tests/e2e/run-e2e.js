@@ -1177,20 +1177,21 @@ async function launch(dataDir, opt) {
     const warnMoPhong = await w.locator("main").first().innerText();
     ok("Tính lương: có phương pháp chính thức ('daihiep') khác lựa chọn đang xem ('to') → báo rõ đang XEM THỬ, không phải chính thức", /Phương pháp bù sản lượng CHÍNH THỨC kỳ 11\/2026: BÙ SẢN LƯỢNG THEO NGÀY/.test(warnMoPhong) && /đang XEM THỬ phương pháp khác/.test(warnMoPhong), warnMoPhong.replace(/\s+/g, " ").slice(0, 300));
     await w.click("button.big"); await w.waitForTimeout(200);
-    dialogs = [];
     const beforeClose = await w.locator("main").first().innerText();
-    await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForTimeout(200);
+    await w.click('button:has-text("Chốt kỳ lương")');
+    const mismatch = w.getByRole("button", { name: "Dùng phương pháp trong Cài đặt" });
+    await mismatch.waitFor();
     ok("Khác phương pháp chính thức: chặn chốt, giữ phương pháp và nguyên bảng đang xem",
-      dialogs.some((x) => /KHÔNG THỂ CHỐT.*phương pháp bù đang xem/.test(x)) &&
+      await w.locator(".dlg").getByText("Phương pháp bù chưa khớp", { exact: true }).count() === 1 &&
       await w.locator('select[aria-label="Cách bù lương sản lượng"]').inputValue() === "to" &&
-      await w.locator("main").first().innerText() === beforeClose &&
-      await w.locator(".dlg").count() === 0);
-    await w.selectOption('select[aria-label="Cách bù lương sản lượng"]', "daihiep");
-    dialogs = [];
-    await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForTimeout(200);
-    ok("Chọn đúng phương pháp nhưng chưa tính lại: chặn chốt bằng phương pháp thực sự đã tính",
-      dialogs.some((x) => /phương pháp bù đang xem đã dùng để tính.*Cài đặt kỳ.*Tính lương lại/.test(x)) &&
-      await w.locator(".dlg").count() === 0);
+      await w.locator("main").first().innerText() === beforeClose);
+    await mismatch.click();
+    await w.click('button:has-text("Chốt kỳ lương")');
+    await w.locator(".dlg").getByText(/Bấm Tính lương lại/).waitFor();
+    ok("Dùng phương pháp trong Cài đặt chỉ chọn cách bù, vẫn cần tính lại",
+      await w.locator('select[aria-label="Cách bù lương sản lượng"]').inputValue() === "daihiep" &&
+      await mismatch.count() === 0 && await w.locator('[data-payroll-closed="1"]').count() === 0);
+    await w.locator(".dlg").getByRole("button", { name: "Đóng", exact: true }).click();
     await w.click("button.big"); await w.waitForTimeout(200);
     await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
     await w.locator(".dlg input").fill("Chốt E2E mục VIII"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');

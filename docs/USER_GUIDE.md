@@ -27,6 +27,7 @@ Không cần internet, không cần Google Sheet. Cài bằng file `TinhLuongHAK
 ## Hạch toán và xuất bộ báo cáo kỳ
 
 - **Xuất trọn bộ Excel** từ kỳ đã chốt gồm thông tin phiên bản, bảng lương, bảo hiểm, thuế TNCN chi tiết, chấm công theo hình thức, sản lượng theo người và phiếu cân, bù sản lượng, phân bổ phòng ban, hạch toán và đối chiếu chi lương. Bản chốt cũ có thể thiếu chi tiết theo phiếu hoặc mã số thuế. Xem dòng Nguồn trên sheet.
+- Khi app báo **Phương pháp bù chưa khớp**, chọn **Dùng phương pháp trong Cài đặt**, bấm **Tính lương** lại và kiểm tra kết quả trước khi chốt. Nếu đã chọn đúng nhưng chưa tính lại, hộp thoại sẽ nhắc bấm **Tính lương**.
 - **In trọn bộ PDF kỳ lương** dùng cùng nguồn số liệu với Excel. Mỗi báo cáo bắt đầu ở trang mới. Tại danh sách kỳ đã chốt, chọn **PDF trọn kỳ** trên dòng tương ứng.
 - Hạch toán dùng tài khoản chi phí theo danh mục trong bản chốt nếu có. Với bản cũ thiếu dữ liệu này, file ghi rõ nguồn là danh mục hiện tại.
 - Các dòng **Đã chi** lấy từ chứng từ đã ghi nhận thanh toán. Khoản đang chờ chi được trình bày riêng trong bảng đối chiếu. Bảng kê để thực hiện chuyển khoản được xuất từ chi tiết chứng từ đã duyệt.
