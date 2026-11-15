@@ -591,15 +591,31 @@
   // Cột tiền: hiển thị 15.000.000 / 1.250,5 (dấu chấm phân nghìn, phẩy thập phân), canh phải; lưu số thuần
   var MONEYCOLS = /^(Thưởng|Thu nhập (khác|từ|đến)|Trừ khác|Tạm ứng|Số tiền.*|Đơn giá.*|Lương (phụ|thỏa thuận)|Trừ nhanh|Tiền tăng ca.*|Mức tiền)$/;
   function moneyText(v) { var t = String(v == null ? "" : v).trim(); if (!t) return ""; var n = VAL.parseMoney(t); return isNaN(n) ? t : n.toLocaleString("vi-VN", { maximumFractionDigits: 4 }); }
+  /** Gõ tới đâu chèn dấu chấm phân nghìn tới đó (giữ vị trí con trỏ). Chỉ đụng chuỗi chỉ gồm chữ số, hoặc đã nhóm 3 chữ số vừa gõ thêm 1 chữ số; "1.5" (thập phân) giữ nguyên. */
+  function moneyLive(inp) {
+    var v = inp.value, m = /^(-?)([\d.]+)(,\d*)?$/.exec(v); if (!m) return;
+    var g = m[2].split("."), okGroups = g.length === 1 || (g.slice(1, -1).every(function (x) { return x.length === 3; }) && (g[g.length - 1].length === 3 || g[g.length - 1].length === 4) && g[0].length >= 1 && g[0].length <= 3);
+    if (!okGroups) return;
+    var digits = g.join(""), out = m[1] + digits.replace(/\B(?=(\d{3})+$)/g, ".") + (m[3] || "");
+    if (out === v) return;
+    var pos = inp.selectionStart, before = v.slice(0, pos == null ? v.length : pos).replace(/[^\d,]/g, "").length;
+    inp.value = out;
+    try { var c = 0, i = 0; while (i < out.length && c < before) { if (/[\d,]/.test(out.charAt(i))) c++; i++; } inp.setSelectionRange(i, i); } catch (e) {}
+  }
   var dlId = 0;
   function makeInput(col, value, onchange, opts, tableKey) {
     var isDate = DATECOLS.test(col), inp = isDate ? dateField(value == null ? "" : value) : h("input", { value: value == null ? "" : value });
     if (NUMCOLS.test(col) && !isDate) inp.className = "num";
-    var isMoney = MONEYCOLS.test(col) && !isDate;
-    if (isMoney) { inp.className = "num money"; inp.value = moneyText(inp.value); inp.addEventListener("blur", function () { inp.value = moneyText(inp.value); }); }
+    var isMoney = (MONEYCOLS.test(col) || VAL.isMoneyCol(col)) && !isDate;
+    if (isMoney) { inp.className = "num money"; inp.value = moneyText(inp.value); inp.addEventListener("input", function () { moneyLive(inp); }); inp.addEventListener("blur", function () { inp.value = moneyText(inp.value); }); }
     var list = col === "Mã NV" ? "dsnv" : null, opts2 = list ? null : datalistFor(col, tableKey);
     if (list) inp.setAttribute("list", "dsnv");
     else if (opts2 && opts2.length) { var id = "dl" + (++dlId), dl = h("datalist", { id: id }); opts2.forEach(function (o) { dl.appendChild(h("option", { value: o })); }); inp.setAttribute("list", id); inp._dl = dl; }
+    if (col === "KL hàng (Tấn)") inp.addEventListener("change", function () {
+      var t = inp.value.trim(), bad = t !== "" && !/^\d+([.,]\d+)?$/.test(t) && !/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t);
+      inp.classList.toggle("invalid", bad); if (bad) inp.title = "Khối lượng phải là số (ví dụ 12,5)"; else inp.title = "";
+      if (/^\d{1,3}[.,]\d{3}$/.test(t)) toast("Ô tấn \"" + t + "\" được hiểu là " + t.replace(",", ".") + " tấn (dấu , hoặc . là dấu thập phân). Nếu ý bạn là hàng nghìn thì nhập " + t.replace(/[.,]/, "") + ".");
+    });
     inp.addEventListener("change", function () { var iv = isDate ? dateIso(inp) : null, raw = inp.value.trim(); if (isMoney && raw && !isNaN(VAL.parseMoney(raw))) raw = String(VAL.parseMoney(raw)); onchange(isDate && iv ? iv : raw); });
     return inp;
   }
