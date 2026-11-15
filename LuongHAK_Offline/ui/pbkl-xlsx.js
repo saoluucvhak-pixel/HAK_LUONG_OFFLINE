@@ -243,7 +243,7 @@
     P("• Chi tiết công nhân: khối lượng (tấn) từng công nhân nhận, theo ngày và tổng tháng, nhóm theo tổ.");
     P("• Đối soát phiếu cân: từng phiếu — ngày, tổ, chia cho bao nhiêu người, mỗi người bao nhiêu; phiếu ghi Mã NV là \"Giao trực tiếp\".");
     if (ctx.chot) P("Nguồn số liệu: sheet Tiền lương và bù lương lấy kết quả và công BT từ bản chốt; ô công trống nếu bản cũ thiếu dữ liệu. Các sheet phân bổ, đối soát và phiếu gốc phản ánh dữ liệu hiện tại. Bản xuất kỳ đã chốt không tính lại bù theo ngày.");
-    if (ctx.attendanceReviewOn) P("• DoiChieuChamCong: dữ liệu hiện tại, liệt kê phiếu có người công bằng 0 chưa ghi vắng, cùng danh sách người nhận và người không nhận.");
+    if (ctx.attendanceReviewOn) P("• DoiChieuChamCong: dữ liệu hiện tại, liệt kê phiếu có người công bằng 0 hoặc để trống chưa ghi vắng, cùng danh sách người nhận và người không nhận.");
     if (ctx.bdOn) P("• Tổng hợp BD / BD - Phòng ban / BD - Công nhân / Đối soát BD: 4 sheet cùng cấu trúc cho BƠM/BAN DĂM — đơn vị là XE, không phải tấn.");
     if (ctx.luongOn) P("• Tiền lương và bù lương: lương sản lượng, lương ban dăm, bù lương, tổng cộng từng công nhân — lấy đúng từ bảng lương của kỳ" + (ctx.chot ? " ĐÃ CHỐT." : " (kỳ CHƯA chốt — số tính tạm)."));
     if (ctx.daihiepDetailOn) P("• Bù lương theo ngày - DH: chi tiết TỪNG NGÀY của bù lương sản lượng Đại Hiệp — công BT, hệ số bậc thang, SL chuẩn/tham chiếu/thực tế/bù, tiền bù; tổng mỗi người khớp đúng cột \"Bù lương\" ở sheet \"Tiền lương và bù lương\". Dùng để đối chiếu/giải trình từng ngày khi có khiếu nại.");

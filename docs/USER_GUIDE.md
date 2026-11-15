@@ -36,7 +36,7 @@ Không cần internet, không cần Google Sheet. Cài bằng file `TinhLuongHAK
 ## Báo cáo sản lượng và chấm công
 
 - **Phiếu gốc sản lượng / bơm dăm** mở bảng kê nguồn. Bấm **Xem kết quả phân bổ** để xem người nhận theo tổ và ngày cân.
-- **Phiếu cần đối chiếu chấm công** chỉ liệt kê trường hợp ô công bằng 0 và chưa ghi tên hoặc mã trong **NV vắng**. Dùng bộ lọc tìm theo phiếu, tổ hoặc người cần kiểm tra. Dòng phiếu vẫn hiện đủ người được chia và người không được chia.
+- **Phiếu cần đối chiếu chấm công** liệt kê trường hợp ô công bằng 0 hoặc để trống và chưa ghi tên hoặc mã trong **NV vắng**. Dùng bộ lọc tìm theo phiếu, tổ hoặc người cần kiểm tra. Dòng phiếu vẫn hiện đủ người được chia và người không được chia.
 - **Xuất báo cáo đang xem** giữ loại đang chọn và bộ lọc bảng đối chiếu. **Xuất bộ phân bổ toàn kỳ** lấy cả sản lượng và bơm dăm. Trong file kỳ đã chốt, kiểm tra phần hướng dẫn để biết bảng nào lấy từ bản chốt và bảng nào phản ánh dữ liệu hiện tại.
 
 ## Đăng nhập & người dùng (từ 2.0-alpha.2)
