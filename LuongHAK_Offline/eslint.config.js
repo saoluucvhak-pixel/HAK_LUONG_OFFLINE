@@ -3,7 +3,7 @@ const browserGlobals = { window: "readonly", HTMLElement: "readonly", document: 
 const nodeGlobals = { Buffer: "readonly", require: "readonly", module: "writable", process: "readonly", __filename: "readonly", __dirname: "readonly", console: "readonly", setTimeout: "readonly" };
 const rules = { "no-undef": "error", "no-dupe-keys": "error", "no-unreachable": "error", "no-redeclare": ["error", { builtinGlobals: false }], "no-unused-vars": ["warn", { args: "none", caughtErrors: "none" }], "no-self-assign": "error", "no-dupe-else-if": "error", "no-cond-assign": ["error", "except-parens"] };
 module.exports = [
-  { ignores: ["xlsx.full.min.js", "exceljs.min.js", "vendor/**", "dist/**", "node_modules/**", "tests/regression/baseline_v1.3.0/**", "tests/regression/baseline_2.0.0-alpha.4/**"] },
+  { ignores: ["app-src/**", "xlsx.full.min.js", "exceljs.min.js", "vendor/**", "dist/**", "node_modules/**", "tests/regression/baseline_v1.3.0/**", "tests/regression/baseline_2.0.0-alpha.4/**"] },
   { files: ["app.js", "engine.js", "hr.js", "core/**/*.js", "ui/**/*.js"], languageOptions: { ecmaVersion: 2022, sourceType: "script", globals: browserGlobals }, rules },
   { files: ["main.js", "preload.js", "main/**/*.js", "ocr/**/*.js", "tests/**/*.js", "eslint.config.js"], languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: nodeGlobals }, rules },
   // các hàm truyền vào page.evaluate chạy trong cửa sổ app

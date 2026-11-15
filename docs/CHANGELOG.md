@@ -5,6 +5,7 @@
 
 ## [Chưa phát hành]
 - Tách `app.js`, bước 1: chuyển 43 hàm trợ giúp không dùng trạng thái sang `ui/app-helpers.js` (chỉ di chuyển, không đổi nội dung hàm). Không đổi hành vi, không đổi kết quả tính lương.
+- Tách `app.js`, bước 2: mã nguồn giao diện chia thành 28 file theo màn hình trong `LuongHAK_Offline/app-src/`; `npm run build:app` ghép lại thành `app.js`. Nội dung `app.js` chỉ thêm một dòng chú thích.
 - CI: khóa các file dùng chung với `HAK_SMART_FILTER` và design system (`shared-modules.lock.json`, `npm run check:shared`).
 
 ## [2.0.16] — 15/11/2026

@@ -81,5 +81,12 @@ Mỗi dòng là **một PR riêng**, cùng quy trình: chạy `npm ci`, `npm tes
 - Kiểm chứng: `npm test` 900/900, lint sạch, `test:ui-dom` đạt, `check-consolidation` đạt, E2E Electron đầy đủ 275/275 (chạy trên Linux dưới xvfb). Chưa nghiệm thu trên Windows thật. Chưa chụp ảnh màn hình trước/sau vì giao diện không đổi và E2E đã bao phủ.
 - Chưa tăng phiên bản: các bước tách sẽ phát hành chung một bản khi xong đợt.
 
-**Còn lại:** các màn hình `tab*`, báo cáo `bc*` và lưới `grid` đều dùng `db`/`st`/`session`, nên không chuyển được bằng cách trên. Bước kế tiếp phải chọn giữa đổi `db`/`session` thành đối tượng ổn định (PR 4 ở §6, rủi ro cao) và ghép file lúc build (cách B ở §3).
+**Bước 2 — chia `app.js` thành 28 file trong `LuongHAK_Offline/app-src/`, ghép lại lúc build** (chủ sở hữu chọn ngày 15/11/2026; là dạng đơn giản của cách B ở §3, không cần esbuild).
 
+- Mỗi file là một đoạn liên tiếp của hàm bao, cắt tại các tiêu đề mục `// ---------- … ----------` có sẵn: lưu trữ, đăng nhập và phân quyền, Excel, danh mục, bảng nhập liệu, nhân sự, HĐLĐ, kiểm tra bảng lương, công thức lương, tính lương, chốt kỳ, báo cáo lương, OCR, sao lưu và khôi phục, khung điều hướng… Điểm cắt đã được kiểm bằng cây cú pháp: không điểm nào nằm giữa một câu lệnh.
+- `scripts/build-app.cjs` (`npm run build:app`) ghép các file theo thứ tự tên thành `app.js`. `app.js` vẫn được commit và là file duy nhất Electron, bộ cài và các test đọc. So với trước khi chia, `app.js` chỉ thêm đúng một dòng chú thích "không sửa trực tiếp" ở đầu file.
+- `tests/unit/app-parts.test.js` (3 test) bắt trường hợp `app.js` lệch với `app-src/`. `app-src/` không vào bộ cài và không được lint riêng (lint chạy trên `app.js` đã ghép).
+- Hạn chế: các file trong `app-src/` không phải module độc lập, vẫn dùng chung một phạm vi biến. Cách này giúp tìm, đọc và xem diff theo từng màn hình; chưa tạo ranh giới phụ thuộc giữa các màn hình. Muốn có ranh giới thật thì vẫn cần PR 4 ở §6.
+- Kiểm chứng: `npm test` 903/903, lint sạch, `test:ui-dom`, `check-consolidation` đạt.
+
+**Còn lại của nhóm 4:** gom bốn đường ghi (nhập Excel, gộp chấm công, thêm và xóa nhân viên) vào `core/repository.js` (§5); chuyển báo cáo `bc*` sang `core/reporting` kèm test.

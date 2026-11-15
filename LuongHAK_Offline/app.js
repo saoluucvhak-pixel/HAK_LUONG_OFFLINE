@@ -1,4 +1,5 @@
 // ===== GIAO DIỆN APP TÍNH LƯƠNG HAK (offline) =====
+// FILE NÀY ĐƯỢC GHÉP TỪ app-src/*.js — KHÔNG SỬA TRỰC TIẾP. Sửa trong app-src/ rồi chạy: npm run build:app
 (function () {
   "use strict";
   // Hàm trợ giúp không dùng trạng thái của app: định nghĩa ở ui/app-helpers.js (nạp trước file này).
