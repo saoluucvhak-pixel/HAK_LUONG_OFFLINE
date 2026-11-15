@@ -54,3 +54,13 @@ Theo mẫu đang dùng cho OCR (`LuongHAK_Offline/shared-ocr.lock.json` + `scrip
 3. Với `ui/smart-filter.js` và `hak-workspace-layout.css`: có muốn đẩy bản sửa của app lên repo gốc (cần cấp quyền ghi) không?
 4. `HAK_AI_SKILLS`, `HAK_SMART_FILTER/src`, `HAK_ACCOUNTING_REPORT_STANDARD`: giữ làm tham chiếu hay bỏ?
 5. `HAK_CODE_QUALITY_TEST`: đổi tên thành thư mục riêng cho CI (ví dụ `ci/quality-python`) để khỏi lẫn với repo gốc cùng tên không?
+
+## 5. Đã làm (cập nhật 15/11/2026)
+
+Bước 1 của §3 đã có, **không đổi dòng mã chạy nào**:
+
+- `shared-modules.lock.json` ở gốc repo: khóa 6 file gốc (8 bản trong repo này) của `HAK_SMART_FILTER` tại `e99bb7e` và `HAK-Enterprise-Design-System` tại `69ac08a`. 3 file `identical`, 3 file `diverged` kèm lý do.
+- `scripts/verify-shared-modules.cjs` (chạy tay: `npm run check:shared`): so mã băm từng file với khóa. Job `inherited-quality` của CI chạy script này kèm bản checkout hai repo gốc tại đúng commit đã ghim, nên mục `identical` được đối chiếu thật với bản gốc.
+- Khi cố ý sửa một file trong danh sách, cập nhật mã băm trong khóa ở cùng PR. Khi muốn theo commit mới của repo gốc, đổi `commit` trong khóa và `ref` tương ứng trong workflow.
+
+Chưa làm, vẫn chờ trả lời câu hỏi 2–5 ở §4: đưa `discardCorrupt()` vào `core/smart-filter.js`, đẩy bản sửa của app lên repo gốc, giữ hay bỏ các thư mục tham chiếu, đổi tên `HAK_CODE_QUALITY_TEST`. Thư mục `HAK_CODE_QUALITY_TEST` chưa đưa vào khóa vì nó là sản phẩm khác với repo gốc cùng tên, không có bản gốc để đối chiếu.

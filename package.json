@@ -5,6 +5,7 @@
   "scripts": {
     "test": "npm --prefix LuongHAK_Offline test",
     "check": "node scripts/check-consolidation.cjs",
+    "check:shared": "node scripts/verify-shared-modules.cjs",
     "test:legacy": "npm --prefix legacy/dev-reference run check && npm --prefix legacy/dev-reference test",
     "test:kpi": "node --test experimental/kpi/tests/unit/*.test.js"
   }
