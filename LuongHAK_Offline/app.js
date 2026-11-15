@@ -3750,7 +3750,7 @@
         var matchingReceipts = new Set(FX(receiptRows).map(function (row) { return row.index; }));
         var visibleReview = r3.attendanceReview.filter(function (_, index) { return matchingReceipts.has(index); });
         card.appendChild(h("div", { class: "fh", text: "Phiếu cần đối chiếu chấm công" }));
-        card.appendChild(h("p", { class: "hint", text: "Người có ô chấm công ghi bằng 0 và chưa có tên hoặc mã trong NV vắng. Kiểm tra chấm công trước khi điều chỉnh." }));
+        card.appendChild(h("p", { class: "hint", text: "Người có ô chấm công ghi bằng 0 hoặc để trống và chưa có tên hoặc mã trong NV vắng. Kiểm tra chấm công trước khi điều chỉnh." }));
         card.appendChild(reviewFilter);
         if (Object.keys(rfSkip).length) card.appendChild(h("div", { class: "hint", text: "Tiêu chí không áp dụng cho bảng này: " + Object.keys(rfSkip).join(", ") }));
         var reviewTable = visibleReview.length ? simpleTable(visibleReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });

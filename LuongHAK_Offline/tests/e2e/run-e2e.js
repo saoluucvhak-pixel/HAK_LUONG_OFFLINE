@@ -935,7 +935,7 @@ async function launch(dataDir, opt) {
       bu.T2 === 140000 && bu.T3 === 140000 && !bu.T1, JSON.stringify(bu));
     ok("Sheet 'Bu luong theo ngay - DH' (mục XVII): tổng bù cả tháng mỗi người khớp đúng cột 'Bù lương' ở sheet tổng hợp",
       buNgay.T2 === 140000 && buNgay.T3 === 140000, JSON.stringify(buNgay));
-    ok("File Excel đủ sheet như công cụ", sheets === "Huong dan su dung|Tong hop phong ban|Phan bo theo phong ban|Chi tiet cong nhan|Doi soat phieu can|Tien luong va bu luong|Bu luong theo ngay - DH|Du lieu - Khoi luong", sheets);
+    ok("File Excel đủ sheet như công cụ", sheets === "Huong dan su dung|Tong hop phong ban|Phan bo theo phong ban|Chi tiet cong nhan|Doi soat phieu can|DoiChieuChamCong|Tien luong va bu luong|Bu luong theo ngay - DH|Du lieu - Khoi luong", sheets);
     // File mẫu tải từ app = mẫu công cụ
     await w.click("#nav button[data-k=sanluong]"); await w.click('#main button:has-text("Tải file mẫu")');
     let mf = null; for (let i = 0; i < 30 && !mf; i++) { await w.waitForTimeout(200); mf = fs.readdirSync(DL).filter((x) => x === "mau_bang_khoi_luong.xlsx")[0]; }
