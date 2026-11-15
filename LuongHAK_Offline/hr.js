@@ -238,16 +238,10 @@
     var cache = {};
     // R-73 (chủ sở hữu 12/10/2026): ngày có công > 0 → được chia (không phân biệt 0,5 / 0,3); công = 0 / trống → cảnh báo, coi như nghỉ nguyên ngày.
     // "Có công" = ô ngày > 0 ở hình thức công đi làm (không tính PN phép, CL lễ, CC tiền cơm).
-    var KHONG_DI_LAM = { PN: 1, CL: 1, CC: 1 }, coMat = {}, congBangKhong = {};
+    var KHONG_DI_LAM = { PN: 1, CL: 1, CC: 1 }, coMat = {};
     (db.chamcong || []).forEach(function (r) {
       if (String(r["Kỳ"] || "").slice(0, 7) !== ky || KHONG_DI_LAM[String(r["Hình thức công"] || "BT").trim().toUpperCase()]) return;
-      for (var dd = 1; dd <= 31; dd++) {
-        var value = r[("0" + dd).slice(-2)], ma = r["Mã NV"];
-        if (coCong(value)) (coMat[ma] = coMat[ma] || {})[dd] = 1;
-        else if (/^0+(?:[.,]0+)?$/.test(String(value == null ? "" : value).trim())) {
-          (congBangKhong[ma] = congBangKhong[ma] || {})[dd] = 1;
-        }
-      }
+      for (var dd = 1; dd <= 31; dd++) if (coCong(r[("0" + dd).slice(-2)])) (coMat[r["Mã NV"]] = coMat[r["Mã NV"]] || {})[dd] = 1;
     });
     var membersOf = function (ngay, pb) {
       var key = ngay + "\u0001" + pb;
@@ -264,7 +258,8 @@
       if (!out.length && !nghi.length && !(pb in known)) out = null; // mã tổ lạ
       else {
         var dn = +String(ngay).slice(8, 10), coCC = out.some(function (e) { return coMat[e.ma] && coMat[e.ma][dn]; });
-        out.forEach(function (e) { e.congBangKhong = !(coMat[e.ma] && coMat[e.ma][dn]) && !!(congBangKhong[e.ma] && congBangKhong[e.ma][dn]); });
+        // công 0 hoặc TRỐNG (kể cả không có dòng chấm công, hay chỉ có PN / CL / CC) = không có công
+        out.forEach(function (e) { e.congBangKhong = !(coMat[e.ma] && coMat[e.ma][dn]); });
         if (coCC) { // tổ đã có chấm công ngày này → ai công = 0 coi như nghỉ nguyên ngày
           var co = out.filter(function (e) { return coMat[e.ma] && coMat[e.ma][dn]; });
           out.filter(function (e) { return co.indexOf(e) < 0; }).forEach(function (e) { nghi.push({ ma: e.ma, hoTen: e.hoTen, loai: "Không có công (chấm công = 0 / trống)", khongCong: true, congBangKhong: e.congBangKhong }); });

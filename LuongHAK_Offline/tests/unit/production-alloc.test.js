@@ -248,7 +248,7 @@ test("Team topup excludes zero-BT staff but retains positive BT below threshold"
   assert.ok(E.tinhBangLuong(db,2026,9,'to').bangluong.every(r=>r['Lương bù SL']===0));
 });
 
-test('Reports explicit zero attendance per receipt unless already listed absent', () => {
+test('Reports zero OR blank attendance per receipt unless already listed absent (R-73: công = 0 / trống → cảnh báo)', () => {
   const db = hrDb();
   db.chamcong = [{ "Kỳ": "2026-10", "Mã NV": "T1", "Hình thức công": "BT", "01": 1, "02": 0 },
     { "Kỳ": "2026-10", "Mã NV": "T2", "Hình thức công": "BT", "01": "0,0" }];
@@ -260,8 +260,26 @@ test('Reports explicit zero attendance per receipt unless already listed absent'
     { ...receipt, "Phiếu cân": "D", "Ngày cân": "2026-10-02", "NV vắng": "T1" }
   ];
   const { alloc } = HR.sanLuongKy(db, 2026, 10, "sanluong");
-  assert.deepEqual(alloc.attendanceReview.map(r => [r.phieu, r.soNguoi, r.employees.map(e => e.ma).sort()]), [["A", 1, ["T2"]], ["C", 0, ["T1"]]]);
-  assert.deepEqual(alloc.attendanceReview.map(r => [r.phieu, r.recipients.map(e => e.ma), r.excluded.map(e => e.ma)]),
-    [["A", ["T1"], ["T2", "T4"]], ["C", [], ["T1", "T2", "T4"]]]);
+  // 01/10: T1 có công (nhận); T2 ghi 0,0 và T4 KHÔNG có dòng chấm công nào (= trống) → đối chiếu; phiếu B đã ghi T2 vắng → chỉ còn T4
+  // 02/10: T1 ghi 0, T2 và T4 để trống → cả ba cần đối chiếu; phiếu D đã ghi T1 vắng → còn T2, T4
+  assert.deepEqual(alloc.attendanceReview.map(r => [r.phieu, r.soNguoi, r.employees.map(e => e.ma).sort()]),
+    [["A", 1, ["T2", "T4"]], ["B", 1, ["T4"]], ["C", 0, ["T1", "T2", "T4"]], ["D", 0, ["T2", "T4"]]]);
   assert.deepEqual(alloc.shares.map(r => [r.phieu, r.ma, r.kl]), [["A", "T1", 12], ["B", "T1", 12]]);
+});
+
+test('Blank cell is treated exactly like 0: reported even when the same day has PN / CL / CC; going to work clears it', () => {
+  const db = hrDb();
+  // Ngày 01: T1 chỉ có PN = 1 (nghỉ phép), T2 chỉ có CC = 1 (suất cơm), T4 không có dòng nào. Không ai có công BT → cả ba đều là "không có công"
+  db.chamcong = [
+    { "Kỳ": "2026-10", "Mã NV": "T1", "Hình thức công": "BT", "02": 1 }, { "Kỳ": "2026-10", "Mã NV": "T1", "Hình thức công": "PN", "01": 1 },
+    { "Kỳ": "2026-10", "Mã NV": "T2", "Hình thức công": "BT", "02": 1 }, { "Kỳ": "2026-10", "Mã NV": "T2", "Hình thức công": "CC", "01": 1 }];
+  db.sanluong = [{ "Phiếu cân": "A", "Ngày cân": "2026-10-01", "KL hàng (Tấn)": 12, "Mã phòng ban": "02.02" }];
+  const who = () => HR.sanLuongKy(db, 2026, 10, "sanluong").alloc.attendanceReview.map(r => r.employees.map(e => e.ma).sort());
+  assert.deepEqual(who(), [["T1", "T2", "T4"]]);
+  db.chamcong[1]["Hình thức công"] = "CL"; // nghỉ lễ cũng vậy
+  assert.deepEqual(who(), [["T1", "T2", "T4"]]);
+  db.chamcong[2]["01"] = 1;                 // T2 đi làm ngày 01 (BT = 1) → hết báo
+  assert.deepEqual(who(), [["T1", "T4"]]);
+  db.sanluong[0]["NV vắng"] = "T1";         // ghi T1 vắng trên phiếu → hết báo T1; chỉ còn T4 (không có dòng chấm công)
+  assert.deepEqual(who(), [["T4"]]);
 });
