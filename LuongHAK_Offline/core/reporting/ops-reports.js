@@ -62,7 +62,8 @@
     var name = {}, has = {}; (db.nhanvien || []).forEach(function (n) { if (n && n["Mã NV"] != null) { has[s(n["Mã NV"])] = 1; name[s(n["Mã NV"])] = s(n["Họ và tên"]); } });
     var HR = opt.hr || null, ix = HR && HR.buildIndex ? HR.buildIndex(db) : null, asOf = opt.nam ? lastDay(opt.nam, opt.thang) : null, cache = {};
     function pb(ma) {
-      ma = s(ma); if (ma in cache) return cache[ma];
+      ma = s(ma); if (opt.departmentOf) return opt.departmentOf.get(ma) || "";
+      if (ma in cache) return cache[ma];
       var v = ""; if (HR && has[ma]) { try { v = s(HR.hienHanh(db, ma, asOf, ix).tenPB); } catch (e) { v = ""; } }
       return (cache[ma] = v);
     }

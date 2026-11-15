@@ -18,11 +18,14 @@ test("U-SFC-01 kho khác phiên bản: lưu và xóa đều bị từ chối, n�
   assert.equal(mem[KEY], newer);
   assert.equal(Object.keys(mem).length, 1, "không tạo thêm khóa nào khi chưa được yêu cầu");
 });
-test("U-SFC-02 kho JSON hỏng: không ghi đè; discardCorrupt chép nguyên văn sang khóa .bak rồi mới tạo kho trống; sau đó lưu được", () => {
+test("U-SFC-02 kho JSON hỏng: không ghi đè; discardCorrupt chép nguyên văn sang khóa riêng rồi mới tạo kho trống; sau đó lưu được", () => {
   const mem = { [KEY]: "{hỏng" }, P = SF.presets(storageOf(mem));
   assert.equal(P.save("nhansu", "Thử", state()).ok, false); assert.equal(mem[KEY], "{hỏng");
-  assert.deepEqual(P.discardCorrupt(), { ok: true, backedUp: true, backupKey: KEY + ".bak" });
-  assert.equal(mem[KEY + ".bak"], "{hỏng", "bản cũ còn nguyên");
+  assert.equal(P.readCorrupt(), "{hỏng");
+  const backup = P.discardCorrupt();
+  assert.equal(backup.ok, true);
+  assert.match(backup.backupKey, /^hak\.sf\.presets\.bak\./);
+  assert.equal(mem[backup.backupKey], "{hỏng", "bản cũ còn nguyên");
   assert.deepEqual(JSON.parse(mem[KEY]), { schema: SF.SCHEMA, screens: {} });
   assert.equal(P.isCorrupt(), false);
   assert.deepEqual(P.save("nhansu", "Thử", state(), "2026-11-15T00:00:00Z"), { ok: true });

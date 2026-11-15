@@ -18,8 +18,8 @@
       if (personal && (!personal["Hiệu lực từ"] || personal["Hiệu lực từ"] <= end)) taxIds[ma] = personal["Mã số thuế"] || "";
     });
     var production = ["sanluong", "bandam"].map(function (type) {
-      var report = bcSanLuong(nam, thang, type);
-      return { type: type, employees: report.nv.filter(function (r) { return r["Mã phòng ban"] !== "TỔNG"; }), audit: report.audit };
+      var allocation = pbAlloc(nam, thang, type), report = bcSanLuong(nam, thang, type, allocation);
+      return { type: type, allocation: allocation, employees: report.nv.filter(function (r) { return r["Mã phòng ban"] !== "TỔNG"; }), audit: report.audit };
     });
     return { taxIds: taxIds, production: production };
   }

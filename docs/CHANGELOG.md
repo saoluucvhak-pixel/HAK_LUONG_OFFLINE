@@ -1,14 +1,20 @@
 # CHANGELOG
 
-> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.16. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
+> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.17. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
-## [Chưa phát hành]
+## [2.0.17] — 16/11/2026
 - Tách `app.js`, bước 1: chuyển 43 hàm trợ giúp không dùng trạng thái sang `ui/app-helpers.js` (chỉ di chuyển, không đổi nội dung hàm). Không đổi hành vi, không đổi kết quả tính lương.
 - Tách `app.js`, bước 2: mã nguồn giao diện chia thành 28 file theo màn hình trong `LuongHAK_Offline/app-src/`; `npm run build:app` ghép lại thành `app.js`. Nội dung `app.js` chỉ thêm một dòng chú thích.
 - Bộ lọc đã lưu: khi kho bộ lọc trên máy bị lỗi hoặc do phiên bản khác tạo, app không còn ghi đè lên nó. Bảng "Bộ lọc đã lưu" báo rõ và có nút **Sao lưu kho cũ và tạo kho mới**. Kết quả lọc không đổi. (`core/smart-filter.js` đồng bộ với `HAK_SMART_FILTER`.)
 - Đổi tên thư mục công cụ CI `HAK_CODE_QUALITY_TEST/` thành `ci/quality-python/`.
 - CI: khóa các file dùng chung với `HAK_SMART_FILTER` và design system (`shared-modules.lock.json`, `npm run check:shared`).
+
+- Báo cáo kỳ đã chốt lấy chấm công và phân bổ từ dữ liệu lưu khi chốt. App báo rõ khi bản chốt cũ thiếu chi tiết.
+- Nhập Excel và OCR kiểm tra lại khóa kỳ và khóa bản ghi ngay trước khi ghi. Kế hoạch đã áp dụng không thể ghi lần hai.
+- Kho bộ lọc lỗi có thể tải nguyên văn trước khi tạo kho mới. Mỗi lần sao lưu giữ một bản riêng.
+- CI kiểm tra tag từ đầu. Khi phiên bản đã phát hành, CI vẫn tạo artifact Windows để kiểm thử và bỏ qua phát hành.
+- Giữ nguyên công thức tính lương và dữ liệu kỳ đã chốt.
 
 ## [2.0.16] — 15/11/2026
 - Nâng Electron 43.8.9 → 45.3.2, đi lần lượt qua 44.11.3 (mỗi bước chạy đủ unit test và E2E). Đã đối chiếu danh sách thay đổi phá vỡ tương thích của Electron 44 và 45: app không dùng `safeStorage`, `node:sqlite`, module `clipboard` của Electron; preload chỉ dùng `contextBridge` và `ipcRenderer`; bộ cài chỉ đóng gói x64. Bộ E2E 275/275 đạt trên Linux ở cả hai bản. Chưa nghiệm thu bản đóng gói trên máy Windows thật.

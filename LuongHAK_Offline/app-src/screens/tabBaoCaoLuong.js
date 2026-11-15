@@ -20,7 +20,7 @@
       var lab = g.hadTotal ? String(rows[rows.length - 1][Object.keys(rows[rows.length - 1])[0]]) : "";
       return g.hadTotal && g.rows.length ? addTotal(g.rows, lab) : g.rows;
     }
-    var nam = st.nam, thang = st.thang, info = function (t, cls) { card.appendChild(h("div", { class: cls || "hint", html: t })); };
+    var nam = st.nam, thang = st.thang, snapshot = kyChot(kyKey(nam, thang)), info = function (t, cls) { card.appendChild(h("div", { class: cls || "hint", html: t })); };
     if (BCL_NAM[st.bcl]) {
       var ks = chotTrongNam(nam);
       info("Năm <b>" + nam + "</b> (đổi năm ở ô Kỳ lương phía trên). Báo cáo cả năm chỉ cộng các <b>kỳ đã chốt</b>: " + (ks.length ? ks.map(function (k) { return "T" + (+k.ky.slice(5)); }).join(", ") : "chưa có kỳ nào") + ".", ks.length ? "hint" : "warn");
@@ -28,23 +28,29 @@
       var src = st.bcl === "cong" || st.bcl === "sanluong" ? null : kqKy(nam, thang);
       if (src) info(src.chot ? "🔒 Số liệu kỳ <b>" + thang + "/" + nam + "</b> lấy từ bảng lương <b>đã chốt</b>." : "⚠ Kỳ <b>" + thang + "/" + nam + "</b> <b>chưa chốt</b> — số liệu tính tạm từ dữ liệu hiện tại, có thể thay đổi.", src.chot ? "locked" : "warn");
     }
-    if (st.bcl === "cong") { var r2 = FX(bcCong(nam, thang)); info("Tổng hợp từ bảng chấm công kỳ " + thang + "/" + nam + ". Ngày có nhãn: VD QC×7 = 7 ngày công tác QC."); card.appendChild(simpleTable(r2)); sheets.push({ name: "TongHopCong", rows: r2 }); }
+    if (st.bcl === "cong") { var r2 = FX(bcCong(nam, thang)); if (snapshot && !Array.isArray(snapshot.input?.data?.chamcong)) info("Bản chốt cũ thiếu dữ liệu chấm công.", "warn"); info("Tổng hợp từ bảng chấm công kỳ " + thang + "/" + nam + ". Ngày có nhãn: VD QC×7 = 7 ngày công tác QC."); card.appendChild(simpleTable(r2)); sheets.push({ name: "TongHopCong", rows: r2 }); }
     else if (st.bcl === "sanluong") {
       st.bclLoai = st.bclLoai || "sanluong";
       var ls = h("select"); [["sanluong", "Sản lượng gỗ (tấn)"], ["bandam", "Bơm dăm (số xe)"]].forEach(function (o) { ls.appendChild(h("option", { value: o[0], text: o[1] })); });
       ls.value = st.bclLoai; ls.addEventListener("change", function () { st.bclLoai = ls.value; render(); }); tools.appendChild(ls);
-      var r3 = bcSanLuong(nam, thang, st.bclLoai);
+      var allocation = reportAllocation(nam, thang, st.bclLoai);
+      if (!allocation) {
+        info("Bản chốt cũ thiếu chi tiết phân bổ để dựng báo cáo này. Xem dữ liệu đã lưu ở Kỳ lương đã chốt.", "warn");
+        w.appendChild(card);
+        return w;
+      }
+      var r3 = bcSanLuong(nam, thang, st.bclLoai, allocation);
       var receiptRows = r3.al.attendanceReview.flatMap(function (receipt, index) {
         return receipt.employees.map(function (e) {
           return { index: index, "Mã NV": e.ma, "Họ và tên": e.hoTen + " " + receipt.phieu,
-            "Phòng ban": HRM.refName(db, "dm_phongban", receipt.maPB) || receipt.maPB };
+            "Phòng ban": HRM.refName(snapshot ? (snapshot.input?.danhmuc || {}) : db, "dm_phongban", receipt.maPB) || receipt.maPB };
         });
       });
       tools.appendChild(btn("⬇ Xuất bộ phân bổ toàn kỳ", "", function () { exportPBKL(nam, thang); },
         "Toàn kỳ: sản lượng và bơm dăm, không áp dụng bộ lọc đang xem"));
       info("Excel/PDF đang xem xuất loại đã chọn và giữ bộ lọc của bảng đối chiếu chấm công. Bộ phân bổ toàn kỳ xuất cả sản lượng và bơm dăm.");
 
-      info("Phiếu ghi <b>Mã phòng ban</b> (tổ) → chia đều cho người của tổ đang làm việc ngày cân, trừ người trong <b>NV vắng</b> (như công cụ phân bổ khối lượng). Phiếu ghi <b>Mã NV</b> → giao trực tiếp. Cách bù lương đang chọn ở Tính lương: <b>" + esc(buLabel(st.bu)) + "</b>.");
+      info("Phiếu ghi <b>Mã phòng ban</b> (tổ) → chia đều cho người của tổ đang làm việc ngày cân, trừ người trong <b>NV vắng</b> (như công cụ phân bổ khối lượng). Phiếu ghi <b>Mã NV</b> → giao trực tiếp. Cách bù lương đang chọn ở Tính lương: <b>" + esc(buLabel(snapshot ? snapshot.buTheoNgay : st.bu)) + "</b>.");
       if (r3.warnings.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ Cần kiểm tra (" + r3.warnings.length + "):</b><br>" + r3.warnings.map(esc).join("<br>") }));
       card.appendChild(h("div", { class: "fh", text: "Theo phòng ban (tổ)" })); card.appendChild(simpleTable(r3.pb));
       card.appendChild(h("div", { class: "fh", text: "Theo công nhân" })); card.appendChild(simpleTable(r3.nv));

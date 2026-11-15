@@ -18,7 +18,12 @@
   ];
   var BCL_NAM = { thang: 1, nvnam: 1, thuenam: 1 };
 
-  function bcCong(nam, thang) { return C.periodReports.bcCong(db.chamcong, nam, thang, tenNV); }
+  function bcCong(nam, thang) {
+    var snapshot = kyChot(kyKey(nam, thang));
+    if (!snapshot) return C.periodReports.bcCong(db.chamcong, nam, thang, tenNV);
+    var names = new Map(snapshot.kq.bangluong.map(function (r) { return [r["Mã NV"], r["Họ và tên"]]; }));
+    return C.periodReports.bcCong(snapshot.input?.data?.chamcong || [], nam, thang, function (ma) { return names.get(ma) || ""; });
+  }
   /**
    * (α19) Phân bổ sản lượng / bơm dăm của kỳ — như công cụ "Phân bổ khối lượng tính lương":
    * phiếu ghi Mã phòng ban → chia đều cho tổ (trừ NV vắng); phiếu ghi Mã NV → giao trực tiếp.
@@ -33,12 +38,20 @@
     al.empCount = cnt; al.chuaGan = k.chuaGan; al.raw = (db[loai] || []).filter(function (r) { return VAL.rowPeriod(loai, r) === kyKey(nam, thang); });
     return al;
   }
-  function bcSanLuong(nam, thang, loai, allocation) { return C.periodReports.bcSanLuong(allocation || pbAlloc(nam, thang, loai), loai); }
+  function reportAllocation(nam, thang, loai) {
+    var snapshot = kyChot(kyKey(nam, thang));
+    if (!snapshot) return pbAlloc(nam, thang, loai);
+    return snapshot.input?.payrollReports?.production?.find(function (g) { return g.type === loai; })?.allocation || null;
+  }
+  function bcSanLuong(nam, thang, loai, allocation) {
+    return C.periodReports.bcSanLuong(allocation || reportAllocation(nam, thang, loai), loai);
+  }
   /** File Excel "Phân bổ khối lượng tính lương" — bố cục như công cụ (ExcelJS). */
   function exportPBKL(nam, thang) {
     if (!need("export", "xuất dữ liệu ra Excel")) return;
     if (!window.ExcelJS || !window.HAKUi) { alert("Thiếu thư viện Excel (ExcelJS)"); return; }
-    var sl = pbAlloc(nam, thang, "sanluong"), bd = pbAlloc(nam, thang, "bandam"), src = kqKy(nam, thang), dmL = {};
+    var sl = reportAllocation(nam, thang, "sanluong"), bd = reportAllocation(nam, thang, "bandam"), src = kqKy(nam, thang), dmL = {};
+    if (!sl || !bd) { alert("Bản chốt cũ thiếu chi tiết phân bổ để xuất bộ toàn kỳ. Xem dữ liệu đã lưu ở Kỳ lương đã chốt."); return; }
     var snapshot = src.chot ? kyChot(kyKey(nam, thang)) : null;
     var saved = (snapshot && snapshot.input) || {};
     var catalog = snapshot ? (saved.danhmuc || {}) : db;
@@ -56,7 +69,8 @@
       var chiTiet = E.chiTietBuNgayDaiHiep(Object.assign({}, db, { nhansu: sp2.list, sanluong: slK2.rows }), nam, thang);
       if (chiTiet.length) daihiepDetail = chiTiet.map(function (x) { return Object.assign({ tenPB: HRM.refName(db, "dm_phongban", x.maPB) || x.maPB }, x); });
     }
-    var meta = { donVi: congTy()["Tên công ty"] || "", thang: "Tháng " + thang + "/" + nam, nguoiLap: session ? session.hoTen : "" };
+    var company = snapshot ? (catalog.congty || [])[0] || {} : congTy();
+    var meta = { donVi: company["Tên công ty"] || "", thang: "Tháng " + thang + "/" + nam, nguoiLap: session ? session.hoTen : "" };
     var attendanceReview = [["sanluong", sl, "Sản lượng"], ["bandam", bd, "Bơm dăm"]].flatMap(function (item) {
       return bcSanLuong(nam, thang, item[0], item[1]).attendanceReview.map(function (r) {
         return Object.assign({ "Loại": item[2] }, r);

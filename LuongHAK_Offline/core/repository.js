@@ -169,17 +169,33 @@
       return { ok: ok, value: value };
     }
 
+    var appliedImports = new WeakSet();
     function importWorkbook(plans, fileName, mode, isHr) {
+      if (plans.some(function (p) { return appliedImports.has(p); })) return deny("stale", "Kế hoạch nhập đã được ghi. Mở lại bản xem trước nhập Excel.");
       var affected = plans.filter(function (p) {
         return p.items.some(function (item) { return item.action === "add" || item.action === "update"; });
       });
       if (affected.some(function (p) { return !ctx.can(permFor(p.table)); })) return deny("perm", "Không có quyền ghi dữ liệu nhập.");
-      return writeBatch(affected.map(function (p) { return p.table; }), function (db) {
-        affected.forEach(function (p) {
-          p.items.forEach(function (item) {
-            if (item.action === "update" && db[p.table].indexOf(item.target) < 0) throw Error("Dữ liệu đã đổi. Mở lại bản xem trước nhập Excel.");
+      var db = ctx.db(), keys = new Map();
+      for (var p of affected) {
+        var rows = db[p.table] || [], tableKeys = keys.get(p.table);
+        if (!tableKeys) { tableKeys = new Set(rows.map(function (row) { return IMP.keyOf(p.table, row); })); keys.set(p.table, tableKeys); }
+        for (var item of p.items) {
+          if (item.action !== "add" && item.action !== "update") continue;
+          var before = item.target || null, after = Object.assign({}, before);
+          Object.keys(item.row).forEach(function (field) {
+            var value = item.row[field];
+            if (!before || p.mode === "replace" || (value !== "" && value != null)) after[field] = value;
           });
-        });
+          var impact = GRD.impactChange(db, p.table, before, after), key = IMP.keyOf(p.table, after);
+          if (impact.kind === "locked" || (impact.kind === "retro" && !ctx.can("retro.edit")) ||
+              (p.table === "chitiethd" && before && GRD.frozenAppendix(db, before).length)) return deny("locked", "Dữ liệu thuộc kỳ đã chốt. Mở lại bản xem trước nhập Excel.");
+          if ((item.action === "update" && rows.indexOf(before) < 0) ||
+              (key && tableKeys.has(key) && (!before || IMP.keyOf(p.table, before) !== key))) return deny("stale", "Dữ liệu đã đổi hoặc trùng khóa. Mở lại bản xem trước nhập Excel.");
+          if (key) tableKeys.add(key);
+        }
+      }
+      var result = writeBatch(affected.map(function (p) { return p.table; }), function (db) {
         var count = affected.reduce(function (total, p) {
           return total + IMP.apply(db, p, ctx.uid, isHr(p.table));
         }, 0);
@@ -187,6 +203,8 @@
           plans.map(function (p) { return p.table + " +" + p.summary.add + "/~" + p.summary.update + (p.summary.merged ? "/gộp " + p.summary.merged : ""); }).join(", "));
         return count;
       });
+      if (result.ok) affected.forEach(function (p) { appliedImports.add(p); });
+      return result;
     }
 
     function mergeAttendance() {
