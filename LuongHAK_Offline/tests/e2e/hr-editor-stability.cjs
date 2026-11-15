@@ -4,7 +4,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cryp
 await w.click('#nav button[data-k=nhansu]');await w.locator('#main table tbody tr').first().click();
 for(const [name,button,selector,value] of [
  ['Sửa thông tin cơ bản',/Sửa cơ bản/,'#modal .fld[data-k="Họ và tên"] input','SYNTHETIC'],
- ['Tăng lương / biến động',/Tăng lương \/ biến động/,'#modal .fld[data-k="Lương thỏa thuận"] input','1234567']
+ ['Lập phụ lục lương',/Lập phụ lục lương/,'#modal .fld[data-k="Lương thỏa thuận"] input','1234567']
 ]){
  await w.getByRole('button',{name:button}).click();const inp=w.locator(selector);await inp.fill(value);await w.evaluate(()=>{window._auditInput=document.activeElement;window._auditDiff=document.querySelector('.diff dl > div');window._auditDlg=document.querySelector('#modal .dlg');window._auditScroll=document.querySelector('#modal .bd').scrollTop;});await inp.pressSequentially('9');await w.waitForTimeout(300);
  const state=await w.evaluate(name=>({name,animation:getComputedStyle(document.querySelector('#modal .dlg')).animationName,stableDialog:window._auditDlg===document.querySelector('#modal .dlg'),stableFocus:window._auditInput===document.activeElement,stableDiffRow:window._auditDiff===document.querySelector('.diff dl > div'),scrollBefore:window._auditScroll,scrollAfter:document.querySelector('#modal .bd').scrollTop}),name);assert.equal(state.animation,'none');assert.equal(state.stableDialog,true);assert.equal(state.stableFocus,true);assert.equal(state.stableDiffRow,true);assert.equal(state.scrollBefore,state.scrollAfter);console.log('PASS '+name+': stable opening, focus, diff row and scroll');

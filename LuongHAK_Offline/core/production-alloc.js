@@ -31,10 +31,17 @@
    * membersOf(ngay, maPB) → [{ ma, hoTen }] người của tổ đang làm việc ngày đó (null = tổ không có trong danh mục / hồ sơ)
    * opts.donVi: "tấn" | "xe"; opts.tenPB(maPB) → tên tổ
    */
+  function addEmployeeDepartment(groups, ma, hoTen, pb, day, amount) {
+    var key = JSON.stringify([ma, pb]);
+    var entry = groups[key] || (groups[key] = { ma: ma, hoTen: hoTen, maPB: pb, total: 0, byDay: {} });
+    entry.total += amount;
+    entry.byDay[day] = (entry.byDay[day] || 0) + amount;
+  }
+
   function allocate(rows, membersOf, opts) {
     opts = opts || {};
     var dv = opts.donVi || "tấn", tenPB = opts.tenPB || function (x) { return x; };
-    var shares = [], audit = [], attendanceReview = [], warnings = [], byDept = {}, byEmp = {}, dates = {}, total = 0, unalloc = 0;
+    var shares = [], audit = [], attendanceReview = [], warnings = [], byDept = {}, byEmp = {}, byEmpDept = {}, dates = {}, total = 0, unalloc = 0;
     // Tên vắng không khớp / trùng tên: gộp 1 cảnh báo cho mỗi (tổ, tên) thay vì lặp lại ở từng phiếu (chi tiết từng phiếu vẫn ở audit[].note)
     var vangWarn = {}, vangOrder = [], nghiInfo = {}, nghiOrder = [], chuaCC = {}, chuaCCOrder = []; // nghiInfo: người có đơn nghỉ đã duyệt → không chia phiếu các ngày đó
     var noteVang = function (pb, t, kind, n, phieu, d) {
@@ -103,6 +110,7 @@
       }
       var share = kl / present.length;
       present.forEach(function (e) {
+        addEmployeeDepartment(byEmpDept, e.ma, e.hoTen, pb, d, share);
         shares.push({ ma: e.ma, ngay: d, kl: share, phieu: r.phieu, maPB: pb });
         var k = e.ma, o = byEmp[k] || (byEmp[k] = { ma: e.ma, hoTen: e.hoTen, maPB: pb, total: 0, byDay: {} });
         o.total += share; o.byDay[d] = (o.byDay[d] || 0) + share;
@@ -117,7 +125,7 @@
     });
     chuaCCOrder.forEach(function (pb) { var ng = chuaCC[pb].sort(); warnings.push("Tổ " + pb + ": chưa có chấm công " + ng.length + " ngày có phiếu (" + ng.slice(0, 6).map(dm).join(", ") + (ng.length > 6 ? "…" : "") + ") — các ngày này đang CHỜ PHÂN BỔ (PENDING_ATTENDANCE), không tự chia theo NV vắng; nhập chấm công rồi tính lại"); });
     var nghi = nghiOrder.map(function (k) { var x = nghiInfo[k]; x.ngay.sort(); return x; });
-    return { nghi: nghi, shares: shares, audit: audit, attendanceReview: attendanceReview, warnings: warnings, byDept: byDept, byEmp: byEmp, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
+    return { nghi: nghi, shares: shares, audit: audit, attendanceReview: attendanceReview, warnings: warnings, byDept: byDept, byEmp: byEmp, byEmpDept: byEmpDept, dateKeys: Object.keys(dates).sort(), total: total, unallocated: unalloc };
   }
   /**
    * Gộp thêm các phiếu đã ghi Mã NV (giao trực tiếp) vào kết quả phân bổ — để báo cáo / file xuất có đủ mọi phiếu.
@@ -129,6 +137,7 @@
       al.total += kl; if (d && al.dateKeys.indexOf(d) < 0) al.dateKeys.push(d);
       var dp = al.byDept[pb] || (al.byDept[pb] = { maPB: pb, tenPB: tenPB(pb) || pb, total: 0, unallocated: 0, byDay: {} });
       dp.total += kl; dp.byDay[d] = (dp.byDay[d] || 0) + kl;
+      addEmployeeDepartment(al.byEmpDept, r.ma, nameOf(r.ma) || r.ma, pb, d, kl);
       var o = al.byEmp[r.ma] || (al.byEmp[r.ma] = { ma: r.ma, hoTen: nameOf(r.ma) || r.ma, maPB: pb, total: 0, byDay: {} });
       o.total += kl; o.byDay[d] = (o.byDay[d] || 0) + kl;
       al.audit.push({ phieu: r.phieu, ngay: d, maPB: pb, kl: kl, soNguoi: 1, names: [nameOf(r.ma) || r.ma], share: kl, note: "Giao trực tiếp (phiếu ghi Mã NV " + r.ma + ")" });

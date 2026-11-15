@@ -105,10 +105,14 @@ function verifySnapshot(db, snap) {
     if (!equal(publicRows(r.kq[table]), publicRows(snap.kq[table]))) why.push("chi tiết " + table + " khác kết quả tính lại");
   });
   const p = parseKy(snap.ky);
-  if (p && r.kq.bangluong.some((b) => b._ct && b._ct.laSanLuong)) {
-    const qc = E.quyCheBuChinhThuc(db.dm_quychebu, p.nam, p.thang), ma = qc && String(qc["Cách bù"] || "").trim();
-    if (!ma || (ma !== "daihiep" && ma !== "to")) why.push("kỳ có sản lượng cần bù nhưng chưa có phương pháp bù CHÍNH THỨC hợp lệ");
-    else if (String(snap.buTheoNgay) !== ma) why.push("phương pháp bù trong bản chốt (" + snap.buTheoNgay + ") khác phương pháp chính thức (" + ma + ")");
+  if (p) {
+    const qc = E.quyCheBuChinhThuc(db.dm_quychebu, p.nam, p.thang);
+    const ma = qc && String(qc["Cách bù"] || "").trim();
+    if (ma === "daihiep" || ma === "to") {
+      if (String(snap.buTheoNgay) !== ma) why.push("phương pháp bù trong bản chốt (" + snap.buTheoNgay + ") khác phương pháp chính thức (" + ma + "); hãy tính lương lại");
+    } else if (r.kq.bangluong.some((b) => b._ct && b._ct.laSanLuong)) {
+      why.push("kỳ có sản lượng cần bù nhưng chưa có phương pháp bù CHÍNH THỨC hợp lệ");
+    }
   }
   return why;
 }

@@ -48,7 +48,7 @@ test("U-RP103-04 In PDF dạng nhóm: có dòng nhóm, 'Cộng <phòng>' ở c�
 test("U-RP103-05 Báo cáo khấu trừ thuế TNCN: cột theo yêu cầu, lấy MST hồ sơ, cảnh báo thiếu MST khi có thuế", () => {
   const v = PR.build("THUE_TNCN", src(), opt({ nhanVien: { N1: { "Mã số thuế": "0312345678" } } }));
   assert.equal(v.title, "BÁO CÁO KHẤU TRỪ THUẾ THU NHẬP CÁ NHÂN");
-  assert.deepEqual(v.cols.map((c) => c.label), ["STT", "Mã số thuế", "Họ và tên", "Phòng ban", "Chức vụ", "Mã TNCN", "Tổng thu nhập", "Phụ cấp ăn ca (tiền cơm)", "Khấu trừ bảo hiểm", "Khấu trừ KPCĐ", "Khấu trừ người phụ thuộc", "Thuế TNCN khấu trừ"]);
+  assert.deepEqual(v.cols.map((c) => c.label), ["STT", "Mã số thuế", "Họ và tên", "Phòng ban", "Chức vụ", "Mã TNCN", "Phương pháp thuế", "Tổng thu nhập", "Phụ cấp ăn ca (tiền cơm)", "Khấu trừ bảo hiểm", "Khấu trừ KPCĐ", "Thu nhập chịu thuế", "Giảm trừ bản thân", "Số người phụ thuộc", "Khấu trừ người phụ thuộc", "Thu nhập tính thuế", "Thuế TNCN khấu trừ"]);
   assert.equal(v.rows[0]["Mã số thuế"], "0312345678"); assert.equal(v.rows[0]["Mã TNCN"], "LT"); assert.equal(v.rows[0]["Giảm trừ phụ thuộc"], 4400000);
   assert.equal(v.tong["Thuế TNCN"], 250000); assert.equal(v.tong["Tiền cơm"], 900000);
   assert.ok(v.canhbao.some((c) => /chưa có mã số thuế/.test(c) && /N3/.test(c)), "N3 có thuế nhưng thiếu MST");

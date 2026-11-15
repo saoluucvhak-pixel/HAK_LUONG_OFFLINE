@@ -154,7 +154,7 @@
     if (toRows.length) ex.push({ name: "TheoTo", title: out.title + " — TỔNG HỢP THEO TỔ", cols: mkCols([["Mã phòng ban (tổ)", "text"], ["Số phiếu", "qty"], [klLabel, "qty3"]]), rows: toRows, tong: { "Số phiếu": toRows.reduce(function (a, x) { return a + x["Số phiếu"]; }, 0), [klLabel]: r3(toRows.reduce(function (a, x) { return a + x[klLabel]; }, 0)) } });
     // Theo công nhân: lấy kết quả chia tổ của app nếu có (đã gồm cả phiếu chia theo tổ), nếu không chỉ phiếu giao trực tiếp
     var nvRows;
-    if (al && al.byEmp) nvRows = Object.keys(al.byEmp).map(function (k) { return al.byEmp[k]; }).sort(function (a, b) { return s(a.maPB) < s(b.maPB) ? -1 : s(a.maPB) > s(b.maPB) ? 1 : b.total - a.total; })
+    if (al && al.byEmp) nvRows = Object.values(al.byEmpDept || al.byEmp).sort(function (a, b) { return s(a.maPB) < s(b.maPB) ? -1 : s(a.maPB) > s(b.maPB) ? 1 : b.total - a.total; })
       .filter(function (e) { return cx.pass(e.ma, cx.pb(e.ma), ""); })
       .map(function (e) { var o = { "Mã NV": s(e.ma), "Họ và tên": s(e.hoTen), "Phòng ban": cx.pb(e.ma) || s(e.maPB), "Số ngày có SL": Object.keys(e.byDay || {}).length }; o[klLabel] = r3(e.total); return o; });
     else nvRows = Object.keys(byNV).sort().map(function (k) { var e = byNV[k], o = { "Mã NV": e.ma, "Họ và tên": e.ten, "Phòng ban": e.pb, "Số ngày có SL": e.phieu }; o[klLabel] = r3(e.kl); return o; });

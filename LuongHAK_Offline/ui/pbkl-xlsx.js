@@ -122,7 +122,7 @@
     widths(ws, [14, 24, 14, 22].concat(dk.map(function () { return 8.5; }), [14]));
     var h = title(ws, cols, ttl, meta), hr = ws.getRow(h); hr.values = ["Mã phòng ban", "Tên phòng ban", "Mã nhân viên", "Họ và tên"].concat(dk.map(dm), ["Tổng cộng"]); head(hr, cols); ws.views = [{ state: "frozen", xSplit: 4, ySplit: h }];
     var num = []; for (var c = 5; c <= cols; c++) num.push(c);
-    var r = h + 1, ga = 0, emps = Object.keys(res.byEmp).map(function (k) { return res.byEmp[k]; });
+    var r = h + 1, ga = 0, emps = Object.values(res.byEmpDept || res.byEmp);
     Object.keys(res.byDept).sort().forEach(function (d) {
       var inD = emps.filter(function (e) { return e.maPB === d; }).sort(function (a, b) { return b.total - a.total; });
       if (!inD.length) return;
@@ -169,7 +169,7 @@
       var dr = ws.getRow(r); dr.values = dv; ws.mergeCells(r, 3, r, 4); data(dr, cols, { bold: true, fill: PAL.dept, text: [1, 2, 3, 4], num: num }); r++;
       rows.forEach(function (x) {
         var v = new Array(cols).fill("");
-        v[2] = x.ma || ""; v[3] = x.hoTen; v[cSo - 1] = r2(x.soCong); v[cKl - 1] = r2(x.tan); if (bdOn) v[cXe - 1] = r2(x.xe);
+        v[2] = x.ma || ""; v[3] = x.hoTen; v[cSo - 1] = x.soCong == null ? "" : r2(x.soCong); v[cKl - 1] = r2(x.tan); if (bdOn) v[cXe - 1] = r2(x.xe);
         v[cSl - 1] = Math.round(x.luongSL); if (bdOn) v[cBd - 1] = Math.round(x.luongBD); v[cBu - 1] = Math.round(x.bu); v[cTo - 1] = Math.round(x.tong);
         var row = ws.getRow(r); row.values = v; data(row, cols, { zebra: true, text: [1, 2, 3, 4], num: num }); fmtRow(row);
         g.kl += x.tan; g.xe += x.xe; g.sl += x.luongSL; g.bd += x.luongBD; g.bu += x.bu; g.to += x.tong; r++;
@@ -226,8 +226,8 @@
     r += 2;
     sign(ws, cols, r, meta.nguoiLap);
   }
-  function rawSheet(wb, name, cols, rows) {
-    var ws = wb.addWorksheet(name); widths(ws, cols.map(function () { return 16; }));
+  function rawSheet(wb, name, cols, rows, columnWidths) {
+    var ws = wb.addWorksheet(name); widths(ws, columnWidths || cols.map(function () { return 16; }));
     var hr = ws.getRow(1); hr.values = cols; head(hr, cols.length); ws.views = [{ state: "frozen", ySplit: 1 }];
     rows.forEach(function (x, i) { var row = ws.getRow(i + 2); row.values = cols.map(function (c) { return c === "Ngày cân" ? dmy(x[c]) : (x[c] == null ? "" : x[c]); }); data(row, cols.length, { zebra: true, text: cols.map(function (_, j) { return j + 1; }) }); });
   }
@@ -242,13 +242,15 @@
     P("• Phân bổ theo phòng ban: như trên nhưng chia theo từng ngày.");
     P("• Chi tiết công nhân: khối lượng (tấn) từng công nhân nhận, theo ngày và tổng tháng, nhóm theo tổ.");
     P("• Đối soát phiếu cân: từng phiếu — ngày, tổ, chia cho bao nhiêu người, mỗi người bao nhiêu; phiếu ghi Mã NV là \"Giao trực tiếp\".");
+    if (ctx.chot) P("Nguồn số liệu: sheet Tiền lương và bù lương lấy kết quả và công BT từ bản chốt; ô công trống nếu bản cũ thiếu dữ liệu. Các sheet phân bổ, đối soát và phiếu gốc phản ánh dữ liệu hiện tại. Bản xuất kỳ đã chốt không tính lại bù theo ngày.");
+    if (ctx.attendanceReviewOn) P("• DoiChieuChamCong: dữ liệu hiện tại, liệt kê phiếu có người công bằng 0 chưa ghi vắng, cùng danh sách người nhận và người không nhận.");
     if (ctx.bdOn) P("• Tổng hợp BD / BD - Phòng ban / BD - Công nhân / Đối soát BD: 4 sheet cùng cấu trúc cho BƠM/BAN DĂM — đơn vị là XE, không phải tấn.");
     if (ctx.luongOn) P("• Tiền lương và bù lương: lương sản lượng, lương ban dăm, bù lương, tổng cộng từng công nhân — lấy đúng từ bảng lương của kỳ" + (ctx.chot ? " ĐÃ CHỐT." : " (kỳ CHƯA chốt — số tính tạm)."));
     if (ctx.daihiepDetailOn) P("• Bù lương theo ngày - DH: chi tiết TỪNG NGÀY của bù lương sản lượng Đại Hiệp — công BT, hệ số bậc thang, SL chuẩn/tham chiếu/thực tế/bù, tiền bù; tổng mỗi người khớp đúng cột \"Bù lương\" ở sheet \"Tiền lương và bù lương\". Dùng để đối chiếu/giải trình từng ngày khi có khiếu nại.");
     P("• Dữ liệu - ...: chép lại nguyên dữ liệu phiếu cân của kỳ để đối chiếu.");
     r++; H("2. QUY TẮC PHÂN BỔ KHỐI LƯỢNG / SỐ XE");
     P("Mỗi phiếu ghi Mã phòng ban (tổ): khối lượng (hoặc số xe) CHIA ĐỀU cho công nhân của tổ đang làm việc ngày cân (đã vào làm, chưa nghỉ việc — theo hợp đồng và phụ lục lương trong hồ sơ) và KHÔNG có tên trong cột \"NV vắng\" của phiếu đó (so theo từ cuối của họ tên, không dấu; hoặc Mã NV). Phiếu không tìm được người nhận → \"chưa phân bổ\", có cảnh báo, không bị bỏ sót âm thầm. Phiếu ghi Mã NV → giao trực tiếp cho người đó.");
-    if (ctx.luongOn) {
+    if (ctx.luongOn && !ctx.chot) {
       r++; H("3. CƠ CHẾ TÍNH LƯƠNG");
       P("Đơn giá khối lượng: " + (ctx.giaKl || 0).toLocaleString("vi-VN") + " đ/tấn" + (ctx.bdOn ? "   •   Đơn giá bơm/ban dăm: " + (ctx.giaBd || 0).toLocaleString("vi-VN") + " đ/xe" : "") + "   •   Mức sàn bù lương: " + (ctx.mucSan || 0).toLocaleString("vi-VN") + " đ/ngày công (Danh mục mã lương).");
       if (ctx.coChe === "to") P("Bù lương THEO BÌNH QUÂN CẢ TỔ: tổng tiền sản lượng cả tổ (tấn × đơn giá + xe × đơn giá) ÷ số ngày của tháng (" + ctx.soNgay + ") ÷ số người của tổ = bình quân đ/người/ngày. Nếu bình quân THẤP HƠN mức sàn, người có công BT từ " + ctx.nguong + " công/tháng trở lên được bù (mức sàn − bình quân tổ) × công BT của mình; dưới ngưỡng không được bù.");
@@ -267,7 +269,7 @@
   function report(ExcelJS, d, meta) {
     var wb = new ExcelJS.Workbook(); wb.creator = "Tính Lương HAK — Phân bổ khối lượng"; wb.created = new Date();
     var bdOn = !!(d.bd && d.bd.audit.length), daihiepDetailOn = !!(d.daihiepDetail && d.daihiepDetail.length);
-    guide(wb, meta, Object.assign({ bdOn: bdOn, luongOn: !!d.luong, daihiepDetailOn: daihiepDetailOn }, d.ctx || {}));
+    guide(wb, meta, Object.assign({ bdOn: bdOn, luongOn: !!d.luong, attendanceReviewOn: !!(d.attendanceReview && d.attendanceReview.length), daihiepDetailOn: daihiepDetailOn }, d.ctx || {}));
     deptSummary(wb, "Tong hop phong ban", "BẢNG TỔNG HỢP PHÂN BỔ SẢN LƯỢNG THEO PHÒNG BAN", d.sl, meta);
     deptDay(wb, "Phan bo theo phong ban", "PHÂN BỔ SẢN LƯỢNG THEO PHÒNG BAN THEO NGÀY", d.sl, meta);
     empDay(wb, "Chi tiet cong nhan", "PHÂN BỔ SẢN LƯỢNG CHI TIẾT CÔNG NHÂN", d.sl, meta);
@@ -278,7 +280,11 @@
       empDay(wb, "BD - Cong nhan", "PHÂN BỔ BƠM/BAN DĂM CHI TIẾT CÔNG NHÂN", d.bd, meta);
       auditSheet(wb, "Doi soat BD", "ĐỐI SOÁT PHÂN BỔ BƠM/BAN DĂM THEO TỪNG PHIẾU", d.bd, meta, ["Số xe", "Xe/người"]);
     }
-    if (d.luong) luongSheet(wb, d.luong, meta, bdOn);
+    if (d.attendanceReview && d.attendanceReview.length) {
+      var reviewCols = Object.keys(d.attendanceReview[0]);
+      rawSheet(wb, "DoiChieuChamCong", reviewCols, d.attendanceReview, [14, 15, 13, 15, 14, 19, 38, 38, 25, 38]);
+    }
+    if (d.luong) luongSheet(wb, d.luong, meta, bdOn || d.luong.rows.some(function (r) { return r.xe || r.luongBD; }));
     if (daihiepDetailOn) daihiepDaySheet(wb, d.daihiepDetail, meta);
     var RC = ["Phiếu cân", "Ngày cân", "Biển số", "Cân lần 1", "Cân lần 2", "KL hàng (Tấn)", "Mã phòng ban", "NV vắng", "Mã NV"];
     rawSheet(wb, "Du lieu - Khoi luong", RC, d.raw.sl || []);

@@ -96,7 +96,7 @@ async function launch(dir) {
   // --- Khấu trừ thuế TNCN
   await w.click("#nav button[data-k=rp_tncn]"); await w.waitForSelector("[data-pay-report]");
   const th = await w.locator("[data-pay-report] th").allInnerTexts();
-  ok("Báo cáo khấu trừ thuế TNCN: đủ cột theo mẫu", ["STT", "Mã số thuế", "Họ và tên", "Phòng ban", "Chức vụ", "Mã TNCN", "Tổng thu nhập", "Phụ cấp ăn ca (tiền cơm)", "Khấu trừ bảo hiểm", "Khấu trừ KPCĐ", "Khấu trừ người phụ thuộc", "Thuế TNCN khấu trừ"].every((x, i) => th[i] === x), th.join("|"));
+  ok("Báo cáo khấu trừ thuế TNCN: đủ cột theo mẫu", ["STT", "Mã số thuế", "Họ và tên", "Phòng ban", "Chức vụ", "Mã TNCN", "Phương pháp thuế", "Tổng thu nhập", "Phụ cấp ăn ca (tiền cơm)", "Khấu trừ bảo hiểm", "Khấu trừ KPCĐ", "Thu nhập chịu thuế", "Giảm trừ bản thân", "Số người phụ thuộc", "Khấu trừ người phụ thuộc", "Thu nhập tính thuế", "Thuế TNCN khấu trừ"].every((x, i) => th[i] === x), th.join("|"));
   await shot("05-khau-tru-thue-tncn");
   // --- Nghiệp vụ nhân sự: Từ–Đến mặc định theo kỳ
   await w.click("#nav button[data-k=nvns]"); await w.waitForSelector('input[aria-label="Từ ngày"]');

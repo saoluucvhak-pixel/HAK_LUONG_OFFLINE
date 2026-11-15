@@ -70,7 +70,7 @@
       if (o.vuot) { bo.push({ maNV: ma, ly: "đã chi/đang chờ vượt thực lĩnh" }); return; }
       if (o.deNghiChi <= 0) { bo.push({ maNV: ma, ly: o.dangCho > 0 ? "đã có chứng từ đang chờ" : "không còn khoản phải trả" }); return; }
       if (ht === HT.CK && (!s(r["Số tài khoản"]) || !s(r["Ngân hàng"]))) { bo.push({ maNV: ma, ly: "thiếu số tài khoản/ngân hàng" }); return; }
-      dong.push({ "Số chứng từ": so, "Kỳ": ctx.ky, "Hình thức": ht, "Mã NV": ma, "Họ và tên": r["Họ và tên"], "Số tiền": o.deNghiChi, "Trạng thái": TT.LAP,
+      dong.push({ "Số chứng từ": so, "Kỳ": ctx.ky, "Hình thức": ht, "Mã NV": ma, "Họ và tên": r["Họ và tên"], "Phòng ban": r["Phòng ban"] || "", "Số tài khoản": s(r["Số tài khoản"]), "Ngân hàng": s(r["Ngân hàng"]), "Số tiền": o.deNghiChi, "Trạng thái": TT.LAP,
         "Ngày lập": ctx.ngay, "Người lập": ctx.nguoi, "Ngày duyệt": "", "Người duyệt": "", "Ngày thanh toán": "", "Người ghi nhận": "", "Ghi chú": "", "Lý do hủy": "" });
     });
     if (!dong.length) return { ok: false, msg: "Không có khoản nào cần lập chứng từ " + ctx.ht.toLowerCase() + " (đã lập đủ hoặc không có người thuộc hình thức này).", boQua: bo };

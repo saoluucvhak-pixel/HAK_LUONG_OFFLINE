@@ -77,14 +77,14 @@
       if (f.rows.some(function (r) { return !s(r["Phòng ban"]); })) canhbao.push("Có người chưa gán phòng ban — gộp vào '(Chưa có phòng ban)'.");
     } else if (type === "THUE_TNCN") {
       // V10.3: báo cáo khấu trừ thuế TNCN — số lấy từ bảng lương engine đã tính (không tính lại); MST lấy hồ sơ nhân viên (opt.nhanVien)
-      cols = [["STT", "qty"], ["Mã số thuế", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Chức vụ", "text"], ["Mã TNCN", "text"], ["Tổng thu nhập", "money"], ["Tiền cơm", "money", "Phụ cấp ăn ca (tiền cơm)"],
-        ["BH trừ NLĐ", "money", "Khấu trừ bảo hiểm"], ["KPCĐ trừ NLĐ", "money", "Khấu trừ KPCĐ"], ["Giảm trừ phụ thuộc", "money", "Khấu trừ người phụ thuộc"], ["Thuế TNCN", "money", "Thuế TNCN khấu trừ"]];
+      cols = [["STT", "qty"], ["Mã số thuế", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Chức vụ", "text"], ["Mã TNCN", "text"], ["Phương pháp thuế", "text"], ["Tổng thu nhập", "money"], ["Tiền cơm", "money", "Phụ cấp ăn ca (tiền cơm)"],
+        ["BH trừ NLĐ", "money", "Khấu trừ bảo hiểm"], ["KPCĐ trừ NLĐ", "money", "Khấu trừ KPCĐ"], ["Thu nhập chịu thuế", "money"], ["Giảm trừ bản thân", "money"], ["Số người phụ thuộc", "qty"], ["Giảm trừ phụ thuộc", "money", "Khấu trừ người phụ thuộc"], ["Thu nhập tính thuế", "money"], ["Thuế TNCN", "money", "Thuế TNCN khấu trừ"]];
       var nvBy = opt.nhanVien || {}, thieuMst = [];
       rows = f.rows.map(function (r, i) {
         var ct = r["_ct"] || {}, mst = s((nvBy[r["Mã NV"]] || {})["Mã số thuế"]), thue = n(r["Thuế TNCN"]);
         if (!mst && thue > 0) thieuMst.push(s(r["Mã NV"]) + " — " + s(r["Họ và tên"]));
-        return { "STT": i + 1, "Mã số thuế": mst, "Họ và tên": s(r["Họ và tên"]), "Phòng ban": s(r["Phòng ban"]), "Chức vụ": s(r["Chức vụ"]), "Mã TNCN": s(ct.maThueTNCN), "Tổng thu nhập": n(r["Tổng thu nhập"]),
-          "Tiền cơm": n(r["Tiền cơm"]), "BH trừ NLĐ": n(r["BH trừ NLĐ"]), "KPCĐ trừ NLĐ": n(r["KPCĐ trừ NLĐ"]), "Giảm trừ phụ thuộc": n(ct.giamTruPhuThuoc), "Thuế TNCN": thue };
+        return { "STT": i + 1, "Mã số thuế": mst, "Họ và tên": s(r["Họ và tên"]), "Phòng ban": s(r["Phòng ban"]), "Chức vụ": s(r["Chức vụ"]), "Mã TNCN": s(ct.maThueTNCN), "Phương pháp thuế": s(ct.phuongPhapThue), "Tổng thu nhập": n(r["Tổng thu nhập"]),
+          "Tiền cơm": n(r["Tiền cơm"]), "BH trừ NLĐ": n(r["BH trừ NLĐ"]), "KPCĐ trừ NLĐ": n(r["KPCĐ trừ NLĐ"]), "Thu nhập chịu thuế": ct.thuNhapChiuThue, "Giảm trừ bản thân": ct.giamTruBanThan, "Số người phụ thuộc": ct.soNPT, "Giảm trừ phụ thuộc": n(ct.giamTruPhuThuoc), "Thu nhập tính thuế": ct.thuNhapTinhThue, "Thuế TNCN": thue };
       });
       if (thieuMst.length) canhbao.push(thieuMst.length + " người có khấu trừ thuế nhưng chưa có mã số thuế: " + thieuMst.slice(0, 5).join("; ") + (thieuMst.length > 5 ? "…" : ""));
     } else if (type === "TONG_HOP") {
@@ -137,12 +137,18 @@
       if ((src.canhbaoNguon || []).length) canhbao.push("Có " + src.canhbaoNguon.length + " cảnh báo dữ liệu nguồn của kỳ (nhân viên thiếu hợp đồng/hồ sơ…) — xem màn Kiểm tra bảng lương để biết ai bị loại khỏi bảng lương.");
     } else if (type === "SO_CHUNG_TU") {
       cols = [["STT", "qty"], ["Số chứng từ", "text"], ["Hình thức", "text"], ["Mã NV", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Số tiền", "money"], ["Trạng thái", "text"], ["Ngày lập", "text"], ["Ngày duyệt", "text"], ["Ngày thanh toán", "text"], ["Người lập", "text"], ["Người duyệt", "text"], ["Người ghi nhận", "text"], ["Lý do hủy", "text"]];
-      var pbOf = {}; f.rows.forEach(function (r) { pbOf[r["Mã NV"]] = s(r["Phòng ban"]); });
+      var payrollById = new Map(src.bangluong.map(function (r) { return [r["Mã NV"], r]; }));
+      var entries = (opt.lines || []).filter(function (l) { return s(l["Kỳ"]) === ky; }).map(function (l) {
+        var payroll = payrollById.get(l["Mã NV"]) || {};
+        return Object.assign({}, payroll, l, { "Phòng ban": l["Phòng ban"] ?? payroll["Phòng ban"] ?? "",
+          "HTTT": l["Hình thức"] });
+      });
+      var visible = RF.applyGeneric(entries, opt.filter);
+      if (visible.skipped.length) canhbao.push("Tiêu chí không áp dụng cho sổ chứng từ: " + visible.skipped.join(", "));
       rows = [];
-      (opt.lines || []).filter(function (l) { return s(l["Kỳ"]) === ky && Object.prototype.hasOwnProperty.call(pbOf, l["Mã NV"]); })
-        .sort(function (a, b) { return s(a["Số chứng từ"]) < s(b["Số chứng từ"]) ? -1 : s(a["Số chứng từ"]) > s(b["Số chứng từ"]) ? 1 : s(a["Mã NV"]) < s(b["Mã NV"]) ? -1 : 1; })
+      visible.rows        .sort(function (a, b) { return s(a["Số chứng từ"]) < s(b["Số chứng từ"]) ? -1 : s(a["Số chứng từ"]) > s(b["Số chứng từ"]) ? 1 : s(a["Mã NV"]) < s(b["Mã NV"]) ? -1 : 1; })
         .forEach(function (l) {
-          rows.push({ "STT": rows.length + 1, "Số chứng từ": s(l["Số chứng từ"]), "Hình thức": s(l["Hình thức"]), "Mã NV": s(l["Mã NV"]), "Họ và tên": s(l["Họ và tên"]), "Phòng ban": pbOf[l["Mã NV"]], "Số tiền": n(l["Số tiền"]), "Trạng thái": s(l["Trạng thái"]),
+          rows.push({ "STT": rows.length + 1, "Số chứng từ": s(l["Số chứng từ"]), "Hình thức": s(l["Hình thức"]), "Mã NV": s(l["Mã NV"]), "Họ và tên": s(l["Họ và tên"]), "Phòng ban": l["Phòng ban"], "Số tiền": n(l["Số tiền"]), "Trạng thái": s(l["Trạng thái"]),
             "Ngày lập": s(l["Ngày lập"]), "Ngày duyệt": s(l["Ngày duyệt"]), "Ngày thanh toán": s(l["Ngày thanh toán"]), "Người lập": s(l["Người lập"]), "Người duyệt": s(l["Người duyệt"]), "Người ghi nhận": s(l["Người ghi nhận"]), "Lý do hủy": s(l["Lý do hủy"]) });
         });
       if (!rows.length) canhbao.push("Kỳ này chưa có chứng từ thanh toán nào trong phạm vi lọc.");

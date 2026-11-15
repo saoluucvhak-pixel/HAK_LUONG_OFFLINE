@@ -202,3 +202,92 @@ test("U-PAY94-ROUND thực lĩnh làm tròn lệch ≤500đ so với tổng thu 
   const bad = PR.build("CHI_TIET_NV", { bangluong: mk(1000000 - 600, 1000000), chot: true, blockers: [] }, opt());
   assert.equal(bad.loi.length, 1);
 });
+
+test("Sổ chứng từ retains stored lines even after a worker leaves the current worksheet", () => {
+  const staff = rows().slice(0, 2);
+  const draft = PL.lapChungTu({ rows: staff, lines: [], ky: "2026-09", ht: PL.HT.TM, chot: true });
+  const lines = draft.dong;
+  assert.equal(lines[0]["Phòng ban"], "Sản xuất");
+  const current = { bangluong: [staff[0]], chot: true, blockers: [] };
+  assert.equal(PR.build("SO_CHUNG_TU", current, opt({ lines })).rows[0]["Mã NV"], "00124");
+  assert.equal(PR.build("SO_CHUNG_TU", current, opt({ lines, filter: { maNV: ["00123"] } })).rows.length, 0);
+});
+
+test("Payment preview receives the visible candidate scope", () => {
+  const text = require("node:fs").readFileSync(require.resolve("../../app.js"), "utf8");
+  const start = text.indexOf("  function payLap(");
+  const ctx = {
+    RF: require("../../core/reporting/report-filter"), st: { rf: { maNV: ["00124"] } },
+    PLG: PL, HRM: { today: () => "2026-09-30" }, need: () => true,
+    kyStr: () => "2026-09", session: null, payLines: () => [], fmt: String,
+    h: () => ({}), modal() {},
+    simpleTable(items) { assert.deepEqual(Array.from(items, r => r["Mã NV"]), ["00124"]); }
+  };
+  require("node:vm").runInNewContext(text.slice(start, text.indexOf("  function payChuyen(",start)), ctx);
+  ctx.payLap(PL.HT.TM, { chot: true, kq: { bangluong: rows() } });
+});
+
+test("Closed-period accounting keeps historical account and books paid vouchers only", () => {
+  const text = require("node:fs").readFileSync(require.resolve("../../app.js"), "utf8");
+  const extract = (from, to) => text.slice(text.indexOf(from), text.indexOf(to));
+  const paid = { "Kỳ": "2026-09", "Số chứng từ": "PC1", "Hình thức": "Tiền mặt", "Số tiền": 400, "Trạng thái": PL.TT.TRA };
+  const ctx = {
+    PLG: PL, n0: v => Number(v) || 0, kyKey: () => "2026-09",
+    db: { dm_phongban: [{ "Mã phòng ban": "T1", "Tài khoản chi phí": "641" }] },
+    kyChot: () => ({ input: { danhmuc: { dm_phongban: [{ "Mã phòng ban": "T1", "Tài khoản chi phí": "622" }] } } }),
+    payLines: () => [paid, { ...paid, "Trạng thái": PL.TT.DUYET, "Số tiền": 600 }, { ...paid, "Kỳ": "2026-10" }],
+    ALLOC: { costByKey: (r, account) => ({ luong: { [account("T1")]: 1000 }, bh: {} }) }
+  };
+  require("node:vm").runInNewContext(extract("  function tkChiPhi(", "  var BCL =") +
+    extract("  function bcHachToan(", "  function bcSoSanh("), ctx);
+  const result = ctx.bcHachToan({ bangluong: [{ "Tổng thu nhập": 1000, "Thực lĩnh": 1000 }] }, 2026, 9);
+  assert.equal(result.rows[0]["TK Nợ"], "622");
+  assert.equal(result.rows[1]["TK Có"], "1111");
+  assert.equal(result.rows[1]["Số tiền"], 400);
+  assert.equal(result.conLai, 600);
+  assert.equal(result.lech, 0);
+});
+
+test("Styled payroll bundle retains real values, identifiers and print settings", async () => {
+  const sample = { "Mã NV": "001", "Họ và tên": "Nhân viên mẫu", "Phải trả": 1250.25, "Đã chi": 500, "Còn phải trả": 750.25 };
+  const wb = RX.buildPayrollBundle(X, [
+    { name: "ThongTinKy", title: "Thông tin kỳ", cols: ["Nội dung", "Giá trị"], rows: [{ "Nội dung": "Phiên bản", "Giá trị": 2 }] },
+    { name: "DoiChieuChiLuong", title: "Đối chiếu chi lương", cols: Object.keys(sample), rows: [sample] }
+  ], { congTy: "CÔNG TY MẪU", kyText: "Tháng 9/2026", trangThai: "Đã chốt · v2" });
+  const reopened = new X.Workbook();
+  await reopened.xlsx.load(await wb.xlsx.writeBuffer());
+  const ws = reopened.getWorksheet("DoiChieuChiLuong"), header = ws.views[0].ySplit;
+  assert.equal(ws.getCell(header + 1, 1).value, "001");
+  assert.equal(ws.getCell(header + 1, 3).value, 1250.25);
+  assert.match(ws.getCell(header + 1, 3).numFmt, /#,##0/);
+  assert.equal(ws.getCell(header + 2, 5).value, 750.25);
+  assert.ok(ws.pageSetup.printArea && ws.pageSetup.printTitlesRow);
+  const info = reopened.getWorksheet("ThongTinKy");
+  assert.equal(info.getCell(info.views[0].ySplit + 1, 2).value, "2");
+  assert.equal(info.getCell(info.views[0].ySplit + 2, 1).value, null);
+});
+
+test("Payroll detail export uses saved attendance, allocations and tax values for a closed period", () => {
+  const text = require("node:fs").readFileSync(require.resolve("../../app.js"), "utf8");
+  const from = text.indexOf("  function payrollDetailSheets(");
+  const ctx = {
+    DAYS: Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")),
+    VAL: require("../../core/validate"), E: require("../../engine"), n0: v => Number(v) || 0,
+    buLabel: String
+  };
+  require("node:vm").runInNewContext(text.slice(from, text.indexOf("  function exportAll(", from)), ctx);
+  const snapshot = { input: { data: { chamcong: [
+    { "Kỳ": "2026-09", "Mã NV": "001", "Hình thức công": "TC1", "01": 0.5 }
+  ] }, payrollReports: { taxIds: { "001": "0123456789" }, production: [{ type: "sanluong", employees: [{ "Mã NV": "001", "Mã phòng ban": "T1", "Sản lượng (tấn)": 10 }], audit: [{ "Phiếu": "P1" }] }] } } };
+  const result = { bangluong: [{ "Mã NV": "001", "Lương bù SL": 250000, "Thuế TNCN": 0, _ct: { thuNhapTinhThue: 0 } }], tncn: [] };
+  const sheets = Object.fromEntries(Array.from(ctx.payrollDetailSheets(result, "2026-09", snapshot), sheet => [sheet.name, sheet]));
+  assert.equal(sheets.ChamCongTheoHinhThuc.rows[0]["Hình thức công"], "TC1");
+  assert.equal(sheets.ChamCongTheoHinhThuc.rows[0]["Tổng công"], 0.5);
+  assert.equal(sheets.PhanBoSanLuong.rows[0]["Mã phòng ban"], "T1");
+  assert.equal(sheets.DoiSoatPhieuCan.rows[0]["Phiếu"], "P1");
+  assert.equal(sheets.BuSanLuong.rows[0]["Lương bù SL"], 250000);
+  assert.equal(sheets.ThueTNCN.rows[0]["Mã số thuế"], "0123456789");
+  assert.equal(sheets.ThueTNCN.rows[0]["Thuế TNCN khấu trừ"], 0);
+  const legacy = Array.from(ctx.payrollDetailSheets(result, "2026-09", {}));
+  assert.match(legacy.find(sheet => sheet.name === "DoiSoatPhieuCan").source, /chưa lưu/);
+});
