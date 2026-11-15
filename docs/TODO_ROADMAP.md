@@ -3,8 +3,8 @@
 > File này là "bộ nhớ" của dự án: phiên làm việc sau đọc file này để tiếp tục mà không mất ngữ cảnh.
 
 ## Trạng thái hiện tại (16/11/2026)
-- Nhánh phát hành: `main` · phiên bản **2.0.17** (engine 1.8.x, quy chế lương HAK Group 2026). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`.
-- Đã xong từ 2.0.0 đến 2.0.17: đăng nhập và phân quyền, chốt kỳ an toàn, sao lưu theo năm và Full Backup, OCR chấm công (CNN chữ số tay, ý kiến thứ hai Umi-OCR tùy chọn), phân bổ sản lượng theo tổ và công BT (R-66/R-73), bộ báo cáo kỳ lương Excel/PDF, đối chiếu đơn nghỉ với chấm công và hạn mức phép năm, CI một luồng duy nhất (`.github/workflows/luong-hak-v10-4-setup.yml`), Electron 45.3.2, SheetJS 0.20.3.
+- Nhánh phát hành: `main` · phiên bản **2.0.18** (engine 1.8.x, quy chế lương HAK Group 2026). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`.
+- Đã xong từ 2.0.0 đến 2.0.18: đăng nhập và phân quyền, chốt kỳ an toàn, sao lưu theo năm và Full Backup, OCR chấm công (CNN chữ số tay, ý kiến thứ hai Umi-OCR tùy chọn), phân bổ sản lượng theo tổ và công BT (R-66/R-73), bộ báo cáo kỳ lương Excel/PDF, đối chiếu đơn nghỉ với chấm công và hạn mức phép năm, CI một luồng duy nhất (`.github/workflows/luong-hak-v10-4-setup.yml`), Electron 45.3.2, SheetJS 0.20.3.
 - Mới ở 2.0.17: `app.js` được ghép từ `app-src/` (28 đoạn + 21 màn hình trong `app-src/screens/`, `npm run build:app`); hàm trợ giúp ở `ui/app-helpers.js`; 7 báo cáo kỳ lương ở `core/reporting/period-reports.js`; bốn đường ghi (nhập Excel, gộp chấm công, thêm và xóa nhân viên) đi qua `core/repository.js` có hoàn tác; báo cáo kỳ đã chốt lấy số liệu lưu lúc chốt; file dùng chung với `HAK_SMART_FILTER` và design system được khóa bằng `shared-modules.lock.json`.
 - Kiến trúc đích: theo sơ đồ của chủ sở hữu (Giao diện → HRM/PAYROLL/REPORTS → Core Engine → Database & Integrations) — `ARCHITECTURE.md`.
 - Nghiệm thu: mọi bản đã kiểm tra trên Linux (unit, integration, regression, E2E Electron) và build bộ cài Windows trong CI. **Chưa nghiệm thu trên máy Windows thật** theo `LuongHAK_Offline/docs/V10_1_WINDOWS_UAT.md`.
