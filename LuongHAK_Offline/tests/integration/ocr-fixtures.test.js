@@ -33,7 +33,7 @@ function readGrayPNG(file) {
 }
 
 let svc;
-test.before(() => { svc = createOcrService({ appDir: APP }); });
+test.before(() => { svc = createOcrService({ appDir: APP, tesseract: require("../../ocr/tesseract-compat.js")(require("tesseract.js")) }); });
 test.after(async () => { if (svc) await svc.terminate(); });
 const host = { ocr: (items) => svc.batch(items) };
 
@@ -131,4 +131,28 @@ test("I-OCR-08 ảnh chụp rất xấu (60% độ phân giải, mờ, bóng đ�
   const r = await TO.analyze(readGrayPNG(path.join(FIX, "rectify", "13-chup-dien-thoai-xau.png")), host), s = score(r.table);
   assert.strictEqual(r.rectify.applied, true, r.rectify.status);
   assert.ok(s.ok >= 65 && s.wrong <= 2, JSON.stringify(s));   // không nắn: 47 đúng / 16 sai im lặng
+});
+
+// tesseract.js 7: đọc cả trang (đoán chiều ảnh) phải vẫn đếm được từ đọc chắc. Từ bản 6 thư viện không trả data.words nữa;
+// ocr/tesseract-compat.js dựng lại danh sách từ. Thiếu lớp này, số từ luôn bằng 0 và app không còn phân biệt được ảnh đúng chiều.
+test("I-OCR-TESS7-01 đọc cả trang đếm được từ đọc chắc; có lớp tương thích > 0, thư viện trần = 0", async () => {
+  const { g, w, h } = readGrayPNG(path.join(FIX, "bang-cham-cong-mau.png")), item = [{ w, h, data: g, mode: "page" }];
+  const withCompat = (await svc.batch(item))[0];
+  assert.ok(withCompat.good >= 5, "phải đếm được từ đọc chắc trên bảng in mẫu, được " + withCompat.good);
+  assert.ok(withCompat.conf > 0);
+  const bare = createOcrService({ appDir: APP });
+  try { assert.equal((await bare.batch(item))[0].good, 0, "tesseract.js 7 trần không trả data.words — nếu số này khác 0 thì có thể bỏ lớp tương thích"); }
+  finally { await bare.terminate(); }
+});
+test("I-OCR-TESS7-02 lớp tương thích chỉ xin danh sách từ cho worker đọc cả trang, giữ nguyên lời gọi của worker đọc ô", async () => {
+  const compat = require("../../ocr/tesseract-compat.js"), calls = [];
+  const fake = { PSM: { AUTO: "3", SINGLE_WORD: "8" }, createWorker: async () => ({
+    setParameters: async () => {}, terminate: async () => {},
+    recognize: async (img, o, out) => { calls.push(out); return { data: out && out.blocks ? { text: "a", blocks: [{ paragraphs: [{ lines: [{ words: [{ text: "Họ", confidence: 91 }, { text: "tên", confidence: 88 }] }] }] }] } : { text: "1" } }; }
+  }) };
+  const T = compat(fake), cell = await T.createWorker("eng"), page = await T.createWorker("vie");
+  await cell.setParameters({ tessedit_pageseg_mode: fake.PSM.SINGLE_WORD }); await page.setParameters({ tessedit_pageseg_mode: fake.PSM.AUTO });
+  assert.equal((await cell.recognize("x")).data.words, undefined); assert.equal(calls[0], undefined);
+  assert.deepEqual((await page.recognize("x")).data.words.map((x) => x.text), ["Họ", "tên"]); assert.deepEqual(calls[1], { text: true, blocks: true });
+  assert.deepEqual(compat.wordsOf({}), []); assert.equal(T.PSM, fake.PSM);
 });

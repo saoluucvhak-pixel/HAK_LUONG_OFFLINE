@@ -49,7 +49,7 @@ function vecs(n, seed) { const rng = S.prng(seed), r = []; for (let i = 0; i < n
   // D) Tesseract một mình vs Tesseract + thư viện trên tập test (nếu có)
   if (!process.argv.includes("--no-tess")) {
     try {
-      const { createOcrService } = require("../../main/ocr-service"), svc = createOcrService({ appDir: path.join(__dirname, "..", "..") });
+      const { createOcrService } = require("../../main/ocr-service"), svc = createOcrService({ appDir: path.join(__dirname, "..", ".."), tesseract: require("../../ocr/tesseract-compat.js")(require("tesseract.js")) });
       const rng = S.prng(23), items = [], truth = [], fv = []; for (let i = 0; i < 300; i++) { const l = LAB[i % 10], im = S.render(l, rng, { jitter: 0.09, noise: 14 }); items.push({ w: im.w, h: im.h, data: im.g, mode: "digit" }); truth.push(l); fv.push(F.extract(im.g, im.w, im.h)); }
       const o = await svc.batch(items); lib.cfg.autoThreshold = chosen.th; let tess = 0, comb = 0, libAuto = 0, libAutoWrong = 0;
       o.forEach((r, i) => { const tt = String(r.text || "").replace(/\D/g, ""); if (tt === truth[i]) tess++; const lr = lib.lookup(fv[i].vec, "digit", { ocrText: tt, ocrConf: r.conf }); let final = tt; if (lr.status === "AUTO_ACCEPT") { libAuto++; if (lr.label !== truth[i]) libAutoWrong++; final = lr.label; } else if (lr.status === "SUGGESTED" && tt !== lr.label && (r.conf || 0) < 60) final = lr.label; if (final === truth[i]) comb++; });

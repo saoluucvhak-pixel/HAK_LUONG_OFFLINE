@@ -19,7 +19,7 @@ test("I-UMI-01 ý kiến thứ hai đi tới từng ô của bảng: khác Tesse
   let calls = 0;
   const srv = http.createServer((rq, rs) => { let s = ""; rq.on("data", (d) => (s += d)); rq.on("end", () => { calls++; rs.end(JSON.stringify({ code: 100, data: [{ text: "0.5", score: 0.95, box: [[0, 0], [1, 0], [1, 1], [0, 1]], end: "" }] })); }); });
   await new Promise((ok) => srv.listen(0, "127.0.0.1", ok));
-  const svc = createOcrService({ appDir: APP, secondOpinion: createUmiClient({ port: srv.address().port }) });
+  const svc = createOcrService({ appDir: APP, tesseract: require("../../ocr/tesseract-compat.js")(require("tesseract.js")), secondOpinion: createUmiClient({ port: srv.address().port }) });
   try {
     const r = await TO.analyze(readGrayPNG(path.join(FIX, "bang-cham-cong-mau.png")), { ocr: (i) => svc.batch(i) });
     const L = r.table.lines[0];
@@ -31,7 +31,7 @@ test("I-UMI-01 ý kiến thứ hai đi tới từng ô của bảng: khác Tesse
 });
 
 test("I-UMI-02 Umi-OCR không chạy: kết quả y như chỉ có Tesseract, ô ghi UNAVAILABLE", { timeout: 120000 }, async () => {
-  const svc = createOcrService({ appDir: APP, secondOpinion: createUmiClient({ port: 1, timeoutMs: 500 }) });
+  const svc = createOcrService({ appDir: APP, tesseract: require("../../ocr/tesseract-compat.js")(require("tesseract.js")), secondOpinion: createUmiClient({ port: 1, timeoutMs: 500 }) });
   try {
     const r = await TO.analyze(readGrayPNG(path.join(FIX, "bang-cham-cong-mau.png")), { ocr: (i) => svc.batch(i) });
     assert.deepEqual(r.table.lines.map((l) => l.sum), [28.5, 20, 15]);

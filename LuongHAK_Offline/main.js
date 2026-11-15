@@ -51,7 +51,7 @@ let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, 
 // Tắt: HAK_UMI_OCR=0 · cổng khác: HAK_UMI_OCR=<cổng>. Umi không chạy → tự bỏ qua (ngắt mạch 30 giây).
 const umi = process.env.HAK_UMI_OCR === "0" ? null : createUmiClient({ port: /^\d+$/.test(process.env.HAK_UMI_OCR || "") ? +process.env.HAK_UMI_OCR : 1224 });
 const ocrControl = createOcrControl(umi), ocrJobs = new Map();
-const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname, secondOpinion: ocrControl })); // nạp Tesseract khi dùng lần đầu
+const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname, secondOpinion: ocrControl, tesseract: require("./ocr/tesseract-compat.js")(require("tesseract.js")) })); // nạp Tesseract khi dùng lần đầu
 const NO_SHELL = !!process.env.HAK_NO_SHELL; // kiểm thử tự động: không mở Explorer thật, chỉ ghi lại thao tác
 let lastShell = null;
 function shellDo(kind, f) { lastShell = { kind, name: path.basename(f) }; if (NO_SHELL) return; if (kind === "show") shell.showItemInFolder(f); else shell.openPath(f); }
