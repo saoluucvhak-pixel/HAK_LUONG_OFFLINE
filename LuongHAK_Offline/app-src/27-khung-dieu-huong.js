@@ -16,14 +16,7 @@
   // Tab nào cần quyền xem nào (kiểm tra cả khi mở bằng trạng thái đã lưu, không chỉ ẩn menu)
   var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_pb: "payroll.view", rp_tncn: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
   Object.keys(OPS_SCREENS).forEach(function (k) { TAB_PERM[k] = OPS.TYPES[OPS_SCREENS[k]].perm; });
-  function tabAllowed(t) {
-    if (t === "home") return true;
-    if (t === "backup") return can("system.admin") || can("backup.restore");
-    if (t === "dm") return can("dm.edit") || can("payroll.view") || can("hr.view");
-    if (t === "caidat") return can("dm.edit") || can("payroll.view");
-    if (S[t]) return can("input.view");
-    return TAB_PERM[t] ? can(TAB_PERM[t]) : true;
-  }
+  // @screen tabAllowed
   var TITLES = { nvns: "Nghiệp vụ nhân sự", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_cttt: "Chi tiết thanh toán", rp_soct: "Sổ chứng từ thanh toán", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê bơm dăm", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
   function updateNav() { document.querySelectorAll("#nav button[data-k]").forEach(function (b) { var k = b.getAttribute("data-k"), n = $(".n", b); if (n && ALL[k]) n.textContent = countOf(k); }); }
   function periodBox() {

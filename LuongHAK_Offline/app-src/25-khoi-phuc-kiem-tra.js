@@ -279,9 +279,9 @@
       if (!confirm("Gộp các dòng chấm công cùng Kỳ + Mã NV + Hình thức công thành 1 dòng?\n• Ngày nhập trùng (cùng số công) → tính 1 lần (hiện đang bị cộng 2 lần).\n• Cùng ngày nhưng KHÁC số công, hoặc thuộc kỳ đã chốt → giữ nguyên để bạn tự xử lý.\nApp sao lưu trước khi gộp.")) return;
       // P1: có "before" + hoàn tác riêng khi saveNow() thất bại — chỉ cảnh báo, không chặn.
       var bkOk = !!backupNow("truoc-gop-cham-cong");
-      var before = JSON.stringify(db.chamcong), r = INT.mergeChamCong(db, lockedMap());
-      audit("Gộp dòng chấm công trùng", r.groups + " nhóm, bỏ " + r.removed + " dòng thừa" + (r.dupDays ? ", " + r.dupDays + " ngày nhập trùng tính 1 lần" : "") + (r.skipped.length ? ", giữ nguyên " + r.skipped.length + " nhóm" : ""));
-      if (!saveNow()) { db.chamcong = JSON.parse(before); db.auditlog.pop(); alert("Không lưu được — đã hủy thao tác gộp."); render(); return; }
+      var merged = REPO.mergeAttendance();
+      if (!merged.ok) { alert("Không lưu được — đã hủy thao tác gộp."); render(); return; }
+      var r = merged.value;
       render(); alert("Đã gộp " + r.groups + " nhóm (bỏ " + r.removed + " dòng thừa" + (r.dupDays ? "; " + r.dupDays + " ngày nhập trùng nay tính 1 lần" : "") + ")." + (r.skipped.length ? "\nGiữ nguyên " + r.skipped.length + " nhóm: " + r.skipped.slice(0, 8).map(function (x) { return x.key.replace(/\|/g, " ") + " — " + x.reason; }).join("; ") : "") + (bkOk ? "" : "\n⚠ KHÔNG tạo được bản sao lưu trước khi gộp — kiểm tra dung lượng đĩa"));
     })]));
     if (!issues.length) { c.appendChild(h("div", { class: "ok", text: "Không phát hiện vấn đề về cấu trúc và toàn vẹn dữ liệu." })); return c; }

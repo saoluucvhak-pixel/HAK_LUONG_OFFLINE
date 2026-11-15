@@ -228,19 +228,13 @@ test("Payment preview receives the visible candidate scope", () => {
 });
 
 test("Closed-period accounting keeps historical account and books paid vouchers only", () => {
-  const text = require("node:fs").readFileSync(require.resolve("../../app.js"), "utf8");
-  const extract = (from, to) => text.slice(text.indexOf(from), text.indexOf(to));
+  const { bcHachToan } = require("../../core/reporting/period-reports");
   const paid = { "Kỳ": "2026-09", "Số chứng từ": "PC1", "Hình thức": "Tiền mặt", "Số tiền": 400, "Trạng thái": PL.TT.TRA };
-  const ctx = {
-    PLG: PL, n0: v => Number(v) || 0, kyKey: () => "2026-09",
-    db: { dm_phongban: [{ "Mã phòng ban": "T1", "Tài khoản chi phí": "641" }] },
-    kyChot: () => ({ input: { danhmuc: { dm_phongban: [{ "Mã phòng ban": "T1", "Tài khoản chi phí": "622" }] } } }),
-    payLines: () => [paid, { ...paid, "Trạng thái": PL.TT.DUYET, "Số tiền": 600 }, { ...paid, "Kỳ": "2026-10" }],
-    ALLOC: { costByKey: (r, account) => ({ luong: { [account("T1")]: 1000 }, bh: {} }) }
-  };
-  require("node:vm").runInNewContext(extract("  function tkChiPhi(", "  var BCL =") +
-    extract("  function bcHachToan(", "  function bcSoSanh("), ctx);
-  const result = ctx.bcHachToan({ bangluong: [{ "Tổng thu nhập": 1000, "Thực lĩnh": 1000 }] }, 2026, 9);
+  const snapshot = { input: { danhmuc: { dm_phongban: [{ "Mã phòng ban": "T1", "Tài khoản chi phí": "622" }] } } };
+  const departments = [{ "Mã phòng ban": "T1", "Tài khoản chi phí": "641" }];
+  const payments = [paid, { ...paid, "Trạng thái": PL.TT.DUYET, "Số tiền": 600 }, { ...paid, "Kỳ": "2026-10" }];
+  const result = bcHachToan({ bangluong: [{ "Mã PB": "T1", "Tổng thu nhập": 1000, "Thực lĩnh": 1000 }] },
+    2026, 9, snapshot, departments, payments);
   assert.equal(result.rows[0]["TK Nợ"], "622");
   assert.equal(result.rows[1]["TK Có"], "1111");
   assert.equal(result.rows[1]["Số tiền"], 400);

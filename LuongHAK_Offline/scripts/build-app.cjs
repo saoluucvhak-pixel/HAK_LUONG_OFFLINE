@@ -20,7 +20,24 @@ function parts() {
   if (dup.length) throw Error('Trùng số thứ tự trong app-src/: ' + dup.join(', '));
   return names;
 }
-function build() { return parts().map(f => fs.readFileSync(path.join(srcDir, f), 'utf8')).join(''); }
+function build() {
+  const screenDir = path.join(srcDir, 'screens');
+  const remaining = new Set(fs.readdirSync(screenDir).filter(f => f.endsWith('.js')));
+  const bundle = parts().map(f => {
+    const source = fs.readFileSync(path.join(srcDir, f), 'utf8');
+    return source.replace(/^  \/\/ @screen (tab[A-Za-z]+)\r?\n/gm, (_, name) => {
+      const file = name + '.js';
+      if (!remaining.delete(file)) throw Error('Màn hình bị thiếu hoặc ghép hai lần: ' + file);
+      const screen = fs.readFileSync(path.join(screenDir, file), 'utf8');
+      if (!screen.startsWith('  function ' + name + '(') || !screen.endsWith('\n')) {
+        throw Error('File màn hình không đúng tên hàm hoặc thiếu xuống dòng: ' + file);
+      }
+      return screen;
+    });
+  }).join('');
+  if (remaining.size) throw Error('Màn hình chưa được ghép: ' + [...remaining].join(', '));
+  return bundle;
+}
 
 module.exports = { build, parts, outFile, srcDir };
 if (require.main === module) {

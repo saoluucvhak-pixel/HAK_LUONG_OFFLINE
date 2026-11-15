@@ -106,16 +106,7 @@
   function fmtTime(isoS) { var d = new Date(isoS); return isNaN(d) ? "" : d.toLocaleString("vi-VN"); }
   function kyKey(nam, thang) { return nam + "-" + ("0" + thang).slice(-2); }
   function n0(v) { return +v || 0; }
-  function addTotal(rows, label) {
-    if (!rows.length) return rows;
-    var t = {}, keys = Object.keys(rows[0]);
-    keys.forEach(function (k, i) {
-      if (i === 0) { t[k] = label || "TỔNG"; return; }
-      var allNum = rows.every(function (r) { return typeof r[k] === "number" || r[k] === "" || r[k] == null; }) && rows.some(function (r) { return typeof r[k] === "number"; });
-      t[k] = allNum && !/STT|Bậc|Số người phụ thuộc/.test(k) ? Math.round(rows.reduce(function (a, r) { return a + n0(r[k]); }, 0) * 1000) / 1000 : "";
-    });
-    return rows.concat([t]);
-  }
+
   function pdfFallbackPrint(html) {
     var f = document.createElement("iframe"); f.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px"; document.body.appendChild(f);
     f.srcdoc = html; f.onload = function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { toast("Không mở được hộp thoại in"); } setTimeout(function () { f.remove(); }, 60000); };
@@ -165,7 +156,7 @@
     cleanImportedData: cleanImportedData, applyTheme: applyTheme, $: $, toast: toast, qtyText: qtyText, fmt: fmt, esc: esc, sheetName: sheetName,
     slug: slug, pwWeak: pwWeak, dateFix: dateFix, dateIso: dateIso, moneyText: moneyText, moneyLive: moneyLive, catPass: catPass, missingReq: missingReq,
     retroText: retroText, thueIsCha: thueIsCha, ctVarFromRow: ctVarFromRow, ctRefVars: ctRefVars, kyLabel: kyLabel, fmtTime: fmtTime, kyKey: kyKey, n0: n0,
-    addTotal: addTotal, pdfFallbackPrint: pdfFallbackPrint, opsFmtCell: opsFmtCell, loadScript: loadScript, canvasOf: canvasOf, attRecordId: attRecordId, grayOf: grayOf, grayCanvas: grayCanvas,
+    addTotal: C.periodReports.addTotal, pdfFallbackPrint: pdfFallbackPrint, opsFmtCell: opsFmtCell, loadScript: loadScript, canvasOf: canvasOf, attRecordId: attRecordId, grayOf: grayOf, grayCanvas: grayCanvas,
     titleName: titleName, ocrRef: ocrRef, libEnrich: libEnrich, layoutCheck: layoutCheck, markStopped: markStopped, ocrImportedCells: ocrImportedCells, summarize: summarize, chotSummary: chotSummary,
     fold: fold, fmtSize: fmtSize, fileGone: fileGone
   };

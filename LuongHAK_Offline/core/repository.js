@@ -6,7 +6,7 @@
 //   4. Q-15: phụ lục / hợp đồng đã dùng tính lương kỳ đã chốt → khóa (kể cả Admin)
 //   5. kỳ đã chốt (locked) → chặn; hồi tố (retro) → chỉ Admin (Q-14), có thể yêu cầu xác nhận
 // Hai bước: plan() chỉ kiểm tra, KHÔNG sửa gì → giao diện hỏi xác nhận nếu cần → apply() kiểm tra lại rồi mới ghi.
-// Repository không biết giao diện: không alert/confirm, không lưu đĩa (việc lưu do app gọi save()).
+// Repository không biết giao diện. Các thao tác nhiều dòng lưu qua giao dịch do app cung cấp.
 (function (root) {
   "use strict";
   var isNode = typeof module !== "undefined" && module.exports;
@@ -159,7 +159,73 @@
       return { ok: true, row: row, retro: q.retro, impact: q.impact };
     }
 
-    return { plan: plan, apply: apply, permFor: permFor, retroText: retroText, identOf: identOf };
+    // Batch operations use the same durable transaction as the other multi-table workflows.
+    function writeBatch(tables, fn) {
+      var value;
+      var ok = ctx.transaction(Array.from(new Set(tables)), function () {
+        value = fn(ctx.db());
+        return true;
+      });
+      return { ok: ok, value: value };
+    }
+
+    function importWorkbook(plans, fileName, mode, isHr) {
+      var affected = plans.filter(function (p) {
+        return p.items.some(function (item) { return item.action === "add" || item.action === "update"; });
+      });
+      if (affected.some(function (p) { return !ctx.can(permFor(p.table)); })) return deny("perm", "Không có quyền ghi dữ liệu nhập.");
+      return writeBatch(affected.map(function (p) { return p.table; }), function (db) {
+        affected.forEach(function (p) {
+          p.items.forEach(function (item) {
+            if (item.action === "update" && db[p.table].indexOf(item.target) < 0) throw Error("Dữ liệu đã đổi. Mở lại bản xem trước nhập Excel.");
+          });
+        });
+        var count = affected.reduce(function (total, p) {
+          return total + IMP.apply(db, p, ctx.uid, isHr(p.table));
+        }, 0);
+        ctx.audit("Nhập Excel", fileName + " (" + (mode === "replace" ? "ghi đè cả dòng" : "bổ sung") + "): " +
+          plans.map(function (p) { return p.table + " +" + p.summary.add + "/~" + p.summary.update + (p.summary.merged ? "/gộp " + p.summary.merged : ""); }).join(", "));
+        return count;
+      });
+    }
+
+    function mergeAttendance() {
+      if (!ctx.can("input.edit")) return deny("perm", "Không có quyền gộp chấm công.");
+      var integrity = isNode ? require("./integrity.js") : root.HAKCore.integrity;
+      return writeBatch(["chamcong"], function (db) {
+        var result = integrity.mergeChamCong(db, Object.fromEntries(GRD.closedPeriods(db).map(function (p) { return [p, true]; })));
+        ctx.audit("Gộp dòng chấm công trùng", result.groups + " nhóm, bỏ " + result.removed + " dòng thừa" +
+          (result.dupDays ? ", " + result.dupDays + " ngày nhập trùng tính 1 lần" : "") + (result.skipped.length ? ", giữ nguyên " + result.skipped.length + " nhóm" : ""));
+        return result;
+      });
+    }
+
+    function createEmployee(input) {
+      if (!ctx.can("hr.edit")) return deny("perm", "Không có quyền thêm nhân viên.");
+      var creator = isNode ? require("./hr-create.js") : root.HAKCore.hrCreate;
+      var errors = creator.validate(input, ctx.db());
+      if (errors.length) return deny("invalid", errors.join("; "));
+      var rows = creator.build(input, ctx.uid), tables = Object.keys(rows);
+      return writeBatch(tables, function (db) {
+        tables.forEach(function (table) { rows[table].forEach(function (row) { db[table].push(row); }); });
+        ctx.audit("Thêm nhân viên", input.b["Mã NV"] + " — " + input.b["Họ và tên"] +
+          " (" + tables.filter(function (table) { return rows[table].length; }).join(", ") + ")");
+      });
+    }
+
+    function removeEmployee(employee, tables) {
+      var db = ctx.db(), ma = employee["Mã NV"];
+      if (!ctx.can("hr.edit")) return deny("perm", "Không có quyền xóa nhân viên.");
+      if (db.nhanvien.indexOf(employee) < 0) return deny("stale", "Hồ sơ đã thay đổi. Mở lại trước khi xóa.");
+      var refs = GRD.references(db, ma), closed = refs.kyluong || refs.kyluong_lichsu;
+      if (closed && !ctx.can("retro.edit")) return deny("locked", "Nhân viên có trong kỳ đã chốt. Chỉ Admin được xóa hồ sơ.");
+      return writeBatch(tables, function (current) {
+        tables.forEach(function (table) { current[table] = (current[table] || []).filter(function (row) { return row["Mã NV"] !== ma; }); });
+        ctx.audit("Xóa nhân viên", ma + " — " + employee["Họ và tên"] + (closed ? " [có trong bảng lương đã chốt]" : ""));
+      });
+    }
+
+    return { plan: plan, apply: apply, importWorkbook: importWorkbook, mergeAttendance: mergeAttendance, createEmployee: createEmployee, removeEmployee: removeEmployee, permFor: permFor, retroText: retroText, identOf: identOf };
   }
 
   var api = { createRepo: createRepo, permFor: permFor, retroText: retroText, identOf: identOf, HD_CHILD_DEFAULT: HD_CHILD_DEFAULT };

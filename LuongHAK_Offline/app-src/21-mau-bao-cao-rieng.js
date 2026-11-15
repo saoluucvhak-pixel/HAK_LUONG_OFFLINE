@@ -41,73 +41,8 @@
     if (rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })));
     t.appendChild(tb); return t;
   }
-  function tabOpsReport(type) {
-    var w = h("div"), card = h("div", { class: "card" }), T = OPS.TYPES[type], vm = opsVm(type);
-    card.appendChild(h("h3", { "data-report-title": type, text: vm.title }));
-    if ((type === "SAN_LUONG" || type === "BOM_DAM") && tabAllowed("baocaoluong")) {
-      card.appendChild(btn("Xem kết quả phân bổ", "ghost", function () {
-        st.tab = "baocaoluong"; st.bcl = "sanluong"; st.bclLoai = type === "BOM_DAM" ? "bandam" : "sanluong";
-        saveUi(); render();
-      }));
-    }
-    card.appendChild(h("div", { class: "hint", text: (T.theoKy ? "Kỳ " + vm.ky + " (đổi ở ô Kỳ lương phía trên) · " + vm.trangThai + ". " : "") + (vm.ghiChu || []).join(" ") + " Excel và PDF xuất đúng theo bộ lọc đang chọn." }));
-    var bar = h("div", { class: "bar" }), pbs = {};
-    (db.dm_phongban || []).forEach(function (p) { if (p && p["Tên phòng ban"]) pbs[p["Tên phòng ban"]] = 1; });
-    var pbSel = h("select", { "aria-label": "Phòng ban", "data-ops-key": "phongBan" }); pbSel.appendChild(h("option", { value: "", text: "— Tất cả phòng ban —" }));
-    Object.keys(pbs).sort().forEach(function (n) { pbSel.appendChild(h("option", { value: n, text: n })); });
-    pbSel.value = st.opsPB || ""; pbSel.addEventListener("change", function () { st.opsPB = pbSel.value; render(); }); bar.appendChild(pbSel);
-    if (type === "NHAN_SU") {
-      var ttSel = h("select", { "aria-label": "Trạng thái", "data-ops-key": "trangThaiNV" });
-      [["dang", "Đang làm việc"], ["nghi", "Đã nghỉ việc"], ["tatca", "Tất cả"]].forEach(function (o) { ttSel.appendChild(h("option", { value: o[0], text: o[1] })); });
-      ttSel.value = st.opsTT || "dang"; ttSel.addEventListener("change", function () { st.opsTT = ttSel.value; render(); }); bar.appendChild(ttSel);
-    }
-    var q = h("input", { class: "i", placeholder: "Tìm mã / tên / số chứng từ…", value: st.opsKw || "", "data-ops-key": "tuKhoa" });
-    q.addEventListener("change", function () { st.opsKw = q.value; render(); }); bar.appendChild(q);
-    bar.appendChild(h("span", { class: "sp" }));
-    bar.appendChild(btn("⬇ Xuất Excel", "pri", function () { opsXlsx(vm); }));
-    bar.appendChild(btn("⬇ Xuất PDF", "", function () { opsPdf(vm); }));
-    card.appendChild(bar);
-    var kp = [h("div", { class: "kpi", html: "<small>Số dòng" + (vm.loc.length ? " (đang lọc)" : "") + "</small><b>" + vm.soDong + (vm.loc.length ? "/" + vm.soDongGoc : "") + "</b>" })];
-    if (type === "NHAN_SU" && vm.thongKe) { kp.push(h("div", { class: "kpi", html: "<small>Đang làm việc (toàn công ty)</small><b>" + vm.thongKe.dang + "</b>" })); kp.push(h("div", { class: "kpi", html: "<small>Đã nghỉ việc</small><b>" + vm.thongKe.nghi + "</b>" })); }
-    (OPS_KPI[type] || []).forEach(function (k) { if (vm.tong[k] != null) kp.push(h("div", { class: "kpi" + (k === "Thực nhận" ? " main" : ""), html: "<small>" + esc(k) + "</small><b>" + opsFmtCell({ kind: type === "THUONG" || type === "TAM_UNG" ? "money" : "qty3", label: k }, vm.tong[k]) + "</b>" })); });
-    card.appendChild(h("div", { class: "kpis" }, kp));
-    if (vm.loi.length) card.appendChild(h("div", { class: "warn", "data-ops-errors": String(vm.loi.length), html: "<b>⛔ " + vm.loi.length + " lỗi dữ liệu — chặn xuất file:</b><br>" + vm.loi.slice(0, 8).map(esc).join("<br>") + (vm.loi.length > 8 ? "<br>…" : "") }));
-    if (vm.canhbao.length) card.appendChild(h("div", { class: "hint", "data-ops-warns": String(vm.canhbao.length), html: "⚠ " + vm.canhbao.slice(0, 6).map(esc).join(" · ") + (vm.canhbao.length > 6 ? " · … (" + vm.canhbao.length + " cảnh báo)" : "") }));
-    if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào" + (T.theoKy ? " trong kỳ " + vm.ky : "") + (vm.loc.length ? " theo bộ lọc hiện tại." : ".") }));
-    card.appendChild(h("div", { class: "tw" }, [opsTable(type, type, vm.cols, vm.groups, vm.rows, vm.tong, vm.tongNhan)]));
-    (vm.extras || []).forEach(function (e) { card.appendChild(h("div", { class: "fh", text: e.title })); card.appendChild(h("div", { class: "tw" }, [opsTable(type + "_" + e.name, type, e.cols, null, e.rows, e.tong, null)])); });
-    w.appendChild(card); return w;
-  }
-  function tabBangTinhNoiBo() {
-    var w = h("div"), card = h("div", { class: "card" }), src = kqKy(st.nam, st.thang);
-    card.appendChild(h("div", { class: "hint", html: (src.chot ? "🔒 Kỳ <b>đã chốt</b>" : "⚠ Kỳ <b>chưa chốt</b> — tính tạm") + " · Chỉ các khoản <b>tính ra thu nhập</b> (không BH, thuế, tạm ứng, thực lĩnh). Cùng một bộ lọc với Tính lương, Excel và PDF." }));
-    card.appendChild(reportFilterBar(src.kq.bangluong, { summaryCols: ["Tổng thu nhập"] }));
-    var vm = IPAY.build(src.kq, { nam: st.nam, thang: st.thang, filter: st.rf, tenCongTy: congTy()["Tên công ty"] || "", chot: src.chot, cheDoBu: src.kq.cheDoBu });
-    var tools = h("div", { class: "bar" });
-    tools.appendChild(btn("⬇ Xuất PDF", "pri", function () { exportPdf(vm, "BangTinhLuong_" + kyStr() + ".pdf", { chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] }); }));
-    tools.appendChild(btn("⬇ Xuất Excel", "", function () {
-      if (!need("export", "xuất dữ liệu ra Excel") || formulaErrorsBlock("BangTinhLuong")) return;
-      if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx) { alert("Thiếu thư viện Excel"); return; }
-      window.HAKUi.reportXlsx.build(window.ExcelJS, IPAY.toXlsxVm(vm, { ngayLap: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "" }), { chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] }).xlsx.writeBuffer().then(function (buf) {
-        download("BangTinhLuong_" + kyStr() + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf); audit("Xuất Excel BẢNG TÍNH LƯƠNG", kyStr() + " · " + vm.soDong + " dòng");
-      }, function (e) { alert("Không tạo được file: " + e.message); });
-    }));
-    card.appendChild(tools);
-    if (vm.kiemTra.lech.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ " + vm.kiemTra.lech.length + " dòng có tổng các khoản ≠ Tổng thu nhập engine:</b> " + vm.kiemTra.lech.slice(0, 8).map(function (x) { return esc(x.maNV); }).join(", ") }));
-    card.appendChild(h("div", { class: "kpis" }, [h("div", { class: "kpi", html: "<small>Số người" + (vm.loc.length ? " (đang lọc)" : "") + "</small><b>" + vm.soDong + (vm.loc.length ? "/" + vm.soDongGoc : "") + "</b>" }), h("div", { class: "kpi main", html: "<small>Tổng thu nhập</small><b>" + fmt(vm.tong["Tổng thu nhập"] || 0) + "</b>" })]));
-    var t = h("table", { "data-bangtinh": "1" }), hr = h("tr");
-    vm.cols.forEach(function (c, i) { hr.appendChild(h("th", { class: (c.kind === "text" ? "" : "r") + (i === 0 ? " stk" : ""), text: c.label })); });
-    t.appendChild(h("thead", {}, [hr])); var tb = h("tbody");
-    vm.groups.forEach(function (g) {
-      tb.appendChild(h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: g.ten + " (" + g.rows.length + " người)" })]));
-      g.rows.forEach(function (r) { tb.appendChild(h("tr", {}, vm.cols.map(function (c, i) { var v = r[c.key]; return h("td", { class: (c.kind === "text" ? "t" : "r") + (i === 0 ? " stk" : ""), style: c.strong ? "font-weight:700" : "", text: c.kind === "text" ? (v == null ? "" : v) : (!v ? "–" : fmt(v)) }); }))); });
-      tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i < 3 ? "t" : "r", text: i === 1 ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })));
-    });
-    t.appendChild(tb);
-    t.appendChild(h("tfoot", {}, [h("tr", {}, vm.cols.map(function (c, i) { return h("td", { class: i < 3 ? "t" : "r", text: i === 0 ? "TỔNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); }))]));
-    if (!vm.soDong) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào khớp bộ lọc." }));
-    card.appendChild(h("div", { class: "tw" }, [t])); w.appendChild(card); return w;
-  }
+  // @screen tabOpsReport
+  // @screen tabBangTinhNoiBo
 
   function renderKq(box, card, bar) {
     var rAll = st.kq, rf = RF.apply(rAll.bangluong, st.rf), r = Object.assign({}, rAll, { bangluong: rf.rows }), sum = function (c) { return r.bangluong.reduce(function (a, x) { return a + (+x[c] || 0); }, 0); };
@@ -368,52 +303,5 @@
    * Phiếu lương (α18): màn hình riêng trong menu. Kỳ đã chốt → lấy đúng bảng lương đã chốt; chưa chốt → tính tạm (báo rõ).
    * Lọc phòng ban / tìm người, in (mỗi phiếu 1 trang hoặc in gọn nhiều phiếu / trang), xuất Excel. Mở từ Tính lương (1 phiếu) vẫn như cũ.
    */
-  function tabSlips() {
-    var w = h("div"), bar = h("div", { class: "bar" });
-    var single = !!st.kqFull, fresh = st.kq && st.kq.ky === kyStr() && !st.kqStale && !kyChot(kyStr());
-    var src = single ? { kq: st.kq, chot: !!kyChot(kyStr()) } : fresh ? { kq: st.kq, chot: false } : kqKy(st.nam, st.thang); // vừa tính ở Tính lương → dùng đúng kết quả đó
-    var all = (src.kq && src.kq.bangluong) || [];
-    if (single) bar.appendChild(btn("← Quay lại bảng lương", "", function () { st.kq = st.kqFull; st.kqFull = null; st.tab = "luong"; render(); }));
-    var pbs = []; all.forEach(function (b) { if (b["Phòng ban"] && pbs.indexOf(b["Phòng ban"]) < 0) pbs.push(b["Phòng ban"]); });
-    var selPB = h("select", { "aria-label": "Phòng ban" }); selPB.appendChild(h("option", { value: "", text: "Tất cả phòng ban" }));
-    pbs.sort().forEach(function (p) { selPB.appendChild(h("option", { value: p, text: p })); });
-    selPB.value = st.slipPB || ""; selPB.addEventListener("change", function () { st.slipPB = selPB.value; render(); });
-    var q = h("input", { class: "i", type: "search", placeholder: "Tìm mã / tên nhân viên…", value: st.slipQ || "", style: "width:220px" });
-    q.addEventListener("change", function () { st.slipQ = q.value; render(); });
-    var gon = h("input", { type: "checkbox" }); gon.checked = !!st.slipGon; gon.addEventListener("change", function () { st.slipGon = gon.checked; render(); });
-    var qq = fold(st.slipQ || "").trim();
-    var list = all.filter(function (b) { return (single || !st.slipPB || b["Phòng ban"] === st.slipPB) && (single || !qq || fold(b["Mã NV"] + " " + b["Họ và tên"]).indexOf(qq) >= 0); });
-    if (!single) { bar.appendChild(selPB); bar.appendChild(q); }
-    bar.appendChild(h("label", { class: "chk", title: "Bỏ ngắt trang sau mỗi phiếu — in nhiều phiếu trên 1 tờ A4 rồi cắt" }, [gon, " In gọn (nhiều phiếu / trang)"]));
-    bar.appendChild(h("span", { class: "sp" }));
-    bar.appendChild(btn("⬇ Xuất Excel", "", function () {
-      if (!list.length) { toast("Không có phiếu nào"); return; }
-      var cols = ["Mã NV", "Họ và tên", "Phòng ban", "Tổng công", "Công chuẩn"].concat(SLIP_LINES.map(function (l) { return l[0]; }));
-      var fileP = "PhieuLuong_" + kyStr() + (st.slipPB && !single ? "_" + slug(st.slipPB) : "") + ".xlsx";
-      if (window.ExcelJS && window.HAKUi && window.HAKUi.slipXlsx) {
-        if (!need("export", "xuất phiếu lương")) return;
-        var vmP = { congTy: congTy()["Tên công ty"] || "", kyText: "tháng " + st.thang + "/" + st.nam, trangThai: src.chot ? "Bảng lương đã chốt" : "Chưa chốt — tính tạm",
-          rawCols: cols, rawRows: list, slips: list.map(function (b) { return { maNV: b["Mã NV"], hoTen: b["Họ và tên"], phongBan: b["Phòng ban"], tongCong: b["Tổng công"], congChuan: b["Công chuẩn"], sanLuong: b["Sản lượng (tấn)"],
-            lines: slipLines(b) }; }) };
-        window.HAKUi.slipXlsx.build(window.ExcelJS, vmP, { perPage: st.slipGon ? 2 : 1, rawName: "PhieuLuong_" + kyStr(), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
-          download(fileP, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
-        }, function (e) { alert("Không tạo được file: " + e.message); });
-      } else saveXlsx(fileP, [{ name: "PhieuLuong_" + kyStr(), cols: cols, rows: list.map(function (b) { var o = {}; cols.forEach(function (c) { o[c] = b[c] == null ? "" : b[c]; }); return o; }) }]);
-      audit("Xuất phiếu lương Excel", kyLabel(kyStr()) + " · " + list.length + " phiếu");
-    }));
-    bar.appendChild(btn("⬇ PDF", "", function () {
-      if (!list.length) { toast("Không có phiếu nào"); return; }
-      var colsP = ["Mã NV", "Họ và tên", "Phòng ban", "Tổng công", "Công chuẩn"].concat(SLIP_LINES.map(function (l) { return l[0]; }));
-      exportSheetsPdf({ title: "Phiếu lương", ky: "Kỳ " + st.thang + "/" + st.nam, trangThai: src.chot ? "Đã chốt" : "Chưa chốt — tính tạm", loc: st.slipPB ? ["Phòng ban: " + st.slipPB] : [], sheets: [{ name: "PhieuLuong", rows: list.map(function (b) { var o = {}; colsP.forEach(function (c) { o[c] = b[c] == null ? "" : b[c]; }); return o; }) }] }, "PhieuLuong_" + kyStr() + (st.slipPB && !single ? "_" + slug(st.slipPB) : "") + ".pdf");
-    }, "PDF danh sách phiếu theo đúng bộ lọc đang chọn"));
-    bar.appendChild(btn("🖨 In " + list.length + " phiếu", "pri", function () { if (!list.length) { toast("Không có phiếu nào"); return; } audit("In phiếu lương", kyLabel(kyStr()) + " · " + list.length + " phiếu"); window.print(); }));
-    w.appendChild(bar);
-    if (!single) w.appendChild(h("div", { class: src.chot ? "locked noprint" : "warn noprint", html: src.chot ? "🔒 Phiếu lương <b>tháng " + st.thang + "/" + st.nam + "</b> lấy từ bảng lương <b>đã chốt</b>." : "⚠ Tháng " + st.thang + "/" + st.nam + " <b>chưa chốt</b> — phiếu tính tạm từ dữ liệu hiện tại, có thể thay đổi. Nên chốt kỳ trước khi gửi phiếu cho người lao động." }));
-    if (!all.length) { w.appendChild(h("div", { class: "card" }, [h("div", { class: "empty", text: "Chưa có bảng lương tháng " + st.thang + "/" + st.nam + " (chưa có nhân viên / chấm công)." })])); return w; }
-    var box = h("div", { class: "slips" + (st.slipGon ? " gon" : ""), "data-slips": String(list.length) });
-    if (!list.length) box.appendChild(h("div", { class: "card" }, [h("div", { class: "empty", text: "Không có phiếu nào khớp bộ lọc." })]));
-    list.forEach(function (b) { var c = h("div", { class: "card" }); c.appendChild(slipEl(b)); box.appendChild(c); });
-    w.appendChild(box);
-    return w;
-  }
+  // @screen tabSlips
 
