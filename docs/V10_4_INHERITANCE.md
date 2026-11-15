@@ -25,7 +25,7 @@ Giữ `luxe` làm mặc định, giữ nguyên token navy–champagne–nền ng
 
 ## Công cụ và skill
 
-Giữ bản gốc tại `HAK_CODE_QUALITY_TEST`, `HAK_SMART_FILTER`, `HAK_ACCOUNTING_REPORT_STANDARD`; hướng dẫn gọi ba công cụ ở `HAK_AI_SKILLS/code-quality`, `architecture-analyzer`, `quality-observer`. Dashboard chất lượng chạy cục bộ theo tài liệu đi kèm. Đây là công cụ phát triển, không thêm menu kỹ thuật vào phần mềm lương.
+Giữ bản gốc tại `ci/quality-python`, `HAK_SMART_FILTER`, `HAK_ACCOUNTING_REPORT_STANDARD`; hướng dẫn gọi ba công cụ ở `HAK_AI_SKILLS/code-quality`, `architecture-analyzer`, `quality-observer`. Dashboard chất lượng chạy cục bộ theo tài liệu đi kèm. Đây là công cụ phát triển, không thêm menu kỹ thuật vào phần mềm lương.
 
 Workflow V10.4 chạy kiểm thử thư viện kế thừa, quét mã/bảo mật, phân tích kiến trúc, tạo báo cáo Observer và lưu artifact. Cảnh báo tĩnh không được gọi là lỗ hổng đã xác nhận và không bị giấu đi để tạo kết quả xanh.
 

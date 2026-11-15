@@ -6,6 +6,8 @@
 ## [Chưa phát hành]
 - Tách `app.js`, bước 1: chuyển 43 hàm trợ giúp không dùng trạng thái sang `ui/app-helpers.js` (chỉ di chuyển, không đổi nội dung hàm). Không đổi hành vi, không đổi kết quả tính lương.
 - Tách `app.js`, bước 2: mã nguồn giao diện chia thành 28 file theo màn hình trong `LuongHAK_Offline/app-src/`; `npm run build:app` ghép lại thành `app.js`. Nội dung `app.js` chỉ thêm một dòng chú thích.
+- Bộ lọc đã lưu: khi kho bộ lọc trên máy bị lỗi hoặc do phiên bản khác tạo, app không còn ghi đè lên nó. Bảng "Bộ lọc đã lưu" báo rõ và có nút **Sao lưu kho cũ và tạo kho mới**. Kết quả lọc không đổi. (`core/smart-filter.js` đồng bộ với `HAK_SMART_FILTER`.)
+- Đổi tên thư mục công cụ CI `HAK_CODE_QUALITY_TEST/` thành `ci/quality-python/`.
 - CI: khóa các file dùng chung với `HAK_SMART_FILTER` và design system (`shared-modules.lock.json`, `npm run check:shared`).
 
 ## [2.0.16] — 15/11/2026

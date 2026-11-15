@@ -4,7 +4,7 @@ Static dependency and change-impact analysis for Python and JavaScript/TypeScrip
 
 Usage:
 ```bash
-python HAK_CODE_QUALITY_TEST/architecture_analyzer.py --root . --changed src/core.py --out architecture.json
+python ci/quality-python/architecture_analyzer.py --root . --changed src/core.py --out architecture.json
 ```
 
 Outputs a dependency graph, detected import cycles and modules potentially affected by changed files. Relative JS imports and basic Python imports are supported.

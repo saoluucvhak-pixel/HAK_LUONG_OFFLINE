@@ -13,4 +13,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: Static audit
-        run: python HAK_CODE_QUALITY_TEST/audit.py HAK_SMART_FILTER --fail-on-high
+        run: python ci/quality-python/audit.py HAK_SMART_FILTER --fail-on-high

@@ -63,4 +63,21 @@ Bước 1 của §3 đã có, **không đổi dòng mã chạy nào**:
 - `scripts/verify-shared-modules.cjs` (chạy tay: `npm run check:shared`): so mã băm từng file với khóa. Job `inherited-quality` của CI chạy script này kèm bản checkout hai repo gốc tại đúng commit đã ghim, nên mục `identical` được đối chiếu thật với bản gốc.
 - Khi cố ý sửa một file trong danh sách, cập nhật mã băm trong khóa ở cùng PR. Khi muốn theo commit mới của repo gốc, đổi `commit` trong khóa và `ref` tương ứng trong workflow.
 
-Chưa làm, vẫn chờ trả lời câu hỏi 2–5 ở §4: đưa `discardCorrupt()` vào `core/smart-filter.js`, đẩy bản sửa của app lên repo gốc, giữ hay bỏ các thư mục tham chiếu, đổi tên `HAK_CODE_QUALITY_TEST`. Thư mục `HAK_CODE_QUALITY_TEST` chưa đưa vào khóa vì nó là sản phẩm khác với repo gốc cùng tên, không có bản gốc để đối chiếu.
+## 6. Quyết định của chủ sở hữu ngày 15/11/2026 và việc đã làm
+
+Chủ sở hữu đồng ý cả bốn đề xuất (câu 2–5 ở §4):
+
+1. **`core/smart-filter.js` nhận bản của repo gốc** (`e99bb7e`): khi kho bộ lọc đã lưu bị lỗi hoặc do phiên bản khác ghi, `save()` và `remove()` từ chối, không ghi đè; `discardCorrupt()` chép nguyên văn kho cũ sang khóa `hak.sf.presets.bak` rồi mới tạo kho trống. Khóa chuyển mục này sang `identical`. 21 hàm lọc còn lại giống hệt bản cũ (đã so nguyên văn từng hàm), nên kết quả lọc trên báo cáo lương không đổi; chỉ `presets()` khác.
+   - Giao diện (`ui/smart-filter.js`): bảng "Bộ lọc đã lưu" báo khi kho lỗi và có nút **Sao lưu kho cũ và tạo kho mới**; app không tự tạo kho mới. Test: `tests/unit/smart-filter-corrupt-store.test.js` (5 test).
+   - CI: thêm `core/smart-filter.js` vào danh sách file được phép khác mốc `c389ef4` trong job `inherited-quality`.
+2. **Đẩy bản sửa của app lên repo gốc**: phiên làm việc đã được cấp quyền ghi vào `HAK_SMART_FILTER` và `HAK-Enterprise-Design-System`; trạng thái xem §7.
+3. **Giữ các thư mục tham chiếu** (`HAK_AI_SKILLS`, `HAK_SMART_FILTER/`, `HAK_ACCOUNTING_REPORT_STANDARD/`), không xóa. Chúng không vào bộ cài và không được app nạp.
+4. **Đổi tên `HAK_CODE_QUALITY_TEST/` thành `ci/quality-python/`** để khỏi lẫn với repo gốc cùng tên (sản phẩm khác). Đã cập nhật workflow, cấu hình và tài liệu trỏ tới thư mục này. Các file lịch sử (`docs/releases/`, `CHANGELOG.md`, `PROMPT_NANG_CAP_V2_1.md`) giữ tên cũ.
+
+## 7. Trạng thái sau khi đồng bộ (15/11/2026)
+
+- `HAK_SMART_FILTER` đã nhận `ui/smart-filter.js` của app (PR 2 của repo đó, commit gộp `2348786`).
+- `HAK-Enterprise-Design-System` đã nhận `design-system/hak-workspace-layout.css` của app (PR 1 của repo đó, commit gộp `0eab12e`).
+- `shared-modules.lock.json` ghim hai commit trên. **Cả 6 file gốc (8 bản trong repo này) đều ở trạng thái `identical`**; không còn mục `diverged`. CI đối chiếu với đúng hai commit này.
+- Ghi chú: bảng ở §1–§2 mô tả tình trạng trước khi đồng bộ, giữ lại làm lịch sử.
+

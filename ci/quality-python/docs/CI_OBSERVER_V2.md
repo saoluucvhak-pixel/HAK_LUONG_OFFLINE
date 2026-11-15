@@ -9,4 +9,4 @@ Each run generates commit-scoped sanitized QA metadata and proposed regression s
 The existing unified workflow may also run on pull requests, causing duplicate CI runs. Consolidation is recommended after verifying the V2 workflow. Do not merge into main until CI is verified.
 
 Run local unit tests:
-`python -m unittest discover -s HAK_CODE_QUALITY_TEST/tests -p 'test_*.py' -v`
+`python -m unittest discover -s ci/quality-python/tests -p 'test_*.py' -v`
