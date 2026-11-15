@@ -194,3 +194,11 @@ test("U-V101-PDF-01 PDF bảng rộng (>16 cột) tách thành các phần cột
   assert.ok(!html.includes("<script>x"), "phải escape"); assert.match(html, /THU NHẬP/); assert.match(html, /Phần 1\/3/);
   assert.doesNotMatch(html, /font-size:6\.5pt/);
 });
+
+test("U-PAY94-ROUND thực lĩnh làm tròn lệch ≤500đ so với tổng thu nhập KHÔNG phải lỗi chặn; lệch >500đ vẫn chặn", () => {
+  const mk = (tn, tl) => [Object.assign({}, rows()[0], { "Tổng thu nhập": tn, "Thực lĩnh": tl })];
+  const ok = PR.build("CHI_TIET_NV", { bangluong: mk(1000000 - 300, 1000000), chot: true, blockers: [] }, opt());
+  assert.equal(ok.loi.length, 0);
+  const bad = PR.build("CHI_TIET_NV", { bangluong: mk(1000000 - 600, 1000000), chot: true, blockers: [] }, opt());
+  assert.equal(bad.loi.length, 1);
+});
