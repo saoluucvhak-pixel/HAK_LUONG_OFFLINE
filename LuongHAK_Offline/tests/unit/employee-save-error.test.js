@@ -77,6 +77,6 @@ test("Repository rejects Excel/OCR plans if the period closes after preview or t
   c.db.kyluong = [];
   assert.equal(write(planned).ok, true);
   assert.equal(write(planned).ok, false);
-  assert.equal(write(structuredClone(planned)).ok, false);
+  assert.equal(write(JSON.parse(JSON.stringify(planned))).ok, false);
   assert.equal(c.db.chamcong.length, 1);
 });
