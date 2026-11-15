@@ -89,4 +89,8 @@ Mỗi dòng là **một PR riêng**, cùng quy trình: chạy `npm ci`, `npm tes
 - Hạn chế: các file trong `app-src/` không phải module độc lập, vẫn dùng chung một phạm vi biến. Cách này giúp tìm, đọc và xem diff theo từng màn hình; chưa tạo ranh giới phụ thuộc giữa các màn hình. Muốn có ranh giới thật thì vẫn cần PR 4 ở §6.
 - Kiểm chứng: `npm test` 903/903, lint sạch, `test:ui-dom`, `check-consolidation` đạt.
 
-**Còn lại của nhóm 4:** gom bốn đường ghi (nhập Excel, gộp chấm công, thêm và xóa nhân viên) vào `core/repository.js` (§5); chuyển báo cáo `bc*` sang `core/reporting` kèm test.
+**Bước 3 — chuyển bốn đường ghi và bảy báo cáo.** Nhập Excel, gộp chấm công, thêm và xóa nhân viên dùng giao dịch đồng bộ qua `core/repository.js`. Khi ghi thất bại, giao dịch hoàn tác các bảng và nhật ký. Bảy hàm `bc*` đặt trong `core/reporting/period-reports.js`. Các màn hình cung cấp dữ liệu đầu vào và dựng giao diện.
+
+**Bước 4 — mỗi hàm dựng màn hình có một file.** 21 hàm `tab*` nằm trong `LuongHAK_Offline/app-src/screens/`. Dòng `// @screen tênHàm` cho bộ build biết vị trí ghép; bộ build báo lỗi khi thiếu, thừa hoặc ghép trùng file. `app.js` khớp từng byte với bản ngay trước bước tách màn hình.
+
+Các file màn hình vẫn dùng chung phạm vi của hàm bao tại thời điểm chạy. `db` và `session` vẫn có thể được gán lại để các màn hình luôn đọc trạng thái hiện hành khi mở dữ liệu, hoàn tác, khôi phục hoặc đăng xuất. Ranh giới module độc lập khi chạy là thay đổi kiến trúc riêng.

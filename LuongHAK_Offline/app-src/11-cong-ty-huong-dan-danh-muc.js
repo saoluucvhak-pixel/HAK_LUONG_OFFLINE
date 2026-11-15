@@ -23,38 +23,10 @@
   }
 
   // ---------- Hướng dẫn, quy trình, dự thảo quy chế (ui/guide.js) ----------
-  function tabHuongDan() {
-    var G = window.HAKGuide, w = h("div"), tabs = h("div", { class: "subtabs noprint" }), key = st.hd2 || "start";
-    G.TABS.forEach(function (t) { tabs.appendChild(h("button", { class: key === t[0] ? "on" : "", text: t[1], on: { click: function () { st.hd2 = t[0]; render(); } } })); });
-    w.appendChild(tabs);
-    var ctx = { db: db, E: E, nam: st.nam, thang: st.thang, congTy: congTy() };
-    var bar = h("div", { class: "bar noprint" }, [btn("🖨 In", "", function () { window.print(); })]);
-    if (key === "rules") {
-      bar.appendChild(btn("⬇ Tải file Word (.doc) để chỉnh sửa", "pri", function () { download("Du_thao_Quy_che_tra_luong_" + kyKey(st.nam, st.thang) + ".doc", "application/msword", G.regulationDoc(ctx)); audit("Tải dự thảo Quy chế trả lương", kyLabel(kyKey(st.nam, st.thang))); }));
-      bar.appendChild(h("span", { class: "hint", style: "margin:0", text: "Bảng mức lương, phụ cấp, BH, thuế lấy theo danh mục đang có hiệu lực ở kỳ " + st.thang + "/" + st.nam + " (đổi kỳ ở góc phải trên)." }));
-    }
-    w.appendChild(bar);
-    w.appendChild(h("div", { class: "card guide" + (key === "rules" ? " g-doc" : ""), html: G.section(key, ctx) }));
-    return w;
-  }
+  // @screen tabHuongDan
 
   // ---------- Danh mục ----------
-  function tabDanhMuc() {
-    var w = h("div"), bar = h("div", { class: "bar" });
-    if (DM_CAI_DAT[st.dm]) st.dm = Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; })[0];
-    Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; }).forEach(function (k) { bar.appendChild(btn(DM[k].ten + (countOf(k) ? " (" + countOf(k) + ")" : ""), st.dm === k ? "pri" : "", function () { if (st.dm !== k && !leaveOk()) return; st.dm = k; saveUi(); render(); })); });
-    var layout = h("div", { class: "hak-catalog-layout" });
-    var side = h("aside", { class: "hak-catalog-side", "aria-label": "Chọn danh mục" });
-    side.appendChild(h("div", { class: "hak-catalog-side-title", text: "DANH MỤC HỆ THỐNG" }));
-    side.appendChild(bar);
-    layout.appendChild(side);
-    var workspace = h("section", { class: "hak-catalog-main", "aria-label": "Nội dung danh mục" });
-    workspace.appendChild(h("div", { class: "hak-catalog-heading" }, [h("small", { text: "QUẢN LÝ DANH MỤC" }), h("h2", { text: DM[st.dm] ? DM[st.dm].ten : "Danh mục" })]));
-    workspace.appendChild(st.dm === "dm_tncn" ? thuePanel() : FM_TABLE[st.dm] ? fmUi(FM_TABLE[st.dm]).masterView() : grid(st.dm, DM[st.dm]));
-    layout.appendChild(workspace);
-    w.appendChild(layout);
-    return w;
-  }
+  // @screen tabDanhMuc
   /** V10.2/V10.3: Danh mục Tăng ca · Phụ cấp · Hỗ trợ dạng Master–Detail dùng chung (ui/formula-master.js). Phụ thuộc đưa vào qua một đối tượng — module không đụng DOM/db ngoài luồng repository. */
   var FM_TABLE = { dm_tangca: "OVERTIME", dm_phucap: "ALLOWANCE", dm_hotro: "SUPPORT" }, FMUI = {};
   function fmUi(type) {

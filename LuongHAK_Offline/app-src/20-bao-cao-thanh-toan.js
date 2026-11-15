@@ -137,51 +137,5 @@
       var tb = h("tbody"); ls.forEach(function (l) { tb.appendChild(h("tr", {}, ["Số chứng từ", "Hình thức", "Số tiền", "Trạng thái", "Ngày lập", "Ngày thanh toán", "Lý do hủy"].map(function (k, i) { return h("td", { class: i === 2 ? "r" : "t", text: i === 2 ? fmt(l[k]) : (l[k] || "") }); }))); }); t.appendChild(tb); body.appendChild(h("div", { class: "tw" }, [t])); }
     modal("CHI TIẾT THANH TOÁN LƯƠNG — " + String(r["Họ và tên"]).toLocaleUpperCase("vi-VN"), body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true });
   }
-  function tabPayReport(type) {
-    var w = h("div"), card = h("div", { class: "card" }), src = kqKy(st.nam, st.thang);
-    var vm = payVm(type, src), ky = vm.kyKey;
-    if (type === "SO_CHUNG_TU") {
-      w.appendChild(payLedgerPanel(type, ky));
-      card.classList.add("pay-ledger-export");
-    }
-    card.appendChild(h("h3", { "data-report-title": type, text: type === "SO_CHUNG_TU" ? "Chi tiết theo nhân viên · Xuất báo cáo" : vm.title + (type === "CHUYEN_KHOAN" || type === "TIEN_MAT" ? " · Đề nghị chi" : "") }));
-    card.appendChild(h("div", { class: "hint", html: (src.chot ? "🔒 Kỳ <b>đã chốt</b> — lấy đúng bảng lương đã chốt." : "⚠ Kỳ <b>chưa chốt</b> — số liệu tính tạm" + (PRP.KHONG_CAN_CHOT[type] ? "." : ", <b>không xuất / không lập chứng từ</b> cho tới khi chốt.")) + (["THANH_TOAN", "CHI_TIET_TT", "CHUYEN_KHOAN", "TIEN_MAT"].indexOf(type) >= 0 ? " Số tiền đề nghị chi = thực lĩnh − đã chi − đang chờ chi." : "") }));
-    card.appendChild(reportFilterBar(src.kq.bangluong));
-    var tools = h("div", { class: "bar" });
-    tools.appendChild(btn("⬇ Xuất Excel", "pri", function () { payXlsx(vm, type); }));
-    tools.appendChild(btn("⬇ Xuất PDF", "", function () { payPdf(vm, type); }));
-    if (type === "CHUYEN_KHOAN" || type === "TIEN_MAT") tools.appendChild(btn("Mở Bảng thanh toán lương để lập chứng từ", "ghost", function () {
-      st.tab = "rp_thanhtoan"; saveUi(); render();
-    }));
-    if (type === "TONG_HOP_NV") { var cb = h("input", { type: "checkbox", "data-th-nhom": "1" }); cb.checked = !!st.thNhom; cb.addEventListener("change", function () { st.thNhom = cb.checked; render(); }); tools.appendChild(h("label", { class: "chip", title: "Mỗi phòng ban một nhóm, có dòng cộng từng phòng; in và Excel theo đúng dạng nhóm" }, [cb, document.createTextNode(" Nhóm theo phòng ban")])); }
-    if (type === "THANH_TOAN") { tools.appendChild(btn("Lập chứng từ chuyển khoản", "", function () { payLap(PLG.HT.CK, src); })); tools.appendChild(btn("Lập phiếu chi tiền mặt", "", function () { payLap(PLG.HT.TM, src); })); }
-    card.appendChild(tools);
-    var kp = [h("div", { class: "kpi", html: "<small>Số dòng" + (vm.loc.length ? " (đang lọc)" : "") + "</small><b>" + vm.soDong + (vm.loc.length ? "/" + vm.soDongGoc : "") + "</b>" })];
-    Object.keys(vm.tong).filter(function (k) { return k !== "Số người"; }).slice(-2).forEach(function (k) { kp.push(h("div", { class: "kpi", html: "<small>" + esc(k) + "</small><b>" + fmt(vm.tong[k]) + "</b>" })); });
-    card.appendChild(h("div", { class: "kpis" }, kp));
-    if (vm.loi.length) card.appendChild(h("div", { class: "warn", "data-pay-errors": String(vm.loi.length), html: "<b>⛔ " + vm.loi.length + " lỗi nghiêm trọng — chặn xuất chính thức:</b><br>" + vm.loi.slice(0, 8).map(esc).join("<br>") + (vm.loi.length > 8 ? "<br>…" : "") }));
-    if (vm.canhbao.length) card.appendChild(h("div", { class: "hint", html: "⚠ " + vm.canhbao.slice(0, 5).map(esc).join(" · ") }));
-    var t = h("table", { "data-pay-report": type }), hr = h("tr");
-    vm.cols.forEach(function (c) { hr.appendChild(h("th", { class: c.kind === "text" ? "" : "r", text: c.label })); });
-    var head = [];
-    if (vm.groups) head.push(h("tr", {}, vm.groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), class: "th-grp", text: g.label }); })));
-    head.push(hr); t.appendChild(h("thead", {}, head)); var tb = h("tbody");
-    var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : c.kind === "qty" ? qtyText(v) : (v == null ? "" : String(v)) }); }));
-      if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
-      tb.appendChild(trw); };
-    if (vm.nhom) vm.nhom.forEach(function (g) {
-      tb.appendChild(h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: g.ten + " (" + g.rows.length + " người)" })]));
-      g.rows.forEach(drawRow);
-      var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
-      tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: c.kind === "text" || c.kind === "qty" ? "t" : "r", text: i === iN ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })));
-    }); else vm.rows.forEach(drawRow);
-    if (vm.rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })));
-    t.appendChild(tb);
-    if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào cần thanh toán theo bộ lọc hiện tại." }));
-    card.appendChild(h("div", { class: "tw" }, [t])); w.appendChild(card);
-    if (["CHUYEN_KHOAN", "TIEN_MAT", "THANH_TOAN", "CHI_TIET_TT"].indexOf(type) >= 0) {
-      tools.appendChild(btn("Mở sổ chứng từ", "ghost", function () { st.tab = "rp_soct"; saveUi(); render(); }));
-    }
-    return w;
-  }
+  // @screen tabPayReport
 

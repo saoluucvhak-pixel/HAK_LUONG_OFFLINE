@@ -189,15 +189,15 @@
           // P1: thao tác này đã có "before" + hoàn tác riêng khi saveNow() thất bại (an toàn dù sao lưu
           // dưới đây có thất bại hay không) — nên chỉ CẢNH BÁO, không chặn, nếu không tạo được bản sao lưu.
           var bkOk = !!backupNow("truoc-nhap-excel");
-          var before = JSON.stringify(db), n = 0;
-          plans.forEach(function (p) { n += IMP.apply(db, p, HRM.uid, !!(ALL[p.table] && ALL[p.table].hr)); });
-          audit("Nhập Excel", fileName + " (" + (mode === "replace" ? "ghi đè cả dòng" : "bổ sung") + "): " + plans.map(function (p) { return p.table + " +" + p.summary.add + "/~" + p.summary.update + (p.summary.merged ? "/gộp " + p.summary.merged : ""); }).join(", "));
-          if (!saveNow()) {
-            // Lưu thất bại → hoàn tác trong bộ nhớ, không báo thành công
-            db = JSON.parse(before); ensureTables(); close(); (done || render)();
-            alert("⚠ KHÔNG lưu được xuống đĩa — đã hủy toàn bộ lần nhập này, dữ liệu giữ nguyên như trước khi nhập.");
+          var result;
+          try { result = REPO.importWorkbook(plans, fileName, mode, function (table) { return !!(ALL[table] && ALL[table].hr); }); }
+          finally { impBusy = false; }
+          if (!result.ok) {
+            close(); (done || render)();
+            alert("⚠ Chưa nhập Excel. Dữ liệu trước khi nhập vẫn được giữ: " + (result.msg || lastTxnError));
             return;
           }
+          var n = result.value;
           close(); if (done) done(true, plans); else render();
           toast("Đã ghi " + n + " dòng" + (plans.some(function (p) { return ["chamcong", "sanluong", "bandam"].indexOf(p.table) >= 0; }) ? " Nháp — cần Lưu để tính lương" : "") + " (" + tot.add + " mới, " + tot.update + " cập nhật" + (tot.merged ? ", gộp " + tot.merged : "") + ")" + (bkOk ? "" : " · ⚠ KHÔNG tạo được bản sao lưu trước khi nhập — kiểm tra dung lượng đĩa"));
         })];

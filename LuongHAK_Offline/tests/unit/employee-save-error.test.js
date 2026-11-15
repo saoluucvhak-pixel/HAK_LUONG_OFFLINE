@@ -29,3 +29,36 @@ test("Thông báo của wizard chứa lý do giao dịch và giữ form khi th�
   const wizard = src.slice(src.indexOf("  function wizardNV() {"), src.indexOf("  function wizardNV() {") + 8000);
   assert.match(wizard, /if \(!okNV\).*Lý do:.*lastTxnError.*return;/);
 });
+
+
+test("Repository batch writes restore every affected table if the disk rejects the transaction", () => {
+  const c = runtime(() => "Ổ đĩa đã đầy");
+  Object.assign(c.db, {
+    nhanvien: [{ "Mã NV": "OLD" }], hopdong: [{ "Mã NV": "OLD", "Số HĐLĐ": "OLD-1" }],
+    chitiethd: [], hocvan: [], thanhtoan: [],
+    chamcong: [{ "Kỳ": "2026-09", "Mã NV": "OLD", "Hình thức công": "BT", "01": 1 },
+      { "Kỳ": "2026-09", "Mã NV": "OLD", "Hình thức công": "BT", "02": 1 }],
+    kyluong: [], kyluong_lichsu: []
+  });
+  let saves = 0;
+  c.store.save = () => { saves++; return "Ổ đĩa đã đầy"; };
+  const repo = require("../../core/repository").createRepo({
+    db: () => c.db, transaction: c.txn, can: () => true, uid: () => "new",
+    audit: action => c.db.auditlog.push({ action })
+  });
+  const operations = [
+    () => repo.importWorkbook([{ table: "nhanvien", items: [{ action: "add", row: { "Mã NV": "IMPORT" } }],
+      summary: { add: 1, update: 0 } }], "Synthetic.xlsx", "merge", () => true),
+    () => repo.mergeAttendance(),
+    () => repo.createEmployee({ b: { "Mã NV": "NEW", "Họ và tên": "Người mẫu" },
+      hd: { "Số HĐLĐ": "NEW-1", "Ngày vào làm": "2026-09-01" }, l: {} }),
+    () => repo.removeEmployee(c.db.nhanvien[0], ["nhanvien", "hopdong"])
+  ];
+  const original = JSON.stringify(c.db);
+  for (const write of operations) {
+    assert.equal(write().ok, false);
+    assert.equal(c.lastTxnError, "Ổ đĩa đã đầy");
+    assert.equal(JSON.stringify(c.db), original);
+  }
+  assert.equal(saves, 4);
+});

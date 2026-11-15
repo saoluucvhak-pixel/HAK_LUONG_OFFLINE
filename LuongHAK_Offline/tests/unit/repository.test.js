@@ -114,12 +114,12 @@ test("U-REPO-08 app.js không ghi thẳng vào bảng nghiệp vụ ngoài các 
   // tạo bảng thiếu khi mở dữ liệu; hoàn tác gộp chấm công khi lưu lỗi.
   const allowed = {
     "db.sl_chuyenky.push(": 1,  "db.sl_chuyenky.splice(": 1, /* ledger only: guarded transaction + main validation */
-    "db.auditlog.push(": 1, "db.auditlog.splice(": 1, "db.auditlog.pop(": 3, "db.baomat =": 4 /* security updates wrapped in txn */, "db.nguoidung =": 1, "db.nguoidung.push(": 2, "db.congty =": 3, /* V7: cờ cấu hình thư viện mẫu OCR (quyền ocr.library) */
-    "db[k].push(": 1, /* V10.1: trợ lý thêm nhân viên — 6 bảng trong MỘT txn() sau khi core/hr-create.js kiểm tra trọn bộ */ "db.chungtu.push(": 1,
+    "db.auditlog.push(": 1, "db.auditlog.splice(": 1, "db.auditlog.pop(": 2, "db.baomat =": 4 /* security updates wrapped in txn */, "db.nguoidung =": 1, "db.nguoidung.push(": 2, "db.congty =": 3, /* V7: cờ cấu hình thư viện mẫu OCR (quyền ocr.library) */
+    "db.chungtu.push(": 1,
         "db.chungtu_lienket =": 1, /* V8: liên kết ô chấm công ↔ chứng từ gốc, ghi sau khi nhập OCR đã commit */
     "db.hdld_tailieu.push(": 1, /* V9.2: liên kết tài liệu HĐLĐ, ghi sau khi file đã nhập kho chứng từ thành công (mất file không để lại liên kết mồ côi) */
     "db.ttluong =": 1, /* V9.4: sổ chứng từ thanh toán lương — ghi qua ledgerSet() sau khi PLG kiểm tra */ "db.ocr_ten =": 1, /* V9: bộ nhớ xác nhận tên OCR ↔ Mã NV, ghi sau khi nhập OCR đã commit */
-    "db[k] =": 4 /* V10.1: +1 = hoàn tác snapshot của txn() khi main từ chối lưu (không phải ghi nghiệp vụ mới) */, "db.chamcong =": 1, "db.sanluong =": 1 /* reperiod: permission + backup + txn + main lock checks; input approval retained */
+    "db[k] =": 3 /* V10.1: +1 = hoàn tác snapshot của txn() khi main từ chối lưu (không phải ghi nghiệp vụ mới) */, "db.sanluong =": 1 /* reperiod: permission + backup + txn + main lock checks; input approval retained */
   };
   assert.deepEqual(found, allowed);
   assert.doesNotMatch(src, /Object\.assign\(row, d\)|db\[key\]\[tgt\]\s*,\s*cand\)/, "sửa trực tiếp hồ sơ / dán phải qua REPO");
