@@ -31,6 +31,8 @@ jobs:
     name: Cú pháp · Lint · Unit/Integration/Regression · Phụ thuộc
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      publish: ${{ steps.release-preflight.outputs.publish }}
     defaults:
       run:
         working-directory: LuongHAK_Offline
@@ -39,6 +41,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Kiểm tra phiên bản trước khi phát hành
+        id: release-preflight
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          tag="v$(node -p 'require("./package.json").version')"
+          result=0
+          git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null || result=$?
+          case "$result" in
+            0) echo "publish=false" >> "$GITHUB_OUTPUT"; echo "::notice::Tag $tag đã tồn tại. CI chỉ tạo artifact để kiểm thử." ;;
+            2) test -f "../docs/releases/$tag.md"; echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$result" ;;
+          esac
       - run: npm ci --no-audit --no-fund
       - name: Kiểm tra cú pháp
         shell: bash
@@ -256,7 +271,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: saoluucvhak-pixel/HAK_SMART_FILTER
-          ref: 2348786ea8fed7b0545accd631150c781df7cd28
+          ref: 555d29ca27464510f750052019f94e27c398f227
           path: .comparison/shared-modules/smart-filter
       - uses: actions/checkout@v4
         with:
@@ -317,8 +332,8 @@ jobs:
       - run: npm run test:kpi
 
   publish-release:
-    if: github.ref == 'refs/heads/main'
-    needs: [windows-setup, electron-full-e2e, electron-e2e, workspace-visual, inherited-quality, consolidation]
+    if: github.ref == 'refs/heads/main' && needs.check.outputs.publish == 'true'
+    needs: [check, windows-setup, electron-full-e2e, electron-e2e, workspace-visual, inherited-quality, consolidation]
     runs-on: windows-latest
     permissions:
       contents: write

@@ -285,3 +285,35 @@ test("Payroll detail export uses saved attendance, allocations and tax values fo
   const legacy = Array.from(ctx.payrollDetailSheets(result, "2026-09", {}));
   assert.match(legacy.find(sheet => sheet.name === "DoiSoatPhieuCan").source, /chưa lưu/);
 });
+
+test("Closed production export uses the frozen allocation even after live department and receipt changes", async () => {
+  const vm = require("node:vm"), fs = require("node:fs"), path = require("node:path");
+  const source = fs.readFileSync(path.join(__dirname, "../../app-src/18-bao-cao-luong.js"), "utf8");
+  const close = require("../../core/payroll-close.js");
+  const live = { raw: [{ "Phiếu cân": "QA-01", "Ngày cân": "2026-09-15", "Mã phòng ban": "OLD" }], byDept: {}, byEmpDept: {}, audit: [], attendanceReview: [], chuaGan: [], warnings: [] };
+  const payroll = { bangluong: [], bhxh: [], tncn: [], canhbao: [] };
+  const snap = close.buildSnapshot({}, "2026-09", payroll, [], {
+    payrollReports: { production: ["sanluong", "bandam"].map(type => ({ type, allocation: live })) }
+  });
+  live.raw[0]["Mã phòng ban"] = "NEW";
+  let workbook, warning;
+  const c = {
+    kyChot: () => snap, kyKey: () => "2026-09", kyLabel: String, kqKy: () => ({ chot: true, kq: payroll }),
+    need: () => true, session: null, n0: Number, download: () => {}, audit: () => {}, alert: msg => { warning = msg; },
+    C: { periodReports: require("../../core/reporting/period-reports.js") },
+    window: { ExcelJS: {}, HAKUi: { pbkl: { report: (_, model) => {
+      workbook = model;
+      return { xlsx: { writeBuffer: () => Promise.resolve(Buffer.alloc(0)) } };
+    } } } }
+  };
+  vm.runInNewContext(source.slice(source.indexOf("  function reportAllocation("), source.indexOf("  /** File mẫu phiếu cân")), c);
+  c.exportPBKL(2026, 9);
+  await Promise.resolve();
+  assert.equal(workbook.raw.sl[0]["Mã phòng ban"], "OLD");
+  assert.equal(workbook.ctx.chot, true);
+  delete snap.input.payrollReports;
+  workbook = undefined;
+  c.exportPBKL(2026, 9);
+  assert.equal(workbook, undefined);
+  assert.match(warning, /Bản chốt cũ thiếu chi tiết/);
+});

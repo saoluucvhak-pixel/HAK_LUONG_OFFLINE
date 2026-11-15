@@ -4,7 +4,23 @@
   function opsVm(type) {
     var opt = { nam: st.nam, thang: st.thang, tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", chot: !!kyChot(kyKey(st.nam, st.thang)),
       hr: HRM, num: E.num, money: E.money, phongBan: st.opsPB || "", tuKhoa: st.opsKw || "", trangThaiNV: st.opsTT || "dang", homNay: HRM.today() };
-    if (type === "SAN_LUONG" || type === "BOM_DAM") opt.alloc = pbAlloc(st.nam, st.thang, type === "SAN_LUONG" ? "sanluong" : "bandam");
+    if (type === "SAN_LUONG" || type === "BOM_DAM") {
+      var table = type === "SAN_LUONG" ? "sanluong" : "bandam";
+      opt.alloc = reportAllocation(st.nam, st.thang, table);
+      var snapshot = kyChot(kyKey(st.nam, st.thang));
+      if (snapshot) {
+        var catalog = snapshot.input?.danhmuc || {}, payroll = snapshot.kq.bangluong;
+        var reportData = Object.assign({}, catalog, { nhanvien: payroll, [table]: opt.alloc?.raw || snapshot.input?.data?.[table] || [] });
+        opt.departmentOf = new Map(payroll.map(function (r) { return [String(r["Mã NV"]), r["Phòng ban"] || r["Mã PB"] || ""]; }));
+        opt.tenCongTy = ((catalog.congty || [])[0] || {})["Tên công ty"] || "";
+        var report = OPS.build(type, reportData, opt);
+        if (!opt.alloc) {
+          report.ghiChu = (report.ghiChu || []).concat(["Bản chốt cũ thiếu chi tiết phân bổ; chỉ hiển thị phiếu cân đã lưu."]);
+          report.canhbao.push("Bản chốt cũ thiếu chi tiết phân bổ; chỉ hiển thị phiếu cân đã lưu.");
+        }
+        return report;
+      }
+    }
     if ((type === "THUONG" || type === "TAM_UNG") && can("payroll.view") && db.nhanvien.length) opt.bangluong = kqKy(st.nam, st.thang).kq.bangluong;
     return OPS.build(type, db, opt);
   }

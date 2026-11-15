@@ -3,7 +3,7 @@
   "sources": [
     {
       "repository": "saoluucvhak-pixel/HAK_SMART_FILTER",
-      "commit": "2348786ea8fed7b0545accd631150c781df7cd28",
+      "commit": "555d29ca27464510f750052019f94e27c398f227",
       "checkout": "smart-filter",
       "files": [
         {
@@ -21,8 +21,8 @@
             "LuongHAK_Offline/core/smart-filter.js"
           ],
           "status": "identical",
-          "normalizedSha256": "8024c3b23b5aad269e02e0d66396b97a2cfe43e2d13699f3b31abdca03f060d4",
-          "upstreamSha256": "8024c3b23b5aad269e02e0d66396b97a2cfe43e2d13699f3b31abdca03f060d4"
+          "normalizedSha256": "c5fce524ba1214f72ccc8304ffa4a6f03fbe10d078087da54c369084a7e8406a",
+          "upstreamSha256": "c5fce524ba1214f72ccc8304ffa4a6f03fbe10d078087da54c369084a7e8406a"
         },
         {
           "upstreamPath": "ui/smart-filter.js",
@@ -30,8 +30,8 @@
             "LuongHAK_Offline/ui/smart-filter.js"
           ],
           "status": "identical",
-          "normalizedSha256": "61a867535ca2e18396feca901923c3dddbc51e56b1e6303b82ce213400ba1227",
-          "upstreamSha256": "61a867535ca2e18396feca901923c3dddbc51e56b1e6303b82ce213400ba1227"
+          "normalizedSha256": "cb30df50da87fedd70a065c10003559920891f93530a0253fd9c74830e474643",
+          "upstreamSha256": "cb30df50da87fedd70a065c10003559920891f93530a0253fd9c74830e474643"
         }
       ]
     },

@@ -62,3 +62,21 @@ test("Repository batch writes restore every affected table if the disk rejects t
   }
   assert.equal(saves, 4);
 });
+
+test("Repository rejects Excel/OCR plans if the period closes after preview or the plan was already written", () => {
+  const c = runtime(() => true);
+  const repo = require("../../core/repository").createRepo({
+    db: () => c.db, transaction: c.txn, can: () => true, audit: () => {}
+  });
+  c.db.chamcong = [];
+  const planned = { table: "chamcong", items: [{ action: "add", row: { "Kỳ": "2026-09", "Mã NV": "QA01", "Hình thức công": "BT", "01": 1 } }], summary: { add: 1, update: 0 } };
+  const write = (plan) => repo.importWorkbook([plan], "QA.xlsx", "merge", () => false);
+  c.db.kyluong = [{ ky: "2026-09" }];
+  assert.equal(write(planned).ok, false);
+  assert.equal(c.db.chamcong.length, 0);
+  c.db.kyluong = [];
+  assert.equal(write(planned).ok, true);
+  assert.equal(write(planned).ok, false);
+  assert.equal(write(structuredClone(planned)).ok, false);
+  assert.equal(c.db.chamcong.length, 1);
+});
