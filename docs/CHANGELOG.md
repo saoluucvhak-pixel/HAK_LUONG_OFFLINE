@@ -3,6 +3,10 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.16. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [Chưa phát hành]
+- Tách `app.js`, bước 1: chuyển 43 hàm trợ giúp không dùng trạng thái sang `ui/app-helpers.js` (chỉ di chuyển, không đổi nội dung hàm). Không đổi hành vi, không đổi kết quả tính lương.
+- CI: khóa các file dùng chung với `HAK_SMART_FILTER` và design system (`shared-modules.lock.json`, `npm run check:shared`).
+
 ## [2.0.16] — 15/11/2026
 - Nâng Electron 43.8.9 → 45.3.2, đi lần lượt qua 44.11.3 (mỗi bước chạy đủ unit test và E2E). Đã đối chiếu danh sách thay đổi phá vỡ tương thích của Electron 44 và 45: app không dùng `safeStorage`, `node:sqlite`, module `clipboard` của Electron; preload chỉ dùng `contextBridge` và `ipcRenderer`; bộ cài chỉ đóng gói x64. Bộ E2E 275/275 đạt trên Linux ở cả hai bản. Chưa nghiệm thu bản đóng gói trên máy Windows thật.
 - Nâng `electron-builder` 26.15.3 → 26.18.0 và `jsdom` 30.1.3 → 31.0.1 (jsdom chỉ dùng cho test).

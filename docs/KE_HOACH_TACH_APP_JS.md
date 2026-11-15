@@ -70,3 +70,16 @@ Mỗi dòng là **một PR riêng**, cùng quy trình: chạy `npm ci`, `npm tes
 4. Có ưu tiên màn hình nào tách trước không (theo thứ tự dùng nhiều nhất)?
 
 **Lưu ý nghiệm thu:** mọi bước tách chỉ được coi là xong sau khi bộ E2E đạt và có ảnh chụp trước/sau. Chưa nghiệm thu trên máy Windows thật.
+
+## 8. Đã làm (cập nhật 15/11/2026)
+
+**Bước 1 — chuyển hàm trợ giúp sang `ui/app-helpers.js`.** Chỉ di chuyển, nội dung từng hàm giữ nguyên từng ký tự.
+
+- Đã chuyển **43 hàm** (152 dòng, ~19 KB): `$`, `toast`, `esc`, `fmt`, `qtyText`, `moneyText`, `moneyLive`, `dateFix`, `dateIso`, `kyLabel`, `kyKey`, `n0`, `sheetName`, `slug`, `loadScript`, các hàm ảnh/OCR thuần (`canvasOf`, `grayOf`, `grayCanvas`, `layoutCheck`…) và một số hàm định dạng khác. `app.js` lấy lại chúng qua `window.HAKAppHelpers` ở đầu file; `index.html` nạp `ui/app-helpers.js` ngay trước `app.js`.
+- Con số 134 hàm ở §6 là ước lượng quá rộng. Đo lại bằng phân tích phạm vi biến (eslint-scope): chỉ **56 hàm** không đọc/ghi biến nào của `app.js` ngoài các bí danh module (`C`, `VAL`, `RP`, `FML`, `LF`). Trong đó **13 hàm được giữ lại** vì có test cắt mã nguồn `app.js` quanh chúng (ví dụ `h`, `ocrNum`, `tkChiPhi`) hoặc vì chúng gọi hàm bị giữ lại (`btn`, `simpleTable`… gọi `h`).
+- Vì không hàm nào bị test cắt nguồn bị di chuyển, **16 file test đọc `app.js` không phải sửa** và hàm đọc nguồn chung ở §4 chưa cần đến.
+- Kiểm chứng: `npm test` 900/900, lint sạch, `test:ui-dom` đạt, `check-consolidation` đạt, E2E Electron đầy đủ 275/275 (chạy trên Linux dưới xvfb). Chưa nghiệm thu trên Windows thật. Chưa chụp ảnh màn hình trước/sau vì giao diện không đổi và E2E đã bao phủ.
+- Chưa tăng phiên bản: các bước tách sẽ phát hành chung một bản khi xong đợt.
+
+**Còn lại:** các màn hình `tab*`, báo cáo `bc*` và lưới `grid` đều dùng `db`/`st`/`session`, nên không chuyển được bằng cách trên. Bước kế tiếp phải chọn giữa đổi `db`/`session` thành đối tượng ổn định (PR 4 ở §6, rủi ro cao) và ghép file lúc build (cách B ở §3).
+

@@ -67,7 +67,7 @@
 
 ## Phase 2 — Chuẩn hóa kiến trúc (bước tiếp theo)
 0. (Đã khảo sát khi app dùng Electron 43; nay Electron 45.3.2 — kiểm lại khi làm) SQLite qua `node:sqlite` có sẵn trong Node đi kèm Electron, không cần module native. App hiện **chưa** dùng SQLite.
-1. Tách `app.js` theo `ARCHITECTURE.md` §2: `src/renderer/pages/*` (mỗi trang 1 file), `src/modules/payroll/reports.js` (chuyển `bc*` ra khỏi UI, có test), `src/modules/hrm/*` (từ `hr.js`).
+1. *(Đang làm — bước 1 xong: 43 hàm trợ giúp đã sang `ui/app-helpers.js`; xem `KE_HOACH_TACH_APP_JS.md` §8.)* Tách `app.js` theo `ARCHITECTURE.md` §2: `src/renderer/pages/*` (mỗi trang 1 file), `src/modules/payroll/reports.js` (chuyển `bc*` ra khỏi UI, có test), `src/modules/hrm/*` (từ `hr.js`).
 2. Tầng repository: mọi truy cập `db.<bảng>` qua `repo.list/get/insert/update/remove` (kiểm tra khóa, khóa kỳ, nhật ký trước/sau tại 1 chỗ). Viết test cho repository trước khi chuyển.
 3. ~~PERF-01~~ ✅ alpha.5 (22 ms / 5.000 NV).
 4. SQLite theo `MIGRATION_PLAN.md` §2 (chạy song song JSON/SQLite, so sánh kết quả = 0 khác biệt).
