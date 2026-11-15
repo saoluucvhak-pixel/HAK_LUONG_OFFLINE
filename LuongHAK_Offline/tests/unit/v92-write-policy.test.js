@@ -99,8 +99,8 @@ test("U-WP-07 chốt kỳ có TAX_CONFIG_ERROR / CONG_CHUAN_ERROR bị main từ
   const pol = createPolicy({ readText: () => fs.readFileSync(file, "utf8"), sigOf: fileSig(file), gate: PG });
   const ad = who("a", "admin"), CLSX = require("../../core/payroll-close.js");
   // V10.1: bản chốt phải là kết quả THẬT của engine (main tính lại và đối chiếu) — không còn chấp nhận bảng lương rỗng giả
-  const real = PG.computeKy(db, "2026-09", { quyChe: "2026", bu: false }).kq;
-  const snap = CLSX.buildSnapshot(db, "2026-09", real, [], { quyChe: "2026", buTheoNgay: false });
+  const real = PG.computeKy(db, "2026-09", { quyChe: "2026", bu: "to" }).kq;
+  const snap = CLSX.buildSnapshot(db, "2026-09", real, [], { quyChe: "2026", buTheoNgay: "to" });
   // sạch → được chốt
   let d = clone(db); d.kyluong = [snap];
   assert.equal(pol.check(JSON.stringify(d), ad).ok, true, JSON.stringify(pol.check(JSON.stringify(d), ad)));
@@ -208,8 +208,8 @@ test("U-V101-CLOSE-01 main tính lại bản chốt: bảng lương bị sửa s
   fs.writeFileSync(file, JSON.stringify(db));
   const pol = createPolicy({ readText: () => fs.readFileSync(file, "utf8"), sigOf: fileSig(file), gate: PG });
   const ad = who("a", "admin"), CLSX = require("../../core/payroll-close.js");
-  const real = PG.computeKy(db, "2026-09", { quyChe: "2026", bu: false }).kq;
-  const mk = (kq) => CLSX.buildSnapshot(db, "2026-09", kq, [], { quyChe: "2026", buTheoNgay: false });
+  const real = PG.computeKy(db, "2026-09", { quyChe: "2026", bu: "to" }).kq;
+  const mk = (kq) => CLSX.buildSnapshot(db, "2026-09", kq, [], { quyChe: "2026", buTheoNgay: "to" });
   const tryClose = (snap) => { const d = clone(db); d.kyluong = [snap]; return pol.check(JSON.stringify(d), ad); };
   assert.ok(real.bangluong.length >= 1);
   assert.equal(tryClose(mk(real)).ok, true);
