@@ -1,9 +1,14 @@
 # CHANGELOG
 
-> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.18. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
+> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.19. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
-## [Chưa phát hành]
+## [2.0.19] — 16/11/2026
+- Chặn ghi đè chứng từ thưởng, khoản trừ và tạm ứng sang kỳ khác. Cho cập nhật chứng từ trong cùng kỳ.
+- Bảng kê thưởng/trừ tách phần nhập tay và phần sản lượng chuyển kỳ đã tính vào Thu nhập khác.
+- Từ bảng phân bổ mở đúng phiếu gốc theo số và ngày cân. Màn hình, Excel và PDF ghi rõ dữ liệu nháp, đã lưu hoặc đã chốt.
+- Bảng kê kỳ đã chốt dùng dữ liệu và danh tính lưu khi chốt. Lương 12 tháng tách truy thu BH và đếm mỗi mã nhân viên một lần trong năm.
+- Công thức tính lương và định dạng lưu dữ liệu đang dùng giữ nguyên.
 - Chuẩn bị SQLite: thêm công cụ `tools/sqlite-shadow.js` (`npm run sqlite:shadow`) ghi dữ liệu sang một file SQLite riêng **chỉ để so sánh**. App vẫn đọc và ghi JSON, công cụ không vào bộ cài. Kết quả đo ở `MIGRATION_PLAN.md` §2.
 - CI: nâng các action của GitHub lên bản chạy Node 24 (`checkout`, `setup-node`, `upload-artifact`, `setup-python` → v7; `cache` → v6) để hết cảnh báo Node 20 ngừng hỗ trợ.
 - Công cụ: nâng `eslint` 9.39.5 → 10.15.0 (chỉ dùng khi phát triển, không vào bộ cài). Không phải sửa mã hay cấu hình lint.
