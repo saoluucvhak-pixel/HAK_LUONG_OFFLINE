@@ -7,6 +7,7 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "build:app": "node scripts/build-app.cjs",
+    "sqlite:shadow": "node --no-warnings tools/sqlite-shadow.js",
     "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
     "test:e2e": "node tests/e2e/run-e2e.js",
     "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
