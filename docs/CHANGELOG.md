@@ -5,6 +5,7 @@
 
 ## [Chưa phát hành]
 - Chuẩn bị SQLite: thêm công cụ `tools/sqlite-shadow.js` (`npm run sqlite:shadow`) ghi dữ liệu sang một file SQLite riêng **chỉ để so sánh**. App vẫn đọc và ghi JSON, công cụ không vào bộ cài. Kết quả đo ở `MIGRATION_PLAN.md` §2.
+- CI: nâng các action của GitHub lên bản chạy Node 24 (`checkout`, `setup-node`, `upload-artifact`, `setup-python` → v7; `cache` → v6) để hết cảnh báo Node 20 ngừng hỗ trợ.
 - Công cụ: nâng `eslint` 9.39.5 → 10.15.0 (chỉ dùng khi phát triển, không vào bộ cài). Không phải sửa mã hay cấu hình lint.
 - CI: bước đo OCR (`test:ocr-eval`) kiểm thêm tốc độ. Mỗi ca đọc quá `OCR_EVAL_MAX_MS` (mặc định 20 giây) thì bước này đỏ; báo cáo ghi thời gian từng ca, tổng và ca chậm nhất.
 
