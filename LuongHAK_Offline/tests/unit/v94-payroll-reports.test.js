@@ -306,7 +306,7 @@ test("Closed production export uses the frozen allocation even after live depart
       return { xlsx: { writeBuffer: () => Promise.resolve(Buffer.alloc(0)) } };
     } } } }
   };
-  vm.runInNewContext(source.slice(source.indexOf("  function reportAllocation("), source.indexOf("  /** File mẫu phiếu cân")), c);
+  vm.runInNewContext(source.slice(source.indexOf("  function inputReportSource("), source.indexOf("  /** File mẫu phiếu cân")), c);
   c.exportPBKL(2026, 9);
   await Promise.resolve();
   assert.equal(workbook.raw.sl[0]["Mã phòng ban"], "OLD");
@@ -316,4 +316,31 @@ test("Closed production export uses the frozen allocation even after live depart
   c.exportPBKL(2026, 9);
   assert.equal(workbook, undefined);
   assert.match(warning, /Bản chốt cũ thiếu chi tiết/);
+});
+
+test("Lương 12 tháng tách truy thu BH và đếm số nhân viên duy nhất cả năm", () => {
+  const report = require("../../core/reporting/period-reports").bc12Thang(2026, ky => {
+    if (!["2026-01", "2026-02"].includes(ky)) return null;
+    return { kq: { bangluong: [{ "Mã NV": "QA01", "BH trừ NLĐ": 62100, "Truy thu BH": 25000 }], bhxh: [] } };
+  });
+  assert.equal(report[0]["BH NLĐ đóng"], 62100);
+  assert.equal(report[0]["Truy thu BH"], 25000);
+  assert.equal(report.at(-1)["BH NLĐ đóng"], 124200);
+  assert.equal(report.at(-1)["Truy thu BH"], 50000);
+  assert.equal(report.at(-1)["Số NV"], 1);
+});
+
+test("Nguồn phân bổ cảnh báo chấm công nháp dù các phiếu đã lưu", () => {
+  const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
+  const source = fs.readFileSync(path.join(__dirname, "../../app-src/18-bao-cao-luong.js"), "utf8");
+  const input = require("../../core/input-review");
+  const db = {
+    chamcong: [{ "Kỳ": "2026-10", "Mã NV": "QA", "01": 1 }],
+    sanluong: [{ "Phiếu cân": "P1", "Ngày cân": "2026-10-01", "KL hàng (Tấn)": 2 }]
+  };
+  input.initialize(db);
+  db.chamcong[0]["01"] = 0;
+  const c = { db, kyChot: () => null, C: { inputReview: input } };
+  vm.runInNewContext(source.slice(source.indexOf("  function inputReportSource("), source.indexOf("  function reportAllocation(")), c);
+  assert.match(c.allocationReportSource("sanluong", "2026-10"), /Phiếu: Đã lưu.*Chấm công dùng để chia:.*1 dòng nháp/);
 });

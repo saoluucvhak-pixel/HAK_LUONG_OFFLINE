@@ -209,3 +209,60 @@ test("U-OPS-12 an toàn: ô bắt đầu bằng = + - @ trong diễn giải đư
   assert.throws(() => OPS.build("KHONG_CO", db, base(db)), /không hợp lệ/);
   assert.throws(() => OPS.build("SUAT_COM", db, { hr: HR }), /Thiếu kỳ/);
 });
+
+test("Báo cáo kỳ chốt giữ phiếu giao người không có dòng lương và các phát sinh trong bản chốt", () => {
+  const ops = require("../../core/reporting/ops-reports");
+  const employee = { "Mã NV": "QA01", "Họ và tên": "Tên lúc chốt", "Phòng ban": "Tổ cũ" };
+  const receipt = { "Mã NV": "QA01", "Ngày cân": "2026-10-02", "Phiếu cân": "QA-1", "KL hàng (Tấn)": 2 };
+  const draft = {
+    sanluong: [receipt], bandam: [receipt],
+    psluong: [{ "Mã NV": "QA01", "Ngày hạch toán": "2026-10-02", "Thưởng": 120000 }],
+    ungluong: [{ "Mã NV": "QA01", "Ngày hạch toán": "2026-10-02", "Tạm ứng": 35000 }],
+    tiencom: [{ "Mã NV": "QA01", "Ngày": "2026-10-02", "Số suất cơm": 2 }]
+  };
+  const snap = require("../../core/payroll-close").buildSnapshot(
+    draft, "2026-10", { bangluong: [], bhxh: [], tncn: [], canhbao: [] }, [],
+    { payrollReports: { people: [employee] } }
+  );
+  employee["Họ và tên"] = "Tên hiện tại";
+  receipt["KL hàng (Tấn)"] = 80;
+  draft.psluong[0]["Thưởng"] = 999000;
+  draft.ungluong[0]["Tạm ứng"] = 999000;
+  draft.tiencom[0]["Số suất cơm"] = 9;
+  const opt = { nam: 2026, thang: 10 };
+  for (const [type, column, expected] of [["SAN_LUONG", "KL hàng (Tấn)", 2], ["BOM_DAM", "Số xe", 2],
+    ["THUONG", "Thưởng", 120000], ["TAM_UNG", "Tạm ứng", 35000], ["SUAT_COM", "Tổng suất", 2]]) {
+    const report = ops.buildClosed(type, snap, opt);
+    assert.deepEqual(report.loi, [], type);
+    assert.equal(report.rows[0][column], expected, type);
+    assert.equal(report.rows[0][type === "SAN_LUONG" || type === "BOM_DAM" ? "Người nhận" : "Họ và tên"], "Tên lúc chốt");
+    assert.match(ops.sheetVms(report)[0].trangThai, /Kỳ lương đã chốt/);
+    assert.equal(ops.toSheets(report)[0].rows[0][column], expected);
+  }
+  delete snap.input.payrollReports;
+  const legacy = ops.buildClosed("SAN_LUONG", snap, opt);
+  assert.deepEqual(legacy.loi, []);
+  assert.match(legacy.trangThai, /thiếu chi tiết/);
+  assert.equal(legacy.rows[0]["KL hàng (Tấn)"], 2);
+});
+
+test("Thưởng/trừ đối chiếu phần nhập tay và xuất riêng số sản lượng đã chuyển", () => {
+  const ops = require("../../core/reporting/ops-reports");
+  const db = { nhanvien: [{ "Mã NV": "QA" }], psluong: [{ "Mã NV": "QA", "Ngày hạch toán": "2026-10-10", "Số chứng từ": "QA-01", "Thu nhập khác": 100000 }] };
+  const opt = { nam: 2026, thang: 10, bangluong: [{ "Mã NV": "QA", "Thu nhập khác": 450000, "Lương SL kỳ trước": 300000, "Bù SL kỳ trước": 50000 }] };
+  const report = ops.build("THUONG", db, opt);
+  assert.deepEqual(report.canhbao, []);
+  assert.equal(report.tong["Thu nhập khác"], 100000);
+  assert.equal(report.extras.find(s => s.name === "SanLuongChuyenKy").rows[0]["Đã tính vào thu nhập khác"], 350000);
+  opt.bangluong[0]["Thu nhập khác"] = 460000;
+  assert.match(ops.build("THUONG", db, opt).canhbao[0], /phần nhập tay/);
+});
+test("Link phiếu gốc khớp chính xác cả số phiếu và ngày và không lấy tổng nhân viên toàn kỳ", () => {
+  const ops = require("../../core/reporting/ops-reports");
+  const row = { "Phiếu cân": "01", "Ngày cân": "2026-10-10", "KL hàng (Tấn)": 2 };
+  const db = { sanluong: [row, { ...row, "Phiếu cân": "011" }, { ...row, "Ngày cân": "2026-10-11" }] };
+  const report = ops.build("SAN_LUONG", db, { nam: 2026, thang: 10, receipt: { number: "01", date: "2026-10-10" }, alloc: { byEmp: { QA: { ma: "QA", total: 20 } } } });
+  assert.equal(report.rows.length, 1);
+  assert.equal(report.tong["KL hàng (Tấn)"], 2);
+  assert.ok(!report.extras.some(s => s.name === "TheoCongNhan"));
+});

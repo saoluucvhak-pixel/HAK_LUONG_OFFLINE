@@ -131,6 +131,7 @@
     sortBy(inKy, function (r) { return s(r["Ngày cân"]).slice(0, 10) + "|" + s(r["Phiếu cân"]); }).forEach(function (r) {
       var ma = s(r["Mã NV"]), to = s(r["Mã phòng ban"]), nd = s(r["Ngày cân"]).slice(0, 10), ph = s(r["Phiếu cân"]), kl = cx.qty(r["KL hàng (Tấn)"]), ghi = [];
       var tenNV = ma ? cx.name(ma) : "", pbNV = ma ? cx.pb(ma) : "";
+      if (opt.receipt && (ph !== opt.receipt.number || nd !== opt.receipt.date)) return;
       if (!cx.pass(ma || to, ma ? pbNV : (cx.refPB(to) || to), [ph, r["Biển số"], to].join(" "))) return;
       if (!isFinite(kl)) { out.loi.push((ph || nd) + ": khối lượng '" + s(r["KL hàng (Tấn)"]) + "' không phải số"); kl = 0; }
       else if (kl < 0) out.loi.push((ph || nd) + ": khối lượng âm (" + kl + ")"); else if (kl === 0) ghi.push("Khối lượng = 0");
@@ -155,7 +156,8 @@
     if (toRows.length) ex.push({ name: "TheoTo", title: out.title + " — TỔNG HỢP THEO TỔ", cols: mkCols([["Mã phòng ban (tổ)", "text"], ["Số phiếu", "qty"], [klLabel, "qty3"]]), rows: toRows, tong: { "Số phiếu": toRows.reduce(function (a, x) { return a + x["Số phiếu"]; }, 0), [klLabel]: r3(toRows.reduce(function (a, x) { return a + x[klLabel]; }, 0)) } });
     // Theo công nhân: lấy kết quả chia tổ của app nếu có (đã gồm cả phiếu chia theo tổ), nếu không chỉ phiếu giao trực tiếp
     var nvRows;
-    if (al && al.byEmp) nvRows = Object.values(al.byEmpDept || al.byEmp).sort(function (a, b) { return s(a.maPB) < s(b.maPB) ? -1 : s(a.maPB) > s(b.maPB) ? 1 : b.total - a.total; })
+    if (opt.receipt) nvRows = [];
+    else if (al && al.byEmp) nvRows = Object.values(al.byEmpDept || al.byEmp).sort(function (a, b) { return s(a.maPB) < s(b.maPB) ? -1 : s(a.maPB) > s(b.maPB) ? 1 : b.total - a.total; })
       .filter(function (e) { return cx.pass(e.ma, cx.pb(e.ma), ""); })
       .map(function (e) { var o = { "Mã NV": s(e.ma), "Họ và tên": s(e.hoTen), "Phòng ban": cx.pb(e.ma) || s(e.maPB), "Số ngày có SL": Object.keys(e.byDay || {}).length }; o[klLabel] = r3(e.total); return o; });
     else nvRows = Object.keys(byNV).sort().map(function (k) { var e = byNV[k], o = { "Mã NV": e.ma, "Họ và tên": e.ten, "Phòng ban": e.pb, "Số ngày có SL": e.phieu }; o[klLabel] = r3(e.kl); return o; });
@@ -172,12 +174,15 @@
     if (bad) out.canhbao.push(bad + " dòng có Ngày hạch toán trống/sai định dạng (YYYY-MM-DD) — không thuộc kỳ nào nên không nằm trong báo cáo.");
     return sortBy(inKy, function (r) { return s(r["Ngày hạch toán"]).slice(0, 10) + "|" + s(r["Số chứng từ"]) + "|" + s(r["Mã NV"]); });
   }
+  function carriedProduction(row) {
+    return (+row["Lương SL kỳ trước"] || 0) + (+row["Bù SL kỳ trước"] || 0);
+  }
   function soSanhBangLuong(out, perNV, bl, map, nhan) {
     if (!bl || !bl.length) return;
     var byMa = {}; bl.forEach(function (b) { byMa[s(b["Mã NV"])] = b; });
-    Object.keys(perNV).sort().forEach(function (ma) {
+    Array.from(new Set(Object.keys(perNV).concat(Object.keys(byMa)))).sort().forEach(function (ma) {
       var b = byMa[ma]; if (!b) { out.canhbao.push(ma + ": có " + nhan + " trong kỳ nhưng không có trong bảng lương kỳ này"); return; }
-      Object.keys(map).forEach(function (k) { var a = r0(perNV[ma][k] || 0), c = r0(+b[map[k]] || 0); if (Math.abs(a - c) > 0) out.canhbao.push(ma + ": " + k + " trên báo cáo " + a.toLocaleString("vi-VN") + " ≠ bảng lương " + c.toLocaleString("vi-VN") + " (" + map[k] + ")"); });
+      Object.keys(map).forEach(function (k) { var a = r0((perNV[ma] || {})[k] || 0), c = r0((+b[map[k]] || 0) - (map[k] === "Thu nhập khác" ? carriedProduction(b) : 0)); if (Math.abs(a - c) > 0) out.canhbao.push(ma + ": " + k + " trên báo cáo " + a.toLocaleString("vi-VN") + " ≠ phần nhập tay trong bảng lương " + c.toLocaleString("vi-VN") + " (" + map[k] + ")"); });
     });
   }
   function buildThuong(db, opt, cx, out) {
@@ -198,6 +203,17 @@
     var ex = Object.keys(per).sort().map(function (ma) { var p = per[ma]; return { "Mã NV": ma, "Họ và tên": cx.name(ma), "Phòng ban": cx.pb(ma), "Số chứng từ": p.n, "Thưởng": p["Thưởng"], "Thu nhập khác": p["Thu nhập khác"], "Trừ khác": p["Trừ khác"], "Thực nhận": p["Thưởng"] + p["Thu nhập khác"] - p["Trừ khác"] }; });
     if (ex.length) { var ec = mkCols([["Mã NV", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Số chứng từ", "qty"], ["Thưởng", "money"], ["Thu nhập khác", "money"], ["Trừ khác", "money"], ["Thực nhận", "money"]]); var et = sumTong(ec, ex); et["Số chứng từ"] = ex.reduce(function (a, x) { return a + x["Số chứng từ"]; }, 0); out.extras = [{ name: "TheoNhanVien", title: out.title + " — TỔNG HỢP THEO NHÂN VIÊN", cols: ec, rows: ex, tong: et }]; } else out.extras = [];
     if (!cx.loc().length) soSanhBangLuong(out, per, opt.bangluong, { "Thưởng": "Thưởng", "Thu nhập khác": "Thu nhập khác", "Trừ khác": "Trừ khác" }, "thưởng/trừ");
+    var carriedRows = (opt.bangluong || []).filter(function (b) {
+      return carriedProduction(b) && cx.pass(b["Mã NV"], cx.pb(b["Mã NV"]), b["Kỳ sản lượng chuyển"]);
+    }).map(function (b) {
+      return { "Mã NV": b["Mã NV"], "Họ và tên": b["Họ và tên"] || cx.name(b["Mã NV"]), "Kỳ nguồn": b["Kỳ sản lượng chuyển"] || "",
+        "Lương SL kỳ trước": +b["Lương SL kỳ trước"] || 0, "Bù SL kỳ trước": +b["Bù SL kỳ trước"] || 0, "Đã tính vào thu nhập khác": carriedProduction(b) };
+    });
+    if (carriedRows.length) {
+      var carryCols = mkCols([["Mã NV", "text"], ["Họ và tên", "text"], ["Kỳ nguồn", "text"], ["Lương SL kỳ trước", "money"], ["Bù SL kỳ trước", "money"], ["Đã tính vào thu nhập khác", "money"]]);
+      out.extras.push({ name: "SanLuongChuyenKy", title: "SẢN LƯỢNG CHUYỂN KỲ — ĐÃ TÍNH TRONG THU NHẬP KHÁC", cols: carryCols, rows: carriedRows, tong: sumTong(carryCols, carriedRows) });
+      out.ghiChu.push("Sản lượng chuyển kỳ đã nằm trong Thu nhập khác của bảng lương; bảng riêng chỉ dùng đối soát.");
+    }
   }
 
   // ---------- TẠM ỨNG ----------
@@ -278,7 +294,9 @@
     else if (type === "THUONG") buildThuong(db || {}, opt, cx, out);
     else if (type === "TAM_UNG") buildTamUng(db || {}, opt, cx, out);
     else buildSuatCom(db || {}, opt, cx, out);
-    var loc = cx.loc(), ky = T.theoKy ? opt.nam + "-" + ("0" + opt.thang).slice(-2) : "";
+    var loc = cx.loc();
+    if (opt.receipt) loc.push("Phiếu " + opt.receipt.number + " · " + opt.receipt.date);
+    var ky = T.theoKy ? opt.nam + "-" + ("0" + opt.thang).slice(-2) : "";
     return {
       type: type, title: T.title, file: T.file, perm: T.perm, congTy: opt.tenCongTy || "", ky: T.theoKy ? kyLabel(opt.nam, opt.thang) : "", kyKey: ky || (opt.homNay || "").slice(0, 10) || "",
       kyText: out.kyText || upper("Tháng " + kyLabel(opt.nam, opt.thang)), trangThai: T.theoKy ? (opt.chot ? "Kỳ lương đã chốt" : "Dữ liệu nhập — kỳ lương chưa chốt") : "",
@@ -287,6 +305,45 @@
       soDong: out.rows.length, soDongGoc: out.soDongGoc, loi: dedupe(out.loi), canhbao: dedupe(out.canhbao), thongKe: out.thongKe || null
     };
   }
+  var CLOSED_TABLES = { SAN_LUONG: "sanluong", BOM_DAM: "bandam", THUONG: "psluong", TAM_UNG: "ungluong", SUAT_COM: "tiencom" };
+
+  function buildClosed(type, snapshot, options) {
+    var input = snapshot.input || {}, catalog = input.danhmuc || {}, reports = input.payrollReports || {};
+    var table = CLOSED_TABLES[type], group = (reports.production || []).find(function (item) { return item.type === table; });
+    var allocation = group && group.allocation;
+    var raw = allocation?.raw || input.data?.[table], payroll = snapshot.kq.bangluong;
+    var people = new Map(payroll.map(function (row) { return [String(row["Mã NV"]), row]; }));
+    (reports.people || []).forEach(function (row) { people.set(String(row["Mã NV"]), row); });
+    var unresolved = new Set();
+    if (!Array.isArray(reports.people)) {
+      Object.values(allocation?.byEmp || {}).forEach(function (row) {
+        if (!people.has(String(row.ma))) people.set(String(row.ma), { "Mã NV": row.ma, "Họ và tên": row.hoTen, "Mã PB": row.maPB });
+      });
+      (raw || []).forEach(function (row) {
+        var ma = s(row["Mã NV"]);
+        if (ma && !people.has(ma)) { unresolved.add(ma); people.set(ma, { "Mã NV": ma }); }
+      });
+    }
+    var opt = Object.assign({}, options, {
+      chot: true, alloc: allocation,
+      departmentOf: new Map(Array.from(people, function (item) {
+        var row = item[1], code = row["Mã PB"];
+        var dept = (catalog.dm_phongban || []).find(function (entry) { return entry["Mã phòng ban"] === code; });
+        return [item[0], row["Phòng ban"] || (dept && dept["Tên phòng ban"]) || code || ""];
+      })),
+      tenCongTy: ((catalog.congty || [])[0] || {})["Tên công ty"] || ""
+    });
+    var report = build(type, Object.assign({}, catalog, { nhanvien: Array.from(people.values()), [table]: raw || [] }), opt);
+    var notes = [];
+    if (!Array.isArray(raw)) notes.push("Bản chốt cũ chưa lưu bảng dữ liệu phát sinh này.");
+    else if ((type === "SAN_LUONG" || type === "BOM_DAM") && !allocation) notes.push("Bản chốt cũ thiếu chi tiết phân bổ; báo cáo dùng phiếu cân đã lưu.");
+    if (unresolved.size) notes.push("Bản chốt cũ thiếu tên hoặc phòng ban của " + unresolved.size + " mã nhân viên; thông tin chưa lưu được để trống.");
+    report.trangThai += notes.length ? " · Bản chốt cũ thiếu chi tiết" : " · Nguồn: dữ liệu lưu khi chốt";
+    report.ghiChu = report.ghiChu.concat(notes);
+    report.canhbao = report.canhbao.concat(notes);
+    return report;
+  }
+
   function dedupe(a) { var seen = {}; return a.filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }); }
 
   /** Dòng phẳng + dòng tổng cho PDF (và đối chiếu). */
@@ -335,6 +392,6 @@
       cols: cols, rows: rows, tong: tong, tongNhan: null, groups: null, extras: [], ghiChu: [], chuKy: opt.chuKy || ["Người lập", "Trưởng phòng nhân sự", "Giám đốc"], soDong: rows.length, soDongGoc: rows.length, loi: [], canhbao: [] };
   }
 
-  var api = { TYPES: TYPES, build: build, toRows: toRows, toSheets: toSheets, sheetVms: sheetVms, fromRows: fromRows, upper: upper };
+  var api = { TYPES: TYPES, build: build, buildClosed: buildClosed, closedTables: CLOSED_TABLES, toRows: toRows, toSheets: toSheets, sheetVms: sheetVms, fromRows: fromRows, upper: upper };
   if (isNode) module.exports = api; else { root.HAKCore = root.HAKCore || {}; root.HAKCore.opsReports = api; }
 })(typeof window !== "undefined" ? window : this);

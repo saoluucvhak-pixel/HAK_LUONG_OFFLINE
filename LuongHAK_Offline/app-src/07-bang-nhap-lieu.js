@@ -47,7 +47,7 @@
       }));
       card.appendChild(reviewState);
     }
-    function refreshInputReview() { if (inputReview) { var pending = C.inputReview.changed(db, key, kyStr(), pumpMode); reviewState.textContent = pending ? "● Nháp — thay đổi đã được giữ trên máy, CHƯA dùng tính lương. Kiểm tra rồi bấm Lưu để tính lương (toàn bộ kỳ đang chọn)." : "✓ Đã lưu để tính lương kỳ " + kyStr(); reviewState.className = pending ? "warn" : "hint"; } }
+    function refreshInputReview() { if (inputReview) { var pending = C.inputReview.changed(db, key, kyStr(), pumpMode); reviewState.textContent = inputReportSource(key, kyStr(), pumpMode) + (pending ? " — kiểm tra rồi bấm Lưu để tính lương cho kỳ đang chọn." : ""); reviewState.className = pending ? "warn" : "hint"; } }
     /** MỘT phép quét duy nhất cho: bảng hiển thị · tổng · Excel · PDF · in (hiển thị = tổng = Excel = PDF = in). */
     function scan() {
       var idx = [], qq = qOf(key), names = {}, LKMAP = key === "chamcong" ? linkMapNow() : {}, total = 0;

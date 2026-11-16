@@ -66,6 +66,8 @@ console.log('PASS consolidation: '+registry.branches.length+' branch heads retai
 
 const oldImporter=normalize(cp.execFileSync('git',['-c','safe.directory=*','show','c389ef4ffcfd13a4f867cb070db2069314617dc7:LuongHAK_Offline/core/importer.js'],{cwd:root,encoding:'utf8'}));
 const currentImporter=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/core/importer.js'),'utf8'));
-const productionPeriodGuard = "        var nextPeriod = V.rowPeriod(table, r);\n        if ((table === \"sanluong\" || table === \"bandam\") && p0 && nextPeriod && p0 !== nextPeriod) {\n          item.action = \"conflict\";\n          item.reason = \"Phiếu \" + r[\"Phiếu cân\"] + \" đổi kỳ từ \" + p0 + \" sang \" + nextPeriod + \". Hãy đối chiếu và xác nhận bằng thao tác chuyển kỳ hoặc sửa phiếu trên app.\";\n          return;\n        }\n";
-assert.equal(currentImporter.split(productionPeriodGuard).length, 2);
-assert.equal(currentImporter.replace(productionPeriodGuard, "").replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,'Importer changed beyond approved parent tax key');
+const crossPeriodHelper = "  function crossPeriod(table, before, after) {\n    if (!before || !after || ![\"sanluong\", \"bandam\", \"psluong\", \"ungluong\"].includes(table)) return \"\";\n    var from = V.rowPeriod(table, before), to = V.rowPeriod(table, after);\n    if (!from || !to || from === to) return \"\";\n    return \"Chứng từ đổi kỳ từ \" + from + \" sang \" + to + \". Kiểm tra số chứng từ và kỳ nguồn trước khi ghi.\";\n  }\n";
+const crossPeriodGuard = "        var move = crossPeriod(table, tgt, r);\n        if (move) {\n          item.action = \"conflict\";\n          item.reason = move;\n          return;\n        }\n";
+assert.equal(currentImporter.split(crossPeriodHelper).length, 2);
+assert.equal(currentImporter.split(crossPeriodGuard).length, 2);
+assert.equal(currentImporter.replace(crossPeriodHelper, "").replace(crossPeriodGuard, "").replace("keyOf: keyOf, crossPeriod: crossPeriod, plan:", "keyOf: keyOf, plan:").replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,"Importer changed beyond approved period guard and parent tax key");

@@ -38,6 +38,23 @@
     al.empCount = cnt; al.chuaGan = k.chuaGan; al.raw = (db[loai] || []).filter(function (r) { return VAL.rowPeriod(loai, r) === kyKey(nam, thang); });
     return al;
   }
+  function inputReportSource(table, ky, kind) {
+    if (kyChot(ky)) return "Đã chốt · dữ liệu lưu khi chốt";
+    var counts = C.inputReview.summary(db, table, ky).filter(function (item) { return !kind || item.kind === kind; });
+    if (!counts.some(function (item) { return item.current || item.previousOnly; })) return "Chưa có dữ liệu trong kỳ";
+    if (!counts.some(function (item) { return item.draft || item.previousOnly; })) return "Đã lưu để tính lương · kỳ chưa chốt";
+    return "Nháp · dữ liệu hiện hành · " + counts.map(function (item) {
+      var kind = item.kind === "team" ? "Theo tổ: " : item.kind === "direct" ? "Trực tiếp: " : "";
+      return kind + item.approved + " dòng đã lưu giữ nguyên, " + item.draft + " dòng nháp" + (item.previousOnly ? ", " + item.previousOnly + " dòng bản lưu cũ đã sửa/xóa" : "");
+    }).join(" · ");
+  }
+  function allocationReportSource(table, ky) {
+    var source = inputReportSource(table, ky);
+    if (!kyChot(ky) && C.inputReview.changed(db, "chamcong", ky, "")) {
+      return "Phiếu: " + source + " | Chấm công dùng để chia: " + inputReportSource("chamcong", ky);
+    }
+    return source;
+  }
   function reportAllocation(nam, thang, loai) {
     var snapshot = kyChot(kyKey(nam, thang));
     if (!snapshot) return pbAlloc(nam, thang, loai);
@@ -79,7 +96,7 @@
     var wb = window.HAKUi.pbkl.report(window.ExcelJS, { sl: sl, bd: bd, raw: { sl: sl.raw, bd: bd.raw },
       luong: rows.length ? { rows: rows, coChe: coChe, note: (src.chot ? "Số liệu lấy từ bảng lương ĐÃ CHỐT." : "Kỳ CHƯA chốt — số liệu tính tạm.") + " Số công = công BT trong chấm công." } : null,
       daihiepDetail: daihiepDetail, attendanceReview: attendanceReview,
-      ctx: { coChe: coChe, chot: src.chot, giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
+      ctx: { coChe: coChe, chot: src.chot, source: allocationReportSource("sanluong", kyKey(nam, thang)) + " | Bơm dăm: " + inputReportSource("bandam", kyKey(nam, thang)), giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
     wb.xlsx.writeBuffer().then(function (buf) {
       download("Phan_bo_khoi_luong_" + kyKey(nam, thang) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel phân bổ khối lượng", kyLabel(kyKey(nam, thang)));

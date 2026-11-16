@@ -1,6 +1,16 @@
   function tabOpsReport(type) {
     var w = h("div"), card = h("div", { class: "card" }), T = OPS.TYPES[type], vm = opsVm(type);
     card.appendChild(h("h3", { "data-report-title": type, text: vm.title }));
+    if (type === "SAN_LUONG" || type === "BOM_DAM") {
+      card.appendChild(h("p", { class: "hint", text: "Phiếu gốc để kiểm kê. Kết quả phân bổ là chi tiết chia của cùng các phiếu này." }));
+      var inputTable = OPS.closedTables[type];
+      if (!kyChot(kyStr()) && tabAllowed(inputTable)) card.appendChild(btn("Mở bảng nhập phiếu", "ghost", function () {
+        st.opsReceipt = null; st.tab = inputTable; saveUi(); render();
+      }));
+      if (st.opsReceipt?.type === type && st.opsReceipt.ky === kyStr()) {
+        card.appendChild(btn("Bỏ lọc phiếu " + st.opsReceipt.number, "ghost", function () { st.opsReceipt = null; render(); }));
+      }
+    }
     if ((type === "SAN_LUONG" || type === "BOM_DAM") && tabAllowed("baocaoluong")) {
       card.appendChild(btn("Xem kết quả phân bổ", "ghost", function () {
         st.tab = "baocaoluong"; st.bcl = "sanluong"; st.bclLoai = type === "BOM_DAM" ? "bandam" : "sanluong";
@@ -9,7 +19,7 @@
     }
     card.appendChild(h("div", { class: "hint", text: (T.theoKy ? "Kỳ " + vm.ky + " (đổi ở ô Kỳ lương phía trên) · " + vm.trangThai + ". " : "") + (vm.ghiChu || []).join(" ") + " Excel và PDF xuất đúng theo bộ lọc đang chọn." }));
     var bar = h("div", { class: "bar" }), pbs = {};
-    var snapshot = (type === "SAN_LUONG" || type === "BOM_DAM") && kyChot(kyKey(st.nam, st.thang));
+    var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
     var departments = snapshot ? snapshot.input?.danhmuc?.dm_phongban : db.dm_phongban;
     (departments || []).forEach(function (p) { if (p && p["Tên phòng ban"]) pbs[p["Tên phòng ban"]] = 1; });
     var pbSel = h("select", { "aria-label": "Phòng ban", "data-ops-key": "phongBan" }); pbSel.appendChild(h("option", { value: "", text: "— Tất cả phòng ban —" }));

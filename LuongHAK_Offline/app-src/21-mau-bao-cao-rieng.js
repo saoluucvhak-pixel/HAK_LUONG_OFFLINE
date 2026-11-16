@@ -4,30 +4,23 @@
   function opsVm(type) {
     var opt = { nam: st.nam, thang: st.thang, tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", chot: !!kyChot(kyKey(st.nam, st.thang)),
       hr: HRM, num: E.num, money: E.money, phongBan: st.opsPB || "", tuKhoa: st.opsKw || "", trangThaiNV: st.opsTT || "dang", homNay: HRM.today() };
-    if (type === "SAN_LUONG" || type === "BOM_DAM") {
-      var table = type === "SAN_LUONG" ? "sanluong" : "bandam";
-      opt.alloc = reportAllocation(st.nam, st.thang, table);
-      var snapshot = kyChot(kyKey(st.nam, st.thang));
-      if (snapshot) {
-        var catalog = snapshot.input?.danhmuc || {}, payroll = snapshot.kq.bangluong;
-        var reportData = Object.assign({}, catalog, { nhanvien: payroll, [table]: opt.alloc?.raw || snapshot.input?.data?.[table] || [] });
-        opt.departmentOf = new Map(payroll.map(function (r) { return [String(r["Mã NV"]), r["Phòng ban"] || r["Mã PB"] || ""]; }));
-        opt.tenCongTy = ((catalog.congty || [])[0] || {})["Tên công ty"] || "";
-        var report = OPS.build(type, reportData, opt);
-        if (!opt.alloc) {
-          report.ghiChu = (report.ghiChu || []).concat(["Bản chốt cũ thiếu chi tiết phân bổ; chỉ hiển thị phiếu cân đã lưu."]);
-          report.canhbao.push("Bản chốt cũ thiếu chi tiết phân bổ; chỉ hiển thị phiếu cân đã lưu.");
-        }
-        return report;
-      }
+    var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
+    if ((type === "THUONG" || type === "TAM_UNG") && can("payroll.view")) {
+      if (snapshot) opt.bangluong = snapshot.kq.bangluong;
+      else if (db.nhanvien.length) opt.bangluong = kqKy(st.nam, st.thang).kq.bangluong;
     }
-    if ((type === "THUONG" || type === "TAM_UNG") && can("payroll.view") && db.nhanvien.length) opt.bangluong = kqKy(st.nam, st.thang).kq.bangluong;
-    return OPS.build(type, db, opt);
+    var table = OPS.closedTables[type], production = type === "SAN_LUONG" || type === "BOM_DAM";
+    if (production && st.opsReceipt?.type === type && st.opsReceipt.ky === kyStr()) opt.receipt = st.opsReceipt;
+    if (snapshot) return OPS.buildClosed(type, snapshot, opt);
+    if (production) opt.alloc = reportAllocation(st.nam, st.thang, table);
+    var report = OPS.build(type, db, opt);
+    if (production) report.trangThai = allocationReportSource(table, kyStr());
+    return report;
   }
   function opsExportOk(vm) {
     if (!need("export", "xuất báo cáo")) return false;
     if (vm.loi.length) { alert("⛔ Không xuất được — " + vm.loi.length + " lỗi dữ liệu làm báo cáo sai:\n\n" + vm.loi.slice(0, 10).map(function (x) { return "• " + x; }).join("\n") + (vm.loi.length > 10 ? "\n…" : "") + "\n\nSửa dữ liệu nguồn rồi mở lại báo cáo."); return false; }
-    if (!vm.rows.length) { toast("Không có dòng nào để xuất"); return false; }
+    if (!vm.rows.length && !vm.extras.some(function (sheet) { return sheet.rows.length; })) { toast("Không có dòng nào để xuất"); return false; }
     return true;
   }
   function opsXlsx(vm) {

@@ -21,7 +21,15 @@
       var allocation = pbAlloc(nam, thang, type), report = bcSanLuong(nam, thang, type, allocation);
       return { type: type, allocation: allocation, employees: report.nv.filter(function (r) { return r["Mã phòng ban"] !== "TỔNG"; }), audit: report.audit };
     });
-    return { taxIds: taxIds, production: production };
+    var ky = kyKey(nam, thang), codes = new Set();
+    Object.values(OPS.closedTables).forEach(function (table) {
+      (db[table] || []).forEach(function (row) { if (row["Mã NV"] && VAL.rowPeriod(table, row) === ky) codes.add(String(row["Mã NV"])); });
+    });
+    var people = db.nhanvien.filter(function (row) { return codes.has(String(row["Mã NV"])); }).map(function (row) {
+      var ma = row["Mã NV"], job = HRM.hienHanh(db, ma, end, ix);
+      return { "Mã NV": ma, "Họ và tên": row["Họ và tên"], "Mã PB": job.pb, "Phòng ban": job.tenPB };
+    });
+    return { taxIds: taxIds, production: production, people: people };
   }
 
   function payrollDetailSheets(result, ky, snapshot) {
