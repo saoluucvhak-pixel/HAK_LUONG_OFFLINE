@@ -7,6 +7,7 @@ const GATE = require("../core/payroll-gate.js");
 const PA = require("../core/production-alloc.js");
 const CARRY = require("../core/production-carry.js");
 const CLS = require("../core/payroll-close.js");
+const PLG = require("../core/payment-ledger.js");
 
 function parseKy(ky) { const m = String(ky || "").match(/^(\d{4})-(\d{2})$/); return m ? { nam: +m[1], thang: +m[2] } : null; }
 
@@ -92,18 +93,33 @@ function verifySnapshot(db, snap) {
   if (!snap || !snap.kq || !Array.isArray(snap.kq.bangluong)) return ["bản chốt thiếu bảng lương"];
   try { if (snap.checksum && CLS.checksum(snap.kq) !== snap.checksum) why.push("checksum kết quả không khớp (bản chốt bị sửa sau khi tạo)"); } catch (e) { why.push("không tính được checksum: " + (e && e.message || e)); }
   let r; try { r = computeKy(db, snap.ky, { quyChe: snap.quyChe || "2026", bu: snap.buTheoNgay }); } catch (e) { return why.concat(["không tính lại được kỳ " + snap.ky + ": " + (e && e.message || e)]); }
-  const mine = {}; r.kq.bangluong.forEach((x) => { mine[x["Mã NV"]] = x; });
-  const theirs = {}; snap.kq.bangluong.forEach((x) => { theirs[x["Mã NV"]] = x; });
-  const lech = [];
-  Object.keys(mine).forEach((ma) => { const a = mine[ma], b = theirs[ma]; if (!b) lech.push(ma + " thiếu trong bản chốt"); else if (Math.abs((+a["Thực lĩnh"] || 0) - (+b["Thực lĩnh"] || 0)) > 1 || Math.abs((+a["Tổng thu nhập"] || 0) - (+b["Tổng thu nhập"] || 0)) > 1) lech.push(ma + ": thực lĩnh " + Math.round(+b["Thực lĩnh"] || 0) + " ≠ tính lại " + Math.round(+a["Thực lĩnh"] || 0)); });
-  Object.keys(theirs).forEach((ma) => { if (!mine[ma]) lech.push(ma + " không có trong kết quả tính lại"); });
-  if (lech.length) why.push(lech.length + " nhân viên lệch khi tính lại: " + lech.slice(0, 3).join(" | "));
-  // Đối chiếu mọi cột công khai của cả ba báo cáo, không chỉ hai số tổng.
-  const publicRows = (rows) => (rows || []).map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith("_"))));
+  // So từng trường công khai và chỉ ra dòng sai. Các thuộc tính nội bộ của engine có thể khác giữa hai tiến trình.
   const equal = require("node:util").isDeepStrictEqual;
   ["bangluong", "bhxh", "tncn"].forEach((table) => {
-    if (!equal(publicRows(r.kq[table]), publicRows(snap.kq[table]))) why.push("chi tiết " + table + " khác kết quả tính lại");
+    const expected = new Map((r.kq[table] || []).map((row) => [row["Mã NV"], row]));
+    const received = new Map();
+    const deltas = [];
+    for (const row of snap.kq[table] || []) {
+      const ma = row["Mã NV"];
+      if (received.has(ma)) deltas.push(ma + " trùng dòng");
+      received.set(ma, row);
+    }
+    for (const ma of new Set([...expected.keys(), ...received.keys()])) {
+      const a = expected.get(ma), b = received.get(ma);
+      if (!a || !b) { deltas.push(ma + (a ? " thiếu trong bản chốt" : " không có khi tính lại")); continue; }
+      for (const field of new Set([...Object.keys(a), ...Object.keys(b)])) {
+        if (!field.startsWith("_") && !equal(a[field], b[field])) {
+          const detail = typeof a[field] === "number" && typeof b[field] === "number" ?
+            " (bản chốt " + b[field] + ", tính lại " + a[field] + ", lệch " + (b[field] - a[field]) + ")" : "";
+          deltas.push(ma + " · " + field + detail);
+        }
+      }
+    }
+    if (deltas.length) why.push("chi tiết " + table + " khác kết quả tính lại: " + deltas.slice(0, 5).join(" | "));
   });
+  const payments = PLG.reconciliation([], r.kq.bangluong, db.ttluong, snap.ky);
+  payments.filter(row => row["Chờ chi cần điều chỉnh"] > 0).forEach(row => why.push(row["Mã NV"] + ": chứng từ chờ chi vượt số còn phải trả; điều chỉnh trước khi chốt lại."));
+  why.push(...PLG.deficitRegister(db, snap.ky, r.kq.bangluong).errors);
   // Khi kiểm tra bản chốt mới, lấy bảng công ứng viên đang ghi, không đọc snapshot do renderer gửi.
   const active = Object.assign({}, db, { kyluong: (db.kyluong || []).filter(k => k.ky !== snap.ky) });
   const leave = require("../core/leave-reconciliation.js").reconcile(active, snap.ky);

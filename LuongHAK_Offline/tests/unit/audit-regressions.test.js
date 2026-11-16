@@ -25,3 +25,15 @@ test('Close rejects a snapshot computed before the official top-up method change
  d.dm_quychebu=[{"Hiệu lực từ":"2026-10-01","Trạng thái":"Hiệu lực","Cách bù":"to"}];
  assert.ok(G.verifySnapshot(d,snap).some(msg=>msg.includes("khác phương pháp chính thức (to)")));
 });
+
+test("Snapshot detail identifies both swapped components when gross and net remain equal", () => {
+  const d = require("../fixtures/production-carry").fixture(), ky = "2026-10";
+  const args = { quyChe: "2026", bu: "daihiep" };
+  const r = G.computeKy(d, ky, args).kq;
+  const snap = CLS.buildSnapshot(d, ky, r, [], { buTheoNgay: args.bu, quyChe: args.quyChe });
+  const row = snap.kq.bangluong[0];
+  row["Phụ cấp"] += 1000;
+  row["Lương hỗ trợ"] -= 1000;
+  snap.checksum = CLS.checksum(snap.kq);
+  assert.match(G.verifySnapshot(d, snap).join(" "), /Phụ cấp.*lệch 1000.*Lương hỗ trợ.*lệch -1000/);
+});

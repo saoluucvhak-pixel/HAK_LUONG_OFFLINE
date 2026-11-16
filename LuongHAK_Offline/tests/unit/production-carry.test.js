@@ -67,3 +67,11 @@ test('Delete and replace production period also remove stored undated totals, re
   assert.throws(() => B.plan(d, 'sanluong', '2026-10', cols, [total]));
   assert.throws(() => B.plan(d, 'sanluong', '2026-10', cols, [undatedReceipt]), /Thiếu Ngày cân/);
 });
+
+test("Reject only a manual voucher that duplicates generated carry in the payment period", () => {
+  const d = transfer(fixture()), ky = "2026-10";
+  const p = C.payments(d, ky)[0];
+  assert.ok(p);
+  d.psluong.push({ "Ngày hạch toán": ky + "-01", "Số chứng từ": p.id + "-" + p.ma, "Mã NV": p.ma, "Thu nhập khác": p.salary + p.topup });
+  assert.throws(() => G.computeKy(d, ky, { quyChe: "2026", bu: "daihiep" }), /chuyển sản lượng tự sinh/);
+});

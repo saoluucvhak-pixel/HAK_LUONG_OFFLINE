@@ -60,7 +60,13 @@
     if (ctx.blockers && ctx.blockers.length) return { ok: false, msg: "Bảng lương còn lỗi chặn: " + ctx.blockers.slice(0, 3).join("; ") };
     var os = outstanding(ctx.rows, ctx.lines, ctx.ky), by = {};
     os.forEach(function (o) { by[o.maNV] = o; });
-    var so = nextNo(ctx.lines, ctx.ky, ctx.ht), dong = [], bo = [];
+    var so = nextNo(ctx.lines, ctx.ky, ctx.ht), dong = [], bo = [], paidRefs = new Map();
+    (ctx.lines || []).forEach(function (line) {
+      if (line["Kỳ"] !== ctx.ky || line["Trạng thái"] !== TT.TRA) return;
+      var ma = line["Mã NV"];
+      if (!paidRefs.has(ma)) paidRefs.set(ma, new Set());
+      paidRefs.get(ma).add(line["Số chứng từ"]);
+    });
     (ctx.rows || []).forEach(function (r) {
       var ma = r["Mã NV"]; if (ctx.ids && ctx.ids.indexOf(ma) < 0) return;
       var ht = hinhThucCua(r["HTTT"]);
@@ -71,7 +77,7 @@
       if (o.deNghiChi <= 0) { bo.push({ maNV: ma, ly: o.dangCho > 0 ? "đã có chứng từ đang chờ" : "không còn khoản phải trả" }); return; }
       if (ht === HT.CK && (!s(r["Số tài khoản"]) || !s(r["Ngân hàng"]))) { bo.push({ maNV: ma, ly: "thiếu số tài khoản/ngân hàng" }); return; }
       dong.push({ "Số chứng từ": so, "Kỳ": ctx.ky, "Hình thức": ht, "Mã NV": ma, "Họ và tên": r["Họ và tên"], "Phòng ban": r["Phòng ban"] || "", "Số tài khoản": s(r["Số tài khoản"]), "Ngân hàng": s(r["Ngân hàng"]), "Số tiền": o.deNghiChi, "Trạng thái": TT.LAP,
-        "Ngày lập": ctx.ngay, "Người lập": ctx.nguoi, "Ngày duyệt": "", "Người duyệt": "", "Ngày thanh toán": "", "Người ghi nhận": "", "Ghi chú": "", "Lý do hủy": "" });
+        "Ngày lập": ctx.ngay, "Người lập": ctx.nguoi, "Ngày duyệt": "", "Người duyệt": "", "Ngày thanh toán": "", "Người ghi nhận": "", "Ghi chú": paidRefs.has(ma) ? "Chi bổ sung sau chứng từ " + Array.from(paidRefs.get(ma)).join(", ") : "", "Lý do hủy": "" });
     });
     if (!dong.length) return { ok: false, msg: "Không có khoản nào cần lập chứng từ " + ctx.ht.toLowerCase() + " (đã lập đủ hoặc không có người thuộc hình thức này).", boQua: bo };
     return { ok: true, so: so, dong: dong, boQua: bo, tong: dong.reduce(function (a, d) { return a + d["Số tiền"]; }, 0) };
@@ -117,6 +123,74 @@
     });
     return out;
   }
-  var api = { TT: TT, HT: HT, COLS: COLS, hinhThucCua: hinhThucCua, outstanding: outstanding, status: status, lapChungTu: lapChungTu, chuyen: chuyen, kiemTra: kiemTra, dongCua: dongCua, trangThaiCT: trangThaiCT, nextNo: nextNo };
+  function reconciliation(before, after, lines, ky) {
+    var rows = new Map(), previous = new Map((before || []).map(function (r) { return [r["Mã NV"], n(r["Thực lĩnh"])]; }));
+    (after || []).forEach(function (r) { rows.set(r["Mã NV"], r); });
+    var refs = new Map();
+    (lines || []).forEach(function (l) {
+      if (l["Kỳ"] !== ky || l["Trạng thái"] === TT.HUY) return;
+      var ma = l["Mã NV"];
+      if (!rows.has(ma)) rows.set(ma, { "Mã NV": ma, "Họ và tên": l["Họ và tên"], "Thực lĩnh": 0 });
+      if (!refs.has(ma)) refs.set(ma, new Set());
+      refs.get(ma).add(l["Số chứng từ"]);
+    });
+    var records = outstanding(Array.from(rows.values()), lines, ky);
+    return records.filter(function (r) { return refs.has(r.maNV); }).map(function (r) {
+      return { "Mã NV": r.maNV, "Họ và tên": r.hoTen, "Thực lĩnh bản trước": previous.get(r.maNV) || 0,
+        "Thực lĩnh tính lại": r.thucLinh, "Đã trả": r.daTra, "Đang chờ chi": r.dangCho, "Còn phải trả": r.conPhaiTra,
+        "Cần lập thêm": r.deNghiChi, "Đã trả thừa": Math.max(0, -r.conPhaiTraRaw),
+        "Chờ chi cần điều chỉnh": Math.max(0, r.dangCho - r.conPhaiTra), "Chứng từ gốc": Array.from(refs.get(r.maNV)).join(", ") };
+    });
+  }
+
+  function deficitVoucher(origin, target) { return "THIEU-LUONG-" + origin + "/" + target; }
+  function deficitRegister(db, candidateKy, candidateRows) {
+    var closed = new Map((db.kyluong || []).map(function (snap) { return [snap.ky, snap]; }));
+    var debts = new Map(), errors = [];
+    var sourceSnapshots = new Map(closed);
+    if (candidateKy) sourceSnapshots.set(candidateKy, { kq: { bangluong: candidateRows } });
+    sourceSnapshots.forEach(function (snap, ky) {
+      (snap.kq?.bangluong || []).forEach(function (row) {
+        var amount = n(row["Còn thiếu (thực lĩnh âm)"]);
+        if (amount > 0) debts.set(JSON.stringify([ky, row["Mã NV"]]), { ky: ky, ma: row["Mã NV"], name: row["Họ và tên"], amount: amount, recovered: 0, pending: 0 });
+      });
+    });
+    var seen = new Set(), relevant = new Set();
+    function count(row, target, settled, payroll) {
+      var match = /^THIEU-LUONG-([0-9]{4}-(?:0[1-9]|1[0-2]))[/]([0-9]{4}-(?:0[1-9]|1[0-2]))$/.exec(s(row["Số chứng từ"]));
+      if (!match) return;
+      var ma = row["Mã NV"], source = match[1], debt = debts.get(JSON.stringify([source, ma]));
+      var token = JSON.stringify([row["Số chứng từ"], ma]), amount = n(row["Trừ khác"]);
+      if (target === candidateKy && debt) relevant.add(debt);
+      var check = !candidateKy || candidateKy === target || candidateKy === source;
+      if (!debt || source >= target || target !== match[2] || amount <= 0 || n(row["Thưởng"]) || n(row["Thu nhập khác"]) || seen.has(token)) {
+        if (check) errors.push(ma + ": chứng từ xử lý khoản thiếu không hợp lệ (" + row["Số chứng từ"] + ").");
+        return;
+      }
+      seen.add(token);
+      if (settled) {
+        var wage = (payroll || []).find(function (r) { return r["Mã NV"] === ma; });
+        if (!wage || n(wage["Còn thiếu (thực lĩnh âm)"]) > 0 || n(wage["Trừ khác"]) < amount) {
+          if (check) errors.push(ma + ": kỳ " + target + " chưa đủ thu nhập để xử lý khoản thiếu.");
+          return;
+        }
+      }
+      debt[settled ? "recovered" : "pending"] += amount;
+    }
+    closed.forEach(function (snap, ky) {
+      if (ky !== candidateKy) (snap.input?.data?.psluong || []).forEach(function (row) { count(row, ky, true, snap.kq?.bangluong); });
+    });
+    (db.psluong || []).forEach(function (row) {
+      var ky = s(row["Ngày hạch toán"]).slice(0, 7);
+      if (ky === candidateKy) count(row, ky, true, candidateRows);
+      else if (!closed.has(ky)) count(row, ky, false);
+    });
+    debts.forEach(function (debt) {
+      if ((!candidateKy || debt.ky === candidateKy || relevant.has(debt)) && debt.recovered + debt.pending > debt.amount) errors.push(debt.ma + ": tổng xử lý vượt khoản thiếu kỳ " + debt.ky + ".");
+    });
+    return { rows: Array.from(debts.values()), errors: errors };
+  }
+
+  var api = { reconciliation: reconciliation, deficitRegister: deficitRegister, deficitVoucher: deficitVoucher, TT: TT, HT: HT, COLS: COLS, hinhThucCua: hinhThucCua, outstanding: outstanding, status: status, lapChungTu: lapChungTu, chuyen: chuyen, kiemTra: kiemTra, dongCua: dongCua, trangThaiCT: trangThaiCT, nextNo: nextNo };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else { root.HAKCore = root.HAKCore || {}; root.HAKCore.payledger = api; }
 })(typeof window !== "undefined" ? window : this);

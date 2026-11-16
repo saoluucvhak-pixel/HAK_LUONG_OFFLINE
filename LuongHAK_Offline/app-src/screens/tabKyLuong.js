@@ -1,6 +1,7 @@
   function tabKyLuong() {
     var c = h("div", { class: "card" });
     c.appendChild(h("div", { class: "hint", text: "Các kỳ lương đã chốt được lưu nguyên bảng lương, BHXH, thuế TNCN tại thời điểm chốt — sửa hồ sơ hay danh mục về sau không làm thay đổi số đã chốt." }));
+    c.appendChild(btn("Theo dõi khoản khấu trừ còn thiếu", "", showDeficitRegister));
     if (!db.kyluong.length) { c.appendChild(h("div", { class: "empty", html: "Chưa chốt kỳ nào.<br>Vào <b>Tính lương</b>, tính xong bấm <b>🔒 Chốt kỳ lương</b>." })); return c; }
     var t = h("table"), tr = h("tr");
     ["Kỳ lương", "Phiên bản", "Ngày chốt", "Số NV", "Tổng thu nhập", "BH NLĐ", "Thuế TNCN", "Tổng thực lĩnh", "Toàn vẹn", "Ghi chú", ""].forEach(function (x, i) { tr.appendChild(h("th", { class: i >= 3 && i <= 7 ? "r" : "", text: x })); });
@@ -16,6 +17,7 @@
       x.appendChild(h("td", { class: "t", text: k.ghiChu || "" }));
       x.appendChild(h("td", { style: "text-align:right;white-space:nowrap" }, [
         btn("Xem", "", function (e) { e.stopPropagation(); go(); }),
+        btn("Đối chiếu đã chi", "", function (e) { e.stopPropagation(); viewPaidReconciliation(k); }),
         btn("⬇ Excel", "", function (e) { e.stopPropagation(); exportAll(k.kq, k.ky); }),
         btn("PDF trọn kỳ", "", function (e) { e.stopPropagation(); exportPayrollBundlePdf(k.kq, k.ky); }),
         btn("⬇ PDF", "", function (e) {

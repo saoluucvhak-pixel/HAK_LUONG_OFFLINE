@@ -280,7 +280,20 @@
       return;
     }
     var revision = dbRev;
-    preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2, method, revision, leaveReview); });
+    var previous = CLS.history(db, ky).slice().sort(function (a, b) { return (b.version || 0) - (a.version || 0); })[0];
+    var rows = PLG.reconciliation(previous?.kq?.bangluong, fresh.bangluong, payLines(), ky);
+    var proceed = function () { preChotChecklist(fresh, function () { chotKyTiep(ky, fresh, now2, method, revision, leaveReview); }); };
+    if (!rows.length) { proceed(); return; }
+    var conflicting = rows.some(function (row) { return row["Chờ chi cần điều chỉnh"] > 0; });
+    var body = h("div", {}, [
+      h("p", { class: conflicting ? "warn" : "hint", text: conflicting ?
+        "Chứng từ đang chờ chi vượt số còn phải trả. Hủy chứng từ chờ chi bị dư trong Sổ chứng từ trước khi chốt." :
+        "Đối chiếu thực lĩnh với chứng từ đã chi. Khi lập chứng từ, chỉ lập phần cần chi thêm; khoản đã trả thừa cần xử lý riêng." }),
+      simpleTable(rows)
+    ]);
+    modal("Đối chiếu tiền đã chi trước khi chốt lại", body, function (close) {
+      return [btn("Đóng", "", close), conflicting ? null : btn("Tiếp tục kiểm tra chốt", "pri", function () { close(); proceed(); })];
+    }, { wide: true });
   }
   function chotKyTiep(ky, fresh, now2, method, revision, leaveReview) {
     var w = fresh.canhbao.length;
@@ -301,6 +314,51 @@
     if (bs && bs.mirrorDir && bs.lastMirrorError) alert("⚠ Đã chốt và sao lưu trên máy, nhưng KHÔNG chép được sang thư mục sao lưu thứ hai:\n" + bs.lastMirrorError + "\n\nCắm USB / kết nối ổ mạng rồi vào Công ty & Sao lưu → 'Chép sang thư mục thứ hai ngay'.");
     });
   }
+  function viewPaidReconciliation(snap) {
+    var previous = CLS.history(db, snap.ky).slice().sort(function (a, b) { return (b.version || 0) - (a.version || 0); })[0];
+    var rows = PLG.reconciliation(previous ? previous.kq.bangluong : snap.kq.bangluong, snap.kq.bangluong, payLines(), snap.ky);
+    var cols = rows[0] ? Object.keys(rows[0]) : [];
+    if (cols.length) cols[cols.indexOf("Thực lĩnh tính lại")] = "Thực lĩnh đã chốt";
+    rows = rows.map(function (row) {
+      return Object.assign({}, row, { "Thực lĩnh đã chốt": row["Thực lĩnh tính lại"] });
+    });
+    modal("Đối chiếu tiền đã chi — " + kyLabel(snap.ky), simpleTable(rows, null, cols), function (close) {
+      return [rows.length && can("export") ? btn("Xuất Excel", "", function () {
+        saveXlsx("DoiChieuDaChi_" + snap.ky + ".xlsx", [{ name: "DoiChieu", rows: rows, cols: cols }]);
+      }) : null, btn("Đóng", "", close)];
+    }, { wide: true });
+  }
+  function showDeficitRegister() {
+    var reg = PLG.deficitRegister(db), target = kyStr();
+    var rows = reg.rows.map(function (r) {
+      var remaining = Math.max(0, r.amount - r.recovered - r.pending);
+      var actions = remaining > 0 && target > r.ky && !kyChot(target) && can("input.edit") ?
+        btn("Lập khoản trừ nháp", "ghost", function () { prepareDeficit(r, target, remaining); }) : "";
+      return { "Kỳ phát sinh": r.ky, "Mã NV": r.ma, "Họ và tên": r.name, "Còn thiếu lúc chốt": r.amount,
+        "Đã trừ qua kỳ chốt": r.recovered, "Đang chờ chốt": r.pending, "Còn có thể xử lý": remaining, "Thao tác": actions };
+    });
+    var body = h("div", {}, [h("p", { class: "hint", text: "Chọn kỳ xử lý trên thanh Kỳ lương (" + target +
+      "). Khoản thiếu chỉ được trừ khi có chứng từ Thưởng / Trừ do người dùng lập và kỳ xử lý được chốt." }), simpleTable(rows)]);
+    if (reg.errors.length) body.appendChild(h("div", { class: "warn", text: reg.errors.join(" | ") }));
+    modal("Theo dõi khoản khấu trừ còn thiếu", body, function (close) { return [btn("Đóng", "", close)]; }, { wide: true });
+  }
+  function prepareDeficit(debt, target, maximum) {
+    var no = PLG.deficitVoucher(debt.ky, target);
+    askText("Lập khoản trừ nháp", "Kỳ xử lý " + target + " · giới hạn " + fmt(maximum) + " đ.\nKiểm tra tại Thưởng / Trừ rồi tính lại.", { label: "Số tiền (đồng)", required: true }, function (value) {
+      var amount = VAL.parseMoney(value), latest = PLG.deficitRegister(db).rows.find(function (r) { return r.ky === debt.ky && r.ma === debt.ma; });
+      if (!latest || kyStr() !== target || kyChot(target) || !Number.isInteger(amount) || amount <= 0 || amount > latest.amount - latest.recovered - latest.pending) {
+        alert("Số tiền hoặc kỳ xử lý không còn hợp lệ."); return;
+      }
+      var row = { "Ngày hạch toán": target + "-01", "Mã NV": debt.ma, "Số chứng từ": no,
+        "Diễn giải": "Xử lý khoản khấu trừ còn thiếu kỳ " + debt.ky, "Trừ khác": amount };
+      var plan = REPO.plan("insert", "psluong", null, row);
+      if (!plan.ok) { alert(plan.msg); return; }
+      if (!txn(["psluong"], function () { return !!commit(plan); })) { alert(lastTxnError); return; }
+      st.tab = "psluong"; saveUi(); render();
+      toast("Đã lập khoản trừ. Kiểm tra chứng từ rồi tính lại kỳ " + target + ".");
+    });
+  }
+
   function moChot(ky) {
     var c = kyChot(ky); if (!c || !need("payroll.reopen")) return;
     askText("Mở chốt " + kyLabel(ky) + " (phiên bản " + (c.version || 1) + ")", "Bản chốt hiện tại KHÔNG bị xóa — được chuyển vào lịch sử chốt kỳ.\nDữ liệu kỳ được mở khóa để sửa, tính lại và chốt thành phiên bản mới.", { label: "Lý do mở chốt", required: true, multiline: true, okText: "🔓 Mở chốt" }, function (reason) {
