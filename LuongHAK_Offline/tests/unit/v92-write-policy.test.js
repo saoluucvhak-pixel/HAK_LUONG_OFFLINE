@@ -155,7 +155,7 @@ test("U-WP-11 (V9.4→V10.1) sổ thanh toán lương: cần quyền payment.rec
   const wait = { "Số chứng từ": "UNC-202609-002", "Kỳ": "2026-09", "Hình thức": "Chuyển khoản", "Mã NV": "B", "Số tiền": 50, "Trạng thái": "Đã lập", "Người lập": "nl" };
   const ky = [{ ky: "2026-09", version: 1, kq: { bangluong: [{ "Mã NV": "A", "Thực lĩnh": 100 }, { "Mã NV": "B", "Thực lĩnh": 50 }, { "Mã NV": "C", "Thực lĩnh": 10 }] } }];
   const { db, save } = setup({ ttluong: [paid, wait], kyluong: ky });
-  assert.deepEqual(permsFor("ttluong"), ["payment.record"]);
+  assert.deepEqual(permsFor("ttluong"), ["payment.record", "payment.approve"]);
   const kt = who("nl", "ketoanluong"), ns = who("ns", "nhansu"), ad = who("admin", "admin");
   const d1 = clone(db); Object.assign(d1.ttluong[1], { "Trạng thái": "Đã duyệt", "Người duyệt": "admin", "Ngày duyệt": "2026-10-01" });
   assert.equal(save(d1, ns).ok, false, "nhân sự không có quyền");
@@ -261,4 +261,59 @@ test("Reopened payroll allows canceling a pending voucher while preserving a pai
   draft = clone(db);
   Object.assign(draft.ttluong[1], { "Trạng thái": "Đã hủy", "Lý do hủy": "Tính lại kỳ" });
   assert.equal(save(draft, ad).ok, true);
+});
+
+test("Payroll review requires separate authenticated accounts and invalidates when the inputs change", () => {
+  const flow = require("../../core/workflow-approval");
+  const { db, save, file } = setup();
+  const admin = who("admin", "admin"), maker = who("nl", "ketoanluong"), reviewer = who("rv", "pheduyet");
+  const cur = () => JSON.parse(fs.readFileSync(file, "utf8"));
+  const config = { mode: "roles", user: "admin", reason: "Áp dụng duyệt hai người", changedAt: "2026-10-01T00:00:00Z" };
+  assert.equal(save({ ...db, workflowSettings: [config] }, maker).ok, false);
+  const singleUser = setup({ nguoidung: [db.nguoidung[0]] });
+  assert.match(singleUser.save({ ...singleUser.db, workflowSettings: [config] }, admin).error, /hai tài khoản hoạt động/);
+  const locked = setup({ nguoidung: [db.nguoidung[0], { ...db.nguoidung[1], khoa: true }] });
+  assert.match(locked.save({ ...locked.db, workflowSettings: [config] }, admin).error, /hai tài khoản hoạt động/);
+  assert.equal(save({ ...db, workflowSettings: [config] }, admin).ok, true);
+  const ky = "2026-10", snap = { ky, version: 1, kq: { bangluong: [], bhxh: [], tncn: [] } };
+  assert.match(save({ ...cur(), kyluong: [snap] }, admin).error, /cần được người khác duyệt/);
+  const row = { ky, preparer: "admin", approver: "", digest: flow.fingerprint(cur(), snap) };
+  assert.equal(save({ ...cur(), payrollApprovals: [row] }, admin).ok, true);
+  assert.equal(save({ ...cur(), payrollApprovals: [{ ...row, approver: "admin" }] }, admin).ok, false);
+  assert.equal(save({ ...cur(), payrollApprovals: [{ ...row, approver: "rv", digest: "00000000" }] }, reviewer).ok, false);
+  assert.equal(save({ ...cur(), payrollApprovals: [{ ...row, approver: "rv" }] }, reviewer).ok, false);
+  const approved = { ...row, approver: "rv", approvedAt: "2026-10-01T07:30:00.000Z" };
+  assert.equal(save({ ...cur(), payrollApprovals: [approved] }, reviewer).ok, true);
+  assert.notEqual(flow.fingerprint({ ...cur(), tiencom: [{ "Ngày": "2026-10-02", "Số suất cơm": 1 }] }, snap), row.digest);
+  assert.match(save({ ...cur(), kyluong: [{ ...snap, buTheoNgay: "to" }] }, admin).error, /cần được người khác duyệt/);
+  assert.match(save({ ...cur(), kyluong: [snap] }, admin).error, /thiếu hoặc sai thông tin phê duyệt/);
+  const CLS = require("../../core/payroll-close");
+  const genuine = { ...snap, input: { approval: flow.approvalRecord(approved, 1) } };
+  genuine.inputChecksum = CLS.checksum(genuine.input);
+  genuine.checksum = CLS.checksum(genuine.kq);
+  assert.doesNotMatch(save({ ...cur(), kyluong: [genuine] }, admin).error || "", /phê duyệt|cần được người khác duyệt/);
+  const reopened = { kyluong: [genuine], kyluong_lichsu: [] };
+  const history = CLS.reopen(reopened, ky, "Điều chỉnh");
+  assert.equal(history.input.approval.approvedAt, approved.approvedAt);
+  const persisted = setup({ kyluong: [genuine] });
+  assert.match(persisted.save({ ...persisted.db, kyluong: [] }, admin).error, /phải giữ nguyên thông tin phê duyệt/);
+  const afterReopen = { ...persisted.db, ...reopened };
+  assert.equal(persisted.save(afterReopen, admin).ok, true);
+  const tampered = clone(afterReopen);
+  tampered.kyluong_lichsu[0].input.approval.approver = "admin";
+  assert.match(persisted.save(tampered, admin).error, /không được sửa lịch sử phê duyệt/);
+  assert.notEqual(flow.fingerprint(cur(), { ...snap, version: 2 }), approved.digest);
+});
+
+test("Payment self-approval is blocked in role-based mode and works for a single administrator", () => {
+  const { checkTtluong } = require("../../main/write-policy");
+  const PLG = require("../../core/payment-ledger");
+  const admin = who("admin", "admin"), reviewer = who("rv", "pheduyet");
+  const line = { "Số chứng từ": "PC-01", "Kỳ": "2026-10", "Mã NV": "NV", "Số tiền": 100, "Hình thức": "Tiền mặt", "Trạng thái": PLG.TT.LAP, "Người lập": "admin" };
+  const db = { workflowSettings: [{ mode: "roles" }], ttluong: [line], kyluong: [{ ky: "2026-10", kq: { bangluong: [{ "Mã NV": "NV", "Thực lĩnh": 100 }] } }] };
+  const approved = (user) => ({ ...db, ttluong: [{ ...line, "Trạng thái": PLG.TT.DUYET, "Người duyệt": user }] });
+  assert.match(checkTtluong(db, approved("admin"), admin), /khác người lập/);
+  assert.equal(checkTtluong(db, approved("rv"), reviewer), "");
+  assert.equal(checkTtluong({ ...db, workflowSettings: [{ mode: "single" }] }, approved("admin"), admin), "");
+  assert.equal(PLG.chuyen([line], "PC-01", PLG.TT.DUYET, { nguoi: "admin", admin: true, mode: "single" }).ok, true);
 });

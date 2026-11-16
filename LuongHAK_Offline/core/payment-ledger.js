@@ -92,7 +92,7 @@
     if (cur === TT.HUY) return { ok: false, msg: "Chứng từ " + so + " đã hủy." };
     if (to === TT.DUYET) {
       if (cur !== TT.LAP) return { ok: false, msg: "Chỉ duyệt được chứng từ ở trạng thái 'Đã lập'." };
-      if (s(d[0]["Người lập"]) && s(d[0]["Người lập"]).toLowerCase() === s(ctx.nguoi).toLowerCase()) return { ok: false, msg: "Người duyệt phải khác người lập chứng từ." };
+      if (!(ctx.mode === "single" && ctx.admin) && s(d[0]["Người lập"]) && s(d[0]["Người lập"]).toLowerCase() === s(ctx.nguoi).toLowerCase()) return { ok: false, msg: "Người duyệt phải khác người lập chứng từ." };
       return { ok: true, patch: { "Trạng thái": TT.DUYET, "Ngày duyệt": ctx.ngay, "Người duyệt": ctx.nguoi } };
     }
     if (to === TT.TRA) {
@@ -144,8 +144,24 @@
   }
 
   function deficitVoucher(origin, target) { return "THIEU-LUONG-" + origin + "/" + target; }
+  var deficitPattern = /^THIEU-LUONG-([0-9]{4}-(?:0[1-9]|1[0-2]))[/]([0-9]{4}-(?:0[1-9]|1[0-2]))$/;
+  function archiveDeficits(snapshots) {
+    return (snapshots || []).flatMap(function (snap) {
+      var vouchers = (snap.input?.data?.psluong || []).filter(function (row) { return deficitPattern.test(s(row["Số chứng từ"])); })
+        .map(function (row) {
+          return { "Mã NV": row["Mã NV"], "Số chứng từ": row["Số chứng từ"], "Trừ khác": n(row["Trừ khác"]),
+            "Thưởng": n(row["Thưởng"]), "Thu nhập khác": n(row["Thu nhập khác"]) };
+        });
+      var recipients = new Set(vouchers.map(function (row) { return row["Mã NV"]; }));
+      var rows = (snap.kq?.bangluong || []).filter(function (row) { return n(row["Còn thiếu (thực lĩnh âm)"]) > 0 || recipients.has(row["Mã NV"]); })
+        .map(function (row) { return { "Mã NV": row["Mã NV"], "Họ và tên": s(row["Họ và tên"]),
+          "Còn thiếu (thực lĩnh âm)": n(row["Còn thiếu (thực lĩnh âm)"]), "Trừ khác": n(row["Trừ khác"]) }; });
+      return rows.length || vouchers.length ? [{ ky: snap.ky, kq: { bangluong: rows }, input: { data: { psluong: vouchers } } }] : [];
+    });
+  }
   function deficitRegister(db, candidateKy, candidateRows) {
-    var closed = new Map((db.kyluong || []).map(function (snap) { return [snap.ky, snap]; }));
+    var archived = (db._yearArchives || []).filter(function (ref) { return ref.active; }).flatMap(function (ref) { return ref.deficits || []; });
+    var closed = new Map(archived.concat(db.kyluong || []).map(function (snap) { return [snap.ky, snap]; }));
     var debts = new Map(), errors = [];
     var sourceSnapshots = new Map(closed);
     if (candidateKy) sourceSnapshots.set(candidateKy, { kq: { bangluong: candidateRows } });
@@ -157,7 +173,7 @@
     });
     var seen = new Set(), relevant = new Set();
     function count(row, target, settled, payroll) {
-      var match = /^THIEU-LUONG-([0-9]{4}-(?:0[1-9]|1[0-2]))[/]([0-9]{4}-(?:0[1-9]|1[0-2]))$/.exec(s(row["Số chứng từ"]));
+      var match = deficitPattern.exec(s(row["Số chứng từ"]));
       if (!match) return;
       var ma = row["Mã NV"], source = match[1], debt = debts.get(JSON.stringify([source, ma]));
       var token = JSON.stringify([row["Số chứng từ"], ma]), amount = n(row["Trừ khác"]);
@@ -191,6 +207,6 @@
     return { rows: Array.from(debts.values()), errors: errors };
   }
 
-  var api = { reconciliation: reconciliation, deficitRegister: deficitRegister, deficitVoucher: deficitVoucher, TT: TT, HT: HT, COLS: COLS, hinhThucCua: hinhThucCua, outstanding: outstanding, status: status, lapChungTu: lapChungTu, chuyen: chuyen, kiemTra: kiemTra, dongCua: dongCua, trangThaiCT: trangThaiCT, nextNo: nextNo };
+  var api = { archiveDeficits: archiveDeficits, reconciliation: reconciliation, deficitRegister: deficitRegister, deficitVoucher: deficitVoucher, TT: TT, HT: HT, COLS: COLS, hinhThucCua: hinhThucCua, outstanding: outstanding, status: status, lapChungTu: lapChungTu, chuyen: chuyen, kiemTra: kiemTra, dongCua: dongCua, trangThaiCT: trangThaiCT, nextNo: nextNo };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else { root.HAKCore = root.HAKCore || {}; root.HAKCore.payledger = api; }
 })(typeof window !== "undefined" ? window : this);

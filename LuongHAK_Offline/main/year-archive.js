@@ -1,7 +1,8 @@
 'use strict';
 // Immutable year packages; data.json holds only their small registry. Never read packages at startup.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
-const V = require('../core/validate'), C = require('../core/payroll-close');
+const V = require('../core/validate'), C = require('../core/payroll-close'), PLG = require('../core/payment-ledger');
+const { isDeepStrictEqual } = require('node:util');
 const MONTHLY = ['chamcong','sanluong','bandam','psluong','ungluong','tiencom','sl_chuyenky'];
 const TABLES = [...MONTHLY,'_inputReviews','kyluong','kyluong_lichsu'];
 const sha = text => crypto.createHash('sha256').update(text).digest('hex');
@@ -25,9 +26,13 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
     if(!ref || !validFile(ref.file))throw Error('Tên hồ sơ năm không hợp lệ');
     const file=path.join(root,ref.file); if(fs.lstatSync(file).isSymbolicLink())throw Error('Hồ sơ không được là liên kết');
     const stat=fs.statSync(file), signature=stat.mtimeMs+':'+stat.size;
-    if(cache && cache.file===file && cache.signature===signature) return cache.payload;
+    if(cache && cache.file===file && cache.signature===signature) {
+      if (ref.deficits !== undefined && !isDeepStrictEqual(ref.deficits, PLG.archiveDeficits(cache.payload.data.kyluong))) throw Error('Tóm tắt khoản khấu trừ không khớp hồ sơ năm');
+      return cache.payload;
+    }
     const bytes=fs.readFileSync(file);if(sha(bytes)!==ref.sha256)throw Error('Hồ sơ năm sai SHA256');
     const payload=decode(bytes);if(payload.year!==ref.year)throw Error('Hồ sơ không đúng năm');
+    if (ref.deficits !== undefined && !isDeepStrictEqual(ref.deficits, PLG.archiveDeficits(payload.data.kyluong))) throw Error('Tóm tắt khoản khấu trừ không khớp hồ sơ năm');
     cache={file,signature,payload};return payload;
   }
   function plan(year) {
@@ -58,7 +63,7 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
     const file='year-'+p.year+'-'+crypto.randomBytes(16).toString('hex')+'.json', target=path.join(root,file);
     let fd;try{fd=fs.openSync(target,'wx');fs.writeFileSync(fd,text);fs.fsyncSync(fd);}finally{if(fd!==undefined)fs.closeSync(fd);}
     let directoryFd;try{directoryFd=fs.openSync(root,'r');fs.fsyncSync(directoryFd);}catch(e){/* Directory fsync is unavailable on Windows. */}finally{if(directoryFd!==undefined)fs.closeSync(directoryFd);}
-    decode(fs.readFileSync(target));const ref={year:p.year,file,sha256:sha(text),active:true,createdAt:p.payload.createdAt,createdBy:String(user||''),counts:p.counts,backupName};
+    decode(fs.readFileSync(target));const ref={year:p.year,file,sha256:sha(text),active:true,createdAt:p.payload.createdAt,createdBy:String(user||''),counts:p.counts,backupName,deficits:PLG.archiveDeficits(p.payload.data.kyluong)};
     read(ref);p.next._yearArchives=[...refs(p.next),ref];p.next.schemaVersion=Math.max(3,p.next.schemaVersion||3);
     p.next.auditlog=[...(p.next.auditlog||[]),{luc:now().toISOString(),nguoi:String(user||''),thaoTac:'Lưu trữ hồ sơ năm',chiTiet:String(p.year)}];
     saveChecked(p.next);cache=null;

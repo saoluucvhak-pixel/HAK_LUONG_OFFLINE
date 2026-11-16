@@ -36,11 +36,25 @@
       if (st.kq && st.kqStale) work.appendChild(h("span", { class: "warn", text: "Dữ liệu đã đổi. Tính lương lại trước khi chốt." }));
       if (work.childNodes.length) hub.appendChild(work);
     }
+    if (!chot && C.workflowApproval.mode(db) === "roles") {
+      var approval = C.workflowApproval.ticket(db, kyStr()), actions = h("div", { class: "bar" });
+      var reviewState = !approval ? "Chưa gửi duyệt" : approval.approver ? "Người lập: " + approval.preparer + " · Người duyệt: " + approval.approver : "Chờ duyệt · Người lập: " + approval.preparer;
+      if (approval && approval.approver && !approval.approvedAt) reviewState = "Cần gửi duyệt lại để ghi nhận thời điểm duyệt";
+      if (approval && st.kq && st.kq.ky === kyStr() && approval.digest !== approvalDigest(kyStr(), st.kq)) reviewState = "Cần gửi duyệt lại · Bảng hiện tại khác bản đã gửi";
+      actions.appendChild(h("span", { class: "hint", text: reviewState }));
+      if (st.kq && can("payroll.calc")) actions.appendChild(btn(approval ? "Gửi duyệt lại" : "Gửi duyệt", "", function () { savePayrollApproval(false); }));
+      if (st.kq && approval && !approval.approver && can("payroll.approve") && approval.preparer !== C.workflowApproval.account(session.tenDangNhap)) {
+        actions.appendChild(btn("Duyệt bảng lương", "pri", function () { savePayrollApproval(true); }));
+      }
+      hub.appendChild(actions);
+    }
     box.appendChild(hub);
     var card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
     if (chot) {
       st.kq = Object.assign({ ky: chot.ky }, chot.kq);
       hub.appendChild(h("p", { class: "hint", text: "Quy chế: " + qcLabel(chot.quyChe || "") + (chot.ghiChu ? " · " + chot.ghiChu : "") }));
+      var approvalInfo = payrollApprovalInfo(chot);
+      if (approvalInfo) hub.appendChild(h("p", { class: "hint", text: approvalInfo }));
       hub.appendChild(h("div", { class: "bar" }, [
         btn("⬇ Xuất trọn bộ Excel", "pri", function () { exportAll(chot.kq, chot.ky); }),
         btn("In trọn bộ PDF kỳ lương", "", function () { exportPayrollBundlePdf(chot.kq, chot.ky); }),
@@ -53,8 +67,9 @@
     var sel = h("select", { "aria-label": "Cách bù lương sản lượng" }); BU_OPTS.forEach(function (o) { sel.appendChild(h("option", { value: o[0], text: o[1] })); });
     if (!buMethodOf(st.bu)) sel.appendChild(h("option", { value: String(st.bu), text: buLabel(st.bu) }));
     sel.value = String(st.bu); sel.addEventListener("change", function () { selectTopupMethod(sel.value); });
-    bar.appendChild(btn("▶ Tính lương tháng " + st.thang + "/" + st.nam, "pri big", function () {
-      if (!need("payroll.calc")) return;
+    var calcPermission = !can("payroll.calc") && C.workflowApproval.mode(db) === "roles" ? "payroll.approve" : "payroll.calc";
+    if (can(calcPermission)) bar.appendChild(btn((calcPermission === "payroll.approve" ? "Xem bảng để duyệt · " : "▶ Tính lương tháng ") + st.thang + "/" + st.nam, "pri big", function () {
+      if (!need(calcPermission)) return;
       if (!db.nhanvien.length) { alert("Chưa có nhân viên. Hãy nhập ở mục Nhân sự trước."); return; }
       var invalid = C.inputSafety.problems(db, kyStr()); if (invalid.length) { alert("Chưa tính lương: " + invalid.join("; ")); return; }
       var reviewMessage = C.inputReview.message(db, kyStr()); if (reviewMessage) { alert("Chưa tính lương: " + reviewMessage + " còn Nháp. Mở bảng và bấm Lưu để tính lương."); return; }
@@ -91,7 +106,7 @@
       if (sp.warn.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ Hồ sơ cần bổ sung:</b><br>" + sp.warn.map(esc).join("<br>") }));
       box.appendChild(card); return box;
     }
-    bar.appendChild(btn("🔒 Chốt kỳ lương", "pri", chotKy, "Lưu bảng lương kỳ này để xem lại về sau và khóa dữ liệu kỳ"));
+    if (can("payroll.close")) bar.appendChild(btn("🔒 Chốt kỳ lương", "pri", chotKy, "Lưu bảng lương kỳ này để xem lại về sau và khóa dữ liệu kỳ"));
     var qcOf = db.dm_luong.some(function (l) { return /SP/.test(l["Mã hình thức lương"] || ""); }) ? E.quyCheBuChinhThuc(db.dm_quychebu, st.nam, st.thang) : null;
     if (qcOf && String(qcOf["Cách bù"]) !== String(st.kq.cheDoBu)) box.appendChild(h("div", { class: "warn", "data-bu-result-trial": "1", html: "<b>⚠ KẾT QUẢ XEM THỬ</b> — bảng dưới tính theo <b>" + esc(buLabel(st.kq.cheDoBu)) + "</b>, KHÔNG phải phương pháp chính thức (<b>" + esc(buLabel(qcOf["Cách bù"])) + "</b>). Không dùng số này để thanh toán; app chặn chốt bảng xem thử. Hãy chọn phương pháp chính thức, bấm Tính lương và kiểm tra lại trước khi chốt." }));
     return renderKq(box, card, bar);

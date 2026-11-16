@@ -494,6 +494,12 @@
     (db.tiencom || []).forEach(function (r) {
       var ma = r["Mã NV"], date = ky(r, "Ngày"), quantity = num(r["Số suất cơm"]);
       if (!ma || !date || date.y !== nam || date.m !== thang) return;
+      var mealAttendance = cc[ma];
+      if (quantity > 0 && mealAttendance && mealAttendance.comDays && mealAttendance.comDays.has(date.d) &&
+          !/^(có|1|true)$/i.test(String(r["Suất bổ sung"] || "").trim())) {
+        loiDauVao.push(ma + ": " + date.d + "/" + thang + " có công CC và dòng Suất cơm chưa đánh dấu Suất bổ sung. Kiểm tra và bỏ dòng trùng hoặc đánh dấu Có.");
+        return;
+      }
       comMap[ma] = (comMap[ma] || 0) + quantity;
       if (quantity > 0) {
         if (!comDays.has(ma)) comDays.set(ma, new Set());

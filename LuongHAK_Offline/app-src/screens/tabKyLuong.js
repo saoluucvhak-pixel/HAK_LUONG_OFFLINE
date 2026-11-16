@@ -1,39 +1,74 @@
   function tabKyLuong() {
     var c = h("div", { class: "card" });
     c.appendChild(h("div", { class: "hint", text: "Các kỳ lương đã chốt được lưu nguyên bảng lương, BHXH, thuế TNCN tại thời điểm chốt — sửa hồ sơ hay danh mục về sau không làm thay đổi số đã chốt." }));
+    var ky = kyStr(), snap = kyChot(ky), pending = snap ? [] : C.inputReview.pending(db, ky);
+    var current = !snap && !pending.length && st.kq && st.kq.ky === ky && !st.kqStale ? st.kq : null;
+    var summary = h("div", { class: "card", "data-payroll-period-summary": ky });
+    summary.appendChild(h("h3", { text: kyLabel(ky) + (snap ? " · Đã chốt v" + (snap.version || 1) : " · Chưa chốt") }));
+    function periodLink(label, screen, input) {
+      return tabAllowed(screen) ? btn(label, "ghost", function () {
+        if (input) {
+          var parts = input.period.split("-").map(Number); st.nam = parts[0]; st.thang = parts[1];
+          if (input.kind) st.pumpMode = input.kind;
+        }
+        st.tab = screen; saveUi(); render();
+      }) : null;
+    }
+    if (snap) {
+      var lines = payLines(), balances = PLG.outstanding(snap.kq.bangluong, lines, ky);
+      var paid = lines.filter(function (line) { return line["Kỳ"] === ky && line["Trạng thái"] === PLG.TT.TRA; })
+        .reduce(function (sum, line) { return sum + n0(line["Số tiền"]); }, 0);
+      var due = balances.reduce(function (sum, row) { return sum + row.conPhaiTra; }, 0);
+      summary.appendChild(h("p", { text: "Đã chi " + fmt(paid) + " đ · Còn phải trả " + fmt(due) + " đ" }));
+      summary.appendChild(btn("Xem đối chiếu tiền đã chi", "", function () { viewPaidReconciliation(snap); }));
+    } else {
+      var blockers = current ? GATE.blockers(current) : null;
+      summary.appendChild(h("p", { text: pending.length ? "Còn " + pending.length + " đầu vào nháp, cần lưu để tính lương." :
+        blockers ? "Lỗi chặn theo lần tính hiện tại: " + blockers.length : "Chưa có kết quả kiểm tra cho dữ liệu hiện tại." }));
+      var actions = pending.map(function (row) {
+        var title = row.table === "chamcong" ? "Chấm công" : row.table === "sanluong" ? "Sản lượng" : "Bơm dăm";
+        return periodLink(title + " · " + row.period + (row.kind ? (row.kind === "team" ? " · theo tổ" : " · trực tiếp") : ""), row.table, row);
+      });
+      actions.push(periodLink("Tính lương", "luong"), periodLink("Kiểm tra bảng lương", "ktbl"));
+      summary.appendChild(h("div", { class: "bar" }, actions));
+    }
+    c.appendChild(summary);
     c.appendChild(btn("Theo dõi khoản khấu trừ còn thiếu", "", showDeficitRegister));
-    if (!db.kyluong.length) { c.appendChild(h("div", { class: "empty", html: "Chưa chốt kỳ nào.<br>Vào <b>Tính lương</b>, tính xong bấm <b>🔒 Chốt kỳ lương</b>." })); return c; }
-    var t = h("table"), tr = h("tr");
-    ["Kỳ lương", "Phiên bản", "Ngày chốt", "Số NV", "Tổng thu nhập", "BH NLĐ", "Thuế TNCN", "Tổng thực lĩnh", "Toàn vẹn", "Ghi chú", ""].forEach(function (x, i) { tr.appendChild(h("th", { class: i >= 3 && i <= 7 ? "r" : "", text: x })); });
-    t.appendChild(h("thead", {}, [tr])); var tb = h("tbody");
-    db.kyluong.forEach(function (k) {
-      var bl = k.kq.bangluong, sm = function (f) { return bl.reduce(function (a, x) { return a + (+x[f] || 0); }, 0); };
-      var go = function () { var m = k.ky.split("-"); st.nam = +m[0]; st.thang = +m[1]; st.tab = "luong"; st.kq = null; saveUi(); render(); };
-      var x = h("tr", { class: "click", on: { click: go } });
-      [kyLabel(k.ky), "v" + (k.version || 1), fmtTime(k.ngayChot)].forEach(function (v) { x.appendChild(h("td", { class: "t", text: v })); });
-      [bl.length, sm("Tổng thu nhập"), sm("BH trừ NLĐ"), sm("Thuế TNCN"), sm("Thực lĩnh")].forEach(function (v, i) { x.appendChild(h("td", { class: "r", text: fmt(v), style: i === 4 ? "font-weight:700" : "" })); });
-      var vf = CLS.verify(k);
-      x.appendChild(h("td", { class: "t", html: vf === "ok" ? "<span class='tag on'>Nguyên vẹn</span>" : vf === "legacy" ? "<span class='tag'>Bản cũ</span>" : "<span class='tag off'>BỊ SỬA</span>" }));
-      x.appendChild(h("td", { class: "t", text: k.ghiChu || "" }));
-      x.appendChild(h("td", { style: "text-align:right;white-space:nowrap" }, [
-        btn("Xem", "", function (e) { e.stopPropagation(); go(); }),
-        btn("Đối chiếu đã chi", "", function (e) { e.stopPropagation(); viewPaidReconciliation(k); }),
-        btn("⬇ Excel", "", function (e) { e.stopPropagation(); exportAll(k.kq, k.ky); }),
-        btn("PDF trọn kỳ", "", function (e) { e.stopPropagation(); exportPayrollBundlePdf(k.kq, k.ky); }),
-        btn("⬇ PDF", "", function (e) {
-          e.stopPropagation(); var m = k.ky.split("-");
-          exportSheetsPdf({ title: "Bảng lương kỳ đã chốt", ky: "Kỳ " + (+m[1]) + "/" + m[0] + " · v" + (k.version || 1), trangThai: "Đã chốt " + fmtTime(k.ngayChot) + (CLS.verify(k) === "ok" ? " · nguyên vẹn" : ""), loc: [], sheets: [{ name: "BangLuong_" + k.ky, rows: addTotal(k.kq.bangluong.map(function (r) { var o = {}; COLS_COMPACT.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); return o; })) }] }, "BangLuongDaChot_" + k.ky + "_v" + (k.version || 1) + ".pdf");
-        }, "PDF bảng lương đúng như lúc chốt"),
-        btn("Mở chốt", "red ghost", function (e) { e.stopPropagation(); moChot(k.ky); })]));
-      tb.appendChild(x);
-    });
-    t.appendChild(tb); c.appendChild(h("div", { class: "tw" }, [t]));
+    if (!db.kyluong.length) {
+      c.appendChild(h("div", { class: "empty", text: db.kyluong_lichsu.length ? "Hiện không có kỳ đã chốt đang hiệu lực." : "Chưa chốt kỳ nào. Vào Tính lương rồi bấm Chốt kỳ lương." }));
+    } else {
+      var t = h("table"), tr = h("tr");
+      ["Kỳ lương", "Phiên bản", "Ngày chốt", "Số NV", "Tổng thu nhập", "BH NLĐ", "Thuế TNCN", "Tổng thực lĩnh", "Toàn vẹn", "Ghi chú", ""].forEach(function (x, i) { tr.appendChild(h("th", { class: i >= 3 && i <= 7 ? "r" : "", text: x })); });
+      t.appendChild(h("thead", {}, [tr])); var tb = h("tbody");
+      db.kyluong.forEach(function (k) {
+        var bl = k.kq.bangluong, sm = function (f) { return bl.reduce(function (a, x) { return a + (+x[f] || 0); }, 0); };
+        var go = function () { var m = k.ky.split("-"); st.nam = +m[0]; st.thang = +m[1]; st.tab = "luong"; st.kq = null; saveUi(); render(); };
+        var x = h("tr", { class: "click", on: { click: go } });
+        [kyLabel(k.ky), "v" + (k.version || 1), fmtTime(k.ngayChot)].forEach(function (v) { x.appendChild(h("td", { class: "t", text: v })); });
+        [bl.length, sm("Tổng thu nhập"), sm("BH trừ NLĐ"), sm("Thuế TNCN"), sm("Thực lĩnh")].forEach(function (v, i) { x.appendChild(h("td", { class: "r", text: fmt(v), style: i === 4 ? "font-weight:700" : "" })); });
+        var vf = CLS.verify(k);
+        x.appendChild(h("td", { class: "t", html: vf === "ok" ? "<span class='tag on'>Nguyên vẹn</span>" : vf === "legacy" ? "<span class='tag'>Bản cũ</span>" : "<span class='tag off'>BỊ SỬA</span>" }));
+        x.appendChild(h("td", { class: "t", text: [k.ghiChu, payrollApprovalInfo(k)].filter(Boolean).join(" · ") }));
+        x.appendChild(h("td", { style: "text-align:right;white-space:nowrap" }, [
+          btn("Xem", "", function (e) { e.stopPropagation(); go(); }),
+          btn("Đối chiếu đã chi", "", function (e) { e.stopPropagation(); viewPaidReconciliation(k); }),
+          btn("⬇ Excel", "", function (e) { e.stopPropagation(); exportAll(k.kq, k.ky); }),
+          btn("PDF trọn kỳ", "", function (e) { e.stopPropagation(); exportPayrollBundlePdf(k.kq, k.ky); }),
+          btn("⬇ PDF", "", function (e) {
+            e.stopPropagation(); var m = k.ky.split("-");
+            exportSheetsPdf({ title: "Bảng lương kỳ đã chốt", ky: "Kỳ " + (+m[1]) + "/" + m[0] + " · v" + (k.version || 1), trangThai: "Đã chốt " + fmtTime(k.ngayChot) + (CLS.verify(k) === "ok" ? " · nguyên vẹn" : ""), loc: [], sheets: [{ name: "BangLuong_" + k.ky, rows: addTotal(k.kq.bangluong.map(function (r) { var o = {}; COLS_COMPACT.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); return o; })) }] }, "BangLuongDaChot_" + k.ky + "_v" + (k.version || 1) + ".pdf");
+          }, "PDF bảng lương đúng như lúc chốt"),
+          btn("Mở chốt", "red ghost", function (e) { e.stopPropagation(); moChot(k.ky); })]));
+        tb.appendChild(x);
+      });
+      t.appendChild(tb); c.appendChild(h("div", { class: "tw" }, [t]));
+    }
     if (db.kyluong_lichsu.length) {
       c.appendChild(h("h3", { text: "🕘 Lịch sử các lần mở chốt", style: "margin-top:18px" }));
       c.appendChild(h("div", { class: "hint", text: "Bản chốt cũ được giữ lại nguyên vẹn khi mở chốt — dùng để đối chiếu trước/sau điều chỉnh." }));
       var hrows = db.kyluong_lichsu.slice().sort(function (a, b) { return a.ky < b.ky ? 1 : (a.ky > b.ky ? -1 : (b.version || 0) - (a.version || 0)); }).map(function (k) {
         var t2 = k.totals || CLS.totals(k.kq);
-        return { "Kỳ": kyLabel(k.ky), "Phiên bản": "v" + (k.version || 1), "Chốt lúc": fmtTime(k.ngayChot), "Mở chốt lúc": fmtTime(k.moChot && k.moChot.luc), "Lý do mở chốt": (k.moChot && k.moChot.lyDo) || "", "Số NV": t2.soNV, "Tổng thực lĩnh": t2.thucLinh };
+        return { "Kỳ": kyLabel(k.ky), "Phiên bản": "v" + (k.version || 1), "Chốt lúc": fmtTime(k.ngayChot), "Mở chốt lúc": fmtTime(k.moChot && k.moChot.luc), "Lý do mở chốt": (k.moChot && k.moChot.lyDo) || "", "Phê duyệt": payrollApprovalInfo(k), "Số NV": t2.soNV, "Tổng thực lĩnh": t2.thucLinh };
       });
       c.appendChild(simpleTable(hrows));
       var cur = h("div", { class: "bar", style: "margin-top:8px" });

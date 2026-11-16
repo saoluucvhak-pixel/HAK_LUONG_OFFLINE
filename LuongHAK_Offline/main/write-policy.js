@@ -4,6 +4,8 @@
 // Giới hạn đã biết (ghi trong docs): tài khoản/mã khôi phục lúc CHƯA đăng nhập (đặt lại Admin) vẫn do renderer kiểm mã; file dữ liệu chưa mã hóa trên đĩa.
 "use strict";
 const crypto = require("crypto"), fs = require("fs");
+const workflow = require("../core/workflow-approval.js");
+const payrollClose = require("../core/payroll-close.js");
 const MONTHLY = { chamcong: 1, sanluong: 1, bandam: 1, psluong: 1, ungluong: 1, tiencom: 1 };
 const PRE_LOGIN_OK = { nguoidung: 1, baomat: 1, auditlog: 1 }; // chưa đăng nhập chỉ được động tới 3 bảng này (đăng nhập / khôi phục / nhật ký)
 const SELF_PW_FIELDS = ["salt", "hash", "iter", "phaiDoiMK", "doiMKLuc"];
@@ -17,7 +19,7 @@ function permsFor(t) {
   if (MONTHLY[t] || t === "ocr_ten") return ["input.edit"];
   if (t === "congty" || t === "baomat" || t === "nguoidung") return ["system.admin"];
   if (t === "chungtu" || t === "chungtu_lienket") return ["input.edit", "hr.edit"];
-  if (t === "ttluong") return ["payment.record"];
+  if (t === "ttluong") return ["payment.record", "payment.approve"];
   if (t === "kyluong") return ["payroll.close", "payroll.reopen"];
   if (t === "kyluong_lichsu") return ["payroll.reopen"];
   if (t === "nghiepvu_nhansu") return ["hr.edit", "hr.approve"];
@@ -137,6 +139,7 @@ const LINE_STATE = ["Trạng thái", "Ngày duyệt", "Người duyệt", "Ngày
 /** Sổ chứng từ thanh toán: Đã lập → Đã duyệt → Đã thanh toán; Hủy trước khi thanh toán. */
 function checkTtluong(prevObj, next, who) {
   const me = who && who.user || "";
+  const mode = workflow.mode(prevObj || {}), perms = who && who.perms || [];
   const pr = Array.isArray(prevObj && prevObj.ttluong) ? prevObj.ttluong : [], nx = Array.isArray(next.ttluong) ? next.ttluong : [];
   const prBy = {}; pr.forEach((l) => { prBy[lineKey(l)] = l; });
   const nxBy = {}; for (const l of nx) { const k = lineKey(l); if (nxBy[k]) return "chứng từ " + l["Số chứng từ"] + ": " + l["Mã NV"] + " xuất hiện 2 lần"; nxBy[k] = l; }
@@ -147,7 +150,9 @@ function checkTtluong(prevObj, next, who) {
   const newSo = {}, checkKeys = new Set();
   for (const k of Object.keys(nxBy)) {
     const a = prBy[k], b = nxBy[k];
-    if (b["Trạng thái"] !== TT.HUY && (!a || h(a) !== h(b))) checkKeys.add(b["Kỳ"] + "|" + b["Mã NV"]);
+    const changed = !a || h(a) !== h(b);
+    if (changed && b["Trạng thái"] !== TT.DUYET && !perms.includes("payment.record")) return "không có quyền lập, hủy hoặc ghi nhận chi";
+    if (changed && b["Trạng thái"] !== TT.HUY) checkKeys.add(b["Kỳ"] + "|" + b["Mã NV"]);
     if (!a) {
       if (b["Trạng thái"] !== TT.LAP) return "dòng chứng từ mới " + k + " chỉ được ở trạng thái '" + TT.LAP + "'";
       if (soExisting[b["Số chứng từ"]]) return "số chứng từ " + b["Số chứng từ"] + " đã tồn tại — không thêm người vào chứng từ cũ";
@@ -167,7 +172,8 @@ function checkTtluong(prevObj, next, who) {
     if (to === TT.DUYET) {
       if (from !== TT.LAP) return "chỉ duyệt chứng từ 'Đã lập' (" + k + ")";
       if (!isMe(b["Người duyệt"], me)) return "Người duyệt của " + k + " phải là người đang đăng nhập";
-      if (isMe(a["Người lập"], me) && !(who.perms || []).includes("system.admin")) return "người duyệt phải khác người lập (" + k + ")";
+      if (!(mode === "roles" ? perms.includes("payment.approve") : perms.includes("payment.record"))) return "không có quyền duyệt chứng từ";
+      if (isMe(a["Người lập"], me) && (mode === "roles" || !perms.includes("system.admin"))) return "người duyệt phải khác người lập (" + k + ")";
     } else if (to === TT.TRA) {
       if (from !== TT.DUYET) return "phải duyệt chứng từ " + k + " trước khi ghi nhận thanh toán";
       if (!isMe(b["Người ghi nhận"], me)) return "Người ghi nhận của " + k + " phải là người đang đăng nhập";
@@ -244,6 +250,16 @@ function createPolicy(opts) {
     // Khôi phục Full Backup đang chạy (main giữ khóa restore sau bước COMMIT tài sản): thay toàn bộ dữ liệu — chỉ Admin có quyền khôi phục + quản trị
     if (opts && opts.restoring && who && has("backup.restore") && has("system.admin")) return { ok: true, restoring: true };
     const deny = (m) => ({ ok: false, error: "Tiến trình chính từ chối ghi: " + m });
+    const saved = JSON.parse(readText() || "{}");
+    if (changed.includes("workflowSettings")) {
+      const config = (next.workflowSettings || [])[0];
+      if (!has("system.admin") || !Array.isArray(next.workflowSettings) || next.workflowSettings.length !== 1 ||
+          !config || !["single", "roles"].includes(config.mode) || !String(config.reason || "").trim() ||
+          config.user !== workflow.account(who.user) || !config.changedAt ||
+          changed.some(t => !["workflowSettings", "auditlog"].includes(t))) return deny("đổi chế độ sử dụng cần Quản trị, lý do và một lần lưu riêng");
+      const notReady = config.mode === "roles" && workflow.readiness(saved);
+      if (notReady) return deny(notReady);
+    }
     for (const t of changed) {
       if (!who) {
         if (!PRE_LOGIN_OK[t]) return deny("chưa đăng nhập (bảng " + t + ")");
@@ -263,6 +279,21 @@ function createPolicy(opts) {
         // Theo yêu cầu chủ sở hữu: nhật ký thao tác KHÔNG còn chặn ghi (khôi phục/nhập file có nhật ký ngắn hơn hoặc khác vẫn ghi được).
         continue;
       }
+      if (t === "kyluong_lichsu") {
+        const nextHistory = Array.isArray(next.kyluong_lichsu) ? next.kyluong_lichsu : [];
+        for (const entry of saved.kyluong_lichsu || []) {
+          if (!entry.input || !entry.input.approval) continue;
+          const matching = nextHistory.filter(row => kyKey(row) === kyKey(entry));
+          if (matching.length !== 1 || h(matching[0]) !== h(entry)) return deny("không được sửa lịch sử phê duyệt của kỳ " + entry.ky);
+        }
+      }
+      if (t === "workflowSettings") continue;
+      if (t === "payrollApprovals") {
+        if (next.payrollApprovals && !next.payrollApprovals.length && !saved.payrollApprovals) continue;
+        const error = workflow.checkApprovalChanges(saved, next, who);
+        if (error) return deny(error);
+        continue;
+      }
       if (t === "kyluong") {
         const nextKy = {}; (Array.isArray(next.kyluong) ? next.kyluong : []).forEach((k) => { nextKy[kyKey(k)] = h(k); });
         const added = Object.keys(nextKy).filter((k) => !(k in prev.ky)), removed = Object.keys(prev.ky).filter((k) => !(k in nextKy));
@@ -270,6 +301,24 @@ function createPolicy(opts) {
         if (modified.length) return deny("bản chốt kỳ " + modified.join(", ") + " là bất biến, không được sửa");
         if (added.length && !has("payroll.close")) return deny("không có quyền chốt kỳ lương");
         if (removed.length && !has("payroll.reopen")) return deny("không có quyền mở chốt kỳ lương");
+        for (const snap of saved.kyluong || []) {
+          if (!removed.includes(kyKey(snap)) || !snap.input || !snap.input.approval) continue;
+          const archived = payrollClose.history(next, snap.ky).find(row => row.version === snap.version);
+          if (!archived || h(archived.input || null) !== h(snap.input) || archived.inputChecksum !== snap.inputChecksum) return deny("mở chốt phải giữ nguyên thông tin phê duyệt của kỳ " + snap.ky);
+        }
+        if (added.length && workflow.mode(saved) === "roles") {
+          for (const key of added) {
+            const snap = next.kyluong.find(row => kyKey(row) === key);
+            const approved = workflow.ticket(saved, snap.ky);
+            let digest;
+            try { digest = workflow.fingerprint(next, snap); }
+            catch (e) { return deny("không xác minh được dữ liệu yêu cầu duyệt kỳ " + snap.ky); }
+            const approval = workflow.approvalRecord(approved, snap.version);
+            if (!approval || approval.digest !== digest) return deny("kỳ " + snap.ky + " cần được người khác duyệt đúng dữ liệu hiện tại trước khi chốt");
+            if (snap.version !== payrollClose.history(saved, snap.ky).length + 1 ||
+                !snap.input || h(snap.input.approval || null) !== h(approval) || !snap.inputChecksum || payrollClose.verify(snap) !== "ok") return deny("bản chốt kỳ " + snap.ky + " thiếu hoặc sai thông tin phê duyệt");
+          }
+        }
         if (added.length && gate) {
           for (const key of added) {
             const snap = (next.kyluong || []).filter((k) => kyKey(k) === key)[0] || {};
