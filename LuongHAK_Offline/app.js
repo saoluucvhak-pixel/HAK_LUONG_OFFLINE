@@ -1016,7 +1016,7 @@
       }));
       card.appendChild(reviewState);
     }
-    function refreshInputReview() { if (inputReview) { var pending = C.inputReview.changed(db, key, kyStr(), pumpMode); reviewState.textContent = pending ? "● Nháp — thay đổi đã được giữ trên máy, CHƯA dùng tính lương. Kiểm tra rồi bấm Lưu để tính lương (toàn bộ kỳ đang chọn)." : "✓ Đã lưu để tính lương kỳ " + kyStr(); reviewState.className = pending ? "warn" : "hint"; } }
+    function refreshInputReview() { if (inputReview) { var pending = C.inputReview.changed(db, key, kyStr(), pumpMode); reviewState.textContent = inputReportSource(key, kyStr(), pumpMode) + (pending ? " — kiểm tra rồi bấm Lưu để tính lương cho kỳ đang chọn." : ""); reviewState.className = pending ? "warn" : "hint"; } }
     /** MỘT phép quét duy nhất cho: bảng hiển thị · tổng · Excel · PDF · in (hiển thị = tổng = Excel = PDF = in). */
     function scan() {
       var idx = [], qq = qOf(key), names = {}, LKMAP = key === "chamcong" ? linkMapNow() : {}, total = 0;
@@ -3438,6 +3438,16 @@
     al.empCount = cnt; al.chuaGan = k.chuaGan; al.raw = (db[loai] || []).filter(function (r) { return VAL.rowPeriod(loai, r) === kyKey(nam, thang); });
     return al;
   }
+  function inputReportSource(table, ky, kind) {
+    if (kyChot(ky)) return "Đã chốt · dữ liệu lưu khi chốt";
+    var counts = C.inputReview.summary(db, table, ky).filter(function (item) { return !kind || item.kind === kind; });
+    if (!counts.some(function (item) { return item.current || item.previousOnly; })) return "Chưa có dữ liệu trong kỳ";
+    if (!counts.some(function (item) { return item.draft || item.previousOnly; })) return "Đã lưu để tính lương · kỳ chưa chốt";
+    return "Dữ liệu hiện hành · " + counts.map(function (item) {
+      var kind = item.kind === "team" ? "Theo tổ: " : item.kind === "direct" ? "Trực tiếp: " : "";
+      return kind + item.approved + " dòng đã lưu giữ nguyên, " + item.draft + " dòng nháp" + (item.previousOnly ? ", " + item.previousOnly + " dòng bản lưu cũ đã sửa/xóa" : "");
+    }).join(" · ");
+  }
   function reportAllocation(nam, thang, loai) {
     var snapshot = kyChot(kyKey(nam, thang));
     if (!snapshot) return pbAlloc(nam, thang, loai);
@@ -3479,7 +3489,7 @@
     var wb = window.HAKUi.pbkl.report(window.ExcelJS, { sl: sl, bd: bd, raw: { sl: sl.raw, bd: bd.raw },
       luong: rows.length ? { rows: rows, coChe: coChe, note: (src.chot ? "Số liệu lấy từ bảng lương ĐÃ CHỐT." : "Kỳ CHƯA chốt — số liệu tính tạm.") + " Số công = công BT trong chấm công." } : null,
       daihiepDetail: daihiepDetail, attendanceReview: attendanceReview,
-      ctx: { coChe: coChe, chot: src.chot, giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
+      ctx: { coChe: coChe, chot: src.chot, source: inputReportSource("sanluong", kyKey(nam, thang)) + " | Bơm dăm: " + inputReportSource("bandam", kyKey(nam, thang)), giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
     wb.xlsx.writeBuffer().then(function (buf) {
       download("Phan_bo_khoi_luong_" + kyKey(nam, thang) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel phân bổ khối lượng", kyLabel(kyKey(nam, thang)));
@@ -3528,6 +3538,8 @@
       var src = st.bcl === "cong" || st.bcl === "sanluong" ? null : kqKy(nam, thang);
       if (src) info(src.chot ? "🔒 Số liệu kỳ <b>" + thang + "/" + nam + "</b> lấy từ bảng lương <b>đã chốt</b>." : "⚠ Kỳ <b>" + thang + "/" + nam + "</b> <b>chưa chốt</b> — số liệu tính tạm từ dữ liệu hiện tại, có thể thay đổi.", src.chot ? "locked" : "warn");
     }
+    var dataSource = st.bcl === "cong" ? inputReportSource("chamcong", kyKey(nam, thang)) : "";
+    if (dataSource) info(esc(dataSource));
     if (st.bcl === "cong") { var r2 = FX(bcCong(nam, thang)); if (snapshot && !Array.isArray(snapshot.input?.data?.chamcong)) info("Bản chốt cũ thiếu dữ liệu chấm công.", "warn"); info("Tổng hợp từ bảng chấm công kỳ " + thang + "/" + nam + ". Ngày có nhãn: VD QC×7 = 7 ngày công tác QC."); card.appendChild(simpleTable(r2)); sheets.push({ name: "TongHopCong", rows: r2 }); }
     else if (st.bcl === "sanluong") {
       st.bclLoai = st.bclLoai || "sanluong";
@@ -3540,6 +3552,9 @@
         return w;
       }
       var r3 = bcSanLuong(nam, thang, st.bclLoai, allocation);
+      dataSource = inputReportSource(st.bclLoai, kyKey(nam, thang));
+      info(esc(dataSource));
+      info("Phân bổ cho biết ai nhận, ai không nhận và phần chưa phân bổ. Tổng phiếu gốc và tổng phân bổ cùng nguồn, không cộng lại.");
       var receiptRows = r3.al.attendanceReview.flatMap(function (receipt, index) {
         return receipt.employees.map(function (e) {
           return { index: index, "Mã NV": e.ma, "Họ và tên": e.hoTen + " " + receipt.phieu,
@@ -3554,7 +3569,16 @@
       if (r3.warnings.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ Cần kiểm tra (" + r3.warnings.length + "):</b><br>" + r3.warnings.map(esc).join("<br>") }));
       card.appendChild(h("div", { class: "fh", text: "Theo phòng ban (tổ)" })); card.appendChild(simpleTable(r3.pb));
       card.appendChild(h("div", { class: "fh", text: "Theo công nhân" })); card.appendChild(simpleTable(r3.nv));
-      card.appendChild(h("div", { class: "fh", text: "Đối soát từng phiếu" })); card.appendChild(simpleTable(r3.audit));
+      card.appendChild(h("div", { class: "fh", text: "Đối soát từng phiếu" }));
+      var origin = st.bclLoai === "bandam" ? "rp_bd" : "rp_sl", originType = OPS_SCREENS[origin];
+      var linkedAudit = tabAllowed(origin) ? r3.audit.map(function (row) {
+        if (!row["Phiếu"] || !row["Ngày"]) return row;
+        return Object.assign({}, row, { "Phiếu": btn(row["Phiếu"], "ghost", function () {
+          st.opsReceipt = { type: originType, number: String(row["Phiếu"]).trim(), date: String(row["Ngày"]).slice(0, 10), ky: kyKey(nam, thang) };
+          st.opsKw = ""; st.opsPB = ""; st.tab = origin; saveUi(); render();
+        }, "Xem phiếu gốc " + row["Phiếu"]) });
+      }) : r3.audit;
+      card.appendChild(simpleTable(linkedAudit));
       if (r3.chuaGan.length) { card.appendChild(h("div", { class: "warn", html: "<b>⚠ " + r3.chuaGan.length + " phiếu cân chưa có Mã NV hoặc Mã phòng ban</b> — chưa được tính lương cho ai:" })); card.appendChild(simpleTable(r3.chuaGan)); }
       if (r3.attendanceReview.length) {
         var reviewFilter = reportFilterBar(receiptRows, { compact: true, showEmployees: true, screenId: "phieu-doi-chieu", searchPlaceholder: "Tìm phiếu, mã hoặc tên người cần kiểm tra…" });
@@ -3608,7 +3632,7 @@
     tools.appendChild(h("span", { class: "sp" }));
     if (st.bcl !== "sanluong" && !RF.isEmpty(st.rf)) rfHint.textContent = "Đang lọc: " + RF.describe(st.rf).join(" · ") + " — áp cho bảng nào có cột tương ứng; Excel và PDF xuất ra theo đúng bộ lọc này." + (Object.keys(rfSkip).length ? " Không áp được (báo cáo này không có cột): " + Object.keys(rfSkip).join(", ") + "." : "");
     tools.appendChild(btn("⬇ Xuất PDF", "", function () {
-      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + thang + "/" + nam, trangThai: src && !BCL_NAM[st.bcl] ? (src.chot ? "Đã chốt" : "Chưa chốt — tính tạm") : "", loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + ".pdf");
+      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + thang + "/" + nam, trangThai: dataSource || (src && !BCL_NAM[st.bcl] ? (src.chot ? "Đã chốt" : "Chưa chốt — tính tạm") : ""), loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + ".pdf");
     }, "PDF theo đúng bộ lọc đang chọn"));
     tools.appendChild(btn(st.bcl === "sanluong" ? "⬇ Xuất báo cáo đang xem (Excel)" : "⬇ Xuất Excel", "pri", function () {
       if (st.bcl === "baohiem") {
@@ -3621,6 +3645,7 @@
       }
       var sh = sheets.filter(function (x) { return x.rows.length; }).map(function (x) { return { name: x.name, cols: Object.keys(x.rows[0]), rows: x.rows }; });
       if (!sh.length) { toast("Không có dữ liệu"); return; }
+      if (dataSource) sh.unshift({ name: "NguonDuLieu", cols: ["Nguồn số liệu"], rows: [{ "Nguồn số liệu": dataSource }] });
       saveXlsx("BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + ".xlsx", sh);
     }));
     w.appendChild(card); return w;
@@ -4105,14 +4130,18 @@
       if (snapshot) opt.bangluong = snapshot.kq.bangluong;
       else if (db.nhanvien.length) opt.bangluong = kqKy(st.nam, st.thang).kq.bangluong;
     }
+    var table = OPS.closedTables[type], production = type === "SAN_LUONG" || type === "BOM_DAM";
+    if (production && st.opsReceipt?.type === type && st.opsReceipt.ky === kyStr()) opt.receipt = st.opsReceipt;
     if (snapshot) return OPS.buildClosed(type, snapshot, opt);
-    if (type === "SAN_LUONG" || type === "BOM_DAM") opt.alloc = reportAllocation(st.nam, st.thang, OPS.closedTables[type]);
-    return OPS.build(type, db, opt);
+    if (production) opt.alloc = reportAllocation(st.nam, st.thang, table);
+    var report = OPS.build(type, db, opt);
+    if (production) report.trangThai = inputReportSource(table, kyStr());
+    return report;
   }
   function opsExportOk(vm) {
     if (!need("export", "xuất báo cáo")) return false;
     if (vm.loi.length) { alert("⛔ Không xuất được — " + vm.loi.length + " lỗi dữ liệu làm báo cáo sai:\n\n" + vm.loi.slice(0, 10).map(function (x) { return "• " + x; }).join("\n") + (vm.loi.length > 10 ? "\n…" : "") + "\n\nSửa dữ liệu nguồn rồi mở lại báo cáo."); return false; }
-    if (!vm.rows.length) { toast("Không có dòng nào để xuất"); return false; }
+    if (!vm.rows.length && !vm.extras.some(function (sheet) { return sheet.rows.length; })) { toast("Không có dòng nào để xuất"); return false; }
     return true;
   }
   function opsXlsx(vm) {
@@ -4145,6 +4174,16 @@
   function tabOpsReport(type) {
     var w = h("div"), card = h("div", { class: "card" }), T = OPS.TYPES[type], vm = opsVm(type);
     card.appendChild(h("h3", { "data-report-title": type, text: vm.title }));
+    if (type === "SAN_LUONG" || type === "BOM_DAM") {
+      card.appendChild(h("p", { class: "hint", text: "Phiếu gốc để kiểm kê. Kết quả phân bổ là chi tiết chia của cùng các phiếu này." }));
+      var inputTable = OPS.closedTables[type];
+      if (!kyChot(kyStr()) && tabAllowed(inputTable)) card.appendChild(btn("Mở bảng nhập phiếu", "ghost", function () {
+        st.opsReceipt = null; st.tab = inputTable; saveUi(); render();
+      }));
+      if (st.opsReceipt?.type === type && st.opsReceipt.ky === kyStr()) {
+        card.appendChild(btn("Bỏ lọc phiếu " + st.opsReceipt.number, "ghost", function () { st.opsReceipt = null; render(); }));
+      }
+    }
     if ((type === "SAN_LUONG" || type === "BOM_DAM") && tabAllowed("baocaoluong")) {
       card.appendChild(btn("Xem kết quả phân bổ", "ghost", function () {
         st.tab = "baocaoluong"; st.bcl = "sanluong"; st.bclLoai = type === "BOM_DAM" ? "bandam" : "sanluong";

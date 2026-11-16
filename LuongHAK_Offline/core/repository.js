@@ -80,8 +80,11 @@
           if (dc.error) return deny("invalid", dc.error);
         }
       }
-      // 3. trùng khóa nghiệp vụ (hồ sơ)
-      if (opts.checkDup && after) {
+      var voucher = table === "psluong" || table === "ungluong";
+      var crossPeriod = voucher && IMP.crossPeriod(table, before, after);
+      if (crossPeriod) return deny("period", crossPeriod);
+      // 3. trùng khóa nghiệp vụ
+      if ((opts.checkDup || voucher) && after) {
         var k = IMP.keyOf(table, after);
         if (k && db[table].some(function (r) { return r !== target && IMP.keyOf(table, r) === k; }))
           return deny("dup", "Đã có bản ghi trùng (" + (IMP.KEYS[table] || []).join(" + ") + "). Hãy sửa bản ghi đó thay vì thêm mới.");
@@ -187,6 +190,8 @@
             var value = item.row[field];
             if (!before || p.mode === "replace" || (value !== "" && value != null)) after[field] = value;
           });
+          var move = IMP.crossPeriod(p.table, before, after);
+          if (move) return deny("period", move);
           var impact = GRD.impactChange(db, p.table, before, after), key = IMP.keyOf(p.table, after);
           if (impact.kind === "locked" || (impact.kind === "retro" && !ctx.can("retro.edit")) ||
               (p.table === "chitiethd" && before && GRD.frozenAppendix(db, before).length)) return deny("locked", "Dữ liệu thuộc kỳ đã chốt. Mở lại bản xem trước nhập Excel.");

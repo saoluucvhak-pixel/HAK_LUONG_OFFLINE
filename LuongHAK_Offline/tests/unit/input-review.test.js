@@ -6,3 +6,16 @@ test('Team and direct approval are independent',()=>{const d=fixture();R.initial
 test('Source drafts block payment period through carry ledger',()=>{const d=fixture();R.initialize(d);d.sl_chuyenky=[{source:'2026-09',target:'2026-10'}];d.chamcong[0]['01']='99';a.throws(()=>R.assertReady(d,'2026-10'),/2026-09/);a.equal(R.pending(d,'2026-11').length,0);});
 test('Invalid approval structures fail closed and older apps reject schema 5',()=>{for(const d of [{schemaVersion:5},{schemaVersion:5,_inputReviews:{}},{schemaVersion:4,_inputReviews:[]}])a.throws(()=>R.validate(d));const d=fixture();R.initialize(d);d._inputReviews.push(d._inputReviews[0]);a.throws(()=>R.validate(d),/Trùng/);});
 test('Day outside month and unknown employee cannot be approved',()=>{const d=fixture();R.initialize(d);d.chamcong=[{'Kỳ':'2026-06','Mã NV':'A','31':'1'}];a.throws(()=>R.assertValid(d,'chamcong','2026-06',''));d.chamcong=[{'Kỳ':'2026-06','Mã NV':'NO'}];a.throws(()=>R.assertValid(d,'chamcong','2026-06',''),/Mã NV/);});
+
+test("Phân biệt dòng nháp, dòng đã lưu còn nguyên và phiên bản cũ đã sửa hoặc xóa", () => {
+  const input = require("../../core/input-review");
+  const row = { "Phiếu cân": "P1", "Ngày cân": "2026-10-01", "KL hàng (Tấn)": 2 };
+  const db = { sanluong: [row, { ...row, "Phiếu cân": "P2" }, { ...row, "Phiếu cân": "P3" }] };
+  input.initialize(db);
+  db.sanluong[0]["KL hàng (Tấn)"] = 5;
+  db.sanluong.splice(1, 1);
+  db.sanluong.push({ ...row, "Phiếu cân": "P4" });
+  a.deepEqual(input.summary(db, "sanluong", "2026-10"), [{ kind: "", current: 3, approved: 1, draft: 2, previousOnly: 2 }]);
+  input.approve(db, "sanluong", "2026-10", "", "QA");
+  a.deepEqual(input.summary(db, "sanluong", "2026-10"), [{ kind: "", current: 3, approved: 3, draft: 0, previousOnly: 0 }]);
+});

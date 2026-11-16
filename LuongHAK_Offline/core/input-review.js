@@ -6,6 +6,20 @@
   function rows(db,table,period,kind){return (db[table]||[]).filter(function(r){return V.rowPeriod(table,r)===period&&(table!=='bandam'||mode(r)===kind);});}
   function entry(db,table,period,kind){return (db._inputReviews||[]).find(function(r){return r.table===table&&r.period===period&&r.kind===(kind||'');});}
   function changed(db,table,period,kind){if(!db._inputReviews)return false;var e=entry(db,table,period,kind);return JSON.stringify(rows(db,table,period,kind))!==JSON.stringify(e?e.rows:[]);}
+  function summary(db, table, period) {
+    if (!tables.includes(table)) return [];
+    return (table === 'bandam' ? ['team', 'direct'] : ['']).map(function(kind) {
+      var current = rows(db, table, period, kind), saved = entry(db, table, period, kind);
+      var approved = db._inputReviews ? (saved ? saved.rows : []) : current, counts = new Map();
+      approved.forEach(function(r) { var k = JSON.stringify(r); counts.set(k, (counts.get(k) || 0) + 1); });
+      var unchanged = current.reduce(function(n, r) {
+        var k = JSON.stringify(r), left = counts.get(k) || 0;
+        if (left) counts.set(k, left - 1);
+        return n + (left ? 1 : 0);
+      }, 0);
+      return { kind: kind, current: current.length, approved: unchanged, draft: current.length - unchanged, previousOnly: approved.length - unchanged };
+    });
+  }
   function approve(db,table,period,kind,user){
     if(tables.indexOf(table)<0||!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))throw Error('Bảng hoặc kỳ không hợp lệ');
     if(table==='bandam'&&['direct','team'].indexOf(kind)<0)throw Error('Chọn loại phân bổ bơm dăm');
@@ -19,5 +33,5 @@
   function assertReady(db,period){(node?require('./input-safety.js'):root.HAKCore.inputSafety).assertPeriod(db,period);validate(db);var m=message(db,period);if(m)throw Error('Còn dữ liệu Nháp: '+m+'. Mở bảng và bấm Lưu để tính lương.');}
   function validate(db){if(db._inputReviews===undefined){if(db.schemaVersion>=5)throw Error('Thiếu trạng thái lưu nhập liệu');return;}if(!Array.isArray(db._inputReviews)||!(db.schemaVersion>=5))throw Error('Trạng thái lưu nhập liệu sai cấu trúc');var seen={};db._inputReviews.forEach(function(r){if(!r||tables.indexOf(r.table)<0||!/^\d{4}-(0[1-9]|1[0-2])$/.test(r.period)||!Array.isArray(r.rows)||(r.table==='bandam'?['team','direct'].indexOf(r.kind)<0:r.kind!=='')||r.rows.some(function(x){return !x||V.rowPeriod(r.table,x)!==r.period||(r.table==='bandam'&&mode(x)!==r.kind);}))throw Error('Bản xác nhận nhập liệu không hợp lệ');var k=r.table+'|'+r.period+'|'+r.kind;if(seen[k])throw Error('Trùng bản xác nhận nhập liệu');seen[k]=true;});}
   function assertValid(db,table,period,kind){var bad=(node?require('./input-safety.js'):root.HAKCore.inputSafety).issues(db,table,period);if(bad.length)throw Error(bad.join('; '));rows(db,table,period,kind).forEach(function(r,i){var label='Dòng '+(i+1)+': ';if(table==='chamcong'){if(!(db.nhanvien||[]).some(function(n){return n['Mã NV']===r['Mã NV'];}))throw Error(label+'Mã NV không có trong Nhân sự');for(var day=1;day<=31;day++){var k=('0'+day).slice(-2),v=V.dayCell(k,r[k],period);if(v.error)throw Error(label+v.error);}}else{if(!r['Phiếu cân']||!V.normDate(r['Ngày cân'])||!(V.parseMoney(r['KL hàng (Tấn)'])>0))throw Error(label+'cần số phiếu, ngày cân và số lượng lớn hơn 0');if(r['Mã NV']){if(!(db.nhanvien||[]).some(function(n){return n['Mã NV']===r['Mã NV'];}))throw Error(label+'Mã NV không có trong Nhân sự');}else if(!r['Mã phòng ban'])throw Error(label+'chưa chọn tổ');}});}
-  var api={initialize:initialize,approve:approve,changed:changed,pending:pending,message:message,assertReady:assertReady,assertValid:assertValid,validate:validate,rows:rows,mode:mode};if(node)module.exports=api;else root.HAKCore.inputReview=api;
+  var api={initialize:initialize,approve:approve,changed:changed,pending:pending,message:message,assertReady:assertReady,assertValid:assertValid,validate:validate,summary:summary,rows:rows,mode:mode};if(node)module.exports=api;else root.HAKCore.inputReview=api;
 })(typeof window!=='undefined'?window:this);

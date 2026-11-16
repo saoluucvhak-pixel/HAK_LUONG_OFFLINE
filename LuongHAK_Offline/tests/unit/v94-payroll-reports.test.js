@@ -306,7 +306,7 @@ test("Closed production export uses the frozen allocation even after live depart
       return { xlsx: { writeBuffer: () => Promise.resolve(Buffer.alloc(0)) } };
     } } } }
   };
-  vm.runInNewContext(source.slice(source.indexOf("  function reportAllocation("), source.indexOf("  /** File mẫu phiếu cân")), c);
+  vm.runInNewContext(source.slice(source.indexOf("  function inputReportSource("), source.indexOf("  /** File mẫu phiếu cân")), c);
   c.exportPBKL(2026, 9);
   await Promise.resolve();
   assert.equal(workbook.raw.sl[0]["Mã phòng ban"], "OLD");

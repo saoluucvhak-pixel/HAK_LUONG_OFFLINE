@@ -48,6 +48,12 @@
     if (table === "sanluong" || table === "bandam" || table === "psluong" || table === "ungluong") { if (!parts[0]) return null; } // không có số phiếu / số chứng từ → không dùng khóa
     return parts.join("\u0001");
   }
+  function crossPeriod(table, before, after) {
+    if (!before || !after || !["sanluong", "bandam", "psluong", "ungluong"].includes(table)) return "";
+    var from = V.rowPeriod(table, before), to = V.rowPeriod(table, after);
+    if (!from || !to || from === to) return "";
+    return "Chứng từ đổi kỳ từ " + from + " sang " + to + ". Kiểm tra số chứng từ và kỳ nguồn trước khi ghi.";
+  }
   function fingerprint(cols, r) { return cols.map(function (c) { return String(r[c] == null ? "" : r[c]); }).join("\u0001"); }
   function blank(v) { return v === "" || v == null; }
   function str(v) { return v == null ? "" : String(v); }
@@ -189,10 +195,10 @@
         var tgt = tgts[0];
         // khi cập nhật: kỳ của bản ghi hiện có cũng không được thuộc kỳ đã chốt
         var p0 = V.rowPeriod(table, tgt); if (p0 && locked[p0]) { item.action = "locked"; item.reason = "Bản ghi hiện có thuộc kỳ " + p0 + " đã chốt"; return; }
-        var nextPeriod = V.rowPeriod(table, r);
-        if ((table === "sanluong" || table === "bandam") && p0 && nextPeriod && p0 !== nextPeriod) {
+        var move = crossPeriod(table, tgt, r);
+        if (move) {
           item.action = "conflict";
-          item.reason = "Phiếu " + r["Phiếu cân"] + " đổi kỳ từ " + p0 + " sang " + nextPeriod + ". Hãy đối chiếu và xác nhận bằng thao tác chuyển kỳ hoặc sửa phiếu trên app.";
+          item.reason = move;
           return;
         }
         var d = diffRow(tgt, r, mode);
@@ -266,7 +272,7 @@
     }
     return { rows: rows, headerRow: best + 1, matched: map.filter(Boolean) };
   }
-  var api = { KEYS: KEYS, REQUIRED: REQUIRED, keyOf: keyOf, plan: plan, apply: apply, mergeCells: mergeCells, sameCell: sameCell, LABEL: LABEL, rowsFromAoa: rowsFromAoa, headerName: headerName, ALIASES: ALIASES };
+  var api = { KEYS: KEYS, REQUIRED: REQUIRED, keyOf: keyOf, crossPeriod: crossPeriod, plan: plan, apply: apply, mergeCells: mergeCells, sameCell: sameCell, LABEL: LABEL, rowsFromAoa: rowsFromAoa, headerName: headerName, ALIASES: ALIASES };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.importer = api; }
 })(typeof window !== "undefined" ? window : this);

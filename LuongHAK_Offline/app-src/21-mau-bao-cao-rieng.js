@@ -9,14 +9,18 @@
       if (snapshot) opt.bangluong = snapshot.kq.bangluong;
       else if (db.nhanvien.length) opt.bangluong = kqKy(st.nam, st.thang).kq.bangluong;
     }
+    var table = OPS.closedTables[type], production = type === "SAN_LUONG" || type === "BOM_DAM";
+    if (production && st.opsReceipt?.type === type && st.opsReceipt.ky === kyStr()) opt.receipt = st.opsReceipt;
     if (snapshot) return OPS.buildClosed(type, snapshot, opt);
-    if (type === "SAN_LUONG" || type === "BOM_DAM") opt.alloc = reportAllocation(st.nam, st.thang, OPS.closedTables[type]);
-    return OPS.build(type, db, opt);
+    if (production) opt.alloc = reportAllocation(st.nam, st.thang, table);
+    var report = OPS.build(type, db, opt);
+    if (production) report.trangThai = inputReportSource(table, kyStr());
+    return report;
   }
   function opsExportOk(vm) {
     if (!need("export", "xuất báo cáo")) return false;
     if (vm.loi.length) { alert("⛔ Không xuất được — " + vm.loi.length + " lỗi dữ liệu làm báo cáo sai:\n\n" + vm.loi.slice(0, 10).map(function (x) { return "• " + x; }).join("\n") + (vm.loi.length > 10 ? "\n…" : "") + "\n\nSửa dữ liệu nguồn rồi mở lại báo cáo."); return false; }
-    if (!vm.rows.length) { toast("Không có dòng nào để xuất"); return false; }
+    if (!vm.rows.length && !vm.extras.some(function (sheet) { return sheet.rows.length; })) { toast("Không có dòng nào để xuất"); return false; }
     return true;
   }
   function opsXlsx(vm) {

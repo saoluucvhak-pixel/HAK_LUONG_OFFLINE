@@ -149,3 +149,21 @@ test("Q-12 sameCell: 1 hàm dùng chung cho nhập Excel và gộp chấm công 
   const db2 = { chamcong: [row({ "01": "1" }), row({ "01": "0.5" })] };
   assert.equal(INT.mergeChamCong(db2, {}).skipped.length, 1);
 });
+
+test("Không nhập đè chứng từ thưởng hoặc tạm ứng xuyên kỳ, vẫn cập nhật trong cùng kỳ", () => {
+  const imp = require("../../core/importer");
+  const repo = require("../../core/repository");
+  for (const [table, field] of [["psluong", "Thưởng"], ["ungluong", "Tạm ứng"]]) {
+    const old = { "Ngày hạch toán": "2026-09-10", "Mã NV": "QA", "Số chứng từ": "CT-01", [field]: 100000 };
+    const row = { ...old, "Ngày hạch toán": "2026-10-10", [field]: 200000 };
+    const db = { nhanvien: [{ "Mã NV": "QA" }], [table]: [old] };
+    for (const mode of ["merge", "replace"]) {
+      const plan = imp.plan(db, table, Object.keys(old), [row], { mode });
+      assert.equal(plan.items[0].action, "conflict");
+      assert.match(plan.items[0].reason, /2026-09.*2026-10/);
+      assert.equal(imp.plan(db, table, Object.keys(old), [{ ...row, "Ngày hạch toán": "2026-09-11" }], { mode }).items[0].action, "update");
+    }
+    const writer = repo.createRepo({ db: () => db, can: () => true });
+    assert.equal(writer.plan("update", table, old, row).ok, false);
+  }
+});
