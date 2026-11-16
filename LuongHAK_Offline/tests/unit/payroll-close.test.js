@@ -94,7 +94,7 @@ test("Production workbook preserves attendance review and identifies closed payr
   assert.ok(!pay.getColumn(5).values.includes(0));
   const guide = reopened.getWorksheet("Huong dan su dung").getColumn(1).values.join(" ");
   assert.match(guide, /từ bản chốt/);
-  assert.match(guide, /dữ liệu hiện tại/);
+  assert.match(guide, /phân bổ, đối soát và phiếu gốc cũng lấy từ bản chốt/);
   assert.doesNotMatch(guide, /987[.,]654/);
 });
 
