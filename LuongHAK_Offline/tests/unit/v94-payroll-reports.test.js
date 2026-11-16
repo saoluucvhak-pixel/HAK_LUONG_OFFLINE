@@ -329,3 +329,18 @@ test("Lương 12 tháng tách truy thu BH và đếm số nhân viên duy nhất
   assert.equal(report.at(-1)["Truy thu BH"], 50000);
   assert.equal(report.at(-1)["Số NV"], 1);
 });
+
+test("Nguồn phân bổ cảnh báo chấm công nháp dù các phiếu đã lưu", () => {
+  const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
+  const source = fs.readFileSync(path.join(__dirname, "../../app-src/18-bao-cao-luong.js"), "utf8");
+  const input = require("../../core/input-review");
+  const db = {
+    chamcong: [{ "Kỳ": "2026-10", "Mã NV": "QA", "01": 1 }],
+    sanluong: [{ "Phiếu cân": "P1", "Ngày cân": "2026-10-01", "KL hàng (Tấn)": 2 }]
+  };
+  input.initialize(db);
+  db.chamcong[0]["01"] = 0;
+  const c = { db, kyChot: () => null, C: { inputReview: input } };
+  vm.runInNewContext(source.slice(source.indexOf("  function inputReportSource("), source.indexOf("  function reportAllocation(")), c);
+  assert.match(c.allocationReportSource("sanluong", "2026-10"), /Phiếu: Đã lưu.*Chấm công dùng để chia:.*1 dòng nháp/);
+});

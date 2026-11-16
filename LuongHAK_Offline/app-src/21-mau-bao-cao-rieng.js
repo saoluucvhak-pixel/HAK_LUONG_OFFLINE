@@ -14,7 +14,7 @@
     if (snapshot) return OPS.buildClosed(type, snapshot, opt);
     if (production) opt.alloc = reportAllocation(st.nam, st.thang, table);
     var report = OPS.build(type, db, opt);
-    if (production) report.trangThai = inputReportSource(table, kyStr());
+    if (production) report.trangThai = allocationReportSource(table, kyStr());
     return report;
   }
   function opsExportOk(vm) {

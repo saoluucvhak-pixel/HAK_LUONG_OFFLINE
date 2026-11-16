@@ -42,7 +42,7 @@
         return w;
       }
       var r3 = bcSanLuong(nam, thang, st.bclLoai, allocation);
-      dataSource = inputReportSource(st.bclLoai, kyKey(nam, thang));
+      dataSource = allocationReportSource(st.bclLoai, kyKey(nam, thang));
       info(esc(dataSource));
       info("Phân bổ cho biết ai nhận, ai không nhận và phần chưa phân bổ. Tổng phiếu gốc và tổng phân bổ cùng nguồn, không cộng lại.");
       var receiptRows = r3.al.attendanceReview.flatMap(function (receipt, index) {

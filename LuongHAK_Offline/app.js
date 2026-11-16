@@ -3448,6 +3448,13 @@
       return kind + item.approved + " dòng đã lưu giữ nguyên, " + item.draft + " dòng nháp" + (item.previousOnly ? ", " + item.previousOnly + " dòng bản lưu cũ đã sửa/xóa" : "");
     }).join(" · ");
   }
+  function allocationReportSource(table, ky) {
+    var source = inputReportSource(table, ky);
+    if (!kyChot(ky) && C.inputReview.changed(db, "chamcong", ky, "")) {
+      return "Phiếu: " + source + " | Chấm công dùng để chia: " + inputReportSource("chamcong", ky);
+    }
+    return source;
+  }
   function reportAllocation(nam, thang, loai) {
     var snapshot = kyChot(kyKey(nam, thang));
     if (!snapshot) return pbAlloc(nam, thang, loai);
@@ -3489,7 +3496,7 @@
     var wb = window.HAKUi.pbkl.report(window.ExcelJS, { sl: sl, bd: bd, raw: { sl: sl.raw, bd: bd.raw },
       luong: rows.length ? { rows: rows, coChe: coChe, note: (src.chot ? "Số liệu lấy từ bảng lương ĐÃ CHỐT." : "Kỳ CHƯA chốt — số liệu tính tạm.") + " Số công = công BT trong chấm công." } : null,
       daihiepDetail: daihiepDetail, attendanceReview: attendanceReview,
-      ctx: { coChe: coChe, chot: src.chot, source: inputReportSource("sanluong", kyKey(nam, thang)) + " | Bơm dăm: " + inputReportSource("bandam", kyKey(nam, thang)), giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
+      ctx: { coChe: coChe, chot: src.chot, source: allocationReportSource("sanluong", kyKey(nam, thang)) + " | Bơm dăm: " + inputReportSource("bandam", kyKey(nam, thang)), giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
     wb.xlsx.writeBuffer().then(function (buf) {
       download("Phan_bo_khoi_luong_" + kyKey(nam, thang) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel phân bổ khối lượng", kyLabel(kyKey(nam, thang)));
@@ -3552,7 +3559,7 @@
         return w;
       }
       var r3 = bcSanLuong(nam, thang, st.bclLoai, allocation);
-      dataSource = inputReportSource(st.bclLoai, kyKey(nam, thang));
+      dataSource = allocationReportSource(st.bclLoai, kyKey(nam, thang));
       info(esc(dataSource));
       info("Phân bổ cho biết ai nhận, ai không nhận và phần chưa phân bổ. Tổng phiếu gốc và tổng phân bổ cùng nguồn, không cộng lại.");
       var receiptRows = r3.al.attendanceReview.flatMap(function (receipt, index) {
@@ -4135,7 +4142,7 @@
     if (snapshot) return OPS.buildClosed(type, snapshot, opt);
     if (production) opt.alloc = reportAllocation(st.nam, st.thang, table);
     var report = OPS.build(type, db, opt);
-    if (production) report.trangThai = inputReportSource(table, kyStr());
+    if (production) report.trangThai = allocationReportSource(table, kyStr());
     return report;
   }
   function opsExportOk(vm) {
