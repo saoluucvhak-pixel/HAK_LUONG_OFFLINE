@@ -3443,7 +3443,7 @@
     var counts = C.inputReview.summary(db, table, ky).filter(function (item) { return !kind || item.kind === kind; });
     if (!counts.some(function (item) { return item.current || item.previousOnly; })) return "Chưa có dữ liệu trong kỳ";
     if (!counts.some(function (item) { return item.draft || item.previousOnly; })) return "Đã lưu để tính lương · kỳ chưa chốt";
-    return "Dữ liệu hiện hành · " + counts.map(function (item) {
+    return "Nháp · dữ liệu hiện hành · " + counts.map(function (item) {
       var kind = item.kind === "team" ? "Theo tổ: " : item.kind === "direct" ? "Trực tiếp: " : "";
       return kind + item.approved + " dòng đã lưu giữ nguyên, " + item.draft + " dòng nháp" + (item.previousOnly ? ", " + item.previousOnly + " dòng bản lưu cũ đã sửa/xóa" : "");
     }).join(" · ");
