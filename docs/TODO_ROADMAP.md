@@ -65,7 +65,8 @@
 - [x] Q-04/Q-23/Q-25 BH dưới ngưỡng: giữ công thức, ngưỡng khai ở Danh mục Mã lương (R-57)
 - [x] Sao lưu ra ngoài máy A + B + D (alpha.13, R-58); C (mã hóa bản sao lưu) — chưa làm theo quyết định chủ sở hữu
 - [x] Gom 4 đường ghi còn lại (nhập Excel, gộp chấm công, thêm NV, xóa NV) vào repository (2.0.17)
-- Tiếp theo: SQLite ghi theo dòng (`MIGRATION_PLAN.md` §2)
+- [x] Bước chuẩn bị SQLite: kho bóng chỉ để so sánh (`tools/sqlite-shadow.js`), đọc lại giống hệt JSON và tính lương 0 khác biệt ở 5.000 NV — `MIGRATION_PLAN.md` §2
+- Tiếp theo (chờ chủ sở hữu duyệt): repository ghi nhận dòng thay đổi → SQLite ghi theo dòng
 
 ## Phase 2 — Chuẩn hóa kiến trúc (bước tiếp theo)
 0. (Đã khảo sát khi app dùng Electron 43; nay Electron 45.3.2 — kiểm lại khi làm) SQLite qua `node:sqlite` có sẵn trong Node đi kèm Electron, không cần module native. App hiện **chưa** dùng SQLite.

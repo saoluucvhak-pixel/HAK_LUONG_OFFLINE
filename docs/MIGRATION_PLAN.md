@@ -21,6 +21,28 @@ Số tiền đã bị **hỏng bởi BUG-001** (bản 1.1–1.3, VD đơn giá 3
 
 **Cập nhật 11/10/2026 (PR4):** đo cho thấy ở 5.000 NV, 120–260 ms của mỗi lần lưu nằm ở bước giao diện chuyển **toàn bộ** dữ liệu thành JSON (`PERFORMANCE_REPORT.md` §6). SQLite chỉ giúp được nếu app gửi **dòng thay đổi**. Vì vậy thêm điều kiện: (a) **mọi** đường ghi đi qua `core/repository` (kể cả nhập Excel, gộp chấm công, trợ lý thêm NV, xóa NV); (b) repository ghi nhận dòng thay đổi, và test chứng minh không có thay đổi nào bị bỏ sót (so toàn bộ dữ liệu JSON và SQLite sau mỗi kịch bản E2E). Bước 1 dùng `node:sqlite` thay `better-sqlite3`.
 
+**Cập nhật 16/11/2026 — bước chuẩn bị "kho bóng" (chỉ để so sánh, app vẫn đọc và ghi JSON):**
+
+`LuongHAK_Offline/tools/sqlite-shadow.js` ghi toàn bộ dữ liệu vào một file SQLite riêng bằng `node:sqlite`, đọc lại và so sánh. Nó nằm ngoài `build.files` nên không vào bộ cài; `main.js`, `main/*`, `app.js` không nạp nó (test `U-SQL-07`). Chạy trên một bản sao dữ liệu: `npm run sqlite:shadow -- <data.json> [đầu-ra.sqlite]`; file JSON chỉ được đọc.
+
+Kết quả đo trên dữ liệu tổng hợp (`regressionDataset`), Linux:
+
+| Phép đo | 300 NV | 5.000 NV |
+|---|---|---|
+| Số dòng / cỡ JSON | 4.151 dòng / 0,6 MB | 70.236 dòng / 9,5 MB |
+| Ghi lần đầu vào SQLite (một giao dịch) | 16 ms | 239 ms (Node 22), 247 ms (Node 24 của Electron 45) |
+| Đọc lại so với JSON | giống hệt từng ký tự | giống hệt từng ký tự |
+| `PRAGMA integrity_check` | ok | ok |
+| Tính lương hai nguồn, 3 kỳ | 874 lượt NV, 0 khác biệt | 14.566 lượt NV, 0 khác biệt |
+| Cỡ file SQLite | 0,8 MB | 12,9 MB |
+
+Điều rút ra:
+1. `node:sqlite` chạy được trong Node của Electron 45 (Node 24.22, SQLite 3.53) và giữ nguyên dữ liệu, kể cả thứ tự bảng, thứ tự dòng, số 0 đầu của CCCD/SĐT, chuỗi rỗng, `null` và Unicode. Trên Node 22 nó còn in cảnh báo "experimental".
+2. **Chỉ đổi nơi lưu thì chưa nhanh hơn.** Sửa một ô chấm công ở 5.000 NV: kho bóng chỉ phải ghi 1 dòng, nhưng để biết dòng nào đổi nó phải so cả 70.236 dòng, mất khoảng 133 ms; ghi lại cả file JSON 9,5 MB mất khoảng 96 ms. SQLite chỉ có lợi khi tầng repository **báo sẵn dòng nào đổi** — đúng điều kiện (b) ở trên. Từ 2.0.17 bốn đường ghi lớn đã đi qua repository, nhưng repository chưa ghi nhận danh sách dòng thay đổi.
+3. Cách lưu của kho bóng là "mỗi dòng dữ liệu một dòng SQLite (cột JSON)", khóa theo vị trí dòng. Nó chưa phải lược đồ chuẩn hóa ở `DATABASE_SCHEMA.md` §2 (bước 2–3 bên dưới) và chưa thử trên Windows hay với dữ liệu thật.
+
+Việc tiếp theo nếu muốn đi tiếp (mỗi việc cần chủ sở hữu duyệt riêng): cho repository ghi nhận dòng thay đổi và test "không bỏ sót thay đổi nào"; chạy kho bóng trên bản sao dữ liệu thật của công ty; rồi mới tới bước 2–6.
+
 **Điều kiện bắt đầu:** bộ kiểm thử hồi quy xanh; có tầng repository (`src/database/repositories`) để giao diện/module không còn đọc `db.<bảng>` trực tiếp.
 
 | Bước | Nội dung | Kiểm tra | Rollback |

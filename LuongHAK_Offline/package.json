@@ -7,6 +7,7 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "build:app": "node scripts/build-app.cjs",
+    "sqlite:shadow": "node --no-warnings tools/sqlite-shadow.js",
     "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
     "test:e2e": "node tests/e2e/run-e2e.js",
     "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
@@ -17,7 +18,7 @@
   "devDependencies": {
     "electron": "45.3.2",
     "electron-builder": "26.18.0",
-    "eslint": "9.39.5",
+    "eslint": "10.15.0",
     "jsdom": "31.0.1"
   },
   "build": {

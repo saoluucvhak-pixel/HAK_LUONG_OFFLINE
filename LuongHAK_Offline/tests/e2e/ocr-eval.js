@@ -1,5 +1,5 @@
 // V10.1 — Đo độ chính xác OCR THEO TỪNG Ô trên ảnh/PDF mẫu GIẢ LẬP (tests/fixtures/ocr) so với đáp án sinh từ make_fixtures.py.
-// Chạy: xvfb-run -a node tests/e2e/ocr-eval.js   → docs/V10_1_OCR_CHECK.json. Thoát mã 1 nếu dưới ngưỡng.
+// Chạy: xvfb-run -a node tests/e2e/ocr-eval.js   → docs/V10_1_OCR_CHECK.json. Thoát mã 1 nếu dưới ngưỡng chính xác hoặc có ca đọc chậm hơn OCR_EVAL_MAX_MS (mặc định 20000 ms).
 // Đây là ảnh tổng hợp (chữ in / nét x vẽ bằng máy), KHÔNG đại diện cho chữ viết tay thật trên giấy chấm công thật — xem docs/V10_1_OCR_CHECK.md.
 /* global document */
 "use strict";
@@ -128,8 +128,15 @@ function score(rows, truth) { // truth: [[ten, [30 giá trị]]]
   }
   await app.close();
   report.errorsJS = errs.slice(0, 5);
-  report.tongKet = { cases: report.cases.length, dat: report.cases.filter((c) => c.dat).length, jsErrors: errs.length };
+  // Tốc độ: mỗi ca đọc không được vượt ngân sách thời gian (mặc định 20 giây; máy phát triển đọc mỗi ca 2,4–5,2 giây với tesseract.js 7.0.0).
+  // Ngân sách rộng vì máy CI chậm và dao động; mục đích là bắt việc OCR chậm đi nhiều lần sau khi đổi thư viện, không phải đo chính xác.
+  const maxMs = Number(process.env.OCR_EVAL_MAX_MS) || 20000;
+  report.cases.forEach((c) => { c.msToiDa = maxMs; c.datTocDo = c.ms <= maxMs; });
+  const slow = report.cases.filter((c) => !c.datTocDo);
+  slow.forEach((c) => console.log("FAIL tốc độ: " + c.name + " — " + c.ms + " ms > " + maxMs + " ms"));
+  report.tongKet = { cases: report.cases.length, dat: report.cases.filter((c) => c.dat).length, jsErrors: errs.length, tongMs: report.cases.reduce((a, c) => a + c.ms, 0), chamNhatMs: Math.max.apply(null, report.cases.map((c) => c.ms)), msToiDa: maxMs, quaChamCa: slow.length };
   fs.writeFileSync(path.resolve(APP, process.env.OCR_EVAL_REPORT || "docs/V10_1_OCR_CHECK.json"), JSON.stringify(report, null, 1));
   console.log("\nOCR: " + report.tongKet.dat + "/" + report.tongKet.cases + " ca đạt ngưỡng · selfTest: " + selfTest + " · lỗi JS: " + errs.length);
-  process.exit(report.tongKet.dat === report.tongKet.cases && report.handwritingReview.passed && report.decimalReview.passed && !errs.length ? 0 : 1);
+  console.log("Tốc độ OCR: tổng " + report.tongKet.tongMs + " ms · ca chậm nhất " + report.tongKet.chamNhatMs + " ms · ngân sách mỗi ca " + maxMs + " ms · " + (slow.length ? slow.length + " ca quá chậm" : "đạt"));
+  process.exit(report.tongKet.dat === report.tongKet.cases && !slow.length && report.handwritingReview.passed && report.decimalReview.passed && !errs.length ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(2); });
