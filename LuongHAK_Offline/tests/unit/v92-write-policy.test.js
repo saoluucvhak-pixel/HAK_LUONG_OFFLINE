@@ -248,3 +248,17 @@ test("Main rejects attendance writes during approved full sick leave and accepts
   assert.match(pol.check(JSON.stringify({ ...db, chamcong: [row, { ...row, _id: "B", "Hình thức công": "CC" }] }), admin).error, /Không thể nhập công CC/);
   assert.equal(pol.check(JSON.stringify({ ...db, chamcong: [{ ...row, "05": "" }] }), admin).ok, true);
 });
+
+test("Reopened payroll allows canceling a pending voucher while preserving a paid voucher", () => {
+  const ky = "2026-09", ad = who("admin", "admin");
+  const common = { "Kỳ": ky, "Mã NV": "A", "Hình thức": "Tiền mặt", "Người lập": "nl" };
+  const paid = { ...common, "Số chứng từ": "PC-202609-001", "Số tiền": 100, "Trạng thái": "Đã thanh toán" };
+  const pending = { ...common, "Số chứng từ": "PC-202609-002", "Số tiền": 200, "Trạng thái": "Đã duyệt" };
+  const { db, save } = setup({ ttluong: [paid, pending], kyluong: [] });
+  let draft = clone(db);
+  Object.assign(draft.ttluong[1], { "Trạng thái": "Đã thanh toán", "Người ghi nhận": "admin", "Ngày thanh toán": "2026-10-02" });
+  assert.match(save(draft, ad).error, /không có trong bảng lương đã chốt/);
+  draft = clone(db);
+  Object.assign(draft.ttluong[1], { "Trạng thái": "Đã hủy", "Lý do hủy": "Tính lại kỳ" });
+  assert.equal(save(draft, ad).ok, true);
+});

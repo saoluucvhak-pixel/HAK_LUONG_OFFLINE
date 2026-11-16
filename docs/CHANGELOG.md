@@ -1,7 +1,14 @@
 # CHANGELOG
 
-> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.19. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
+> Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
+
+## [2.0.20] — 16/11/2026
+- Chốt lương chỉ rõ khoản lệch theo từng nhân viên, kể cả khi tổng thu nhập và thực lĩnh vẫn khớp.
+- Khi chốt lại kỳ đã chi, đối chiếu đã trả, đang chờ chi, còn phải trả và trả thừa. Chi bổ sung tham chiếu chứng từ cũ.
+- Theo dõi khoản khấu trừ còn thiếu. Người dùng lập khoản trừ có chủ đích, có kiểm tra số dư và khả năng khấu trừ khi chốt.
+- Chặn nhập tay trùng chứng từ sản lượng chuyển kỳ do app tự sinh.
+- Giữ nguyên công thức tính lương và quy tắc tính tiền cơm.
 
 ## [2.0.19] — 16/11/2026
 - Chặn ghi đè chứng từ thưởng, khoản trừ và tạm ứng sang kỳ khác. Cho cập nhật chứng từ trong cùng kỳ.

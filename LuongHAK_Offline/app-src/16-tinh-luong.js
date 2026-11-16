@@ -44,7 +44,9 @@
     var sp = HRM.staffForPayroll(db, nam, thang);
     // α19: phiếu cân ghi Mã phòng ban → chia đều cho tổ (như công cụ phân bổ khối lượng) trước khi tính
     var slK = HRM.sanLuongKy(db, nam, thang, "sanluong"), bdK = HRM.sanLuongKy(db, nam, thang, "bandam");
-    var qc = qcDung || quyChe(), carry = C.productionCarry.prepare(db, kyKey(nam, thang), sp.list, slK.rows, phuongPhapBu, { quyChe: qc });
+    var qc = qcDung || quyChe(), carry;
+    try { carry = C.productionCarry.prepare(db, kyKey(nam, thang), sp.list, slK.rows, phuongPhapBu, { quyChe: qc }); }
+    catch (e) { return { ky: kyKey(nam, thang), bangluong: [], bhxh: [], tncn: [], canhbao: [e.message], inputErrors: [e.message] }; }
     sp.list = carry.staff;
     var kq = E.tinhBangLuong(Object.assign({}, carry.data, { bandam: bdK.rows }), nam, thang, phuongPhapBu, { quyChe: qc, suppressProduction: carry.suppress });
     C.productionCarry.annotate(kq, carry.pay);

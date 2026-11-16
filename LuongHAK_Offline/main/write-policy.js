@@ -144,9 +144,10 @@ function checkTtluong(prevObj, next, who) {
   const kyBanks = {}; // kỳ → { maNV: thực lĩnh } từ bản chốt trong dữ liệu mới
   (Array.isArray(next.kyluong) ? next.kyluong : []).forEach((k) => { const m = {}; ((k.kq && k.kq.bangluong) || []).forEach((r) => { if (!(r["Mã NV"] in m)) m[r["Mã NV"]] = +r["Thực lĩnh"] || 0; }); kyBanks[k.ky] = m; });
   const soExisting = {}; pr.forEach((l) => { soExisting[l["Số chứng từ"]] = 1; });
-  const newSo = {};
+  const newSo = {}, checkKeys = new Set();
   for (const k of Object.keys(nxBy)) {
     const a = prBy[k], b = nxBy[k];
+    if (b["Trạng thái"] !== TT.HUY && (!a || h(a) !== h(b))) checkKeys.add(b["Kỳ"] + "|" + b["Mã NV"]);
     if (!a) {
       if (b["Trạng thái"] !== TT.LAP) return "dòng chứng từ mới " + k + " chỉ được ở trạng thái '" + TT.LAP + "'";
       if (soExisting[b["Số chứng từ"]]) return "số chứng từ " + b["Số chứng từ"] + " đã tồn tại — không thêm người vào chứng từ cũ";
@@ -177,7 +178,7 @@ function checkTtluong(prevObj, next, who) {
   // không vượt nghĩa vụ phải trả: tổng dòng chưa hủy của (kỳ, NV) ≤ thực lĩnh của bản chốt
   const sum = {};
   nx.forEach((l) => { if (l["Trạng thái"] === TT.HUY) return; const kk = l["Kỳ"] + "|" + l["Mã NV"]; sum[kk] = (sum[kk] || 0) + (+l["Số tiền"] || 0); });
-  for (const kk of Object.keys(sum)) {
+  for (const kk of checkKeys) {
     const p = kk.split("|"), tl = kyBanks[p[0]] && kyBanks[p[0]][p[1]];
     if (tl == null) return "chứng từ của " + p[1] + " kỳ " + p[0] + " không có trong bảng lương đã chốt";
     if (sum[kk] > tl + 0.5) return "tổng chứng từ của " + p[1] + " kỳ " + p[0] + " (" + sum[kk] + ") vượt thực lĩnh (" + tl + ")";

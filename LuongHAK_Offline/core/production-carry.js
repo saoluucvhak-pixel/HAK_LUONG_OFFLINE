@@ -48,6 +48,8 @@
     });return out;
   }
   function prepare(db,ky,staff,sl,bu,opts){if(db.sl_chuyenky!==undefined&&!Array.isArray(db.sl_chuyenky))throw Error('Sổ chuyển sai cấu trúc');if(Array.isArray(db.sl_chuyenky||[])&&!(db.sl_chuyenky||[]).length)return{data:Object.assign({},db,{nhansu:staff,sanluong:sl}),staff:staff,pay:[],suppress:false};validate(db,db);var pay=payments(db,ky,bu,opts),list=staff.slice(),ps=(db.psluong||[]).slice(),ghost=Object.create(null);
+    var manual = new Set(ps.filter(function(row){return V.rowPeriod('psluong',row)===ky;}).map(function(row){return JSON.stringify([String(row['Số chứng từ']||'').trim(),row['Mã NV']]);}));
+    pay.forEach(function(x){if(manual.has(JSON.stringify([x.id+'-'+x.ma,x.ma])))throw Error('Chứng từ '+x.id+'-'+x.ma+' đã do chuyển sản lượng tự sinh; xóa dòng nhập trùng ở Thưởng / Trừ.');});
     pay.forEach(function(x){if(!list.some(function(n){return n['Mã nhân viên']===x.ma;})){var n={};['Mã nhân viên','Họ và tên','Mã PB','Mã CV','Mã TNCN','Mã GT_TNCN_BT','Mã GT_TNCN_PT','Người phụ thuộc','HTTT','Số tài khoản','Tên Ngân hàng','Số HĐLĐ'].forEach(function(k){n[k]=x.staff[k];});n['Mã TNCN']=x.taxCode;n['Người phụ thuộc']=deps().H.dsNguoiPhuThuoc(db,x.ma,ky+'-01',ky+'-31').length;list.push(n);ghost[x.ma]=1;}ps.push({'Ngày hạch toán':ky+'-01','Số chứng từ':x.id+'-'+x.ma,'Mã NV':x.ma,'Thu nhập khác':x.salary+x.topup});});
     var source=(db.sl_chuyenky||[]).some(function(r){return r.source===ky;});
     return{data:Object.assign({},db,{nhansu:list,sanluong:source?[]:sl,psluong:ps,chamcong:(db.chamcong||[]).filter(function(r){return !ghost[r['Mã NV']]||r['Kỳ']!==ky;})}),staff:list,pay:pay,suppress:source};
