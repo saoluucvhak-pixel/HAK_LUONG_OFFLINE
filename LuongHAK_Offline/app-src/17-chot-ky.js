@@ -216,6 +216,35 @@
     }
     return true;
   }
+  function payrollApprovalInfo(snap) {
+    var a = snap.input && snap.input.approval;
+    return a ? "Người lập: " + a.preparer + " · Người duyệt: " + a.approver + " · Duyệt lúc: " + fmtTime(a.approvedAt) + " · Phiên bản duyệt: v" + a.version : "";
+  }
+  function approvalDigest(ky, result) {
+    var snapshot = CLS.buildSnapshot(db, ky, result, result._staff, { buTheoNgay: st.bu, quyChe: result.quyChe, engineVersion: E.ENGINE_VERSION });
+    return C.workflowApproval.fingerprint(db, snapshot);
+  }
+
+  function savePayrollApproval(approve) {
+    if (!need(approve ? "payroll.approve" : "payroll.calc") || C.workflowApproval.mode(db) !== "roles") return;
+    var ky = kyStr(), prior = C.workflowApproval.ticket(db, ky), user = C.workflowApproval.account(session.tenDangNhap);
+    if (!st.kq || st.kq.ky !== ky || kyChot(ky) || !checkCloseTopup(st.kq, ky)) return;
+    var fresh = tinhLuong(st.nam, st.thang, undefined, st.bu);
+    if (GATE.blockers(fresh).length || !fresh.bangluong.length) { alert("Cần xử lý lỗi đầu vào và có bảng lương trước khi gửi hoặc duyệt."); return; }
+    var digest = approvalDigest(ky, fresh);
+    if (digest !== approvalDigest(ky, st.kq)) { st.kq = fresh; render(); alert("Bảng lương đã thay đổi. Kiểm tra bảng mới rồi thao tác lại."); return; }
+    if (approve && (!prior || prior.approver || prior.preparer === user || prior.digest !== digest)) {
+      alert("Cần yêu cầu còn hiệu lực từ người lập khác. Kiểm tra phương pháp bù, quy chế và dữ liệu của kỳ."); return;
+    }
+    var row = approve ? Object.assign({}, prior, { approver: user, approvedAt: new Date().toISOString() }) : { ky: ky, digest: digest, preparer: user, approver: "" };
+    if (!txn(["payrollApprovals"], function () {
+      db.payrollApprovals = (db.payrollApprovals || []).filter(function (item) { return item.ky !== ky; }).concat(row);
+      audit(approve ? "Duyệt bảng lương" : "Gửi duyệt bảng lương", ky);
+    })) { alert(lastTxnError); return; }
+    st.kqStale = false;
+    render();
+  }
+
   function chotKy() {
     if (!st.kq || !need("payroll.close")) return;
     var ky = kyStr();
@@ -305,6 +334,15 @@
     if (kyStr() !== ky || !checkCloseTopup(fresh, ky)) return;
     if (revision !== dbRev) { alert("Dữ liệu đã thay đổi. Bấm Tính lương lại trước khi chốt."); return; }
     var snap = CLS.buildSnapshot(db, ky, fresh, fresh._staff, { note: note, leaveReview: leaveReview, payrollReports: payrollReportDetails(st.nam, st.thang, fresh.bangluong), buTheoNgay: method, quyChe: fresh.quyChe || quyChe(), engineVersion: E.ENGINE_VERSION, user: currentUser() });
+    if (C.workflowApproval.mode(db) === "roles") {
+      var approved = C.workflowApproval.ticket(db, ky);
+      var approval = C.workflowApproval.approvalRecord(approved, snap.version);
+      if (!approval || approval.digest !== C.workflowApproval.fingerprint(db, snap)) {
+        alert("Kỳ lương cần được người khác duyệt trên đúng dữ liệu hiện tại trước khi chốt."); return;
+      }
+      snap.input.approval = approval;
+      snap.inputChecksum = CLS.checksum(snap.input);
+    }
     CLS.close(db, snap); audit("Chốt kỳ lương", ky + " v" + snap.version + " — " + now2.soNV + " NV, thực lĩnh " + now2.thucLinh);
     if (!saveNow()) { CLS.rollbackClose(db, snap); db.auditlog.pop(); alert("CHỐT KHÔNG THÀNH CÔNG: chưa lưu được dữ liệu xuống đĩa. Kỳ lương vẫn ở trạng thái chưa chốt."); render(); return; }
     // Bản sao lưu SAU CHỐT KỲ: giữ vĩnh viễn, tự chép sang thư mục sao lưu thứ hai nếu đã chọn (main/storage.js)

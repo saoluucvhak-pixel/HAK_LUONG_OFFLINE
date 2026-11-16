@@ -57,9 +57,10 @@
     }, { wide: true });
   }
   function payChuyen(so, to) {
-    if (!need("payment.record", "xử lý chứng từ thanh toán lương")) return;
+    var mode = C.workflowApproval.mode(db);
+    if (!need(to === PLG.TT.DUYET && mode === "roles" ? "payment.approve" : "payment.record", "xử lý chứng từ thanh toán lương")) return;
     var run = function (lyDo) {
-      var rs = PLG.chuyen(payLines(), so, to, { nguoi: session ? session.tenDangNhap : "", ngay: HRM.today(), lyDo: lyDo, admin: can("system.admin") });
+      var rs = PLG.chuyen(payLines(), so, to, { nguoi: session ? session.tenDangNhap : "", ngay: HRM.today(), lyDo: lyDo, admin: can("system.admin"), mode: mode });
       if (!rs.ok) { alert("⛔ " + rs.msg); return; }
       txn(["ttluong"], function () {
         ledgerSet(function (next) { next.forEach(function (l, i) { if (l["Số chứng từ"] === so) next[i] = Object.assign({}, l, rs.patch); }); });
@@ -111,7 +112,7 @@
       [so, f["Hình thức"], String(L.length), fmt(L.reduce(function (a, x) { return a + (+x["Số tiền"] || 0); }, 0)) + " đ", f["Trạng thái"], f["Người lập"] || "", f["Người duyệt"] || "", f["Ngày thanh toán"] || ""].forEach(function (x, i) { tr.appendChild(h("td", { class: i === 3 ? "r" : "t", text: x })); });
       var act = h("td", { class: "t" });
       act.appendChild(btn("Chi tiết", "ghost", function () { payVoucherModal(so); }));
-      if (canR && f["Trạng thái"] === PLG.TT.LAP) act.appendChild(btn("Duyệt", "pri", function () { payChuyen(so, PLG.TT.DUYET); }));
+      if ((C.workflowApproval.mode(db) === "roles" ? can("payment.approve") : canR) && f["Trạng thái"] === PLG.TT.LAP) act.appendChild(btn("Duyệt", "pri", function () { payChuyen(so, PLG.TT.DUYET); }));
       if (canR && f["Trạng thái"] === PLG.TT.DUYET) act.appendChild(btn("Ghi nhận đã chi", "pri", function () { payChuyen(so, PLG.TT.TRA); }));
       if (canR && (f["Trạng thái"] === PLG.TT.LAP || f["Trạng thái"] === PLG.TT.DUYET)) act.appendChild(btn("Hủy", "red ghost", function () { payChuyen(so, PLG.TT.HUY); }));
       tr.appendChild(act); tb.appendChild(tr);

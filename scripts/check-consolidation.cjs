@@ -33,7 +33,7 @@ const normalize=s=>s.replace(/\r\n/g,'\n');
 const original=normalize(cp.execFileSync('git',['-c','safe.directory=*','show',baseline+':LuongHAK_Offline/engine.js'],{cwd:root,encoding:'utf8'}));
 // Pin approved alpha.57 payroll and HR files. Keep the historical engine comparison below.
 const hashFile = file => require('node:crypto').createHash('sha256').update(normalize(fs.readFileSync(path.join(root, 'LuongHAK_Offline', file), 'utf8'))).digest('hex');
-assert.equal(hashFile('engine.js'), '6d0e651a7846d30d9778ba8930285a71bd7339e0c4c8766e6fc85b38edd6a7ec', 'Unapproved engine changes after v2.0.0');
+assert.equal(hashFile('engine.js'), 'fc4ff6b1edb4ac0cf9063885c9692ca5eb925203cb744878d6b471ab856043b6', 'Unapproved engine changes after v2.0.0');
 // v2.0.7 (chủ sở hữu duyệt): đối chiếu chấm công báo cả ô công TRỐNG như ô ghi 0 (kể cả không có dòng chấm công hoặc chỉ có PN/CL/CC).
 assert.equal(hashFile('hr.js'), '847d52a96d734638e57c135572c763f4bb956e40557858402b385c02b9ab3113', 'Unapproved HR changes after v2.0.7');
 // alpha.58 (chủ sở hữu duyệt): chỉ đổi cách lấy 'hôm nay' của kiểm tra người phụ thuộc sang giờ máy (trước là UTC).

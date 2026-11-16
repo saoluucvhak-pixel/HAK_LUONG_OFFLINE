@@ -34,6 +34,7 @@
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
     if (key === "bandam" && pumpMode === "direct") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", bandamDirectExcelTemplate));
     if (key === "sanluong") { bar.appendChild(btn("Chuyển thành SL kỳ mới…", "", function () { productionReperiodScreen(draw); })); bar.appendChild(btn("Chỉ đổi kỳ chi trả SL…", "", function () { productionCarryScreen(draw); })); }
+    if (key === "tiencom") card.appendChild(h("p", { class: "hint", text: "Khi cùng nhân viên và ngày đã có công CC, chỉ điền Có ở cột Suất bổ sung nếu thực sự có thêm suất. Dòng trùng chưa xác nhận sẽ được báo khi kiểm tra trước chốt." }));
     if (key === "chamcong") bar.appendChild(btn("Đối chiếu đơn nghỉ", "", function () { leaveReviewModal(locked, draw); }));
     if (inputReview) {
       bar.appendChild(btn("Lưu để tính lương", "pri", function () {

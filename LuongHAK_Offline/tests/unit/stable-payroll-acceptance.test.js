@@ -28,7 +28,7 @@ test('Conflicting labels block closing regardless of order and overlapping meals
   db.nhansu = [staff({ 'Mã hỗ trợ': 'HT.01' })];
   db.dm_phucap = [{ 'Mã phụ cấp': 'A', 'Số tiền': 10000 }, { 'Mã phụ cấp': 'B', 'Số tiền': 50000 }];
   const day = (type, quantity) => ({ 'Kỳ': '2026-10', 'Mã NV': 'NV', 'Hình thức công': type, '01': quantity });
-  db.tiencom = [{ 'Ngày': '2026-10-01', 'Mã NV': 'NV', 'Số suất cơm': 1 }];
+  db.tiencom = [{ 'Ngày': '2026-10-01', 'Mã NV': 'NV', 'Số suất cơm': 1, 'Suất bổ sung': 'Có' }];
   for (const rows of [[day('BT', '1A'), day('TC', '1B')], [day('TC', '1B'), day('BT', '1A')]]) {
     db.chamcong = rows.concat(day('CC', 1));
     const result = E.tinhBangLuong(db, 2026, 10, 'to', { quyChe: '2026' });
@@ -81,4 +81,22 @@ test('Excel rejects cross-period updates but can repair an existing blank date',
   assert.equal(row['Ngày cân'], '2026-09-01');
   row['Ngày cân'] = '';
   assert.equal(plan().action, 'update');
+});
+
+test('Same-day CC pays only marked extra meals and flags unmarked rows before close', () => {
+  const db = baseDb();
+  db.nhansu = [staff({ 'Mã hỗ trợ': 'HT.01' })];
+  db.chamcong = [{ 'Kỳ': '2026-10', 'Mã NV': 'NV', 'Hình thức công': 'CC', '01': 1 }];
+  db.tiencom = [
+    { 'Ngày': '2026-10-01', 'Mã NV': 'NV', 'Số suất cơm': 2 },
+    { 'Ngày': '2026-10-02', 'Mã NV': 'NV', 'Số suất cơm': 1 },
+  ];
+  const calc = () => E.tinhBangLuong(db, 2026, 10, 'to', { quyChe: '2026' });
+  let result = calc();
+  assert.equal(result.bangluong[0]['Tiền cơm'], 40000);
+  assert.ok(result.inputErrors.some(message => /1\/10.*Suất bổ sung/.test(message)));
+  db.tiencom[0]['Suất bổ sung'] = 'Có';
+  result = calc();
+  assert.equal(result.bangluong[0]['Tiền cơm'], 80000);
+  assert.equal(result.inputErrors, undefined);
 });
