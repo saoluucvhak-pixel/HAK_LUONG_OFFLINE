@@ -339,6 +339,7 @@
     });
     var body = h("div", {}, [h("p", { class: "hint", text: "Chọn kỳ xử lý trên thanh Kỳ lương (" + target +
       "). Khoản thiếu chỉ được trừ khi có chứng từ Thưởng / Trừ do người dùng lập và kỳ xử lý được chốt." }), simpleTable(rows)]);
+    if ((db._yearArchives || []).some(function (ref) { return ref.active && !Array.isArray(ref.deficits); })) body.appendChild(h("p", { class: "warn", text: "Có hồ sơ năm được lưu bằng bản cũ chưa có số dư theo dõi. Nếu cần đối chiếu khoản thiếu của năm đó, đưa hồ sơ về vùng đang làm rồi lưu trữ lại." }));
     if (reg.errors.length) body.appendChild(h("div", { class: "warn", text: reg.errors.join(" | ") }));
     modal("Theo dõi khoản khấu trừ còn thiếu", body, function (close) { return [btn("Đóng", "", close)]; }, { wide: true });
   }

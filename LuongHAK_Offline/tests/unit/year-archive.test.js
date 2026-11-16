@@ -80,3 +80,24 @@ test('year worker: stale mutation blocked, verified archive and restore preserve
 
 test('year archive: schema 5 approvals travel with year and remain valid after restore',()=>{const s=setup(),R=require('../../core/input-review'),db=current(s);R.initialize(db);s.storage.save(JSON.stringify(db));move(s);let d=current(s);assert.equal(d._inputReviews.some(r=>r.period==='2023-01'),false);s.years.restore(2023,'synthetic restore',s.years.token(),'tester');d=current(s);assert.equal(R.changed(d,'chamcong','2023-01',''),false);assert.doesNotThrow(()=>R.validate(d));});
 test('year archive: legacy year restored into schema 5 initializes reviewed legacy inputs',()=>{const s=setup(),R=require('../../core/input-review');move(s);const db=current(s);R.initialize(db);s.storage.save(JSON.stringify(db));s.years.restore(2023,'synthetic restore',s.years.token(),'tester');assert.equal(R.changed(current(s),'chamcong','2023-01',''),false);assert.doesNotThrow(()=>R.validate(current(s)));});
+
+test("Year archive preserves cross-year deficit and processed voucher references through archive and restore", () => {
+  const s = setup(), p = require("../../core/payment-ledger"), db = current(s), source = "2023-01", target = "2026-01";
+  const short = { "Mã NV": "SYN01", "Họ và tên": "Synthetic Person", "Còn thiếu (thực lĩnh âm)": 4200000 };
+  db.kyluong = [C.buildSnapshot(db, source, { bangluong: [short], bhxh: [], tncn: [], canhbao: [] }, [])];
+  const voucher = { "Mã NV": "SYN01", "Ngày hạch toán": target + "-01", "Số chứng từ": p.deficitVoucher(source, target), "Trừ khác": 1000000 };
+  const wage = { "Mã NV": "SYN01", "Trừ khác": 1000000 };
+  db.psluong = [voucher];
+  assert.equal(s.storage.save(JSON.stringify(db)), true);
+  move(s);
+  const archived = current(s);
+  const result = p.deficitRegister(archived, target, [wage]);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.rows[0].recovered, 1000000);
+  const changed = JSON.parse(JSON.stringify(archived));
+  changed._yearArchives[0].deficits[0].kq.bangluong[0]["Còn thiếu (thực lĩnh âm)"] = 9;
+  assert.throws(() => s.years.checkWrite(JSON.stringify(changed), true), /Tóm tắt khoản khấu trừ/);
+  assert.equal(s.years.restore(2023, "Kiểm thử", s.years.token(), "QA").ok, true);
+  const restored = p.deficitRegister(current(s), target, [wage]);
+  assert.deepEqual(restored, result);
+});

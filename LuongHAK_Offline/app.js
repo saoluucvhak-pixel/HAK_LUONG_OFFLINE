@@ -3360,6 +3360,7 @@
     });
     var body = h("div", {}, [h("p", { class: "hint", text: "Chọn kỳ xử lý trên thanh Kỳ lương (" + target +
       "). Khoản thiếu chỉ được trừ khi có chứng từ Thưởng / Trừ do người dùng lập và kỳ xử lý được chốt." }), simpleTable(rows)]);
+    if ((db._yearArchives || []).some(function (ref) { return ref.active && !Array.isArray(ref.deficits); })) body.appendChild(h("p", { class: "warn", text: "Có hồ sơ năm được lưu bằng bản cũ chưa có số dư theo dõi. Nếu cần đối chiếu khoản thiếu của năm đó, đưa hồ sơ về vùng đang làm rồi lưu trữ lại." }));
     if (reg.errors.length) body.appendChild(h("div", { class: "warn", text: reg.errors.join(" | ") }));
     modal("Theo dõi khoản khấu trừ còn thiếu", body, function (close) { return [btn("Đóng", "", close)]; }, { wide: true });
   }
@@ -3411,6 +3412,38 @@
   function tabKyLuong() {
     var c = h("div", { class: "card" });
     c.appendChild(h("div", { class: "hint", text: "Các kỳ lương đã chốt được lưu nguyên bảng lương, BHXH, thuế TNCN tại thời điểm chốt — sửa hồ sơ hay danh mục về sau không làm thay đổi số đã chốt." }));
+    var ky = kyStr(), snap = kyChot(ky), pending = snap ? [] : C.inputReview.pending(db, ky);
+    var current = !snap && !pending.length && st.kq && st.kq.ky === ky && !st.kqStale ? st.kq : null;
+    var summary = h("div", { class: "card", "data-payroll-period-summary": ky });
+    summary.appendChild(h("h3", { text: kyLabel(ky) + (snap ? " · Đã chốt v" + (snap.version || 1) : " · Chưa chốt") }));
+    function periodLink(label, screen, input) {
+      return tabAllowed(screen) ? btn(label, "ghost", function () {
+        if (input) {
+          var parts = input.period.split("-").map(Number); st.nam = parts[0]; st.thang = parts[1];
+          if (input.kind) st.pumpMode = input.kind;
+        }
+        st.tab = screen; saveUi(); render();
+      }) : null;
+    }
+    if (snap) {
+      var lines = payLines(), balances = PLG.outstanding(snap.kq.bangluong, lines, ky);
+      var paid = lines.filter(function (line) { return line["Kỳ"] === ky && line["Trạng thái"] === PLG.TT.TRA; })
+        .reduce(function (sum, line) { return sum + n0(line["Số tiền"]); }, 0);
+      var due = balances.reduce(function (sum, row) { return sum + row.conPhaiTra; }, 0);
+      summary.appendChild(h("p", { text: "Đã chi " + fmt(paid) + " đ · Còn phải trả " + fmt(due) + " đ" }));
+      summary.appendChild(btn("Xem đối chiếu tiền đã chi", "", function () { viewPaidReconciliation(snap); }));
+    } else {
+      var blockers = current ? GATE.blockers(current) : null;
+      summary.appendChild(h("p", { text: pending.length ? "Còn " + pending.length + " đầu vào nháp, cần lưu để tính lương." :
+        blockers ? "Lỗi chặn theo lần tính hiện tại: " + blockers.length : "Chưa có kết quả kiểm tra cho dữ liệu hiện tại." }));
+      var actions = pending.map(function (row) {
+        var title = row.table === "chamcong" ? "Chấm công" : row.table === "sanluong" ? "Sản lượng" : "Bơm dăm";
+        return periodLink(title + " · " + row.period + (row.kind ? (row.kind === "team" ? " · theo tổ" : " · trực tiếp") : ""), row.table, row);
+      });
+      actions.push(periodLink("Tính lương", "luong"), periodLink("Kiểm tra bảng lương", "ktbl"));
+      summary.appendChild(h("div", { class: "bar" }, actions));
+    }
+    c.appendChild(summary);
     c.appendChild(btn("Theo dõi khoản khấu trừ còn thiếu", "", showDeficitRegister));
     if (!db.kyluong.length) { c.appendChild(h("div", { class: "empty", html: "Chưa chốt kỳ nào.<br>Vào <b>Tính lương</b>, tính xong bấm <b>🔒 Chốt kỳ lương</b>." })); return c; }
     var t = h("table"), tr = h("tr");
