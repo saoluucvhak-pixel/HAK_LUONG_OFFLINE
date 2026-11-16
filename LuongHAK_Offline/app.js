@@ -3040,7 +3040,15 @@
       var allocation = pbAlloc(nam, thang, type), report = bcSanLuong(nam, thang, type, allocation);
       return { type: type, allocation: allocation, employees: report.nv.filter(function (r) { return r["Mã phòng ban"] !== "TỔNG"; }), audit: report.audit };
     });
-    return { taxIds: taxIds, production: production };
+    var ky = kyKey(nam, thang), codes = new Set();
+    Object.values(OPS.closedTables).forEach(function (table) {
+      (db[table] || []).forEach(function (row) { if (row["Mã NV"] && VAL.rowPeriod(table, row) === ky) codes.add(String(row["Mã NV"])); });
+    });
+    var people = db.nhanvien.filter(function (row) { return codes.has(String(row["Mã NV"])); }).map(function (row) {
+      var ma = row["Mã NV"], job = HRM.hienHanh(db, ma, end, ix);
+      return { "Mã NV": ma, "Họ và tên": row["Họ và tên"], "Mã PB": job.pb, "Phòng ban": job.tenPB };
+    });
+    return { taxIds: taxIds, production: production, people: people };
   }
 
   function payrollDetailSheets(result, ky, snapshot) {
@@ -4092,24 +4100,13 @@
   function opsVm(type) {
     var opt = { nam: st.nam, thang: st.thang, tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", chot: !!kyChot(kyKey(st.nam, st.thang)),
       hr: HRM, num: E.num, money: E.money, phongBan: st.opsPB || "", tuKhoa: st.opsKw || "", trangThaiNV: st.opsTT || "dang", homNay: HRM.today() };
-    if (type === "SAN_LUONG" || type === "BOM_DAM") {
-      var table = type === "SAN_LUONG" ? "sanluong" : "bandam";
-      opt.alloc = reportAllocation(st.nam, st.thang, table);
-      var snapshot = kyChot(kyKey(st.nam, st.thang));
-      if (snapshot) {
-        var catalog = snapshot.input?.danhmuc || {}, payroll = snapshot.kq.bangluong;
-        var reportData = Object.assign({}, catalog, { nhanvien: payroll, [table]: opt.alloc?.raw || snapshot.input?.data?.[table] || [] });
-        opt.departmentOf = new Map(payroll.map(function (r) { return [String(r["Mã NV"]), r["Phòng ban"] || r["Mã PB"] || ""]; }));
-        opt.tenCongTy = ((catalog.congty || [])[0] || {})["Tên công ty"] || "";
-        var report = OPS.build(type, reportData, opt);
-        if (!opt.alloc) {
-          report.ghiChu = (report.ghiChu || []).concat(["Bản chốt cũ thiếu chi tiết phân bổ; chỉ hiển thị phiếu cân đã lưu."]);
-          report.canhbao.push("Bản chốt cũ thiếu chi tiết phân bổ; chỉ hiển thị phiếu cân đã lưu.");
-        }
-        return report;
-      }
+    var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
+    if ((type === "THUONG" || type === "TAM_UNG") && can("payroll.view")) {
+      if (snapshot) opt.bangluong = snapshot.kq.bangluong;
+      else if (db.nhanvien.length) opt.bangluong = kqKy(st.nam, st.thang).kq.bangluong;
     }
-    if ((type === "THUONG" || type === "TAM_UNG") && can("payroll.view") && db.nhanvien.length) opt.bangluong = kqKy(st.nam, st.thang).kq.bangluong;
+    if (snapshot) return OPS.buildClosed(type, snapshot, opt);
+    if (type === "SAN_LUONG" || type === "BOM_DAM") opt.alloc = reportAllocation(st.nam, st.thang, OPS.closedTables[type]);
     return OPS.build(type, db, opt);
   }
   function opsExportOk(vm) {
@@ -4156,7 +4153,7 @@
     }
     card.appendChild(h("div", { class: "hint", text: (T.theoKy ? "Kỳ " + vm.ky + " (đổi ở ô Kỳ lương phía trên) · " + vm.trangThai + ". " : "") + (vm.ghiChu || []).join(" ") + " Excel và PDF xuất đúng theo bộ lọc đang chọn." }));
     var bar = h("div", { class: "bar" }), pbs = {};
-    var snapshot = (type === "SAN_LUONG" || type === "BOM_DAM") && kyChot(kyKey(st.nam, st.thang));
+    var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
     var departments = snapshot ? snapshot.input?.danhmuc?.dm_phongban : db.dm_phongban;
     (departments || []).forEach(function (p) { if (p && p["Tên phòng ban"]) pbs[p["Tên phòng ban"]] = 1; });
     var pbSel = h("select", { "aria-label": "Phòng ban", "data-ops-key": "phongBan" }); pbSel.appendChild(h("option", { value: "", text: "— Tất cả phòng ban —" }));

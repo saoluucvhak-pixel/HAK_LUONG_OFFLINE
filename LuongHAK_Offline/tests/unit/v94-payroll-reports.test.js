@@ -317,3 +317,15 @@ test("Closed production export uses the frozen allocation even after live depart
   assert.equal(workbook, undefined);
   assert.match(warning, /Bản chốt cũ thiếu chi tiết/);
 });
+
+test("Lương 12 tháng tách truy thu BH và đếm số nhân viên duy nhất cả năm", () => {
+  const report = require("../../core/reporting/period-reports").bc12Thang(2026, ky => {
+    if (!["2026-01", "2026-02"].includes(ky)) return null;
+    return { kq: { bangluong: [{ "Mã NV": "QA01", "BH trừ NLĐ": 62100, "Truy thu BH": 25000 }], bhxh: [] } };
+  });
+  assert.equal(report[0]["BH NLĐ đóng"], 62100);
+  assert.equal(report[0]["Truy thu BH"], 25000);
+  assert.equal(report.at(-1)["BH NLĐ đóng"], 124200);
+  assert.equal(report.at(-1)["Truy thu BH"], 50000);
+  assert.equal(report.at(-1)["Số NV"], 1);
+});

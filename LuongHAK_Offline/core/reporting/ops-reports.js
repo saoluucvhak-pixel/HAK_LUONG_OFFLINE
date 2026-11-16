@@ -287,6 +287,45 @@
       soDong: out.rows.length, soDongGoc: out.soDongGoc, loi: dedupe(out.loi), canhbao: dedupe(out.canhbao), thongKe: out.thongKe || null
     };
   }
+  var CLOSED_TABLES = { SAN_LUONG: "sanluong", BOM_DAM: "bandam", THUONG: "psluong", TAM_UNG: "ungluong", SUAT_COM: "tiencom" };
+
+  function buildClosed(type, snapshot, options) {
+    var input = snapshot.input || {}, catalog = input.danhmuc || {}, reports = input.payrollReports || {};
+    var table = CLOSED_TABLES[type], group = (reports.production || []).find(function (item) { return item.type === table; });
+    var allocation = group && group.allocation;
+    var raw = allocation?.raw || input.data?.[table], payroll = snapshot.kq.bangluong;
+    var people = new Map(payroll.map(function (row) { return [String(row["Mã NV"]), row]; }));
+    (reports.people || []).forEach(function (row) { people.set(String(row["Mã NV"]), row); });
+    var unresolved = new Set();
+    if (!Array.isArray(reports.people)) {
+      Object.values(allocation?.byEmp || {}).forEach(function (row) {
+        if (!people.has(String(row.ma))) people.set(String(row.ma), { "Mã NV": row.ma, "Họ và tên": row.hoTen, "Mã PB": row.maPB });
+      });
+      (raw || []).forEach(function (row) {
+        var ma = s(row["Mã NV"]);
+        if (ma && !people.has(ma)) { unresolved.add(ma); people.set(ma, { "Mã NV": ma }); }
+      });
+    }
+    var opt = Object.assign({}, options, {
+      chot: true, alloc: allocation,
+      departmentOf: new Map(Array.from(people, function (item) {
+        var row = item[1], code = row["Mã PB"];
+        var dept = (catalog.dm_phongban || []).find(function (entry) { return entry["Mã phòng ban"] === code; });
+        return [item[0], row["Phòng ban"] || (dept && dept["Tên phòng ban"]) || code || ""];
+      })),
+      tenCongTy: ((catalog.congty || [])[0] || {})["Tên công ty"] || ""
+    });
+    var report = build(type, Object.assign({}, catalog, { nhanvien: Array.from(people.values()), [table]: raw || [] }), opt);
+    var notes = [];
+    if (!Array.isArray(raw)) notes.push("Bản chốt cũ chưa lưu bảng dữ liệu phát sinh này.");
+    else if ((type === "SAN_LUONG" || type === "BOM_DAM") && !allocation) notes.push("Bản chốt cũ thiếu chi tiết phân bổ; báo cáo dùng phiếu cân đã lưu.");
+    if (unresolved.size) notes.push("Bản chốt cũ thiếu tên hoặc phòng ban của " + unresolved.size + " mã nhân viên; thông tin chưa lưu được để trống.");
+    report.trangThai += notes.length ? " · Bản chốt cũ thiếu chi tiết" : " · Nguồn: dữ liệu lưu khi chốt";
+    report.ghiChu = report.ghiChu.concat(notes);
+    report.canhbao = report.canhbao.concat(notes);
+    return report;
+  }
+
   function dedupe(a) { var seen = {}; return a.filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }); }
 
   /** Dòng phẳng + dòng tổng cho PDF (và đối chiếu). */
@@ -335,6 +374,6 @@
       cols: cols, rows: rows, tong: tong, tongNhan: null, groups: null, extras: [], ghiChu: [], chuKy: opt.chuKy || ["Người lập", "Trưởng phòng nhân sự", "Giám đốc"], soDong: rows.length, soDongGoc: rows.length, loi: [], canhbao: [] };
   }
 
-  var api = { TYPES: TYPES, build: build, toRows: toRows, toSheets: toSheets, sheetVms: sheetVms, fromRows: fromRows, upper: upper };
+  var api = { TYPES: TYPES, build: build, buildClosed: buildClosed, closedTables: CLOSED_TABLES, toRows: toRows, toSheets: toSheets, sheetVms: sheetVms, fromRows: fromRows, upper: upper };
   if (isNode) module.exports = api; else { root.HAKCore = root.HAKCore || {}; root.HAKCore.opsReports = api; }
 })(typeof window !== "undefined" ? window : this);

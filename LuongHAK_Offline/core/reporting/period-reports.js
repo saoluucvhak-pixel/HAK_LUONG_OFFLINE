@@ -113,17 +113,21 @@
   }
 
   function bc12Thang(nam, kyChot) {
-    var rows = [];
+    var rows = [], people = new Set();
     for (var t = 1; t <= 12; t++) {
       var c = kyChot(kyKey(nam, t)), o = { "Tháng": t + "/" + nam, "Trạng thái": c ? "Đã chốt" : "Chưa chốt" };
       var bl = c ? c.kq.bangluong : [], bh = c ? c.kq.bhxh : [], s = function (f) { return bl.reduce(function (a, x) { return a + n0(x[f]); }, 0); };
-      o["Số NV"] = bl.length; o["Tổng thu nhập"] = s("Tổng thu nhập"); o["BH NLĐ đóng"] = s("BH trừ NLĐ") + s("Truy thu BH");
+      bl.forEach(function (row) { if (row["Mã NV"]) people.add(String(row["Mã NV"])); });
+      o["Số NV"] = bl.length; o["Tổng thu nhập"] = s("Tổng thu nhập");
+      o["BH NLĐ đóng"] = s("BH trừ NLĐ"); o["Truy thu BH"] = s("Truy thu BH");
       o["KPCĐ NLĐ đóng"] = s("KPCĐ trừ NLĐ");
       o["BH công ty đóng"] = bh.reduce(function (a, x) { return a + n0(x["Cộng BH công ty đóng"]); }, 0); o["Thuế TNCN"] = s("Thuế TNCN");
       o["Tạm ứng"] = s("Tạm ứng"); o["Thực lĩnh"] = s("Thực lĩnh"); o["Tổng chi phí lương (TN + BH công ty)"] = o["Tổng thu nhập"] + o["BH công ty đóng"];
       rows.push(o);
     }
-    return addTotal(rows, "CẢ NĂM");
+    var withTotal = addTotal(rows, "CẢ NĂM (NV duy nhất)");
+    withTotal[withTotal.length - 1]["Số NV"] = people.size;
+    return withTotal;
   }
 
   function bcNVNam(ks, field) {
