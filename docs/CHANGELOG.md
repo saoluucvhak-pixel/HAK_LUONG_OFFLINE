@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.27] — 17/11/2026
+- Tách `core/benefits.js` thành `benefits-rules.js` (tiêu chuẩn, định mức, kiểm tra, thu hồi), `benefits-ledger.js` (sổ cái, báo cáo) và `benefits-import.js` (nhập Excel); `core/benefits.js` còn là cửa chung giữ nguyên tên hàm. Chỉ chuyển mã, không đổi hành vi; kiểm thử cũ chạy nguyên không sửa.
+
 ## [2.0.26] — 17/11/2026
 - Báo cáo tổng hợp Cấp phát gom theo tổ đã lưu trên từng lượt: người chuyển tổ nhận ở hai tổ thì hiện đúng từng tổ (Tổ 1 = 10, Tổ 2 = 5, tổng = 15), trước đây dồn vào tổ đầu tiên. Phân biệt theo mã vật tư, đơn vị tính và cỡ. Sữa: định mức tính một lần theo nhân viên/tháng, người chuyển tổ có dòng định mức riêng.
 - Lượt thu hồi và lượt cấp thay thế (đổi cỡ) giữ tổ, tên mặt hàng, đơn vị, cỡ của dòng cấp gốc (trước đây tra lại tổ hiện tại và tên vật tư hiện tại). Chi tiết có Ngày giao dịch, Ngày cấp gốc, Mã điều chỉnh, thời điểm thao tác. Phiếu cũ thiếu tổ: ghi rõ nguồn suy ra hoặc thiếu căn cứ.
@@ -581,7 +584,7 @@ Mã hóa dữ liệu trên đĩa; tiến độ/hủy khi chuyển thư mục d�
 - **Cảnh báo có công sau ngày chấm dứt hợp đồng** khi tính lương (chỉ cảnh báo, số tiền không đổi).
 - **Không đổi công thức lương** — hồi quy v1.3.0 / alpha.4 trùng 100%. Test: 143 (+3 U-BD, +1 I-23), E2E 64/64 (+6).
 
-## [Chưa phát hành] — Q-26
+## [2.0.27] — 17/11/2026 — Q-26
 - Chủ sở hữu chọn **phương án A** cho BH tháng nghỉ việc: giữ nguyên quy tắc R-57 (quy chế R-60). **Không đổi công thức**; thêm test I-22 khóa hành vi.
 
 ## [2.0.0-alpha.14] — 11/10/2026 — Sổ quản lý lao động theo NĐ 145/2020 Điều 3
