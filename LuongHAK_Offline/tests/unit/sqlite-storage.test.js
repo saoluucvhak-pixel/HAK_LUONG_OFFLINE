@@ -8,6 +8,8 @@ const { createStorage } = require("../../main/storage.js");
 const store = require("../../main/sqlite-store.js");
 const { fixture } = require("../fixtures/production-carry");
 
+// CI đặt hai cờ nghiệm thu cho bộ E2E cũ; các test kho này kiểm hành vi THẬT (xuất trễ, không nhận data.json lạ) nên gỡ chúng trong tiến trình test này.
+delete process.env.HAK_SQLITE_EXPORT_SYNC; delete process.env.HAK_SQLITE_ADOPT_EXTERNAL;
 const dirOf = () => fs.mkdtempSync(path.join(os.tmpdir(), "hak-sq-"));
 const doc = () => { const d = JSON.parse(JSON.stringify(fixture())); d.nhanvien.push({ "Mã NV": "0005", "Họ và tên": "Nguyễn Văn Ánh", "Ghi chú": null }); return d; };
 const opts = { exportDelayMs: 20 };
