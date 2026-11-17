@@ -197,15 +197,15 @@
         }) : null]) };
     });
     body.appendChild(simpleTable(rows));
-    var totals = C.benefits.issued(db, current);
-    var summary = (db.nhanvien || []).flatMap(function (employee) {
-      var ma = employee["Mã NV"];
-      return C.benefits.entitlement(db, ma, current).map(function (item) {
-        var given = totals.get(JSON.stringify([ma, item.code])) || 0;
-        return { "Mã NV": ma, "Họ và tên": employee["Họ và tên"], "Mặt hàng": item.name, "Đơn vị": item.unit,
-          "Định mức": item.allowance, "Đã cấp": given, "Còn lại": Math.max(0, item.allowance - given), "Vượt": Math.max(0, given - item.allowance) };
-      });
+    // Báo cáo tháng: định mức còn hiệu lực + MỌI khoản đã cấp theo phiếu đã xác nhận (kể cả mặt hàng không còn định mức)
+    var summary = C.benefits.monthlyReport(db, current).map(function (row) {
+      return { "Mã NV": row.employee, "Họ và tên": row.name, "Mặt hàng": row.itemName, "Đơn vị": row.unit, "Định mức": row.allowance,
+        "Đã cấp": row.given, "Còn lại": row.remaining, "Vượt": row.over, "Phiếu cấp": row.docs.join(", "), "Ghi chú": row.note, _docs: row.docs };
     });
+    function openIssueDoc(id) {
+      var doc = (db.benefitIssues || []).find(function (row) { return row.id === id; }); if (!doc) { toast("Không tìm thấy phiếu " + id); return; }
+      modal("Phiếu " + doc.id + " — " + { draft: "Nháp", issued: "Đã cấp", recalled: "Đã thu hồi" }[doc.status], simpleTable(doc.lines.map(function (line) { return { "Mã NV": line.employee, "Mặt hàng": line.item, "Số lượng": line.quantity, "Ghi chú": line.note }; })), function (close) { return [btn("Đóng", "", close)]; });
+    }
     body.appendChild(h("h3", { text: "Đối chiếu phúc lợi kỳ " + current }));
     var search = benefitField("Lọc mã NV, họ tên hoặc mặt hàng", "text", st.benefitQuery || "");
     search.input.addEventListener("change", function () { st.benefitQuery = search.input.value; render(); });
@@ -213,12 +213,17 @@
     if (st.benefitQuery) summary = summary.filter(function (row) {
       return fold([row["Mã NV"], row["Họ và tên"], row["Mặt hàng"]].join(" ")).includes(fold(st.benefitQuery));
     });
+    var exportRows = summary.map(function (row) { var o = Object.assign({}, row); delete o._docs; return o; });
     if (can("export") && summary.length) body.appendChild(h("div", { class: "bar" }, [
-      btn("Xuất Excel đối chiếu", "", function () { saveXlsx("DoiChieuPhucLoi_" + current + ".xlsx", [{ name: "Đối chiếu phúc lợi", rows: summary }]); }),
+      btn("Xuất Excel đối chiếu", "", function () { saveXlsx("DoiChieuPhucLoi_" + current + ".xlsx", [{ name: "Đối chiếu phúc lợi", rows: exportRows }]); }),
       btn("Xuất PDF đối chiếu", "", function () { exportSheetsPdf({ title: "ĐỐI CHIẾU PHÚC LỢI", ky: current,
-        sheets: [{ name: "Đối chiếu phúc lợi", rows: summary }] }, "DoiChieuPhucLoi_" + current + ".pdf"); })
+        sheets: [{ name: "Đối chiếu phúc lợi", rows: exportRows }] }, "DoiChieuPhucLoi_" + current + ".pdf"); })
     ]));
-    body.appendChild(simpleTable(summary));
+    body.appendChild(simpleTable(summary.map(function (row) {
+      var shown = Object.assign({}, row); delete shown._docs;
+      shown["Mở phiếu"] = h("div", { class: "bar" }, row._docs.map(function (id) { return btn(id, "ghost", function () { openIssueDoc(id); }); }));
+      return shown;
+    })));
     return body;
   }
 

@@ -132,7 +132,8 @@
    *    KỂ CẢ khi họ tên trùng duy nhất — app chỉ gợi ý "cùng họ tên với mã …" chứ không tự ghép.
    *  - Excel để TRỐNG mã NV: chỉ khớp theo họ tên khi tên khớp đúng một người trong app và không lặp trong file.
    *  - Mã NV xuất hiện ở nhiều dòng Excel: không dòng nào được đối chiếu (không biết dòng nào đúng).
-   * → { rows, khongKhop: [{ dong, ma, hoTen, loai, ghiChu }], nhom: { [loại]: số dòng } }
+   * → { rows, khongKhop: [{ dong, ma, hoTen, loai, ghiChu }], nhom: { [loại]: số dòng },
+   *     thieuTrongExcel: [{ ma, hoTen, ghiChu }] (có trong app, không có dòng Excel nào khớp), tongKet: { tongApp, tongExcel, daDoiChieu, thieuTrongExcel, khongKhopApp, coChenhLech } }
    */
   function compare(appRows, refRows, extraChiTieu) {
     var ct = extraChiTieu || CHI_TIEU;
@@ -147,7 +148,7 @@
       if (m) maCount.set(m, (maCount.get(m) || 0) + 1);
       else if (rf.hoTen) { var k = fold(rf.hoTen); tenKhongMaCount.set(k, (tenKhongMaCount.get(k) || 0) + 1); }
     });
-    var out = [], khongKhop = [], nhom = {};
+    var out = [], khongKhop = [], nhom = {}, daKhop = new Set(), coLech = new Set();
     function loai(rf, ten, ghiChu) {
       khongKhop.push({ dong: rf.dong || null, ma: cellText(rf.ma), hoTen: rf.hoTen || "", loai: ten, ghiChu: ghiChu || "" });
       nhom[ten] = (nhom[ten] || 0) + 1;
@@ -170,11 +171,13 @@
         if (!cands.length) { loai(rf, LOAI.KHONG_CO_APP, ""); return; }
         app = cands[0];
       }
+      daKhop.add(app);
       ct.forEach(function (tc) {
         if (tc.soSanh === false) return;
         var ev = rf.values[tc.key]; if (ev == null) return;
         var av = tc.app(app); if (av == null) av = 0;
         var chenhLech = Math.round((av - ev) * 1000) / 1000;
+        if (chenhLech !== 0) coLech.add(app);
         out.push({
           "Dòng Excel": rf.dong || "", "Mã NV": app["Mã NV"], "Họ và tên": app["Họ và tên"], "Chỉ tiêu": tc.ten,
           "Excel": ev, "App": av, "Chênh lệch": chenhLech,
@@ -182,7 +185,19 @@
         });
       });
     });
-    return { rows: out, khongKhop: khongKhop, nhom: nhom };
+    // Chiều ngược lại: người CÓ trong app nhưng KHÔNG có dòng Excel nào được đối chiếu với họ (kể cả khi mọi số của người khác đều khớp).
+    var khongKhopTheoTen = new Map();
+    khongKhop.forEach(function (x) { var k = fold(x.hoTen); if (!k) return; if (!khongKhopTheoTen.has(k)) khongKhopTheoTen.set(k, []); khongKhopTheoTen.get(k).push(x); });
+    var thieuTrongExcel = [];
+    appRows.forEach(function (r) {
+      if (daKhop.has(r)) return;
+      var ma = cellText(r["Mã NV"]), notes = [];
+      if (ma && maCount.get(ma) > 1) notes.push("Excel có mã " + ma + " ở " + maCount.get(ma) + " dòng nên không đối chiếu được");
+      (khongKhopTheoTen.get(fold(r["Họ và tên"])) || []).forEach(function (x) { notes.push("Excel dòng " + (x.dong || "?") + " cùng họ tên (mã " + (x.ma || "trống") + ": " + x.loai + ")"); });
+      thieuTrongExcel.push({ ma: ma, hoTen: r["Họ và tên"] || "", ghiChu: notes.join("; ") });
+    });
+    var tongKet = { tongApp: appRows.length, tongExcel: refRows.length, daDoiChieu: daKhop.size, thieuTrongExcel: thieuTrongExcel.length, khongKhopApp: khongKhop.length, coChenhLech: coLech.size };
+    return { rows: out, khongKhop: khongKhop, nhom: nhom, thieuTrongExcel: thieuTrongExcel, tongKet: tongKet };
   }
 
   var api = { CHI_TIEU: CHI_TIEU, CHI_TIEU_TANGCA: CHI_TIEU_TANGCA, LOAI: LOAI, parseSheet: parseSheet, compare: compare, classify: classify, fold: fold, num: num };

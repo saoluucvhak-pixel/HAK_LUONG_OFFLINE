@@ -56,7 +56,7 @@
   /** File mẫu nhập liệu có định dạng (tiêu đề tô màu, cố định dòng đầu, dòng ví dụ nền vàng). Cùng tên sheet/cột/giá trị như bản thô. Trả true nếu đã xử lý. */
   function styledTemplate(filename, sheets) {
     if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.templateXlsx) return false;
-    var prepared = sheets.map(function (sh) { return { name: sheetName(sh.name), cols: sh.cols, rows: sh.rows.map(function (r) { var o = {}; sh.cols.forEach(function (c) { o[c] = excelCell(c, r[c]); }); return o; }) }; });
+    var prepared = sheets.map(function (sh) { return { name: sheetName(sh.name), cols: sh.cols, sampleMark: true, rows: sh.rows.map(function (r) { var o = {}; sh.cols.forEach(function (c) { o[c] = excelCell(c, r[c]); }); return o; }) }; });
     window.HAKUi.templateXlsx.build(window.ExcelJS, prepared, { creator: currentUser() }).xlsx.writeBuffer().then(function (buf) {
       download(filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
     }, function (e) { alert("Không tạo được file mẫu: " + e.message); });
@@ -84,7 +84,8 @@
   function templateSheet(key) { var d = ALL[key]; return { name: d.ten, cols: d.cols, rows: SAMPLES[key] || [] }; }
   function downloadTemplate(key) {
     var d = ALL[key];
-    var guide = [{ "Cột": "Cách dùng", "Giải thích": "Xóa dòng ví dụ rồi nhập dữ liệu thật của bạn. KHÔNG đổi tên cột (dòng 1). Có thể bỏ bớt cột không dùng." }];
+    var guide = [{ "Cột": "Cách dùng", "Giải thích": "Nhập dữ liệu thật ở dòng mới bên dưới. KHÔNG đổi tên cột (dòng 1). Có thể bỏ bớt cột không dùng. Dòng nền vàng là ví dụ (cột 'Dòng ví dụ' ghi VÍ DỤ): app tự bỏ qua khi nhập." },
+      { "Cột": "Số 0 đầu", "Giải thích": "Các cột Mã (Mã NV, Mã phòng ban…), Số tài khoản, Số CCCD, Số HĐLĐ đã định dạng Text: nhập 0005 hay 00123 sẽ giữ nguyên số 0 đầu. Đừng đổi định dạng các cột này sang Number." }];
     if (d.hint) guide.push({ "Cột": "Lưu ý", "Giải thích": d.hint });
     guide.push({ "Cột": "Ngày tháng", "Giải thích": "Nhập kiểu ngày Excel bình thường hoặc 2026-09-15." });
     guide.push({ "Cột": "Nhập vào app", "Giải thích": "Mở app → mục \"" + d.ten + "\" → nút ⬆ Nhập Excel → chọn file này." });
@@ -106,6 +107,22 @@
     });
     f.click();
   }
+  /** Dòng ví dụ của file mẫu mới có cột "Dòng ví dụ" = "VÍ DỤ": bỏ qua khi nhập để không ghi nhầm dữ liệu mẫu. */
+  var SAMPLE_COL = "Dòng ví dụ";
+  function isSampleMarked(row) { return fold(row[SAMPLE_COL]) === "vi du"; }
+  function stripSampleAoa(aoa) {
+    var hi = -1, ci = -1;
+    for (var i = 0; i < Math.min(aoa.length, 30) && ci < 0; i++) { var at = (aoa[i] || []).indexOf(SAMPLE_COL); if (at >= 0) { hi = i; ci = at; } }
+    if (ci < 0) return { aoa: aoa, skipped: 0 };
+    var out = aoa.filter(function (r, i) { return i <= hi || fold((r || [])[ci]) !== "vi du"; });
+    return { aoa: out, skipped: aoa.length - out.length };
+  }
+  /** File mẫu CŨ (không có cột đánh dấu): dòng trùng hệt dòng ví dụ của app vẫn được giữ (có thể là dữ liệu thật) nhưng được báo để người dùng xem lại. */
+  function sampleLookalikes(key, rows) {
+    var samples = SAMPLES[key] || []; if (!samples.length) return [];
+    var cols = ALL[key].cols, same = function (a, b) { return cols.every(function (c) { return String(a[c] == null ? "" : a[c]).trim() === String(b[c] == null ? "" : b[c]).trim(); }); };
+    return rows.filter(function (r) { return !isSampleMarked(r) && samples.some(function (sm) { return same(r, sm); }); });
+  }
   // Thứ tự nhập: danh mục → nhân viên → hồ sơ con → dữ liệu phát sinh (để kiểm tra tham chiếu Mã NV đúng)
   function importOrder(keys) { var rank = function (k) { return /^dm_/.test(k) ? 0 : k === "nhanvien" ? 1 : HRT[k] ? 2 : 3; }; return keys.slice().sort(function (a, b) { return rank(a) - rank(b); }); }
   function planWorkbook(wb, onlyKey, mode, pumpMode) {
@@ -117,11 +134,14 @@
       if (!name && onlyKey) name = wb.SheetNames[0];
       if (!name) return;
       // α19: Sản lượng / Bơm dăm đọc được cả file theo mẫu công cụ phân bổ (dòng tiêu đề phía trên, tên cột khác: "Ngày cân 1", "Số xe", "Mã phòng ban"…)
-      var raw = k === "sanluong" || k === "bandam" ? IMP.rowsFromAoa(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: "" }), k, ALL[k].cols).rows : XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: true, defval: "" });
+      var skipped = 0, aoa = null;
+      if (k === "sanluong" || k === "bandam") { var st0 = stripSampleAoa(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: "" })); aoa = st0.aoa; skipped = st0.skipped; }
+      var raw = aoa ? IMP.rowsFromAoa(aoa, k, ALL[k].cols).rows : XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: true, defval: "" });
+      if (!aoa) { var kept = raw.filter(function (r) { return !isSampleMarked(r); }); skipped = raw.length - kept.length; raw = kept; }
       if (k === "bandam" && pumpMode && raw.some(function (r) { return C.inputReview.mode(r) !== pumpMode; })) throw Error("File không đúng cách phân bổ đang mở. Theo tổ cần Mã phòng ban, để trống Mã NV; Trực tiếp cần Mã NV.");
       var p = IMP.plan(db, k, ALL[k].cols, raw, { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
       if (k === "bandam" && pumpMode && p.items.some(function (it) { return it.target && C.inputReview.mode(it.target) !== pumpMode; })) throw Error("File cập nhật khác cách phân bổ. Mở đúng tab để sửa phiếu.");
-      p.sheet = name;
+      p.sheet = name; p.sampleSkipped = skipped; p.sampleLike = sampleLookalikes(k, raw);
       if (k === "nhanvien") p.items.forEach(function (it) { if (it.action === "add" || it.action === "update") extraEmp[it.row["Mã NV"]] = 1; });
       plans.push(p);
     });
@@ -171,6 +191,9 @@
     body.appendChild(choice);
     var sumRows = plans.map(function (p) { var o = { "Bảng": ALL[p.table].ten, "Sheet": p.sheet }; Object.keys(IMP.LABEL).forEach(function (k) { o[IMP.LABEL[k]] = p.summary[k] || 0; }); return o; });
     body.appendChild(simpleTable(sumRows));
+    var skipTotal = 0, lookTotal = 0; plans.forEach(function (p) { skipTotal += p.sampleSkipped || 0; lookTotal += (p.sampleLike || []).length; });
+    if (skipTotal) body.appendChild(h("div", { class: "hint", "data-imp-sample": "skipped", text: "Đã bỏ qua " + skipTotal + " dòng ví dụ của file mẫu (cột 'Dòng ví dụ' ghi VÍ DỤ) — không ghi vào dữ liệu." }));
+    if (lookTotal) body.appendChild(h("div", { class: "warn", "data-imp-sample": "lookalike", text: "⚠ " + lookTotal + " dòng trùng hệt dòng ví dụ của file mẫu (" + plans.filter(function (p) { return (p.sampleLike || []).length; }).map(function (p) { return ALL[p.table].ten + ": " + p.sampleLike.slice(0, 3).map(function (r) { return r["Mã NV"] || r[ALL[p.table].cols[0]] || "?"; }).join(", "); }).join(" · ") + "). Vẫn được ghi nếu là dữ liệu thật — kiểm tra lại trước khi bấm Ghi, và xóa dòng ví dụ khỏi file." }));
     var clears = 0, retro = {};
     plans.forEach(function (p) { p.items.forEach(function (it) {
       if (it.action === "update" && it.diff) clears += it.diff.clear.length;

@@ -12,19 +12,24 @@
 const fs = require('node:fs'), path = require('node:path');
 const appDir = path.resolve(__dirname, '..'), srcDir = path.join(appDir, 'app-src'), outFile = path.join(appDir, 'app.js');
 
-function parts() {
-  const names = fs.readdirSync(srcDir).filter(f => f.endsWith('.js')).sort();
+// Windows có thể checkout app-src/ và app.js với CRLF (git autocrlf) trong khi bản ghép ra dùng LF hoặc ngược lại:
+// so khớp nội dung sau khi chuẩn hóa xuống dòng, không coi khác kiểu xuống dòng là lệch.
+const normalizeEol = text => text.replace(/\r\n/g, '\n');
+const matches = (actual, expected) => normalizeEol(actual) === normalizeEol(expected);
+
+function parts(dir = srcDir) {
+  const names = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort();
   const bad = names.filter(f => !/^\d{2}-[a-z0-9-]+\.js$/.test(f));
   if (bad.length) throw Error('Tên file trong app-src/ phải có dạng NN-ten.js: ' + bad.join(', '));
   const dup = names.map(f => f.slice(0, 2)).filter((n, i, a) => a.indexOf(n) !== i);
   if (dup.length) throw Error('Trùng số thứ tự trong app-src/: ' + dup.join(', '));
   return names;
 }
-function build() {
-  const screenDir = path.join(srcDir, 'screens');
+function build(dir = srcDir) {
+  const screenDir = path.join(dir, 'screens');
   const remaining = new Set(fs.readdirSync(screenDir).filter(f => f.endsWith('.js')));
-  const bundle = parts().map(f => {
-    const source = fs.readFileSync(path.join(srcDir, f), 'utf8');
+  const bundle = parts(dir).map(f => {
+    const source = fs.readFileSync(path.join(dir, f), 'utf8');
     return source.replace(/^  \/\/ @screen (tab[A-Za-z]+)\r?\n/gm, (_, name) => {
       const file = name + '.js';
       if (!remaining.delete(file)) throw Error('Màn hình bị thiếu hoặc ghép hai lần: ' + file);
@@ -39,11 +44,11 @@ function build() {
   return bundle;
 }
 
-module.exports = { build, parts, outFile, srcDir };
+module.exports = { build, parts, outFile, srcDir, normalizeEol, matches };
 if (require.main === module) {
   const text = build();
   if (process.argv.includes('--check')) {
-    if (fs.readFileSync(outFile, 'utf8') !== text) { console.error('FAIL app.js không khớp app-src/. Chạy: npm run build:app'); process.exit(1); }
+    if (!matches(fs.readFileSync(outFile, 'utf8'), text)) { console.error('FAIL app.js không khớp app-src/. Chạy: npm run build:app'); process.exit(1); }
     console.log('PASS app.js khớp ' + parts().length + ' file trong app-src/');
   } else {
     fs.writeFileSync(outFile, text);
