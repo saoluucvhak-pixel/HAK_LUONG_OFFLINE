@@ -103,7 +103,7 @@ test("U-BH-BLANK-06 tiến trình chính tự tính lại và chặn (không tin
 
 test("U-BH-BLANK-07 kỳ đã chốt không bị kiểm lại theo danh mục hiện tại; giao diện gắn kiểm tra vào lần tính và hiện ở màn Kiểm tra bảng lương", () => {
   assert.deepEqual(G.blockers({ bangluong: [], bhxh: [] }).map((b) => b.code), [], "bản chốt đã lưu không có loiTyLeBH");
-  const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8").replace(/\r\n/g, "\n");
   assert.match(src, /var bl = src\.chot \? \[\] : GATE\.blockers\(src\.kq\);/, "kỳ đã chốt: không gọi cổng chặn");
   assert.match(src, /kq\.loiTyLeBH = GATE\.insuranceRateIssues\(\{ kq: kq, staff: sp\.list, catalog: E\.hieuLuc\(db\.dm_baohiem, "Mã bảo hiểm", nam, thang\) \}\)/);
   assert.match(src, /\(kq\.loiTyLeBH \|\| \[\]\)\.forEach\(function \(message, i\) \{[\s\S]*?muc: "ERROR"[\s\S]*?"dm_baohiem"/);

@@ -68,7 +68,7 @@ test("U-RC-MATCH-07 số dòng Excel đúng theo vùng dữ liệu; ô tiền v�
 });
 
 test("U-RC-MATCH-08 giao diện: truyền dòng đầu vùng dữ liệu, nhóm theo lý do, nêu số dòng + mã + họ tên và xuất cả ra Excel", () => {
-  const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8").replace(/\r\n/g, "\n");
   const from = src.indexOf("  function tabDoiChieu("), to = src.indexOf("  function khongKhopPanel(");
   assert.ok(from > 0 && to > from);
   const screen = src.slice(from, src.indexOf("\n  }\n", to + 10) + 5);

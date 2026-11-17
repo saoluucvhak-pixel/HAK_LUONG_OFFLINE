@@ -88,7 +88,7 @@ test("U-BEN-VAL-05 số đã cấp trên phiếu đã xác nhận vẫn tra cứ
 });
 
 test("U-BEN-VAL-06 giao diện: hiện mặt hàng, định mức, khoảng hiệu lực và xác nhận trước khi lưu; dùng cùng hàm kiểm tra với main", () => {
-  const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
+  const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8").replace(/\r\n/g, "\n");
   const from = src.indexOf("  function benefitContractPanel("), to = src.indexOf("  var BENEFIT_COLUMNS");
   assert.ok(from > 0 && to > from);
   const panel = src.slice(from, to);
