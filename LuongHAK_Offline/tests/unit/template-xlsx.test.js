@@ -23,14 +23,14 @@ test("U-TPL-01 định dạng: tiêu đề tô màu + cố định dòng đầu 
 });
 
 test("U-TPL-02 nhập lại vẫn đọc đúng: cùng tên sheet, cùng tên cột dòng 1, cùng giá trị; mã có số 0 đầu giữ nguyên chữ", async () => {
-  const buf = await T.build(ExcelJS, sheets).xlsx.writeBuffer(), book = XLSX.read(buf, { type: "buffer" });
+  const buf = await T.build(ExcelJS, sheets).xlsx.writeBuffer(), book = XLSX.read(buf, { type: "buffer", cellDates: true });
   assert.deepEqual(book.SheetNames, ["Nhân viên", "Hướng dẫn"]);
   const aoa = XLSX.utils.sheet_to_json(book.Sheets["Nhân viên"], { header: 1, defval: "", raw: true });
   assert.deepEqual(aoa[0], cols, "dòng 1 = tên cột, không đổi");
   const back = XLSX.utils.sheet_to_json(book.Sheets["Nhân viên"], { defval: "", raw: true });
   assert.equal(back.length, 2);
   assert.equal(back[0]["Mã NV"], "007"); assert.equal(typeof back[0]["Mã NV"], "string");
-  assert.equal(back[0]["Ngày vào làm"], "2026-09-01"); assert.equal(back[0]["Số tiền"], 1500000); assert.equal(back[0]["Hệ số"], 1.5); assert.equal(back[0]["01"], 1);
+  assert.equal(require("../../core/validate.js").normDate(back[0]["Ngày vào làm"]), "2026-09-01", "ngày mẫu là ô ngày thật, đọc ra đúng ngày"); assert.equal(back[0]["Số tiền"], 1500000); assert.equal(back[0]["Hệ số"], 1.5); assert.equal(back[0]["01"], 1);
   assert.equal(back[1]["Số tiền"], ""); assert.equal(back[1]["Mã NV"], "NV002");
   const g = XLSX.utils.sheet_to_json(book.Sheets["Hướng dẫn"], { defval: "" });
   assert.equal(g[0]["Cột"], "Cách dùng");

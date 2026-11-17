@@ -239,3 +239,27 @@ test("U-DIS-13 tiến trình chính (write-policy) áp đúng quy tắc phiếu 
   assert.ok(!known.info.some((m) => /benefitPpeItems|benefitAdjustments/.test(m)), "schema nhận ra hai bảng mới");
   assert.equal(known.stats.benefitPpeItems, 2); assert.equal(known.stats.benefitAdjustments, 0);
 });
+
+test("U-DIS-14 dữ liệu sữa cũ (không có loại phiếu và thông tin lịch sử) vẫn dùng được: giữ mã phiếu, số đã cấp, người xác nhận; hiện ở danh sách chung loại Sữa; mở lại/sao lưu-khôi phục không sinh phiếu trùng", () => {
+  const SCH = require("../../core/schema.js");
+  const legacy = { id: "PC-2026-11-01", date: "2026-11-05", period: "2026-11", place: "Kho cũ", maker: "hr", status: "issued", reviewer: "boss", confirmedAt: when, lines: [{ employee: "A", item: "MILK", quantity: 4, note: "" }] };
+  const cancelled = { id: "PC-2026-11-02", date: "2026-11-06", period: "2026-11", place: "Kho", maker: "hr", status: "recalled", reason: "Nhầm", recalledBy: "boss", lines: [{ employee: "B", item: "MILK", quantity: 9, note: "" }] };
+  const recalledAfterIssue = { id: "PC-2026-11-03", date: "2026-11-07", period: "2026-11", place: "Kho", maker: "hr", status: "recalled", reviewer: "boss", confirmedAt: when, recalledBy: "boss", reason: "Thu lại", lines: [{ employee: "C", item: "MILK", quantity: 3, note: "" }] };
+  const db = base({ benefitIssues: [legacy, cancelled, recalledAfterIssue] });
+  const before = JSON.stringify(db.benefitIssues);
+  assert.deepEqual(B.listVouchers(db, { type: "milk", deptOf }).map((r) => [r.id, r.type, r.status, r.people]).sort(), [["PC-2026-11-01", "milk", "issued", 1], ["PC-2026-11-02", "milk", "recalled", 1], ["PC-2026-11-03", "milk", "recalled", 1]]);
+  assert.deepEqual(B.listVouchers(db, { type: "ppe", deptOf }), []);
+  assert.equal(B.issued(db, "2026-11").get(JSON.stringify(["A", "MILK"])), 4, "số đã cấp giữ nguyên");
+  assert.equal(B.issued(db, "2026-11").has(JSON.stringify(["B", "MILK"])), false, "nháp bị hủy chưa từng cấp");
+  const d = B.report(db, { type: "milk", mode: "detail", deptOf }).rows.map((r) => [r["Mã phiếu"], r["Lượt"], r["Số lượng"], r["Người xác nhận"]]);
+  assert.deepEqual(d, [["PC-2026-11-01", "Cấp", 4, "boss"], ["PC-2026-11-03", "Cấp", 3, "boss"], ["PC-2026-11-03", "Thu hồi", 3, "boss"]]);
+  const s = B.report(db, { type: "milk", mode: "summary", filters: { thang: "2026-11" }, deptOf }).rows.filter((r) => !r._total);
+  assert.equal(s.reduce((n, r) => n + r["Thực cấp"], 0), 4, "tổng thực cấp = 4 (phiếu thu hồi hết không còn tính)");
+  // đọc/tra cứu không ghi gì: dữ liệu cũ không đổi; "chạy lại nâng cấp" (sao lưu rồi khôi phục) giữ nguyên số phiếu
+  assert.equal(JSON.stringify(db.benefitIssues), before);
+  const restored = JSON.parse(JSON.stringify({ ...db, benefitAdjustments: [adj("DC1", "PC-2026-11-01", [{ employee: "A", item: "MILK", quantity: 1 }])] }));
+  assert.equal(restored.benefitIssues.length, 3); assert.equal(restored.benefitAdjustments.length, 1); assert.equal(restored.benefitPpeItems.length, 2);
+  const check = SCH.validate(restored, { tables: [], hrTables: [] });
+  assert.deepEqual(check.fatal, []); assert.ok(!check.info.some((m) => /benefit/.test(m)));
+  assert.equal(B.report(restored, { type: "milk", mode: "detail", deptOf }).rows.filter((r) => r["Lượt"] === "Thu hồi").length, 2, "điều chỉnh và phiếu thu hồi cũ cùng hiện");
+});

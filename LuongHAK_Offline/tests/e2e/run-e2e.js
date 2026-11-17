@@ -389,6 +389,79 @@ async function launch(dataDir, opt) {
     /1 dòng chênh lệch/.test(dcTxt) && /50\.000/.test(dcTxt) && /Thực lĩnh/.test(dcTxt), dcTxt.replace(/\s+/g, " ").slice(0, 400));
   ok("Đối chiếu hai chiều: có tổng kết (số người đã đối chiếu, thiếu trong Excel, không khớp app) và xuất Excel luôn có nút",
     /Tổng kết đối chiếu/.test(dcTxt) && /đã đối chiếu 1 người/.test(dcTxt) && /thiếu trong Excel \d+/.test(dcTxt) && /Xuất Excel đối chiếu/.test(dcTxt), dcTxt.replace(/\s+/g, " ").slice(0, 400));
+  // ---- Cấp phát thống nhất (sữa + bảo hộ lao động): danh mục → phiếu → xác nhận → thu hồi một phần → báo cáo → nhập Excel ----
+  {
+    const cpText = async () => (await w.locator("main").first().innerText()).replace(/\s+/g, " ");
+    await w.click("#nav button[data-k=dm]"); await w.click('button:has-text("Đồ bảo hộ lao động")');
+    ok("Cấp phát: Danh mục → Cấp phát có 'Đồ bảo hộ lao động' và 'Tiêu chuẩn phúc lợi'", await w.locator('main button:has-text("Tiêu chuẩn phúc lợi")').count() > 0 && /Đồ bảo hộ lao động/.test(await cpText()));
+    for (const item of [{ code: "GIAY", name: "Giày bảo hộ", group: "Giày", unit: "đôi", sizes: "39, 40, 41" }, { code: "MUBH", name: "Mũ bảo hộ", group: "Mũ", unit: "cái", sizes: "" }]) {
+      await w.click('button:has-text("Thêm vật tư")'); await w.waitForSelector(".dlg");
+      await w.fill('.dlg [aria-label="Mã vật tư"]', item.code); await w.fill('.dlg [aria-label="Tên vật tư"]', item.name);
+      await w.selectOption('.dlg select[aria-label="Nhóm hàng"]', item.group); await w.fill('.dlg [aria-label="Đơn vị tính"]', item.unit);
+      await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', item.sizes); await w.click('.dlg button:has-text("Lưu vật tư")'); await w.waitForTimeout(250);
+    }
+    ok("Cấp phát: thêm 2 vật tư bảo hộ (giày có cỡ, mũ không cỡ) vào danh mục", /Giày bảo hộ/.test(await cpText()) && /Mũ bảo hộ/.test(await cpText()), (await cpText()).slice(0, 200));
+    await shotOf(w, "cp-01-danh-muc-bao-ho");
+    await w.click("#nav button[data-k=capphat]");
+    ok("Cấp phát: một nơi lập phiếu, có bộ chọn Tất cả / Sữa phúc lợi / Bảo hộ lao động và Phiếu / Báo cáo", /Phiếu cấp phát/.test(await cpText()) && /Báo cáo cấp phát/.test(await cpText()) && await w.locator('main button:has-text("Sữa phúc lợi")').count() > 0);
+    await w.click('main button:has-text("Bảo hộ lao động")');
+    await w.click('button:has-text("Lập phiếu bảo hộ lao động")'); await w.waitForSelector('[data-cp-detail]');
+    await w.click('button:has-text("Thêm dòng")');
+    await w.fill('[data-cp-lines] input[aria-label="Mã NV"]', "NV001"); await w.locator('[data-cp-lines] input[aria-label="Mã NV"]').press("Tab"); await w.waitForTimeout(150);
+    await w.selectOption('[data-cp-lines] select[aria-label="Mặt hàng"]', "GIAY"); await w.waitForTimeout(150);
+    await w.selectOption('[data-cp-lines] select[aria-label="Kích cỡ"]', "99").catch(() => {});
+    await w.selectOption('[data-cp-lines] select[aria-label="Kích cỡ"]', "40");
+    await w.fill('[data-cp-lines] input[aria-label="Số lượng"]', "10"); await w.locator('[data-cp-lines] input[aria-label="Số lượng"]').press("Tab"); await w.waitForTimeout(150);
+    await shotOf(w, "cp-02-man-nhap-phieu");
+    await w.click('button:has-text("Lưu nháp")'); await w.waitForTimeout(400);
+    ok("Cấp phát: lưu nháp phiếu bảo hộ (10 đôi giày cỡ 40)", /Nháp/.test(await cpText()) && /Xác nhận cấp phát/.test(await cpText()), (await cpText()).slice(0, 300));
+    await w.click('button:has-text("Xác nhận cấp phát")'); await w.waitForTimeout(400);
+    ok("Cấp phát: xác nhận phiếu (Quản trị tự xác nhận ở chế độ một người)", /Đã cấp/.test(await cpText()) && /Thu hồi \/ điều chỉnh/.test(await cpText()));
+    await w.click('button:has-text("Thu hồi / điều chỉnh")'); await w.waitForSelector("[data-cp-adjust]");
+    await w.fill('[data-cp-adjust] input[aria-label^="Số thu hồi NV001 GIAY"]', "11"); await w.fill('.dlg input[aria-label="Lý do thu hồi hoặc điều chỉnh"]', "Trả lại 2 đôi sai cỡ");
+    dialogs.length = 0; await w.click('.dlg button:has-text("Ghi thu hồi / điều chỉnh")'); await w.waitForTimeout(300);
+    const overMsg = dialogs.join(" | ");
+    ok("Cấp phát: thu hồi vượt số lượng còn lại bị chặn (không ghi)", /vượt số lượng còn lại/.test(overMsg) && await w.locator("[data-cp-adjust]").count() > 0, overMsg.slice(0, 160));
+    await w.fill('[data-cp-adjust] input[aria-label^="Số thu hồi NV001 GIAY"]', "2"); await w.click('.dlg button:has-text("Ghi thu hồi / điều chỉnh")'); await w.waitForTimeout(400);
+    ok("Cấp phát: thu hồi 2 đôi, phiếu giữ lịch sử điều chỉnh (người, lý do, thời điểm)", /Lịch sử thu hồi/.test(await cpText()) && /Trả lại 2 đôi sai cỡ/.test(await cpText()) && /NV001 · GIAY cỡ 40 × 2/.test(await cpText()), (await cpText()).slice(-300));
+    await shotOf(w, "cp-03-chi-tiet-phieu-da-cap");
+    await w.click('button:has-text("Quay lại danh sách")'); await w.waitForTimeout(200);
+    await shotOf(w, "cp-04-danh-sach-phieu");
+    await w.click('main button:has-text("Báo cáo cấp phát")'); await w.waitForSelector("[data-cp-report]"); await w.waitForTimeout(200);
+    let rp = await w.locator("[data-cp-table]").innerText();
+    const cells = (rp.split("\n").find((l) => /Giày bảo hộ/.test(l)) || "").split("\t").map((x) => x.trim());
+    ok("Cấp phát: báo cáo tổng hợp — giày: đã cấp 10, thu hồi 2, thực cấp 8; có dòng cộng theo đơn vị", cells.includes("10") && cells.includes("2") && cells.includes("8") && /Tổng theo đơn vị tính: đôi/.test(rp), rp.replace(/\s+/g, " ").slice(0, 300));
+    await shotOf(w, "cp-05-bao-cao-tong-hop");
+    await w.click('[data-cp-report] button:has-text("Chi tiết")'); await w.waitForSelector('[data-cp-report="detail"]');
+    rp = (await w.locator("[data-cp-table]").innerText()).replace(/\s+/g, " ");
+    ok("Cấp phát: báo cáo chi tiết — một lượt Cấp 10 và một lượt Thu hồi 2, có mã phiếu để mở chứng từ gốc", /Cấp/.test(rp) && /Thu hồi/.test(rp) && await w.locator("[data-cp-table] tbody tr button").count() >= 2, rp.slice(0, 260));
+    await shotOf(w, "cp-06-bao-cao-chi-tiet");
+    await w.locator("[data-cp-table] tbody tr button").first().click(); await w.waitForSelector("[data-cp-detail]");
+    ok("Cấp phát: từ báo cáo mở đúng phiếu gốc bằng cùng màn chi tiết", /Phiếu .* — Đã cấp/.test(await cpText()));
+    await w.click('button:has-text("Quay lại báo cáo")'); await w.waitForSelector('[data-cp-report="detail"]');
+    ok("Cấp phát: quay lại báo cáo giữ nguyên chế độ Chi tiết đã chọn", await w.locator('[data-cp-report="detail"]').count() === 1);
+    // Nhập Excel theo phiếu: mẫu bảo hộ, dòng ví dụ bị bỏ qua, số 0 đầu giữ nguyên chữ, nhập lại không nhân đôi
+    const cpWb = new (require(path.join(APP, "exceljs.min.js"))).Workbook(), cpWs = cpWb.addWorksheet("Cấp phát bảo hộ");
+    cpWs.getRow(1).values = ["Mã phiếu", "Ngày cấp", "Địa điểm", "Mã NV", "Mã vật tư", "Kích cỡ", "Số lượng", "Lý do", "Ghi chú", "Dòng ví dụ"];
+    cpWs.getRow(2).values = ["BH-VD-01", "2026-11-15", "Kho", "0005", "GIAY", "40", 1, "", "", "VÍ DỤ"];
+    cpWs.getRow(3).values = ["BH-IMP-01", "2026-11-16", "Kho vật tư", "NV001", "MUBH", "", 2, "Cấp đợt 11", "", ""];
+    cpWs.getRow(4).values = ["BH-IMP-01", "2026-11-16", "Kho vật tư", "NV001", "GIAY", "45", 1, "Cấp đợt 11", "", ""];
+    const cpFile = path.join(DL, "..", "capphat_bao_ho.xlsx"); fs.writeFileSync(cpFile, new Uint8Array(await cpWb.xlsx.writeBuffer()));
+    await w.click('main button:has-text("Phiếu cấp phát")');
+    const importFile = async () => { const [fc] = await Promise.all([w.waitForEvent("filechooser"), w.click('button:has-text("Nhập Excel")')]); await fc.setFiles(cpFile); await w.waitForSelector("[data-cp-import]"); return (await w.locator(".dlg").innerText()).replace(/\s+/g, " "); };
+    let prev = await importFile();
+    ok("Cấp phát: nhập Excel báo lỗi theo số dòng Excel (sai cỡ) và bỏ qua dòng ví dụ", /Dòng Excel 4\b.*sai kích cỡ/.test(prev) && /Đã bỏ qua 1 dòng ví dụ/.test(prev), prev.slice(0, 400));
+    await shotOf(w, "cp-07-xem-truoc-nhap-excel");
+    await w.click('.dlg button:has-text("Đóng")');
+    cpWs.getRow(4).values = ["BH-IMP-01", "2026-11-16", "Kho vật tư", "NV001", "GIAY", "41", 1, "Cấp đợt 11", "", ""]; fs.writeFileSync(cpFile, new Uint8Array(await cpWb.xlsx.writeBuffer()));
+    prev = await importFile();
+    ok("Cấp phát: sau khi sửa cỡ, xem trước báo 1 phiếu mới và cho lưu nháp", /1 phiếu: 1 mới/.test(prev) && /Lưu nháp 1 phiếu/.test(prev), prev.slice(0, 300));
+    await w.click('.dlg button:has-text("Lưu nháp 1 phiếu")'); await w.waitForTimeout(500);
+    prev = await importFile();
+    ok("Cấp phát: nhập lại cùng file không tạo thêm phiếu (đã có, không đổi)", /1 đã có \(không đổi\)/.test(prev) && /Không có phiếu nào để lưu/.test(prev), prev.slice(0, 300));
+    await w.click('.dlg button:has-text("Đóng")');
+    ok("Cấp phát: danh sách có đúng 2 phiếu bảo hộ (không nhân đôi sau nhập lại)", (await w.locator("[data-cp-voucher]").count()) === 2);
+  }
   await w.click("#nav button[data-k=luong]");
   await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
   await w.locator(".dlg input").fill("Chốt bởi E2E"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');

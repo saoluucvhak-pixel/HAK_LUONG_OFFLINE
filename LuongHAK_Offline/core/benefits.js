@@ -363,7 +363,7 @@
    * Sổ cái cấp phát: mỗi dòng là MỘT lượt cấp hoặc thu hồi. Phiếu nháp có "counted: false" (không tính thực cấp).
    * Dòng cũ (trước khi có thông tin lịch sử) lấy tên từ danh mục và tổ tại ngày cấp qua deptOf.
    */
-  function ledger(db, deptOf) {
+  function ledger(db, deptOf, all) {
     const catalog = catalogOf(db), people = new Map((db.nhanvien || []).map(row => [row["Mã NV"], row["Họ và tên"] || ""])), entries = [];
     const docs = new Map((db.benefitIssues || []).map(doc => [doc.id, doc]));
     const fill = (type, line, date) => {
@@ -373,11 +373,11 @@
     };
     docs.forEach(doc => {
       const type = docType(doc), wasIssued = doc.status === "issued" || (doc.status === "recalled" && !!doc.confirmedAt);
-      if (doc.status === "recalled" && !wasIssued) return; // nháp bị hủy: chưa từng cấp
+      if (doc.status === "recalled" && !wasIssued && !all) return; // nháp bị hủy: chưa từng cấp (chỉ hiện ở danh sách phiếu)
       (doc.lines || []).forEach(line => {
         const base = { ...fill(type, line, doc.date), type, voucher: doc.id, date: doc.date, period: doc.period, place: doc.place || "", status: doc.status, note: line.note || "", reviewer: doc.reviewer || "", quantity: line.quantity };
         entries.push({ ...base, kind: "issue", counted: wasIssued, by: doc.reviewer || "" });
-        if (doc.status === "recalled") entries.push({ ...base, kind: "recall", counted: true, by: doc.recalledBy || "", note: doc.reason || "" });
+        if (doc.status === "recalled" && wasIssued) entries.push({ ...base, kind: "recall", counted: true, by: doc.recalledBy || "", note: doc.reason || "" });
       });
     });
     (db.benefitAdjustments || []).forEach(adj => {
@@ -485,6 +485,18 @@
     });
     return { mode: "summary", columns, rows: rows.concat(totals), totals };
   }
+  /** Danh sách phiếu cho màn hình: mỗi phiếu một dòng, lọc theo loại và bộ lọc dùng chung với báo cáo (phiếu khớp nếu có dòng khớp). */
+  function listVouchers(db, opts) {
+    const f = (opts && opts.filters) || {}, type = (opts && opts.type) || "all", found = new Map();
+    ledger(db, opts && opts.deptOf, true).forEach(entry => {
+      if (entry.kind !== "issue" || entry.adjustment || (type !== "all" && entry.type !== type) || !matchEntry(entry, f)) return;
+      found.set(entry.voucher, true);
+    });
+    return (db.benefitIssues || []).filter(doc => found.has(doc.id)).map(doc => ({
+      id: doc.id, type: docType(doc), date: doc.date, period: doc.period, place: doc.place || "", people: new Set((doc.lines || []).map(line => line.employee)).size,
+      lines: (doc.lines || []).length, status: doc.status, maker: doc.maker || "", reviewer: doc.reviewer || "", purpose: doc.purpose || "" }))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  }
   const report = (db, opts) => opts && opts.mode === "detail" ? detailReport(db, opts) : summaryReport(db, opts);
 
   // ---------- Nhập Excel: dòng phẳng (mỗi dòng một người nhận một mặt hàng) → phiếu nháp ----------
@@ -512,7 +524,8 @@
       if (!group.head) group.head = { date, place, purpose, row };
       else if (group.head.date !== date || group.head.place !== place || group.head.purpose !== purpose) fail(group.issues, row, "đầu phiếu " + id + " không nhất quán với dòng " + group.head.row + " (ngày cấp, địa điểm hoặc lý do khác nhau).");
       const employee = cellText(values["Mã NV"]), item = cellText(values[itemKey]), size = cellText(values["Kích cỡ"]), quantity = Number(String(values["Số lượng"] == null ? "" : values["Số lượng"]).trim().replace(",", "."));
-      if (!employee) fail(group.issues, row, "thiếu mã nhân viên."); else if (!people.has(employee)) fail(group.issues, row, "không có nhân viên " + employee + ".");
+      if (!employee) fail(group.issues, row, "thiếu mã nhân viên.");
+      else if (!people.has(employee)) fail(group.issues, row, "không có nhân viên " + employee + "." + (typeof values["Mã NV"] === "number" ? " Ô Mã NV là số — số 0 đầu có thể đã mất, hãy nhập ô dạng Text (ví dụ 0005)." : ""));
       if (!item) fail(group.issues, row, "thiếu " + itemKey.toLowerCase() + ".");
       if (cellText(values["Số lượng"]) === "" || !Number.isSafeInteger(quantity) || quantity <= 0) fail(group.issues, row, "số lượng phải là số nguyên dương.");
       const dup = group.lines.find(line => line.employee === employee && line.item === item && sizeOf(line) === size);
@@ -557,6 +570,6 @@
 
   const api = { entitlement, issued, reviewIssue, validateChanges, standardAt, standardProblem, monthlyReport, NO_STANDARD_NOTE,
     GROUPS, docType, sizeOf, ppeItemProblem, recallable, adjustmentProblem,
-    LABEL, STATUS_LABEL, TEMPLATE_COLUMNS, DETAIL_COLUMNS, ledger, report, detailReport, summaryReport, planImport, buildVoucher, snapshotLine };
+    LABEL, STATUS_LABEL, TEMPLATE_COLUMNS, DETAIL_COLUMNS, ledger, report, detailReport, summaryReport, listVouchers, planImport, buildVoucher, snapshotLine };
   if (node) module.exports = api; else root.HAKCore.benefits = api;
 })(typeof window !== "undefined" ? window : this);

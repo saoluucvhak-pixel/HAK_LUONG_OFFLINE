@@ -64,14 +64,12 @@ test("U-BEN-RPT-04 nhân viên đã bị xóa khỏi danh sách vẫn giữ số
   assert.deepEqual([l.itemName, l.unit, l.given], ["LOST", "", 2], "mặt hàng chưa từng có trong tiêu chuẩn: hiện mã");
 });
 
-test("U-BEN-RPT-05 màn hình, Excel và PDF dùng cùng một bộ dòng; mỗi dòng có nút mở phiếu gốc", () => {
+test("U-BEN-RPT-05 báo cáo cấp phát mới thay màn đối chiếu phúc lợi cũ: màn hình, Excel và PDF dùng chung MỘT nguồn dữ liệu và bộ lọc; mỗi dòng chi tiết mở được phiếu gốc", () => {
   const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8").replace(/\r\n/g, "\n");
-  const from = src.indexOf("Báo cáo tháng: định mức còn hiệu lực"), end = src.indexOf("if (window.HAKIcons)", from);
-  const part = src.slice(from, end);
-  assert.match(part, /C\.benefits\.monthlyReport\(db, current\)/);
-  assert.match(part, /"Phiếu cấp": row\.docs\.join\(", "\), "Ghi chú": row\.note/);
-  assert.match(part, /saveXlsx\("DoiChieuPhucLoi_" \+ current \+ "\.xlsx", \[\{ name: "Đối chiếu phúc lợi", rows: exportRows \}\]\)/);
-  assert.match(part, /exportSheetsPdf\(\{ title: "ĐỐI CHIẾU PHÚC LỢI", ky: current,\n\s+sheets: \[\{ name: "Đối chiếu phúc lợi", rows: exportRows \}\] \}/);
-  assert.match(part, /function openIssueDoc\(id\)/); assert.match(part, /shown\["Mở phiếu"\]/);
-  assert.doesNotMatch(part, /entitlement\(db, ma, current\)\.map/, "không dựng danh sách chỉ từ mặt hàng còn định mức");
+  const from = src.indexOf("  function cpReport()"), end = src.length, part = src.slice(from, end);
+  assert.match(part, /C\.benefits\.report\(db, \{ type: s\.type, mode: s\.mode, bySize: s\.bySize, filters: cpFilters\(\), deptOf: cpDeptOf\(\) \}\)/);
+  assert.match(part, /cpExportXlsx\(cpReport\(\)\)/); assert.match(part, /cpExportPdf\(cpReport\(\)\)/); assert.match(part, /rep = cpReport\(\); sf\.refresh\(\)/);
+  assert.match(part, /cpOpen\(r\._voucher, \{ tab: "capphat", label: "báo cáo" \}\)/);
+  assert.doesNotMatch(src, /benefitIssueScreen|entitlement\(db, ma, current\)\.map/, "đã bỏ màn nhập/đối chiếu phúc lợi cũ trùng chức năng");
+  assert.match(src, /cpGoto\("milk"\)/, "lối vào cấp phát sữa cũ chuyển về danh sách chung với bộ lọc Sữa phúc lợi");
 });

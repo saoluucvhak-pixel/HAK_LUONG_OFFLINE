@@ -2206,15 +2206,17 @@
     var w = h("div"), bar = h("div", { class: "bar" });
     if (DM_CAI_DAT[st.dm]) st.dm = Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; })[0];
     Object.keys(DM).filter(function (k) { return !DM_CAI_DAT[k]; }).forEach(function (k) { bar.appendChild(btn(DM[k].ten + (countOf(k) ? " (" + countOf(k) + ")" : ""), st.dm === k ? "pri" : "", function () { if (st.dm !== k && !leaveOk()) return; st.dm = k; st.benefitCatalog = false; saveUi(); render(); })); });
-    bar.appendChild(btn("Tiêu chuẩn phúc lợi", st.benefitCatalog ? "pri" : "", function () { if (!leaveOk()) return; st.benefitCatalog = !st.benefitCatalog; render(); }));
+    bar.appendChild(h("div", { class: "hak-catalog-side-title", text: "CẤP PHÁT" }));
+    bar.appendChild(btn("Tiêu chuẩn phúc lợi", st.benefitCatalog === "std" ? "pri" : "", function () { if (!leaveOk()) return; st.benefitCatalog = st.benefitCatalog === "std" ? false : "std"; render(); }));
+    bar.appendChild(btn("Đồ bảo hộ lao động", st.benefitCatalog === "ppe" ? "pri" : "", function () { if (!leaveOk()) return; st.benefitCatalog = st.benefitCatalog === "ppe" ? false : "ppe"; render(); }));
     var layout = h("div", { class: "hak-catalog-layout" });
     var side = h("aside", { class: "hak-catalog-side", "aria-label": "Chọn danh mục" });
     side.appendChild(h("div", { class: "hak-catalog-side-title", text: "DANH MỤC HỆ THỐNG" }));
     side.appendChild(bar);
     layout.appendChild(side);
     var workspace = h("section", { class: "hak-catalog-main", "aria-label": "Nội dung danh mục" });
-    workspace.appendChild(h("div", { class: "hak-catalog-heading" }, [h("small", { text: "QUẢN LÝ DANH MỤC" }), h("h2", { text: st.benefitCatalog ? "Tiêu chuẩn phúc lợi" : DM[st.dm] ? DM[st.dm].ten : "Danh mục" })]));
-    workspace.appendChild(st.benefitCatalog ? benefitCatalog() : st.dm === "dm_tncn" ? thuePanel() : FM_TABLE[st.dm] ? fmUi(FM_TABLE[st.dm]).masterView() : grid(st.dm, DM[st.dm]));
+    workspace.appendChild(h("div", { class: "hak-catalog-heading" }, [h("small", { text: "QUẢN LÝ DANH MỤC" }), h("h2", { text: st.benefitCatalog === "ppe" ? "Đồ bảo hộ lao động" : st.benefitCatalog ? "Tiêu chuẩn phúc lợi" : DM[st.dm] ? DM[st.dm].ten : "Danh mục" })]));
+    workspace.appendChild(st.benefitCatalog === "ppe" ? ppeCatalog() : st.benefitCatalog ? benefitCatalog() : st.dm === "dm_tncn" ? thuePanel() : FM_TABLE[st.dm] ? fmUi(FM_TABLE[st.dm]).masterView() : grid(st.dm, DM[st.dm]));
     layout.appendChild(workspace);
     w.appendChild(layout);
     return w;
@@ -2440,10 +2442,9 @@
   }
   function tabNghiepVuNS() {
     var w = h("div"), card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
-    bar.appendChild(btn(st.benefitIssues ? "Về nghiệp vụ nhân sự" : "Cấp phát phúc lợi", "", function () {
-      st.benefitIssues = !st.benefitIssues; render();
-    }));
-    if (st.benefitIssues) { card.appendChild(bar); card.appendChild(benefitIssueScreen()); w.appendChild(card); return w; }
+    // Cấp phát sữa / bảo hộ có một nơi duy nhất (tab Cấp phát); lối cũ chuyển về danh sách chung với bộ lọc Sữa phúc lợi.
+    bar.appendChild(btn("Cấp phát sữa phúc lợi", "", function () { cpGoto("milk"); }, "Mở danh sách phiếu cấp phát với bộ lọc Sữa phúc lợi"));
+    bar.appendChild(btn("Cấp phát bảo hộ lao động", "", function () { cpGoto("ppe"); }));
     var F = st.nvf = st.nvf || { q: "", loai: "", tt: "", tu: "", den: "" };
     var kb = SFC.periodBounds(kyStr()) || ["", ""]; // Từ–Đến mặc định = ngày đầu và cuối của kỳ lương đang chọn; người dùng sửa tay thì giữ nguyên
     if (!F.tuManual) F.tu = kb[0]; if (!F.denManual) F.den = kb[1];
@@ -6265,7 +6266,7 @@
   // ---------- Khung & điều hướng ----------
   var NAV = [
     ["grp", "Tổng quan"], ["home", "🏠", "Tổng quan"],
-    ["grp", "Nhân sự"], ["nhansu", "👥", "Danh sách nhân viên & hồ sơ"], ["nvns", "📝", "Nghiệp vụ nhân sự"],
+    ["grp", "Nhân sự"], ["nhansu", "👥", "Danh sách nhân viên & hồ sơ"], ["nvns", "📝", "Nghiệp vụ nhân sự"], ["capphat", "📦", "Cấp phát"],
     ["grp", "Chấm công"], ["chamcong", "🗓", "Bảng chấm công"], ["ocr", "📷", "Đọc ảnh chấm công"], ["ocrlib", "🗂", "Thư viện mẫu OCR"],
     ["grp", "Sản lượng"], ["sanluong", "⚖", "Sản lượng"], ["bandam", "🚛", "Ban dăm xuất hàng"], ["rp_sl", "⚖", "Phiếu gốc sản lượng"], ["rp_bd", "🚛", "Phiếu gốc Ban dăm xuất hàng"],
     ["grp", "Nghiệp vụ tiền lương"], ["psluong", "🎁", "Thưởng / Trừ"], ["ungluong", "💵", "Tạm ứng"], ["tiencom", "🍚", "Suất cơm"],
@@ -6278,7 +6279,7 @@
     ["grp", "Cài đặt"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
   ];
   // Tab nào cần quyền xem nào (kiểm tra cả khi mở bằng trạng thái đã lưu, không chỉ ẩn menu)
-  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_pb: "payroll.view", rp_tncn: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
+  var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_pb: "payroll.view", rp_tncn: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", capphat: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
   Object.keys(OPS_SCREENS).forEach(function (k) { TAB_PERM[k] = OPS.TYPES[OPS_SCREENS[k]].perm; });
   function tabAllowed(t) {
     if (t === "home") return true;
@@ -6288,7 +6289,7 @@
     if (S[t]) return can("input.view");
     return TAB_PERM[t] ? can(TAB_PERM[t]) : true;
   }
-  var TITLES = { nvns: "Nghiệp vụ nhân sự", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_cttt: "Chi tiết thanh toán", rp_soct: "Sổ chứng từ thanh toán", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê Ban dăm xuất hàng", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
+  var TITLES = { nvns: "Nghiệp vụ nhân sự", capphat: "Cấp phát sữa phúc lợi và bảo hộ lao động", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_cttt: "Chi tiết thanh toán", rp_soct: "Sổ chứng từ thanh toán", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê Ban dăm xuất hàng", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
   function updateNav() { document.querySelectorAll("#nav button[data-k]").forEach(function (b) { var k = b.getAttribute("data-k"), n = $(".n", b); if (n && ALL[k]) n.textContent = countOf(k); }); }
   function periodBox() {
     var m = h("select"), y = h("input", { class: "i", type: "number", style: "width:80px", value: st.nam });
@@ -6491,6 +6492,7 @@
     else if (st.tab === "caidat") m.appendChild(tabCaiDat());
     else if (st.tab === "ktbl") m.appendChild(tabKiemTra());
     else if (st.tab === "nvns") m.appendChild(tabNghiepVuNS());
+    else if (st.tab === "capphat") m.appendChild(tabCapPhat());
     else if (st.tab === "nhansu") m.appendChild(tabNhanSu());
     else if (st.tab === "nv") m.appendChild(tabNhanVien());
     else if (st.tab === "baocao") m.appendChild(tabBaoCao());
@@ -6501,6 +6503,507 @@
     else if (S[st.tab]) m.appendChild(grid(st.tab, S[st.tab]));
     else { st.tab = "home"; render(); }
     if (st.hdModal) { if (st.tab === "nv" && !$("#modal").classList.contains("hide") && !$("#modal").classList.contains("drawer") && $("#modal").innerHTML) hdReopen(); else if (st.tab !== "nv") st.hdModal = null; }
+  }
+  // ---------- Cấp phát thống nhất: sữa phúc lợi + bảo hộ lao động ----------
+  // Một nơi lập và nhập phiếu (Nghiệp vụ nhân sự → Cấp phát). Số liệu và quy tắc nằm ở C.benefits (dùng chung với tiến trình chính).
+  var CP_TYPES = [["all", "Tất cả"], ["milk", "Sữa phúc lợi"], ["ppe", "Bảo hộ lao động"]];
+  var CP_STATUS = [{ value: "draft", label: "Nháp" }, { value: "issued", label: "Đã cấp" }, { value: "recalled", label: "Đã thu hồi" }];
+  /** Trạng thái giao diện: bộ lọc, trang, màn hình đang mở và nơi quay lại được giữ trong phiên (st.cp, st.pg.capphat). */
+  function cpState() { return (st.cp = st.cp || { type: "all", view: "list", returnView: "list", mode: "summary", bySize: false, f: SFC.empty(), draft: null, open: null, back: null }); }
+  function cpDeptOf() {
+    var ix = HRM.buildIndex(db);
+    return function (ma, date) { var hh = HRM.hienHanh(db, ma, date, ix); return hh && hh.pb ? { code: hh.pb, name: hh.tenPB || hh.pb } : null; };
+  }
+  /** Bộ lọc dùng chung cho danh sách phiếu và báo cáo (HAK Smart Filter). */
+  function cpFilters() {
+    var s = SFC.normalize(cpState().f);
+    return { q: s.q, tu: s.tu, den: s.den, thang: s.one.thang || "", dept: s.sel.pb || [], place: s.sel.dd || [], item: s.sel.mh || [], size: s.sel.co || [], status: s.sel.tt || [] };
+  }
+  function cpMilkItems() {
+    var seen = {}, out = [];
+    (db.benefitStandards || []).slice().sort(function (a, b) { return String(a.from).localeCompare(String(b.from)); }).forEach(function (rule) {
+      rule.items.forEach(function (item) { seen[item.code] = { value: item.code, label: item.name, unit: item.unit }; });
+    });
+    Object.keys(seen).sort().forEach(function (k) { out.push(seen[k]); });
+    return out;
+  }
+  function cpPpeItems(onlyActive) { return (db.benefitPpeItems || []).filter(function (item) { return !onlyActive || item.active !== false; }); }
+  function cpItemsFor(type, keep) {
+    if (type === "ppe") return cpPpeItems(true).concat(cpPpeItems(false).filter(function (item) { return item.active === false && item.code === keep; })).map(function (item) { return { value: item.code, label: item.name + (item.active === false ? " (ngừng sử dụng)" : ""), unit: item.unit, sizes: item.sizes || [] }; });
+    return cpMilkItems().map(function (item) { return { value: item.value, label: item.label, unit: item.unit, sizes: [] }; });
+  }
+  function cpPeriods() {
+    var set = {}; set[kyStr()] = 1;
+    (db.benefitIssues || []).forEach(function (doc) { if (doc.period) set[doc.period] = 1; });
+    return Object.keys(set).sort().reverse().map(function (k) { return { value: k, label: "Tháng " + k.slice(5) + "/" + k.slice(0, 4) }; });
+  }
+  function cpConfig(onApply, kept) {
+    var distinct = function (fn) { return function () { var d = {}; (db.benefitIssues || []).forEach(function (doc) { var v = fn(doc); if (v) d[v] = 1; }); return Object.keys(d).sort(); }; };
+    var all = function (x) { return x; };
+    return {
+      screenId: "capphat", searchPlaceholder: "🔍 Tìm mã phiếu, mã hoặc tên nhân viên (không cần dấu)…",
+      fields: [
+        { key: "tt", label: "Trạng thái", type: "multi", options: CP_STATUS },
+        { key: "thang", label: "Tháng hưởng", type: "enum", options: function () { return cpPeriods().map(function (p) { return { value: p.value, label: p.label }; }); } },
+        { key: "pb", label: "Phòng ban / tổ", type: "multi", options: function () { return (db.dm_phongban || []).map(function (r) { return { value: r["Mã phòng ban"], label: r["Tên phòng ban"] || r["Mã phòng ban"] }; }); } },
+        { key: "dd", label: "Địa điểm", type: "multi", options: distinct(function (doc) { return doc.place; }) },
+        { key: "mh", label: "Mặt hàng", type: "multi", options: function () { return cpMilkItems().map(function (i) { return { value: i.value, label: i.label + " (sữa)" }; }).concat(cpPpeItems(false).map(function (i) { return { value: i.code, label: i.name + " (bảo hộ)" }; })); } },
+        { key: "co", label: "Kích cỡ", type: "multi", options: function () { var d = {}; cpPpeItems(false).forEach(function (i) { (i.sizes || []).forEach(function (sz) { d[sz] = 1; }); }); return Object.keys(d).sort().map(all); } }
+      ],
+      quickFields: ["q", "period", "tt", "pb"], advancedFields: ["q", "period", "thang", "tt", "pb", "dd", "mh", "co"],
+      periods: cpPeriods, periodNoneLabel: "Ngày giao: tất cả", scopeFallback: function () { return "tất cả phiếu"; },
+      state: { get: function () { return cpState().f; }, set: function (s) { cpState().f = s; } },
+      dataSource: function () { return { kept: kept().kept, total: kept().total, unsupported: [] }; },
+      onApply: function () { st.pg.capphat = 0; onApply(); }
+    };
+  }
+  /** Mở phiếu gốc bằng cùng màn chi tiết; back = nơi quay lại (hồ sơ nhân viên, báo cáo…). Bộ lọc và trang trước đó được giữ nguyên. */
+  function cpOpen(id, back) {
+    var s = cpState(), doc = (db.benefitIssues || []).find(function (row) { return row.id === id; });
+    if (!doc) { toast("Không tìm thấy phiếu " + id); return; }
+    if (s.view !== "detail") s.returnView = s.view;
+    s.view = "detail"; s.open = id; s.back = back || null;
+    s.draft = doc.status === "draft" && can("hr.edit") && doc.maker === session.tenDangNhap.toLowerCase() ? cpDraftOf(doc) : null;
+    st.tab = "capphat"; render();
+  }
+  function cpClose() {
+    var s = cpState(), back = s.back;
+    s.view = s.returnView || "list"; s.open = null; s.draft = null; s.back = null;
+    if (back && back.tab) st.tab = back.tab;
+    render();
+  }
+  function cpGoto(type) { var s = cpState(); s.type = type || "all"; s.view = "list"; s.open = null; s.draft = null; st.tab = "capphat"; render(); }
+  function cpDraftOf(doc) {
+    return { isNew: false, type: C.benefits.docType(doc), id: doc.id, date: doc.date, place: doc.place || "", purpose: doc.purpose || "", note: doc.note || "", maker: doc.maker,
+      lines: (doc.lines || []).map(function (l) { return { employee: l.employee, item: l.item, size: l.size || "", quantity: l.quantity, note: l.note || "" }; }) };
+  }
+  function cpSuggestId(type) {
+    var prefix = (type === "ppe" ? "BH-" : "SUA-") + HRM.today().replace(/-/g, ""), n = 1, ids = {};
+    (db.benefitIssues || []).forEach(function (doc) { ids[doc.id] = 1; });
+    while (ids[prefix + "-" + ("0" + n).slice(-2)]) n++;
+    return prefix + "-" + ("0" + n).slice(-2);
+  }
+  function cpNewVoucher(type) {
+    var s = cpState();
+    if (s.view !== "detail") s.returnView = s.view;
+    s.view = "detail"; s.open = "new"; s.back = null;
+    s.draft = { isNew: true, type: type, id: cpSuggestId(type), date: HRM.today(), place: "", purpose: "", note: "", maker: session.tenDangNhap.toLowerCase(), lines: [] };
+    render();
+  }
+  function cpStatusText(doc) { return C.benefits.STATUS_LABEL[doc.status] || doc.status; }
+
+  // ---------- Danh sách phiếu ----------
+  function cpVoucherList() {
+    var s = cpState(), box = h("div"), bar = h("div", { class: "bar" }), tw = h("div", { class: "tw" }), kept = { kept: 0, total: 0 }, sf = null;
+    if (can("hr.edit")) {
+      CP_TYPES.slice(1).filter(function (t) { return s.type === "all" || s.type === t[0]; }).forEach(function (t) { bar.appendChild(btn("＋ Lập phiếu " + t[1].toLowerCase(), "pri", function () { cpNewVoucher(t[0]); })); });
+      bar.appendChild(btn("⬆ Nhập Excel", "", function () { cpImportFlow(s.type === "all" ? "" : s.type); }, "Nhập phiếu từ file Excel mẫu: xem trước theo phiếu rồi lưu nháp"));
+    }
+    CP_TYPES.slice(1).filter(function (t) { return s.type === "all" || s.type === t[0]; }).forEach(function (t) { bar.appendChild(btn("📄 Tải mẫu " + t[1].toLowerCase(), "", function () { cpDownloadTemplate(t[0]); })); });
+    box.appendChild(bar);
+    var deptOf = cpDeptOf();
+    sf = sfUi.mount(cpConfig(draw, function () { return kept; })); sf.cfg = null;
+    box.appendChild(sf.el); box.appendChild(tw);
+    function draw() {
+      tw.innerHTML = "";
+      var rows = C.benefits.listVouchers(db, { type: s.type, filters: cpFilters(), deptOf: deptOf });
+      kept.kept = rows.length; kept.total = (db.benefitIssues || []).filter(function (doc) { return s.type === "all" || C.benefits.docType(doc) === s.type; }).length; sf.refresh();
+      if (!rows.length) { tw.appendChild(h("div", { class: "empty", html: kept.total ? "Không có phiếu khớp bộ lọc." : "Chưa có phiếu cấp phát nào.<br>Bấm <b>＋ Lập phiếu</b> hoặc <b>⬆ Nhập Excel</b>." })); return; }
+      var pg = pager("capphat", rows.length, draw); if (pg.el) tw.appendChild(pg.el);
+      var cols = ["Mã phiếu", "Loại", "Ngày cấp", "Địa điểm", "Số người nhận", "Trạng thái", "Người lập", "Người xác nhận"], t = h("table"), tr = h("tr");
+      cols.forEach(function (c) { tr.appendChild(h("th", { class: c === "Số người nhận" ? "r" : "", text: c })); }); t.appendChild(h("thead", {}, [tr]));
+      var tb = h("tbody");
+      rows.slice(pg.start, pg.end).forEach(function (r) {
+        var x = h("tr", { "data-cp-voucher": r.id });
+        x.appendChild(h("td", {}, [btn(r.id, "ghost", function () { cpOpen(r.id); }, "Mở chi tiết phiếu")]));
+        [C.benefits.LABEL[r.type], fmtDate(r.date), r.place, r.people, C.benefits.STATUS_LABEL[r.status] || r.status, r.maker, r.reviewer].forEach(function (v, i) { x.appendChild(h("td", { class: i === 3 ? "r" : "t", text: v })); });
+        tb.appendChild(x);
+      });
+      t.appendChild(tb); tw.appendChild(h("div", { class: "tw" }, [t]));
+    }
+    draw();
+    return box;
+  }
+
+  // ---------- Chi tiết phiếu: thông tin phiếu · người nhận · thao tác ----------
+  function cpVoucherDetail() {
+    var s = cpState(), doc = (db.benefitIssues || []).find(function (row) { return row.id === s.open; }) || null, d = s.draft, box = h("div", { "data-cp-detail": "1" });
+    var type = d ? d.type : (doc ? C.benefits.docType(doc) : "milk"), me = session.tenDangNhap.toLowerCase();
+    var back = h("div", { class: "bar" }, [btn("← " + (s.back && s.back.label ? "Quay lại " + s.back.label : "Quay lại danh sách"), "", cpClose)]);
+    if (!doc && !d) { box.appendChild(back); box.appendChild(h("div", { class: "empty", text: "Không tìm thấy phiếu." })); return box; }
+    box.appendChild(back);
+    box.appendChild(h("h3", { text: (doc ? "Phiếu " + doc.id + " — " + cpStatusText(doc) : "Phiếu mới " + (type === "ppe" ? "bảo hộ lao động" : "sữa phúc lợi")) }));
+    var editable = !!d;
+    // ----- 1. Thông tin phiếu -----
+    var info = h("div", { class: "card", "data-cp-zone": "info" }), grid = h("div", { class: "bar" });
+    info.appendChild(h("h4", { text: "1. Thông tin phiếu" }));
+    var field = function (label, key, kind, value, ro) {
+      var input = h("input", { class: "i", type: kind || "text", value: value == null ? "" : value, "aria-label": label });
+      if (!editable || ro) { input.setAttribute("readonly", "readonly"); }
+      else input.addEventListener("change", function () { d[key] = input.value.trim(); if (key === "date") { redrawLines(); } });
+      grid.appendChild(h("label", { class: "fld" }, [label, input])); return input;
+    };
+    field("Mã phiếu", "id", "text", d ? d.id : doc.id, d && !d.isNew);
+    grid.appendChild(h("label", { class: "fld" }, ["Loại cấp phát", h("input", { class: "i", value: C.benefits.LABEL[type], readonly: "readonly", "aria-label": "Loại cấp phát" })]));
+    field("Ngày giao", "date", "date", d ? d.date : doc.date);
+    field("Địa điểm", "place", "text", d ? d.place : doc.place);
+    field("Lý do", "purpose", "text", d ? d.purpose : doc.purpose);
+    field("Ghi chú", "note", "text", d ? d.note : doc.note);
+    if (doc) { grid.appendChild(h("label", { class: "fld" }, ["Người lập / xác nhận", h("input", { class: "i", value: (doc.maker || "") + (doc.reviewer ? " → " + doc.reviewer : ""), readonly: "readonly", "aria-label": "Người lập và xác nhận" })])); }
+    info.appendChild(grid); box.appendChild(info);
+    // ----- 2. Người nhận -----
+    var recv = h("div", { class: "card", "data-cp-zone": "lines" }); recv.appendChild(h("h4", { text: "2. Danh sách người nhận" }));
+    var linesHost = h("div", { class: "tw" });
+    var deptOf = cpDeptOf();
+    function itemInfo(code) { return cpItemsFor(type, code).filter(function (i) { return i.value === code; })[0] || null; }
+    function redrawLines() {
+      linesHost.innerHTML = "";
+      var lines = d ? d.lines : (doc.lines || []), date = d ? d.date : doc.date, preview = null;
+      if (type === "milk" && d && d.id && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) {
+        var tmp = { id: d.id, type: "milk", date: d.date, period: d.date.slice(0, 7), lines: d.lines.filter(function (l) { return l.employee && l.item && l.quantity > 0; }).map(function (l) { return { employee: l.employee, item: l.item, quantity: Number(l.quantity) }; }) };
+        try { preview = C.benefits.reviewIssue(Object.assign({}, db, { benefitIssues: (db.benefitIssues || []).filter(function (row) { return row.id !== d.id; }) }), tmp); } catch (e) { preview = null; }
+      }
+      var cols = ["Mã NV", "Họ và tên", "Tổ/Phòng ban tại ngày giao", "Mặt hàng", "Đơn vị"].concat(type === "ppe" ? ["Kích cỡ"] : [], ["Số lượng"], type === "milk" ? ["Định mức", "Đã cấp trước phiếu", "Còn trước", "Còn sau"] : [], ["Ghi chú"], editable ? [""] : []);
+      var t = h("table", { "data-cp-lines": "1" }), tr = h("tr"); cols.forEach(function (c) { tr.appendChild(h("th", { text: c })); }); t.appendChild(h("thead", {}, [tr]));
+      var tb = h("tbody");
+      lines.forEach(function (l, idx) {
+        var row = h("tr"), emp = (db.nhanvien || []).find(function (r) { return r["Mã NV"] === l.employee; });
+        var dept = l.deptName != null ? l.deptName : ((deptOf(l.employee, date) || {}).name || "");
+        var item = itemInfo(l.item), td = function (node) { row.appendChild(h("td", {}, [node])); }, text = function (v, cls) { row.appendChild(h("td", { class: cls || "t", text: v == null ? "" : v })); };
+        if (editable) {
+          var code = h("input", { class: "i", value: l.employee || "", list: "cp-employees", "aria-label": "Mã NV", style: "min-width:90px" });
+          code.addEventListener("change", function () { l.employee = code.value.trim(); redrawLines(); }); td(code);
+        } else text(l.employee);
+        text(l.employeeName != null ? l.employeeName : (emp ? emp["Họ và tên"] : "")); text(dept);
+        if (editable) {
+          var sel = h("select", { "aria-label": "Mặt hàng" }, [h("option", { value: "", text: "Chọn mặt hàng" })].concat(cpItemsFor(type, l.item).map(function (i) { return h("option", { value: i.value, text: i.label }); })));
+          sel.value = l.item || ""; sel.addEventListener("change", function () { l.item = sel.value; l.size = ""; redrawLines(); }); td(sel);
+        } else text(l.itemName || (item ? item.label : l.item));
+        text(l.unit || (item ? item.unit : ""));
+        if (type === "ppe") {
+          if (editable && item && item.sizes.length) {
+            var sz = h("select", { "aria-label": "Kích cỡ" }, [h("option", { value: "", text: "Chọn cỡ" })].concat(item.sizes.map(function (v) { return h("option", { value: v, text: v }); })));
+            sz.value = l.size || ""; sz.addEventListener("change", function () { l.size = sz.value; }); td(sz);
+          } else text(l.size || (item && item.sizes.length ? "(cần chọn cỡ)" : ""));
+        }
+        if (editable) {
+          var q = h("input", { class: "i", type: "number", min: "1", step: "1", value: l.quantity == null ? "" : l.quantity, "aria-label": "Số lượng", style: "width:80px" });
+          q.addEventListener("change", function () { l.quantity = q.value === "" ? "" : Number(q.value); redrawLines(); }); td(q);
+        } else text(l.quantity, "r");
+        if (type === "milk") {
+          var ent = preview && preview.entries.filter(function (e) { return e.employee === l.employee && e.item === l.item; })[0];
+          [ent ? ent.allowance : "", ent ? ent.allowance - ent.before : "", ent ? ent.before : "", ent ? ent.after : ""].forEach(function (v) { text(v, "r"); });
+        }
+        if (editable) { var note = h("input", { class: "i", value: l.note || "", "aria-label": "Ghi chú" }); note.addEventListener("change", function () { l.note = note.value; }); td(note); td(btn("Xóa", "ghost", function () { d.lines.splice(idx, 1); redrawLines(); })); }
+        else text(l.note);
+        tb.appendChild(row);
+      });
+      t.appendChild(tb); linesHost.appendChild(lines.length ? t : h("div", { class: "empty", text: "Chưa có người nhận." }));
+      if (preview && preview.issues.length) linesHost.appendChild(h("div", { class: "warn", "data-cp-issues": "1" }, preview.issues.map(function (m) { return h("div", { text: m }); })));
+    }
+    if (editable) {
+      var list = h("datalist", { id: "cp-employees" }); (db.nhanvien || []).forEach(function (r) { list.appendChild(h("option", { value: r["Mã NV"], label: r["Họ và tên"] || "" })); }); recv.appendChild(list);
+      var tools = h("div", { class: "bar" });
+      tools.appendChild(btn("＋ Thêm dòng", "", function () { d.lines.push({ employee: "", item: "", size: "", quantity: 1, note: "" }); redrawLines(); }));
+      var dept = h("select", { "aria-label": "Tổ cấp phát" }, [h("option", { value: "", text: "Chọn tổ / phòng ban" })].concat((db.dm_phongban || []).map(function (r) { return h("option", { value: r["Mã phòng ban"], text: r["Tên phòng ban"] || r["Mã phòng ban"] }); })));
+      var item = h("select", { "aria-label": "Mặt hàng cấp theo tổ" }, [h("option", { value: "", text: "Mặt hàng" })].concat(cpItemsFor(type).map(function (i) { return h("option", { value: i.value, text: i.label }); })));
+      var size = h("select", { "aria-label": "Kích cỡ cấp theo tổ" }, [h("option", { value: "", text: "Kích cỡ" })]);
+      item.addEventListener("change", function () { size.innerHTML = ""; size.appendChild(h("option", { value: "", text: "Kích cỡ" })); var info0 = itemInfo(item.value); (info0 ? info0.sizes : []).forEach(function (v) { size.appendChild(h("option", { value: v, text: v })); }); });
+      var qty = h("input", { class: "i", type: "number", min: "1", step: "1", value: "1", "aria-label": "Số lượng mỗi người", style: "width:90px" });
+      tools.appendChild(h("span", { class: "hint", style: "margin:0", text: "Chọn nhanh theo tổ:" })); [dept, item].forEach(function (e) { tools.appendChild(e); });
+      if (type === "ppe") tools.appendChild(size);
+      tools.appendChild(qty);
+      tools.appendChild(btn("Điền cho cả tổ", "", function () {
+        var info0 = itemInfo(item.value), n = Number(qty.value);
+        if (!dept.value || !item.value || !Number.isSafeInteger(n) || n <= 0 || (type === "ppe" && info0 && info0.sizes.length && !size.value)) { alert("Chọn tổ, mặt hàng" + (type === "ppe" ? ", kích cỡ (nếu có)" : "") + " và số lượng nguyên dương."); return; }
+        var have = {}; d.lines.forEach(function (l) { have[l.employee + "|" + l.item + "|" + (l.size || "")] = 1; });
+        var added = 0;
+        (db.nhanvien || []).forEach(function (r) {
+          var ma = r["Mã NV"]; if (r["Trạng thái"] && r["Trạng thái"] !== "Đang làm việc") return;
+          var hh = HRM.hienHanh(db, ma, d.date); if (hh.pb !== dept.value || have[ma + "|" + item.value + "|" + (type === "ppe" ? size.value : "")]) return;
+          if (type === "milk" && !C.benefits.entitlement(db, ma, d.date.slice(0, 7)).some(function (e) { return e.code === item.value && e.allowance > 0; })) return;
+          d.lines.push({ employee: ma, item: item.value, size: type === "ppe" ? size.value : "", quantity: n, note: "" }); added++;
+        });
+        if (!added) alert("Không có thêm người phù hợp trong tổ."); else toast("Đã thêm " + added + " người — sửa từng dòng nếu cần.");
+        redrawLines();
+      }));
+      recv.appendChild(tools);
+    }
+    recv.appendChild(linesHost); box.appendChild(recv); redrawLines();
+    // ----- 3. Thao tác -----
+    var act = h("div", { class: "card", "data-cp-zone": "actions" }), bar = h("div", { class: "bar" });
+    act.appendChild(h("h4", { text: "3. Thao tác" }));
+    var mode = C.workflowApproval.mode(db), canConfirm = doc && (mode === "roles" ? can("hr.approve") && doc.maker !== me : can("system.admin"));
+    if (d) {
+      bar.appendChild(btn("Lưu nháp", "pri", function () { cpSaveDraft(d); }));
+      bar.appendChild(btn("Bỏ thay đổi", "", cpClose));
+    }
+    if (doc && doc.status === "draft") {
+      if (canConfirm) bar.appendChild(btn("Xác nhận cấp phát", "pri", function () { cpTransition(doc, { status: "issued", reviewer: me, confirmedAt: new Date().toISOString() }, "Xác nhận cấp phát"); }));
+      else if (!d) bar.appendChild(h("span", { class: "hint", style: "margin:0", text: mode === "roles" ? "Cần người có quyền xác nhận khác người lập." : "Cần quyền Quản trị để xác nhận." }));
+      if (can("hr.edit") || canConfirm) bar.appendChild(btn("Hủy phiếu nháp", "ghost", function () {
+        askText("Hủy phiếu nháp " + doc.id, "Ghi rõ lý do hủy.", { label: "Lý do", required: true }, function (reason) { cpTransition(doc, { status: "recalled", recalledBy: me, reason: reason }, "Hủy phiếu nháp"); });
+      }));
+    }
+    if (doc && doc.status === "issued" && canConfirm) bar.appendChild(btn("Thu hồi / điều chỉnh", "", function () { cpAdjustDialog(doc); }, "Thu hồi một phần hoặc toàn bộ" + (type === "ppe" ? ", đổi cỡ" : "")));
+    if (doc && doc.status === "issued" && !canConfirm) bar.appendChild(h("span", { class: "hint", style: "margin:0", text: "Thu hồi / điều chỉnh cần người có quyền xác nhận" + (mode === "roles" ? " khác người lập." : ".") }));
+    if (doc && doc.status === "recalled") bar.appendChild(h("span", { class: "hint", style: "margin:0", text: "Phiếu đã thu hồi" + (doc.reason ? ": " + doc.reason : "") + "." }));
+    act.appendChild(bar);
+    var history = (db.benefitAdjustments || []).filter(function (adj) { return doc && adj.ref === doc.id; });
+    if (history.length) {
+      act.appendChild(h("h4", { text: "Lịch sử thu hồi / điều chỉnh" }));
+      act.appendChild(simpleTable(history.map(function (adj) {
+        return { "Thời điểm": String(adj.at || "").replace("T", " ").slice(0, 16), "Người thao tác": adj.by, "Loại": adj.kind === "resize" ? "Đổi cỡ" : "Thu hồi", "Lý do": adj.reason,
+          "Chi tiết": adj.lines.map(function (l) { return l.employee + " · " + l.item + (l.size ? " cỡ " + l.size : "") + " × " + l.quantity; }).join("; ") + (adj.to && adj.to.length ? " → " + adj.to.map(function (l) { return "cỡ " + l.size + " × " + l.quantity; }).join("; ") : "") };
+      })));
+    }
+    box.appendChild(act);
+    return box;
+  }
+  function cpTransition(doc, patch, label) {
+    benefitSave("benefitIssues", (db.benefitIssues || []).map(function (row) { return row.id === doc.id ? Object.assign({}, row, patch) : row; }), label, doc.id, function () { render(); });
+  }
+  function cpSaveDraft(d) {
+    var id = String(d.id || "").trim();
+    if (!id) { alert("Nhập mã phiếu."); return; }
+    if (!VAL.normDate(d.date)) { alert("Ngày giao không hợp lệ."); return; }
+    var lines = d.lines.filter(function (l) { return l.employee || l.item || l.quantity || l.note; }).map(function (l) { return { employee: l.employee, item: l.item, size: l.size || "", quantity: Number(l.quantity), note: l.note || "" }; });
+    if (!lines.length) { alert("Phiếu chưa có người nhận."); return; }
+    var others = (db.benefitIssues || []).filter(function (row) { return row.id !== id; });
+    if (d.isNew && others.length !== (db.benefitIssues || []).length) { alert("Mã phiếu đã tồn tại."); return; }
+    var doc = C.benefits.buildVoucher(db, { type: d.type, id: id, date: d.date, place: d.place, purpose: d.purpose, note: d.note, lines: lines, maker: d.maker }, cpDeptOf());
+    if (d.type === "milk") doc.lines.forEach(function (l) { delete l.size; });
+    var check = C.benefits.reviewIssue(Object.assign({}, db, { benefitIssues: others }), doc);
+    if (check.issues.length) { modal("Phiếu chưa hợp lệ", h("div", {}, check.issues.map(function (m) { return h("p", { class: "warn", text: m }); })), function (close) { return [btn("Đóng", "", close)]; }); return; }
+    var rows = d.isNew ? (db.benefitIssues || []).concat(doc) : (db.benefitIssues || []).map(function (row) { return row.id === id ? doc : row; });
+    benefitSave("benefitIssues", rows, d.isNew ? "Lập phiếu cấp phát" : "Sửa phiếu nháp cấp phát", id, function () { var s = cpState(); s.open = id; s.draft = null; toast("Đã lưu nháp " + id); cpOpen(id, s.back); });
+  }
+
+  // ---------- Thu hồi một phần / đổi cỡ ----------
+  function cpAdjustDialog(doc) {
+    var type = C.benefits.docType(doc), rows = C.benefits.recallable(db, doc.id).filter(function (r) { return r.remaining > 0; }), me = session.tenDangNhap.toLowerCase();
+    if (!rows.length) { alert("Phiếu này đã thu hồi hết."); return; }
+    var table = h("table", { "data-cp-adjust": "1" }), tr = h("tr");
+    ["Mã NV", "Họ và tên", "Mặt hàng", "Kích cỡ", "Đã cấp", "Đã thu hồi", "Còn lại", "Thu hồi", type === "ppe" ? "Đổi sang cỡ" : ""].filter(Boolean).forEach(function (c) { tr.appendChild(h("th", { text: c })); });
+    table.appendChild(h("thead", {}, [tr]));
+    var controls = [], tb = h("tbody");
+    rows.forEach(function (r) {
+      var line = doc.lines.filter(function (l) { return l.employee === r.employee && l.item === r.item && (l.size || "") === r.size; })[0] || {}, row = h("tr");
+      var qty = h("input", { class: "i", type: "number", min: "0", max: String(r.remaining), step: "1", value: "0", "aria-label": "Số thu hồi " + r.employee + " " + r.item, style: "width:80px" });
+      var newSize = null, catalog = (db.benefitPpeItems || []).filter(function (i) { return i.code === r.item; })[0];
+      [r.employee, line.employeeName || tenNV(r.employee), line.itemName || r.item, r.size, r.issued, r.recalled, r.remaining].forEach(function (v, i) { row.appendChild(h("td", { class: i >= 4 ? "r" : "t", text: v })); });
+      row.appendChild(h("td", {}, [qty]));
+      if (type === "ppe") {
+        newSize = h("select", { "aria-label": "Đổi sang cỡ " + r.employee + " " + r.item }, [h("option", { value: "", text: "— không đổi —" })].concat(((catalog && catalog.sizes) || []).filter(function (v) { return v !== r.size; }).map(function (v) { return h("option", { value: v, text: v }); })));
+        row.appendChild(h("td", {}, [newSize]));
+      }
+      controls.push({ r: r, qty: qty, newSize: newSize }); tb.appendChild(row);
+    });
+    table.appendChild(tb);
+    var reason = h("input", { class: "i", "aria-label": "Lý do thu hồi hoặc điều chỉnh", placeholder: "Lý do (bắt buộc)", style: "min-width:320px" });
+    modal("Thu hồi / điều chỉnh phiếu " + doc.id, h("div", {}, [h("p", { class: "hint", text: "Nhập số thu hồi cho từng dòng (không vượt số còn lại)." + (type === "ppe" ? " Chọn cỡ mới để ghi hai lượt: thu hồi cỡ cũ và cấp cỡ mới." : "") }), h("div", { class: "tw" }, [table]), h("label", { class: "fld" }, ["Lý do", reason])]), function (close) {
+      return [btn("Hủy", "", close), btn("Ghi thu hồi / điều chỉnh", "pri", function () {
+        var recall = [], resizeOut = [], resizeIn = [], why = reason.value.trim();
+        controls.forEach(function (c) {
+          var n = Number(c.qty.value); if (!n) return;
+          if (!Number.isSafeInteger(n) || n < 0) { recall.push({ bad: true }); return; }
+          var line = { employee: c.r.employee, item: c.r.item, size: c.r.size, quantity: n };
+          if (c.newSize && c.newSize.value) { resizeOut.push(line); resizeIn.push({ employee: c.r.employee, item: c.r.item, size: c.newSize.value, quantity: n }); } else recall.push(line);
+        });
+        if (recall.some(function (l) { return l.bad; })) { alert("Số thu hồi phải là số nguyên dương."); return; }
+        if (!why) { alert("Ghi lý do thu hồi hoặc điều chỉnh."); return; }
+        if (!recall.length && !resizeOut.length) { alert("Chưa nhập số thu hồi nào."); return; }
+        var seq = (db.benefitAdjustments || []).filter(function (a) { return a.ref === doc.id; }).length, at = new Date().toISOString(), made = [];
+        var make = function (kind, lines, to) { seq++; var a = { id: "DC-" + doc.id + "-" + ("0" + seq).slice(-2), ref: doc.id, kind: kind, reason: why, by: me, at: at, lines: lines }; if (to) a.to = to; made.push(a); };
+        if (recall.length) make("recall", recall);
+        if (resizeOut.length) make("resize", resizeOut, resizeIn);
+        benefitSave("benefitAdjustments", (db.benefitAdjustments || []).concat(made), "Thu hồi / điều chỉnh phiếu phúc lợi", doc.id + " · " + why, function () { close(); render(); });
+      })];
+    }, { wide: true });
+  }
+
+  // ---------- Danh mục đồ bảo hộ lao động ----------
+  function ppeCatalog() {
+    var body = h("div", { "data-cp-ppe": "1" }), q = benefitField("Lọc mã, tên hoặc nhóm", "text", st.ppeQuery || "");
+    q.input.addEventListener("change", function () { st.ppeQuery = q.input.value; render(); });
+    body.appendChild(q.field);
+    var items = cpPpeItems(false).filter(function (i) { return !st.ppeQuery || fold([i.code, i.name, i.group].join(" ")).indexOf(fold(st.ppeQuery)) >= 0; });
+    var used = {}; (db.benefitIssues || []).forEach(function (doc) { (doc.lines || []).forEach(function (l) { used[l.item] = 1; }); });
+    var rows = items.map(function (i) {
+      var row = { "Mã vật tư": i.code, "Tên vật tư": i.name, "Nhóm hàng": i.group, "Đơn vị": i.unit, "Quy cách": i.spec || "", "Kích cỡ": (i.sizes || []).join(", "), "Trạng thái": i.active === false ? "Ngừng sử dụng" : "Đang sử dụng", "Đã cấp": used[i.code] ? "Có" : "" };
+      if (can("dm.edit")) row["Thao tác"] = btn("Sửa", "ghost", function () { ppeDialog(i); });
+      return row;
+    });
+    if (can("dm.edit")) body.appendChild(btn("＋ Thêm vật tư", "pri", function () { ppeDialog(null); }));
+    body.appendChild(h("p", { class: "hint", text: "Vật tư đã cấp chỉ ngừng sử dụng (không xóa) để phiếu cũ vẫn tra cứu được. Đổi tên vật tư không làm đổi báo cáo cũ: phiếu giữ tên tại ngày cấp. Phạm vi đợt này: ghi nhận cấp phát thực tế; tồn kho và chu kỳ thay thế cần quy chế riêng." }));
+    body.appendChild(simpleTable(rows));
+    return body;
+  }
+  function ppeDialog(item) {
+    var isNew = !item, code = benefitField("Mã vật tư", "text", item ? item.code : ""), name = benefitField("Tên vật tư", "text", item ? item.name : "");
+    var group = h("select", { "aria-label": "Nhóm hàng" }, C.benefits.GROUPS.concat(item && C.benefits.GROUPS.indexOf(item.group) < 0 ? [item.group] : []).concat(["Nhóm khác"]).map(function (g) { return h("option", { value: g, text: g }); }));
+    group.value = item ? item.group : C.benefits.GROUPS[0];
+    var other = benefitField("Tên nhóm bổ sung", "text", ""), unit = benefitField("Đơn vị tính", "text", item ? item.unit : ""), spec = benefitField("Quy cách", "text", item ? item.spec || "" : ""), sizes = benefitField("Kích cỡ hợp lệ (cách nhau dấu phẩy; để trống nếu không có)", "text", item ? (item.sizes || []).join(", ") : "");
+    var active = h("input", { type: "checkbox", "aria-label": "Đang sử dụng" }); active.checked = item ? item.active !== false : true;
+    if (!isNew) code.input.setAttribute("readonly", "readonly");
+    modal(isNew ? "Thêm vật tư bảo hộ" : "Sửa vật tư " + item.code, h("div", {}, [code.field, name.field, h("label", { class: "fld" }, ["Nhóm hàng", group]), other.field, unit.field, spec.field, sizes.field, h("label", { class: "chk" }, [active, " Đang sử dụng"])]), function (close) {
+      return [btn("Hủy", "", close), btn("Lưu vật tư", "pri", function () {
+        var row = { code: code.input.value.trim(), name: name.input.value.trim(), group: group.value === "Nhóm khác" ? other.input.value.trim() : group.value, unit: unit.input.value.trim(), spec: spec.input.value.trim(),
+          active: active.checked, sizes: sizes.input.value.split(",").map(function (v) { return v.trim(); }).filter(Boolean) };
+        var rows = (db.benefitPpeItems || []);
+        benefitSave("benefitPpeItems", isNew ? rows.concat(row) : rows.map(function (r) { return r.code === item.code ? row : r; }), isNew ? "Thêm vật tư bảo hộ" : "Sửa vật tư bảo hộ", row.code, function () { close(); render(); });
+      })];
+    }, { wide: true });
+  }
+  /** Hồ sơ nhân viên: các phiếu đã có của người này, mở đúng phiếu gốc và quay lại hồ sơ. */
+  function cpEmployeeVouchers(ma, back) {
+    var rows = (db.benefitIssues || []).filter(function (doc) { return (doc.lines || []).some(function (l) { return l.employee === ma; }); }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var box = h("div", { "data-cp-employee": ma }, [h("h4", { text: "Phiếu cấp phát của nhân viên" })]);
+    if (!rows.length) { box.appendChild(h("div", { class: "empty", text: "Chưa có phiếu cấp phát." })); return box; }
+    box.appendChild(simpleTable(rows.slice(0, 20).map(function (doc) {
+      var mine = doc.lines.filter(function (l) { return l.employee === ma; });
+      return { "Mã phiếu": btn(doc.id, "ghost", function () { cpOpen(doc.id, back); }), "Loại": C.benefits.LABEL[C.benefits.docType(doc)], "Ngày giao": fmtDate(doc.date), "Mặt hàng": mine.map(function (l) { return (l.itemName || l.item) + (l.size ? " cỡ " + l.size : "") + " × " + l.quantity; }).join("; "), "Trạng thái": cpStatusText(doc) };
+    })));
+    return box;
+  }
+  // ---------- Cấp phát: mẫu Excel, nhập Excel theo phiếu, báo cáo tổng hợp / chi tiết ----------
+  var CP_SAMPLES = {
+    milk: [{ "Mã phiếu": "SUA-VD-01", "Ngày cấp": "2026-11-15", "Địa điểm": "Kho nhân sự", "Mã NV": "0005", "Mã mặt hàng": "MILK", "Số lượng": 2, "Ghi chú": "" },
+      { "Mã phiếu": "SUA-VD-01", "Ngày cấp": "2026-11-15", "Địa điểm": "Kho nhân sự", "Mã NV": "00123", "Mã mặt hàng": "MILK", "Số lượng": 2, "Ghi chú": "" }],
+    ppe: [{ "Mã phiếu": "BH-VD-01", "Ngày cấp": "2026-11-15", "Địa điểm": "Kho vật tư", "Mã NV": "0005", "Mã vật tư": "GIAY", "Kích cỡ": "40", "Số lượng": 1, "Lý do": "Cấp đợt 11", "Ghi chú": "" },
+      { "Mã phiếu": "BH-VD-01", "Ngày cấp": "2026-11-15", "Địa điểm": "Kho vật tư", "Mã NV": "00123", "Mã vật tư": "MUBH", "Kích cỡ": "", "Số lượng": 1, "Lý do": "Cấp đợt 11", "Ghi chú": "" }]
+  };
+  var CP_SHEET = { milk: "Cấp phát sữa", ppe: "Cấp phát bảo hộ" };
+  function cpDownloadTemplate(type) {
+    var cols = C.benefits.TEMPLATE_COLUMNS[type], guide = [
+      { "Cột": "Cách dùng", "Giải thích": "Mỗi dòng là MỘT người nhận MỘT " + (type === "ppe" ? "vật tư (và một cỡ)" : "mặt hàng") + ". Các dòng cùng Mã phiếu được gom vào một phiếu nháp. Dòng nền vàng là ví dụ (cột 'Dòng ví dụ' ghi VÍ DỤ): app tự bỏ qua khi nhập." },
+      { "Cột": "Đầu phiếu", "Giải thích": "Ngày cấp, địa điểm" + (type === "ppe" ? ", lý do" : "") + " phải giống nhau ở mọi dòng của cùng một Mã phiếu." },
+      { "Cột": "Mã (số 0 đầu)", "Giải thích": "Mã phiếu, Mã NV, " + (type === "ppe" ? "Mã vật tư, Kích cỡ" : "Mã mặt hàng") + " đã định dạng Text: nhập 0005 hay 00123 sẽ giữ nguyên." },
+      { "Cột": "Nhập vào app", "Giải thích": "Nghiệp vụ nhân sự → Cấp phát → Phiếu cấp phát → ⬆ Nhập Excel → xem trước theo phiếu → sửa lỗi theo số dòng Excel → Lưu nháp. Nhập lại cùng file không cộng số lượng lần hai." }];
+    if (type === "ppe") guide.push({ "Cột": "Kích cỡ", "Giải thích": "Chỉ ghi khi vật tư có danh sách kích cỡ trong Danh mục → Cấp phát → Đồ bảo hộ lao động; sai cỡ sẽ báo đúng số dòng." });
+    saveXlsx("Mau_CapPhat_" + (type === "ppe" ? "BaoHo" : "Sua") + ".xlsx", [{ name: CP_SHEET[type], cols: cols, rows: CP_SAMPLES[type] }, { name: "Hướng dẫn", cols: ["Cột", "Giải thích"], rows: guide }], "template");
+  }
+
+  // ---------- Nhập Excel: Chọn file → Xem trước theo phiếu → Xử lý lỗi → Lưu nháp ----------
+  function cpImportFlow(type) {
+    if (!type) {
+      modal("Nhập Excel cấp phát", h("p", { text: "Chọn loại phiếu trong file Excel:" }), function (close) {
+        return [btn("Hủy", "", close), btn("Sữa phúc lợi", "pri", function () { close(); cpImportFlow("milk"); }), btn("Bảo hộ lao động", "pri", function () { close(); cpImportFlow("ppe"); })];
+      }); return;
+    }
+    readWorkbook(function (wb, fileName) {
+      var cols = C.benefits.TEMPLATE_COLUMNS[type], optional = { "Ghi chú": 1, "Lý do": 1, "Kích cỡ": 1 };
+      var name = wb.SheetNames.filter(function (n) { return n === CP_SHEET[type]; })[0] || wb.SheetNames.filter(function (n) { return n !== "Hướng dẫn"; })[0];
+      if (!name) { alert("File không có sheet dữ liệu."); return; }
+      var ws = wb.Sheets[name], aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }), first = XLSX.utils.decode_range(ws["!ref"] || "A1").s.r, hi = -1;
+      for (var i = 0; i < Math.min(aoa.length, 30) && hi < 0; i++) if ((aoa[i] || []).indexOf("Mã phiếu") >= 0) hi = i;
+      if (hi < 0) { alert("Không thấy dòng tiêu đề có cột 'Mã phiếu' trong sheet '" + name + "'. Hãy dùng file mẫu của app."); return; }
+      var head = aoa[hi].map(function (c) { return String(c == null ? "" : c).trim(); }), missing = cols.filter(function (c) { return !optional[c] && head.indexOf(c) < 0; });
+      if (missing.length) { alert("File thiếu cột bắt buộc: " + missing.join(", ") + ". Hãy dùng đúng mẫu " + (type === "ppe" ? "bảo hộ lao động" : "sữa phúc lợi") + "."); return; }
+      var skipped = 0, rows = [], markAt = head.indexOf("Dòng ví dụ");
+      aoa.slice(hi + 1).forEach(function (cells, k) {
+        if (!(cells || []).some(function (c) { return String(c == null ? "" : c).trim() !== ""; })) return;
+        if (markAt >= 0 && fold(cells[markAt]) === "vi du") { skipped++; return; }
+        var values = {}; head.forEach(function (c, ci) { if (c) values[c] = cells[ci]; });
+        rows.push({ row: first + hi + k + 2, values: values });
+      });
+      if (!rows.length) { alert(skipped ? "File chỉ có " + skipped + " dòng ví dụ. Nhập dữ liệu thật ở dòng mới bên dưới." : "File chưa có dòng cấp phát."); return; }
+      cpImportPreview(type, rows, fileName, skipped);
+    });
+  }
+  function cpImportPreview(type, rows, fileName, skipped) {
+    var me = session.tenDangNhap.toLowerCase(), plan = C.benefits.planImport(db, type, rows, me, cpDeptOf());
+    var ACTION = { new: "Phiếu nháp mới", same: "Đã có, không đổi", replace: "Cập nhật phiếu nháp", error: "Có lỗi" };
+    var counts = { new: 0, same: 0, replace: 0, error: 0 }; plan.vouchers.forEach(function (v) { counts[v.action]++; });
+    var errors = plan.errors.slice(); plan.vouchers.forEach(function (v) { v.issues.forEach(function (m) { errors.push(m); }); });
+    var body = h("div", { "data-cp-import": "1" });
+    body.appendChild(h("div", { class: errors.length ? "warn" : "hint", text: "File " + fileName + " — " + rows.length + " dòng dữ liệu, " + plan.vouchers.length + " phiếu: " + counts.new + " mới, " + counts.replace + " cập nhật nháp, " + counts.same + " đã có (không đổi), " + counts.error + " lỗi." + (skipped ? " Đã bỏ qua " + skipped + " dòng ví dụ của file mẫu." : "") }));
+    body.appendChild(simpleTable(plan.vouchers.map(function (v) {
+      return { "Mã phiếu": v.id, "Xử lý": ACTION[v.action], "Số dòng": v.rows.length, "Dòng Excel": v.rows.length > 6 ? v.rows[0] + "–" + v.rows[v.rows.length - 1] : v.rows.join(", "), "Ngày cấp": v.doc ? fmtDate(v.doc.date) : "", "Số người nhận": v.doc ? new Set(v.doc.lines.map(function (l) { return l.employee; })).size : "" };
+    })));
+    if (errors.length) { body.appendChild(h("div", { class: "fh", text: "Lỗi cần sửa trong file (" + errors.length + ")" })); body.appendChild(h("ul", { "data-cp-errors": "1" }, errors.slice(0, 80).map(function (m) { return h("li", { text: m }); }))); if (errors.length > 80) body.appendChild(h("div", { class: "hint", text: "… và " + (errors.length - 80) + " lỗi nữa (tải chi tiết lỗi)." })); }
+    var writable = plan.vouchers.filter(function (v) { return v.action === "new" || v.action === "replace"; });
+    modal("Xem trước nhập Excel cấp phát", body, function (close) {
+      return [
+        errors.length ? btn("⬇ Tải chi tiết lỗi", "", function () { saveXlsx("LoiNhapCapPhat.xlsx", [{ name: "Loi", cols: ["Lỗi"], rows: errors.map(function (m) { return { "Lỗi": m }; }) }]); }) : null,
+        btn("Đóng", "", close),
+        btn(errors.length ? "Sửa lỗi trong file rồi chọn lại" : writable.length ? "✔ Lưu nháp " + writable.length + " phiếu" : "Không có phiếu nào để lưu", "pri", function () {
+          if (errors.length) { close(); return; }
+          if (!writable.length) { close(); return; }
+          var byId = {}; writable.forEach(function (v) { byId[v.id] = v.doc; });
+          var out = (db.benefitIssues || []).map(function (row) { return byId[row.id] || row; }).concat(writable.filter(function (v) { return v.action === "new"; }).map(function (v) { return v.doc; }));
+          benefitSave("benefitIssues", out, "Nhập Excel cấp phát (nháp)", writable.map(function (v) { return v.id; }).join(", "), function () { close(); toast("Đã lưu nháp " + writable.length + " phiếu"); render(); });
+        })];
+    }, { wide: true });
+  }
+
+  // ---------- Báo cáo cấp phát: Tổng hợp / Chi tiết, dùng chung bộ lọc với danh sách phiếu ----------
+  function cpReport() {
+    var s = cpState();
+    return C.benefits.report(db, { type: s.type, mode: s.mode, bySize: s.bySize, filters: cpFilters(), deptOf: cpDeptOf() });
+  }
+  function cpReportCtx(rep) {
+    var s = cpState(), cfg = cpConfig(function () {}, function () { return { kept: 0, total: 0 }; });
+    return { filters: cpFilters(), type: s.type, bySize: s.bySize, labels: C.benefits.LABEL, fmtDate: fmtDate, scopeText: SFC.scopeText(cfg, SFC.normalize(s.f, cfg), "tất cả phiếu"), rep: rep };
+  }
+  function cpExportXlsx(rep) {
+    if (!need("export", "xuất dữ liệu ra Excel")) return;
+    if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx || !window.HAKUi.dispenseReport) { alert("Thiếu thư viện định dạng Excel."); return; }
+    var DR = window.HAKUi.dispenseReport, meta = DR.meta(rep, cpReportCtx(rep)), vm = DR.excelVm(rep, meta, { congTy: congTy()["Tên công ty"] || "", user: currentUser() });
+    window.HAKUi.reportXlsx.build(window.ExcelJS, vm, { chuKy: DR.SIGN, nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
+      download(meta.file + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf); audit("Xuất Excel báo cáo cấp phát", meta.title + " · " + meta.scope);
+    }, function (e) { alert("Không tạo được file: " + e.message); });
+  }
+  function cpExportPdf(rep) {
+    var DR = window.HAKUi.dispenseReport, meta = DR.meta(rep, cpReportCtx(rep));
+    exportSheetsPdf(DR.pdfVm(rep, meta, { congTy: congTy()["Tên công ty"] || "" }), meta.file + ".pdf", { chuKy: DR.SIGN });
+  }
+  function cpReportView() {
+    var s = cpState(), box = h("div", { "data-cp-report": s.mode }), bar = h("div", { class: "bar" }), tw = h("div", { class: "tw" }), kept = { kept: 0, total: 0 }, rep = null;
+    [["summary", "Tổng hợp"], ["detail", "Chi tiết"]].forEach(function (m) { bar.appendChild(btn(m[1], s.mode === m[0] ? "pri" : "", function () { s.mode = m[0]; st.pg.capphat = 0; render(); })); });
+    if (s.mode === "summary" && s.type !== "milk") {
+      var cb = h("input", { type: "checkbox", "aria-label": "Tách theo kích cỡ", "data-cp-bysize": "1" }); cb.checked = !!s.bySize;
+      cb.addEventListener("change", function () { s.bySize = cb.checked; st.pg.capphat = 0; draw(); });
+      bar.appendChild(h("label", { class: "chk" }, [cb, " Tách theo kích cỡ (bảo hộ)"]));
+    }
+    bar.appendChild(h("span", { class: "sp" }));
+    if (can("export")) { bar.appendChild(btn("⬇ Excel", "", function () { cpExportXlsx(cpReport()); })); bar.appendChild(btn("⬇ PDF", "", function () { cpExportPdf(cpReport()); })); }
+    box.appendChild(bar);
+    var sf = sfUi.mount(cpConfig(draw, function () { return kept; })); box.appendChild(sf.el); box.appendChild(tw);
+    function draw() {
+      tw.innerHTML = ""; rep = cpReport(); sf.refresh();
+      var body = rep.rows.filter(function (r) { return !r._total; }), totals = rep.rows.filter(function (r) { return r._total; });
+      kept.kept = body.length; kept.total = body.length; sf.refresh();
+      if (!rep.rows.length) { tw.appendChild(h("div", { class: "empty", text: "Không có dữ liệu cấp phát khớp bộ lọc." })); return; }
+      var pg = pager("capphat", body.length, draw); if (pg.el) tw.appendChild(pg.el);
+      var t = h("table", { "data-cp-table": rep.mode }), tr = h("tr"); rep.columns.forEach(function (c) { tr.appendChild(h("th", { text: c })); }); t.appendChild(h("thead", {}, [tr]));
+      var tb = h("tbody");
+      body.slice(pg.start, pg.end).forEach(function (r) {
+        var x = h("tr");
+        rep.columns.forEach(function (c) {
+          var v = r[c];
+          if (c === "Mã phiếu" && r._voucher) x.appendChild(h("td", {}, [btn(v, "ghost", function () { cpOpen(r._voucher, { tab: "capphat", label: "báo cáo" }); }, "Mở phiếu gốc")]));
+          else x.appendChild(h("td", { class: typeof v === "number" ? "r" : "t", text: v == null ? "" : v }));
+        });
+        tb.appendChild(x);
+      });
+      totals.forEach(function (r) { var x = h("tr", { class: "tot" }); rep.columns.forEach(function (c) { x.appendChild(h("td", { class: typeof r[c] === "number" ? "r" : "t", text: r[c] == null ? "" : r[c] })); }); tb.appendChild(x); });
+      t.appendChild(tb); tw.appendChild(h("div", { class: "tw" }, [t]));
+      tw.appendChild(h("div", { class: "hint", text: "Phiếu nháp không tính vào thực cấp. Thực cấp = đã cấp − thu hồi. Tổ/phòng ban và tên mặt hàng lấy theo thông tin đã lưu tại ngày cấp." }));
+    }
+    draw();
+    return box;
+  }
+  function tabCapPhat() {
+    var s = cpState(), w = h("div", { "data-cp-tab": s.view }), card = h("div", { class: "card" });
+    if (s.view === "detail") { card.appendChild(cpVoucherDetail()); w.appendChild(card); return w; }
+    var types = h("div", { class: "bar", role: "group", "aria-label": "Loại cấp phát" }), views = h("div", { class: "bar", role: "group", "aria-label": "Màn hình cấp phát" });
+    CP_TYPES.forEach(function (t) { types.appendChild(btn(t[1], s.type === t[0] ? "pri" : "", function () { s.type = t[0]; st.pg.capphat = 0; render(); }, "Lọc theo loại cấp phát")); });
+    [["list", "Phiếu cấp phát"], ["report", "Báo cáo cấp phát"]].forEach(function (v) { views.appendChild(btn(v[1], s.view === v[0] ? "pri" : "", function () { s.view = v[0]; st.pg.capphat = 0; render(); })); });
+    card.appendChild(h("div", { class: "hak-catalog-heading" }, [h("small", { text: "NGHIỆP VỤ NHÂN SỰ → CẤP PHÁT" }), h("h2", { text: s.view === "report" ? "Báo cáo cấp phát" : "Phiếu cấp phát" })]));
+    card.appendChild(views); card.appendChild(types);
+    card.appendChild(s.view === "report" ? cpReportView() : cpVoucherList());
+    w.appendChild(card); return w;
   }
   // ---------- Tiêu chuẩn và phiếu cấp phát phúc lợi ----------
   function benefitSave(table, rows, action, detail, done) {
@@ -6558,7 +7061,8 @@
     var body = h("div", {}, [simpleTable(history.map(function (row) { return { "Hiệu lực từ": row.from, "Mã tiêu chuẩn": row.code }; })),
       h("h4", { text: "Định mức kỳ " + kyStr() }), simpleTable(C.benefits.entitlement(db, ma, kyStr()).map(function (item) {
         return { "Mặt hàng": item.name, "Đơn vị": item.unit, "Được cấp": item.allowance };
-      }))]);
+      })),
+      cpEmployeeVouchers(ma, { tab: st.tab, label: "hồ sơ nhân viên" })]);
     if (can("hr.edit")) {
       var code = h("select", { "aria-label": "Mã tiêu chuẩn phúc lợi" }, [h("option", { value: "", text: "Chọn mã tiêu chuẩn" })]);
       Array.from(new Set((db.benefitStandards || []).map(function (row) { return row.code; }))).sort().forEach(function (value) {
@@ -6598,136 +7102,6 @@
       })]));
       body.appendChild(preview); showPreview();
     }
-    return body;
-  }
-  var BENEFIT_COLUMNS = ["Mã phiếu", "Ngày cấp", "Địa điểm", "Mã NV", "Mã mặt hàng", "Số lượng", "Ghi chú"];
-  function benefitPreview(docs, done) {
-    var original = db.benefitIssues || [], errors = [], rows = [], seen = new Set(original.map(function (doc) { return doc.id; }));
-    var projected = Object.assign({}, db, { benefitIssues: original.slice() });
-    docs.forEach(function (doc) {
-      if (seen.has(doc.id)) errors.push("Mã phiếu đã có: " + doc.id);
-      seen.add(doc.id);
-      var summary = C.benefits.reviewIssue(projected, doc);
-      if (!summary.issues.length) projected.benefitIssues.push(Object.assign({}, doc, { status: "issued" }));
-      summary.issues.forEach(function (message) { errors.push(doc.id + " · " + message); });
-      summary.entries.forEach(function (line) { rows.push({ "Mã phiếu": doc.id, "Mã NV": line.employee, "Mặt hàng": line.item,
-        "Thực cấp": line.quantity, "Trước phiếu": line.before, "Sau phiếu": line.after }); });
-    });
-    var body = h("div", {}, [simpleTable(rows)].concat(errors.map(function (message) { return h("p", { class: "warn", text: message }); })));
-    modal("Xem trước các phiếu cấp phát", body, function (close) {
-      return [btn("Đóng", "", close), errors.length ? null : btn("Lưu nháp", "pri", function () {
-        if ((db.benefitIssues || []).some(function (doc) { return docs.some(function (incoming) { return incoming.id === doc.id; }); })) {
-          alert("Mã phiếu đã tồn tại."); return;
-        }
-        benefitSave("benefitIssues", (db.benefitIssues || []).concat(docs), "Lập phiếu phúc lợi", docs.map(function (doc) { return doc.id; }).join(", "), function () { close(); done(); });
-      })];
-    }, { wide: true });
-  }
-  function benefitDocument(id, date, place, lines) {
-    return { id: id, date: date, period: date.slice(0, 7), place: place, lines: lines, maker: session.tenDangNhap.toLowerCase(), status: "draft" };
-  }
-  function benefitIssueScreen() {
-    var body = h("div"), tools = h("div", { class: "bar" }), current = kyStr();
-    body.appendChild(tools);
-    tools.appendChild(btn("Tải mẫu Excel cấp phát", "", function () {
-      saveXlsx("MauCapPhatPhucLoi.xlsx", [{ name: "Cấp phát phúc lợi", cols: BENEFIT_COLUMNS, rows: [] }], "template");
-    }));
-    if (can("hr.edit")) {
-      tools.appendChild(btn("Lập phiếu cấp phát", "pri", function () {
-        var id = benefitField("Mã phiếu", "text"), day = benefitField("Ngày cấp", "date", HRM.today()), place = benefitField("Địa điểm", "text");
-        var editor = benefitLineEditor([["Mã NV", "text"], ["Mã mặt hàng", "text"], ["Số lượng thực cấp", "number"], ["Ghi chú", "text"]]);
-        var dept = h("select", { "aria-label": "Tổ cấp phát" }, [h("option", { value: "", text: "Chọn tổ / phòng ban" })]);
-        (db.dm_phongban || []).forEach(function (row) { dept.appendChild(h("option", { value: row["Mã phòng ban"], text: row["Tên phòng ban"] || row["Mã phòng ban"] })); });
-        var item = benefitField("Mã mặt hàng cấp theo tổ", "text"), qty = benefitField("Số lượng mỗi người", "number");
-        var quick = h("div", { class: "bar" }, [dept, item.field, qty.field, btn("Thêm người đủ điều kiện trong tổ", "", function () {
-          var month = day.input.value.slice(0, 7), code = item.input.value.trim();
-          if (!dept.value || !VAL.normDate(day.input.value) || !code || !Number.isSafeInteger(Number(qty.input.value)) || +qty.input.value <= 0) {
-            alert("Chọn ngày, tổ, mặt hàng và số lượng nguyên dương."); return;
-          }
-          var existing = new Set(editor.rows().filter(function (row) { return row[1] === code; }).map(function (row) { return row[0]; }));
-          var people = (db.nhanvien || []).filter(function (row) {
-            var ma = row["Mã NV"];
-            return !existing.has(ma) && HRM.hienHanh(db, ma, day.input.value).pb === dept.value &&
-              C.benefits.entitlement(db, ma, month).some(function (rule) { return rule.code === code && rule.allowance > 0; });
-          });
-          people.forEach(function (row) { editor.add([row["Mã NV"], code, qty.input.value, ""]); });
-          if (!people.length) alert("Không có thêm người phù hợp trong tổ.");
-        })]);
-        modal("Lập phiếu cấp phát", h("div", {}, [id.field, day.field, place.field, quick, editor.panel]), function (close) {
-          return [btn("Hủy", "", close), btn("Xem trước", "pri", function () {
-            var doc = benefitDocument(id.input.value.trim(), day.input.value, place.input.value.trim(), editor.rows().map(function (row) {
-              return { employee: row[0], item: row[1], quantity: Number(row[2]), note: row[3] };
-            }).filter(function (line) { return line.employee || line.item || line.quantity || line.note; }));
-            close(); benefitPreview([doc], render);
-          })];
-        }, { wide: true });
-      }));
-      tools.appendChild(btn("Nhập Excel cấp phát", "", function () {
-        readWorkbook(function (book) {
-          var groups = new Map(), sheet = book.Sheets[book.SheetNames[0]];
-          XLSX.utils.sheet_to_json(sheet, { raw: false, defval: "" }).forEach(function (row) {
-            var id = String(row["Mã phiếu"] || "").trim(), date = VAL.normDate(row["Ngày cấp"]) || "", place = String(row["Địa điểm"] || "").trim();
-            if (!groups.has(id)) groups.set(id, benefitDocument(id, date, place, []));
-            var doc = groups.get(id);
-            if (doc.date !== date || doc.place !== place) throw Error("Mã phiếu " + id + " có ngày cấp hoặc địa điểm khác nhau.");
-            doc.lines.push({ employee: String(row["Mã NV"] || "").trim(), item: String(row["Mã mặt hàng"] || "").trim(), quantity: Number(row["Số lượng"]), note: String(row["Ghi chú"] || "") });
-          });
-          if (!groups.size) { alert("Tệp chưa có dòng cấp phát."); return; }
-          benefitPreview(Array.from(groups.values()), render);
-        });
-      }));
-    }
-    var all = db.benefitIssues || [], mode = C.workflowApproval.mode(db);
-    var rows = all.filter(function (doc) { return doc.period === current; }).map(function (doc) {
-      var user = session.tenDangNhap.toLowerCase(), canConfirm = mode === "roles" ? can("hr.approve") && doc.maker !== user : can("system.admin");
-      function transition(patch, label, close) {
-        benefitSave("benefitIssues", (db.benefitIssues || []).map(function (row) {
-          return row.id === doc.id ? Object.assign({}, row, patch) : row;
-        }), label, doc.id, function () { if (close) close(); render(); });
-      }
-      return { "Mã phiếu": doc.id, "Ngày cấp": doc.date, "Địa điểm": doc.place, "Tháng hưởng": doc.period,
-        "Số người": new Set(doc.lines.map(function (line) { return line.employee; })).size,
-        "Trạng thái": { draft: "Nháp", issued: "Đã cấp", recalled: "Đã thu hồi" }[doc.status], "Người xác nhận": doc.reviewer || "",
-        "Thao tác": h("div", { class: "bar" }, [btn("Xem chi tiết", "", function () {
-          modal("Phiếu " + doc.id, simpleTable(doc.lines.map(function (line) { return { "Mã NV": line.employee, "Mặt hàng": line.item, "Số lượng": line.quantity, "Ghi chú": line.note }; })), function (close) {
-            return [btn("Đóng", "", close), doc.status === "draft" && canConfirm ? btn("Xác nhận cấp phát", "pri", function () {
-              transition({ status: "issued", reviewer: user, confirmedAt: new Date().toISOString() }, "Xác nhận cấp phát", close);
-            }) : null];
-          });
-        }), doc.status !== "recalled" && canConfirm ? btn("Thu hồi", "ghost", function () {
-          askText("Thu hồi phiếu " + doc.id, "Ghi rõ lý do điều chỉnh sổ cấp phát.", { label: "Lý do", required: true }, function (reason) {
-            transition({ status: "recalled", recalledBy: user, reason: reason }, "Thu hồi phiếu phúc lợi");
-          });
-        }) : null]) };
-    });
-    body.appendChild(simpleTable(rows));
-    // Báo cáo tháng: định mức còn hiệu lực + MỌI khoản đã cấp theo phiếu đã xác nhận (kể cả mặt hàng không còn định mức)
-    var summary = C.benefits.monthlyReport(db, current).map(function (row) {
-      return { "Mã NV": row.employee, "Họ và tên": row.name, "Mặt hàng": row.itemName, "Đơn vị": row.unit, "Định mức": row.allowance,
-        "Đã cấp": row.given, "Còn lại": row.remaining, "Vượt": row.over, "Phiếu cấp": row.docs.join(", "), "Ghi chú": row.note, _docs: row.docs };
-    });
-    function openIssueDoc(id) {
-      var doc = (db.benefitIssues || []).find(function (row) { return row.id === id; }); if (!doc) { toast("Không tìm thấy phiếu " + id); return; }
-      modal("Phiếu " + doc.id + " — " + { draft: "Nháp", issued: "Đã cấp", recalled: "Đã thu hồi" }[doc.status], simpleTable(doc.lines.map(function (line) { return { "Mã NV": line.employee, "Mặt hàng": line.item, "Số lượng": line.quantity, "Ghi chú": line.note }; })), function (close) { return [btn("Đóng", "", close)]; });
-    }
-    body.appendChild(h("h3", { text: "Đối chiếu phúc lợi kỳ " + current }));
-    var search = benefitField("Lọc mã NV, họ tên hoặc mặt hàng", "text", st.benefitQuery || "");
-    search.input.addEventListener("change", function () { st.benefitQuery = search.input.value; render(); });
-    body.appendChild(search.field);
-    if (st.benefitQuery) summary = summary.filter(function (row) {
-      return fold([row["Mã NV"], row["Họ và tên"], row["Mặt hàng"]].join(" ")).includes(fold(st.benefitQuery));
-    });
-    var exportRows = summary.map(function (row) { var o = Object.assign({}, row); delete o._docs; return o; });
-    if (can("export") && summary.length) body.appendChild(h("div", { class: "bar" }, [
-      btn("Xuất Excel đối chiếu", "", function () { saveXlsx("DoiChieuPhucLoi_" + current + ".xlsx", [{ name: "Đối chiếu phúc lợi", rows: exportRows }]); }),
-      btn("Xuất PDF đối chiếu", "", function () { exportSheetsPdf({ title: "ĐỐI CHIẾU PHÚC LỢI", ky: current,
-        sheets: [{ name: "Đối chiếu phúc lợi", rows: exportRows }] }, "DoiChieuPhucLoi_" + current + ".pdf"); })
-    ]));
-    body.appendChild(simpleTable(summary.map(function (row) {
-      var shown = Object.assign({}, row); delete shown._docs;
-      shown["Mở phiếu"] = h("div", { class: "bar" }, row._docs.map(function (id) { return btn(id, "ghost", function () { openIssueDoc(id); }); }));
-      return shown;
-    })));
     return body;
   }
 
