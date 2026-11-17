@@ -3,7 +3,7 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
-## [Chưa phát hành]
+## [2.0.27] — 17/11/2026
 - Tách `core/benefits.js` thành `benefits-rules.js` (tiêu chuẩn, định mức, kiểm tra, thu hồi), `benefits-ledger.js` (sổ cái, báo cáo) và `benefits-import.js` (nhập Excel); `core/benefits.js` còn là cửa chung giữ nguyên tên hàm. Chỉ chuyển mã, không đổi hành vi; kiểm thử cũ chạy nguyên không sửa.
 
 ## [2.0.26] — 17/11/2026
@@ -584,7 +584,7 @@ Mã hóa dữ liệu trên đĩa; tiến độ/hủy khi chuyển thư mục d�
 - **Cảnh báo có công sau ngày chấm dứt hợp đồng** khi tính lương (chỉ cảnh báo, số tiền không đổi).
 - **Không đổi công thức lương** — hồi quy v1.3.0 / alpha.4 trùng 100%. Test: 143 (+3 U-BD, +1 I-23), E2E 64/64 (+6).
 
-## [Chưa phát hành] — Q-26
+## [2.0.27] — 17/11/2026 — Q-26
 - Chủ sở hữu chọn **phương án A** cho BH tháng nghỉ việc: giữ nguyên quy tắc R-57 (quy chế R-60). **Không đổi công thức**; thêm test I-22 khóa hành vi.
 
 ## [2.0.0-alpha.14] — 11/10/2026 — Sổ quản lý lao động theo NĐ 145/2020 Điều 3
