@@ -1,5 +1,9 @@
   function tabNghiepVuNS() {
     var w = h("div"), card = h("div", { class: "card" }), bar = h("div", { class: "bar" });
+    bar.appendChild(btn(st.benefitIssues ? "Về nghiệp vụ nhân sự" : "Cấp phát phúc lợi", "", function () {
+      st.benefitIssues = !st.benefitIssues; render();
+    }));
+    if (st.benefitIssues) { card.appendChild(bar); card.appendChild(benefitIssueScreen()); w.appendChild(card); return w; }
     var F = st.nvf = st.nvf || { q: "", loai: "", tt: "", tu: "", den: "" };
     var kb = SFC.periodBounds(kyStr()) || ["", ""]; // Từ–Đến mặc định = ngày đầu và cuối của kỳ lương đang chọn; người dùng sửa tay thì giữ nguyên
     if (!F.tuManual) F.tu = kb[0]; if (!F.denManual) F.den = kb[1];

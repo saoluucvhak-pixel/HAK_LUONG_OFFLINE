@@ -116,7 +116,28 @@
         var reviewTable = visibleReview.length ? simpleTable(visibleReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });
         reviewTable.classList.add("attendance-review-table");
         card.appendChild(reviewTable);
+        if (!snapshot && visibleReview.length && can("input.edit")) card.appendChild(btn("Xác nhận có làm", "pri", function () {
+          confirmProductionAttendance(visibleReview, r3.al, st.bclLoai);
+        }));
         sheets.push({ name: "DoiChieuChamCong", rows: visibleReview });
+      }
+      var recorded = ((snapshot ? snapshot.input?.data?.productionAttendance : db.productionAttendance) || []).filter(function (row) {
+        return row.date.slice(0, 7) === kyKey(nam, thang);
+      });
+      if (recorded.length) {
+        card.appendChild(h("div", { class: "fh", text: "Xác nhận làm ca dài đã lưu" }));
+        card.appendChild(simpleTable(recorded.map(function (row) {
+          return { "Ngày phân bổ": row.date, "Mã tổ": row.team, "Mã NV": row.employee, "Lý do": row.reason, "Người xác nhận": row.user,
+            "Thao tác": !snapshot && can("input.edit") ? btn("Thu hồi", "ghost", function () {
+              askText("Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team, { label: "Lý do thu hồi", required: true }, function (reason) {
+                if (!txn(["productionAttendance"], function () {
+                  db.productionAttendance = db.productionAttendance.filter(function (item) { return C.productionAttendance.key(item) !== C.productionAttendance.key(row); });
+                  audit("Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team + " · " + reason);
+                })) { alert(lastTxnError); return; }
+                render();
+              });
+            }) : "" };
+        })));
       }
       sheets.push({ name: "TheoPhongBan", rows: r3.pb }, { name: "TheoCongNhan", rows: r3.nv }, { name: "DoiSoatPhieu", rows: r3.audit }, { name: "ChuaGanNguoi", rows: r3.chuaGan });
     }

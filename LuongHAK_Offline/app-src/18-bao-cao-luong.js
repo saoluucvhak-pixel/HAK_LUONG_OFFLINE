@@ -60,6 +60,63 @@
     if (!snapshot) return pbAlloc(nam, thang, loai);
     return snapshot.input?.payrollReports?.production?.find(function (g) { return g.type === loai; })?.allocation || null;
   }
+  function confirmProductionAttendance(visible, allocation, selectedTable) {
+    if (!need("input.edit") || kyChot(kyStr())) return;
+    var service = C.productionAttendance, period = kyStr(), revision = dbRev, candidates = new Map();
+    allocation.attendanceReview.forEach(function (receipt) {
+      if (!visible.some(function (row) { return row["Phiếu cân"] === receipt.phieu && row["Ngày cân"] === receipt.ngay && row["Mã phòng ban"] === receipt.maPB; })) return;
+      receipt.employees.forEach(function (employee) {
+        var row = { date: receipt.ngay, team: receipt.maPB, employee: employee.ma };
+        candidates.set(service.key(row), { row: row, name: employee.hoTen });
+      });
+    });
+    var body = h("div"), list = h("div"), checked = new Map();
+    candidates.forEach(function (item, key) {
+      var box = h("input", { type: "checkbox" }); checked.set(key, box);
+      list.appendChild(h("label", { class: "fld" }, [box, item.row.date + " · " + item.row.team + " · " + item.row.employee + " — " + item.name]));
+    });
+    var reason = h("textarea", { class: "i", "aria-label": "Lý do xác nhận", placeholder: "Lý do, ví dụ Làm ca dài qua ngày" });
+    body.appendChild(list); body.appendChild(reason);
+    modal("Xác nhận có làm để chia sản lượng", body, function (close) {
+      return [btn("Hủy", "", close), btn("Xem trước phân bổ", "pri", function () {
+        if (kyStr() !== period || dbRev !== revision || kyChot(period)) { alert("Dữ liệu kỳ đã thay đổi. Mở lại bảng đối chiếu."); return; }
+        var rows = Array.from(candidates).filter(function (entry) { return checked.get(entry[0]).checked; }).map(function (entry) {
+          return Object.assign({}, entry[1].row, { reason: reason.value.trim(), user: session.tenDangNhap.toLowerCase() });
+        });
+        if (!rows.length || !reason.value.trim()) { alert("Chọn nhân viên và ghi lý do."); return; }
+        var next = Object.assign({}, db, { productionAttendance: (db.productionAttendance || []).concat(rows) });
+        var issue = service.checkChanges(db, next, { user: session.tenDangNhap, perms: ["input.edit"] });
+        if (issue) { alert(issue); return; }
+        var all = ["sanluong", "bandam"], pairs = new Map();
+        all.forEach(function (table) {
+          pairs.set(table, [HRM.sanLuongKy(db, st.nam, st.thang, table).alloc.audit, HRM.sanLuongKy(next, st.nam, st.thang, table).alloc.audit]);
+        });
+        var affected = new Map();
+        service.affected(db, rows).forEach(function (match) {
+          var r = match.receipt, key = JSON.stringify([match.table, r.phieu, r.ngay, r.maPB]);
+          if (affected.has(key)) return;
+          var matches = function (item) { return item.phieu === r.phieu && item.ngay === r.ngay && item.maPB === r.maPB; };
+          var pair = pairs.get(match.table), before = pair[0].find(matches), after = pair[1].find(matches);
+          if (!before || !after) return;
+          affected.set(key, { "Bảng": ALL[match.table].ten, "Phiếu": r.phieu, "Ngày": r.ngay, "Tổ": r.maPB,
+            "Người chia trước": before.names.join(", "), "Người chia sau": after.names.join(", "),
+            "Số người trước": before.soNguoi, "Số người sau": after.soNguoi, "Phần mỗi người trước": before.share, "Phần mỗi người sau": after.share });
+        });
+        close();
+        modal("Xem trước tất cả phiếu bị ảnh hưởng — " + ALL[selectedTable].ten, simpleTable(Array.from(affected.values())), function (done) {
+          return [btn("Hủy", "", done), btn("Lưu xác nhận", "pri", function () {
+            if (kyStr() !== period || dbRev !== revision || kyChot(period)) { alert("Dữ liệu kỳ đã thay đổi. Mở lại bảng đối chiếu."); return; }
+            if (!txn(["productionAttendance"], function () {
+              db.productionAttendance = next.productionAttendance;
+              audit("Xác nhận có làm để chia sản lượng", rows.map(function (row) { return row.employee + " · " + row.date + " · " + row.team; }).join("; ") + " · " + reason.value.trim());
+            })) { alert(lastTxnError); return; }
+            done(); render();
+          })];
+        }, { wide: true });
+      })];
+    }, { wide: true });
+  }
+
   function bcSanLuong(nam, thang, loai, allocation) {
     return C.periodReports.bcSanLuong(allocation || reportAllocation(nam, thang, loai), loai);
   }
