@@ -3,6 +3,12 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [Chưa phát hành] — sửa 3 lỗi đã xác nhận (đối chiếu v2.0.22)
+- Bảo hiểm: ô tỷ lệ BHXH/BHYT/BHTN phía người lao động để TRỐNG ở mã bảo hiểm đang dùng trong kỳ (có người có căn cứ đóng) nay chặn chốt kỳ, nêu rõ mã, tên cột và người bị ảnh hưởng; main process tự tính lại. Khai 0 hoặc 0% vẫn hợp lệ (0đ). Danh mục không dùng trong kỳ không chặn. Công thức, cách đọc tỷ lệ, ngưỡng công, truy thu giữ nguyên.
+- Đối chiếu bảng lương Excel: Excel có mã NV nhưng không khớp thì vào mục "Mã NV không khớp" kể cả khi họ tên trùng duy nhất; chỉ khớp theo họ tên khi Excel để trống mã và tên khớp đúng một người. Hiện số dòng Excel, mã, họ tên; báo tên trùng nhiều người và mã trùng trong file; giữ mã có số 0 đầu.
+- Tiêu chuẩn phúc lợi: gắn tiêu chuẩn vào hợp đồng kiểm tra phiên bản có hiệu lực tại ngày bắt đầu ở cả giao diện và main process, hiện mặt hàng/định mức/hiệu lực trước khi lưu. Phiên bản mới hết hạn thì dừng tại ngày hết hạn, không tự quay về định mức cũ.
+- Kiểm thử hồi quy: `insurance-rate-blank`, `reconcile-matching`, `benefit-validity`.
+
 ## [2.0.22] — 17/11/2026
 - Đối chiếu phiếu cân và chấm công: bộ lọc phiếu cần đối chiếu; xác nhận ca dài theo người, tổ, ngày, xem trước phiếu bị ảnh hưởng, thu hồi có nhật ký.
 - Đổi tên "Bơm dăm" thành "Ban dăm xuất hàng", giữ khả năng đọc mẫu Excel cũ. Suất cơm: báo cáo và máy tính lương dùng chung một quy tắc.

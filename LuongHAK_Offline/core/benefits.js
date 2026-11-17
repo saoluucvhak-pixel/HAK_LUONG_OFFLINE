@@ -7,6 +7,24 @@
     Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
   const latest = (rows, date) => rows.filter(row => row.from <= date && (!row.until || row.until >= date))
     .reduce((found, row) => !found || row.from > found.from ? row : found, null);
+  // Phiên bản "đang chi phối" tại một ngày = bản có hiệu lực từ MỚI NHẤT không muộn hơn ngày đó. Nếu bản đó đã hết hạn thì
+  // KHÔNG có định mức từ ngày hết hạn; không tự quay lại bản cũ hơn. Chỉ khi người dùng tạo phiên bản hiệu lực mới thì mới có lại.
+  const governing = (rows, date) => rows.filter(row => row.from <= date)
+    .reduce((found, row) => !found || row.from > found.from ? row : found, null);
+  const covers = (row, date) => !!row && row.from <= date && (!row.until || row.until >= date);
+
+  /** Phiên bản của tiêu chuẩn `code` tại `date`: { status: "ok" | "expired" | "none", rule } (expired: rule là bản đã hết hạn). */
+  function standardAt(db, code, date) {
+    const rule = governing((db.benefitStandards || []).filter(row => row.code === code), date);
+    return { status: !rule ? "none" : covers(rule, date) ? "ok" : "expired", rule };
+  }
+  /** Thông báo cho người dùng khi tiêu chuẩn không có hiệu lực tại ngày bắt đầu áp dụng; rỗng nếu hợp lệ. */
+  function standardProblem(db, code, date) {
+    const found = standardAt(db, code, date);
+    if (found.status === "none") return "Tiêu chuẩn " + code + " chưa có phiên bản hiệu lực từ ngày " + date + ".";
+    if (found.status === "expired") return "Tiêu chuẩn " + code + " đã hết hạn ngày " + found.rule.until + ", không gắn được từ ngày " + date + ". Tạo phiên bản hiệu lực mới cho tiêu chuẩn này trước.";
+    return "";
+  }
 
   function entitlement(db, employee, period) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) throw Error("Tháng hưởng không hợp lệ.");
@@ -22,10 +40,11 @@
       const date = period + "-" + String(day).padStart(2, "0");
       const contract = latest(contracts, date);
       if (!contract) continue;
-      const assignment = latest(assignments.filter(row => row.contract === contract.id), date);
-      if (!assignment) continue;
-      const rule = latest((db.benefitStandards || []).filter(row => row.code === assignment.code), date);
-      if (!rule) continue;
+      const assignment = governing(assignments.filter(row => row.contract === contract.id), date);
+      if (!covers(assignment, date)) continue;
+      const found = standardAt(db, assignment.code, date);
+      if (found.status !== "ok") continue;
+      const rule = found.rule;
       rule.items.forEach(item => {
         const prior = accumulated.get(item.code) || { code: item.code, name: item.name, unit: item.unit, numerator: 0 };
         accumulated.set(item.code, { ...prior, numerator: prior.numerator + item.quantity });
@@ -90,9 +109,10 @@
           if (!Array.isArray(row.items) || !row.items.length || row.items.some(item => !item || !text(item.code) ||
               !text(item.name) || !text(item.unit) || !Number.isSafeInteger(item.quantity) || item.quantity < 0) ||
               new Set(row.items.map(item => item.code)).size !== row.items.length) return "Mặt hàng, đơn vị hoặc định mức tháng không hợp lệ.";
-        } else if (!(next.benefitStandards || []).some(rule => rule.code === row.code && rule.from <= row.from) ||
-          !(next.hopdong || []).some(contract => contract["Mã NV"] === row.employee && contract["Số HĐLĐ"] === row.contract)) {
-          return "Không tìm thấy hợp đồng hoặc tiêu chuẩn có hiệu lực.";
+        } else {
+          if (!(next.hopdong || []).some(contract => contract["Mã NV"] === row.employee && contract["Số HĐLĐ"] === row.contract)) return "Không tìm thấy hợp đồng của nhân viên.";
+          // Chỉ kiểm dòng mới hoặc vừa đổi: dòng cũ giữ nguyên (đã bất biến ở trên), không bị chặn ngược khi sau đó có thêm phiên bản tiêu chuẩn.
+          if (!prior.some(old => same(old, row))) { const problem = standardProblem(next, row.code, row.from); if (problem) return problem; }
         }
       }
       return "";
@@ -127,6 +147,6 @@
     return "";
   }
 
-  const api = { entitlement, issued, reviewIssue, validateChanges };
+  const api = { entitlement, issued, reviewIssue, validateChanges, standardAt, standardProblem };
   if (node) module.exports = api; else root.HAKCore.benefits = api;
 })(typeof window !== "undefined" ? window : this);

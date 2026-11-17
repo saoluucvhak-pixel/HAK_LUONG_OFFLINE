@@ -25,7 +25,8 @@
     card.appendChild(bar);
     if (st.dcWb) {
       var arr = XLSX.utils.sheet_to_json(st.dcWb.Sheets[st.dcSheet], { header: 1 });
-      var parsed = RC.parseSheet(arr);
+      var ref = XLSX.utils.decode_range(st.dcWb.Sheets[st.dcSheet]["!ref"] || "A1"), firstRow = ref.s.r; // dòng Excel thật = chỉ số mảng + dòng đầu của vùng dữ liệu
+      var parsed = RC.parseSheet(arr, null, { firstRow: firstRow });
       if (parsed.headerRow < 0) {
         card.appendChild(h("div", { class: "warn", text: "Không nhận ra dòng tiêu đề (cần có cột 'Mã NV' hoặc 'Họ và tên') trong sheet '" + st.dcSheet + "'. Thử chọn sheet khác." }));
       } else {
@@ -33,7 +34,7 @@
         var cmp = RC.compare(src.kq.bangluong, parsed.rows);
         var lech = cmp.rows.filter(function (r) { return r["Chênh lệch"] !== 0; });
         card.appendChild(h("div", { class: lech.length ? "warn" : "ok", text: lech.length ? lech.length + " dòng chênh lệch, trên " + cmp.rows.length + " dòng đã đối chiếu (" + parsed.rows.length + " người trong file Excel)." : cmp.rows.length ? "Khớp hoàn toàn trên " + cmp.rows.length + " dòng đã đối chiếu." : "Không có chỉ tiêu nào đối chiếu được — kiểm tra lại cột trong file." }));
-        if (cmp.khongKhop.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ " + cmp.khongKhop.length + " người trong file Excel KHÔNG khớp được với app</b> (không có Mã NV khớp, hoặc trùng họ tên nhiều người — không tự đoán):<br>" + cmp.khongKhop.slice(0, 20).map(function (x) { return esc(x.hoTen || x.ma); }).join(", ") + (cmp.khongKhop.length > 20 ? "…" : "") }));
+        if (cmp.khongKhop.length) card.appendChild(khongKhopPanel(cmp));
         if (lech.length) {
           var onlyLech = h("input", { type: "checkbox" }); onlyLech.checked = st.dcOnlyLech !== false;
           onlyLech.addEventListener("change", function () { st.dcOnlyLech = onlyLech.checked; render(); });
@@ -43,12 +44,12 @@
         card.appendChild(simpleTable(showRows));
         if (cmp.rows.length) card.appendChild(btn("⬇ Xuất Excel đối chiếu", "", function () {
           var sheets = [{ name: "DoiChieu", cols: Object.keys(cmp.rows[0]), rows: cmp.rows }];
-          if (cmp.khongKhop.length) sheets.push({ name: "KhongKhopNguoi", cols: ["ma", "hoTen"], rows: cmp.khongKhop });
+          if (cmp.khongKhop.length) sheets.push({ name: "KhongKhopNguoi", cols: ["Dòng Excel", "Mã NV", "Họ tên", "Loại", "Ghi chú"], rows: cmp.khongKhop.map(function (x) { return { "Dòng Excel": x.dong || "", "Mã NV": x.ma, "Họ tên": x.hoTen, "Loại": x.loai, "Ghi chú": x.ghiChu }; }) });
           saveXlsx("DoiChieu_" + kyKey(st.nam, st.thang) + ".xlsx", sheets);
           audit("Xuất Excel đối chiếu lương", kyLabel(kyKey(st.nam, st.thang)) + " · file nguồn: " + st.dcFile);
         }));
         // Riêng tăng ca: đối chiếu chi tiết hơn nếu file có đủ cột (mục XVII)
-        var parsedTC = RC.parseSheet(arr, RC.CHI_TIEU_TANGCA);
+        var parsedTC = RC.parseSheet(arr, RC.CHI_TIEU_TANGCA, { firstRow: firstRow });
         if (parsedTC.matched.length) {
           var cmpTC = RC.compare(src.kq.bangluong, parsedTC.rows, RC.CHI_TIEU_TANGCA);
           var lechTC = cmpTC.rows.filter(function (r) { return r["Chênh lệch"] !== 0; });
@@ -60,4 +61,19 @@
     }
     card.appendChild(h("div", { class: "hint", style: "margin-top:10px", text: "Chưa hỗ trợ đối chiếu Đại Hiệp theo từng ngày ở màn hình này — dùng sheet \"Bu luong theo ngay - DH\" trong file Excel Phân bổ khối lượng (Báo cáo lương → Sản lượng) để so sánh thủ công theo ngày." }));
     w.appendChild(card); return w;
+  }
+  /** Các dòng Excel không đối chiếu được, nhóm theo lý do; mỗi dòng nêu số dòng Excel, mã NV và họ tên để đối chiếu với file. */
+  function khongKhopPanel(cmp) {
+    var box = h("div", { class: "warn", "data-dc-khongkhop": "1" }, [h("div", { html: "<b>⚠ " + cmp.khongKhop.length + " dòng trong file Excel KHÔNG đối chiếu được</b> — không tự đoán người; sửa mã NV hoặc họ tên trong file rồi đối chiếu lại:" })]);
+    Object.keys(RC.LOAI).map(function (k) { return RC.LOAI[k]; }).forEach(function (loai) {
+      var items = cmp.khongKhop.filter(function (x) { return x.loai === loai; }); if (!items.length) return;
+      box.appendChild(h("div", { class: "fh", text: loai + " (" + items.length + ")" }));
+      var list = h("ul");
+      items.slice(0, 30).forEach(function (x) {
+        list.appendChild(h("li", { text: "Dòng " + (x.dong || "?") + " · Mã NV: " + (x.ma || "(trống)") + " · " + (x.hoTen || "(không có họ tên)") + (x.ghiChu ? " — " + x.ghiChu : "") }));
+      });
+      if (items.length > 30) list.appendChild(h("li", { text: "… và " + (items.length - 30) + " dòng nữa (xem đầy đủ trong file Excel đối chiếu)." }));
+      box.appendChild(list);
+    });
+    return box;
   }

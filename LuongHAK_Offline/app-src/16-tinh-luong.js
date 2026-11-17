@@ -64,6 +64,7 @@
     // V9.2: truy ngược người phụ thuộc được giảm trừ trong kỳ (chỉ tên — không đưa CCCD/MST vào bản chốt)
     var ixNPT = HRM.buildIndex ? HRM.buildIndex(db) : null, bDau = nam + "-" + ("0" + thang).slice(-2) + "-01", bCuoi = nam + "-" + ("0" + thang).slice(-2) + "-31";
     kq.bangluong.forEach(function (r) { if (r._ct) r._ct.nguoiPhuThuoc = HRM.dsNguoiPhuThuoc(db, r["Mã NV"], bDau, bCuoi, ixNPT).map(function (x) { return x["Họ tên nhân thân"] || ""; }).join("; "); });
+    kq.loiTyLeBH = GATE.insuranceRateIssues({ kq: kq, staff: sp.list, catalog: E.hieuLuc(db.dm_baohiem, "Mã bảo hiểm", nam, thang) }); // tỷ lệ BH NLĐ để trống ở mã đang dùng → chặn chốt (BH_TY_LE_THIEU)
     var productionIssues = HRM.productionPayrollIssues(slK, bdK, kq.bangluong);
     if (productionIssues.length) kq.inputErrors = (kq.inputErrors || []).concat(productionIssues);
     kq.canhbao = sp.warn.concat(kq.canhbao, productionIssues); kq.ky = nam + "-" + ("0" + thang).slice(-2);

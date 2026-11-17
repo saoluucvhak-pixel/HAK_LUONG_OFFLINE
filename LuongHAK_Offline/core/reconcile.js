@@ -4,6 +4,9 @@
 (function (root) {
   "use strict";
   function fold(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+  /** Ô văn bản: giữ nguyên chữ ("007" không thành 7), kể cả số 0; ô trống → "". */
+  function cellText(v) { return v == null ? "" : String(v).trim(); }
+
   // Hai cách đọc số, CÙNG quy tắc với engine.js (num / money) để file Excel dạng chữ ("500.000", "1.234,5", "26,5")
   // được hiểu giống hệt cách app hiểu khi nhập. Bản cũ chỉ bỏ dấu phẩy nên "500.000" thành 500 và "0,175" thành 175.
   // tests/unit/reconcile.test.js so khớp với engine.js trên một bảng giá trị để hai bên không lệch lại.
@@ -68,7 +71,8 @@
    * quét tối đa 15 dòng đầu tìm dòng có cột "Mã NV" hoặc "Họ và tên"). rows2D: mảng mảng (mỗi ô 1 giá
    * trị), ví dụ từ XLSX.utils.sheet_to_json(ws, {header:1}).
    */
-  function parseSheet(rows2D, extraChiTieu) {
+  function parseSheet(rows2D, extraChiTieu, opts) {
+    var firstRow = (opts && opts.firstRow) || 0; // chỉ số (0-based) của dòng đầu tiên trong rows2D so với dòng Excel thật
     var ct = (extraChiTieu || CHI_TIEU);
     var headerIdx = -1, cols = null;
     for (var i = 0; i < Math.min(15, rows2D.length); i++) {
@@ -87,11 +91,11 @@
     var rows = [];
     for (var r = headerIdx + 1; r < rows2D.length; r++) {
       var rr = rows2D[r] || []; if (!rr.length) continue;
-      var ma = iMa >= 0 ? String(rr[iMa] || "").trim() : "", hoTen = iHo >= 0 ? String(rr[iHo] || "").trim() : "";
+      var ma = iMa >= 0 ? cellText(rr[iMa]) : "", hoTen = iHo >= 0 ? cellText(rr[iHo]) : "";
       if (!ma && !hoTen) continue;
       var values = {};
       Object.keys(map).forEach(function (key) { values[key] = num(rr[map[key]], laTien[key]); });
-      rows.push({ ma: ma, hoTen: hoTen, values: values });
+      rows.push({ dong: firstRow + r + 1, ma: ma, hoTen: hoTen, values: values });
     }
     return { rows: rows, matched: matched, unmatched: unmatched, headerRow: headerIdx };
   }
@@ -114,34 +118,74 @@
    * Khớp theo Mã NV trước; nếu ref không có Mã NV thì khớp theo Họ và tên đã chuẩn hóa (fold), chỉ khi
    * khớp DUY NHẤT (trùng tên nhiều người → không tự đoán, báo "Không khớp được người").
    */
+  /** Loại dòng Excel KHÔNG đối chiếu được (hiện cho người dùng, không tự đoán). */
+  var LOAI = {
+    MA_KHONG_KHOP: "Mã NV không khớp",
+    MA_TRUNG_FILE: "Mã NV trùng trong file",
+    TEN_TRUNG_APP: "Họ tên trùng nhiều người trong app",
+    TEN_TRUNG_FILE: "Họ tên trùng trong file (không có mã NV)",
+    KHONG_CO_APP: "Không có trong app (không có mã NV, họ tên không khớp)"
+  };
+  /**
+   * So Excel với bảng lương của app theo từng người.
+   *  - Excel CÓ mã NV: chỉ khớp theo mã (so đúng từng ký tự, đã bỏ khoảng trắng đầu/cuối). Mã không có trong app → "Mã NV không khớp",
+   *    KỂ CẢ khi họ tên trùng duy nhất — app chỉ gợi ý "cùng họ tên với mã …" chứ không tự ghép.
+   *  - Excel để TRỐNG mã NV: chỉ khớp theo họ tên khi tên khớp đúng một người trong app và không lặp trong file.
+   *  - Mã NV xuất hiện ở nhiều dòng Excel: không dòng nào được đối chiếu (không biết dòng nào đúng).
+   * → { rows, khongKhop: [{ dong, ma, hoTen, loai, ghiChu }], nhom: { [loại]: số dòng } }
+   */
   function compare(appRows, refRows, extraChiTieu) {
     var ct = extraChiTieu || CHI_TIEU;
-    var byMa = {}, byTen = {};
+    var byMa = new Map(), byTen = new Map();
     appRows.forEach(function (r) {
-      if (r["Mã NV"]) byMa[r["Mã NV"]] = r;
-      var k = fold(r["Họ và tên"]); (byTen[k] = byTen[k] || []).push(r);
+      var m = cellText(r["Mã NV"]); if (m) byMa.set(m, r);
+      var k = fold(r["Họ và tên"]); if (!byTen.has(k)) byTen.set(k, []); byTen.get(k).push(r);
     });
-    var out = [], khongKhop = [];
+    var maCount = new Map(), tenKhongMaCount = new Map();
     refRows.forEach(function (rf) {
-      var app = rf.ma && byMa[rf.ma] ? byMa[rf.ma] : null;
-      if (!app && rf.hoTen) { var cands = byTen[fold(rf.hoTen)] || []; if (cands.length === 1) app = cands[0]; }
-      if (!app) { khongKhop.push({ ma: rf.ma, hoTen: rf.hoTen }); return; }
+      var m = cellText(rf.ma);
+      if (m) maCount.set(m, (maCount.get(m) || 0) + 1);
+      else if (rf.hoTen) { var k = fold(rf.hoTen); tenKhongMaCount.set(k, (tenKhongMaCount.get(k) || 0) + 1); }
+    });
+    var out = [], khongKhop = [], nhom = {};
+    function loai(rf, ten, ghiChu) {
+      khongKhop.push({ dong: rf.dong || null, ma: cellText(rf.ma), hoTen: rf.hoTen || "", loai: ten, ghiChu: ghiChu || "" });
+      nhom[ten] = (nhom[ten] || 0) + 1;
+    }
+    refRows.forEach(function (rf) {
+      var ma = cellText(rf.ma), app = null;
+      if (ma) {
+        if (maCount.get(ma) > 1) { loai(rf, LOAI.MA_TRUNG_FILE, "mã " + ma + " xuất hiện " + maCount.get(ma) + " lần trong file — sửa file rồi đối chiếu lại"); return; }
+        app = byMa.get(ma) || null;
+        if (!app) {
+          var same = rf.hoTen ? byTen.get(fold(rf.hoTen)) || [] : [];
+          loai(rf, LOAI.MA_KHONG_KHOP, "app không có mã " + ma + (same.length ? "; app có " + same.map(function (x) { return cellText(x["Mã NV"]) + " — " + x["Họ và tên"]; }).join(", ") + " cùng họ tên — kiểm tra mã trong Excel hoặc trong app" : ""));
+          return;
+        }
+      } else {
+        var k = fold(rf.hoTen);
+        if (tenKhongMaCount.get(k) > 1) { loai(rf, LOAI.TEN_TRUNG_FILE, "họ tên xuất hiện " + tenKhongMaCount.get(k) + " lần trong file mà không có mã NV"); return; }
+        var cands = k ? byTen.get(k) || [] : [];
+        if (cands.length > 1) { loai(rf, LOAI.TEN_TRUNG_APP, "app có " + cands.length + " người cùng họ tên: " + cands.map(function (x) { return cellText(x["Mã NV"]); }).join(", ") + " — thêm mã NV vào Excel"); return; }
+        if (!cands.length) { loai(rf, LOAI.KHONG_CO_APP, ""); return; }
+        app = cands[0];
+      }
       ct.forEach(function (tc) {
         if (tc.soSanh === false) return;
         var ev = rf.values[tc.key]; if (ev == null) return;
         var av = tc.app(app); if (av == null) av = 0;
         var chenhLech = Math.round((av - ev) * 1000) / 1000;
         out.push({
-          "Mã NV": app["Mã NV"], "Họ và tên": app["Họ và tên"], "Chỉ tiêu": tc.ten,
+          "Dòng Excel": rf.dong || "", "Mã NV": app["Mã NV"], "Họ và tên": app["Họ và tên"], "Chỉ tiêu": tc.ten,
           "Excel": ev, "App": av, "Chênh lệch": chenhLech,
           "Loại lệch": chenhLech === 0 ? "" : classify(tc.ten, tc.laTien, chenhLech)
         });
       });
     });
-    return { rows: out, khongKhop: khongKhop };
+    return { rows: out, khongKhop: khongKhop, nhom: nhom };
   }
 
-  var api = { CHI_TIEU: CHI_TIEU, CHI_TIEU_TANGCA: CHI_TIEU_TANGCA, parseSheet: parseSheet, compare: compare, classify: classify, fold: fold, num: num };
+  var api = { CHI_TIEU: CHI_TIEU, CHI_TIEU_TANGCA: CHI_TIEU_TANGCA, LOAI: LOAI, parseSheet: parseSheet, compare: compare, classify: classify, fold: fold, num: num };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.reconcile = api; }
 })(typeof window !== "undefined" ? window : this);

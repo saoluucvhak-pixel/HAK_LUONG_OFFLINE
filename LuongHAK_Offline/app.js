@@ -2206,6 +2206,9 @@
     var out = ck.items.map(function (x) { return { id: "KT-" + ("0" + x.id).slice(-2), muc: KT_SEV[x.trangThai] || "INFO", ten: x.ten, chiTiet: x.chiTiet || [], goto: KT_GOTO[x.id] || null }; });
     INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN)/.test(i.msg); }).forEach(function (i, n) { out.push({ id: "DL-" + (n + 1), muc: "ERROR", ten: "Lỗi dữ liệu nghiêm trọng (chặn chốt kỳ)", chiTiet: [i.msg], goto: ["backup"] }); });
     if (kq.canhbao.length) out.push({ id: "CB-01", muc: "WARNING", ten: "Cảnh báo dữ liệu khi tính lương (" + kq.canhbao.length + ")", chiTiet: kq.canhbao.slice(), goto: ["luong"] });
+    (kq.loiTyLeBH || []).forEach(function (message, i) {
+      out.push({ id: "BH-" + (i + 1), muc: "ERROR", ten: "Thiếu tỷ lệ bảo hiểm người lao động — chặn chốt kỳ", chiTiet: [message], goto: ["dm", "dm_baohiem"] });
+    });
     (kq.inputErrors || []).forEach(function (message, i) {
       var match = /^(chamcong|sanluong|bandam) dòng (\d+):/.exec(message);
       if (match) out.push({ id: "NL-" + (i + 1), muc: "ERROR", ten: "Lỗi dữ liệu đầu vào",
@@ -3055,6 +3058,7 @@
     // V9.2: truy ngược người phụ thuộc được giảm trừ trong kỳ (chỉ tên — không đưa CCCD/MST vào bản chốt)
     var ixNPT = HRM.buildIndex ? HRM.buildIndex(db) : null, bDau = nam + "-" + ("0" + thang).slice(-2) + "-01", bCuoi = nam + "-" + ("0" + thang).slice(-2) + "-31";
     kq.bangluong.forEach(function (r) { if (r._ct) r._ct.nguoiPhuThuoc = HRM.dsNguoiPhuThuoc(db, r["Mã NV"], bDau, bCuoi, ixNPT).map(function (x) { return x["Họ tên nhân thân"] || ""; }).join("; "); });
+    kq.loiTyLeBH = GATE.insuranceRateIssues({ kq: kq, staff: sp.list, catalog: E.hieuLuc(db.dm_baohiem, "Mã bảo hiểm", nam, thang) }); // tỷ lệ BH NLĐ để trống ở mã đang dùng → chặn chốt (BH_TY_LE_THIEU)
     var productionIssues = HRM.productionPayrollIssues(slK, bdK, kq.bangluong);
     if (productionIssues.length) kq.inputErrors = (kq.inputErrors || []).concat(productionIssues);
     kq.canhbao = sp.warn.concat(kq.canhbao, productionIssues); kq.ky = nam + "-" + ("0" + thang).slice(-2);
@@ -4006,7 +4010,8 @@
     card.appendChild(bar);
     if (st.dcWb) {
       var arr = XLSX.utils.sheet_to_json(st.dcWb.Sheets[st.dcSheet], { header: 1 });
-      var parsed = RC.parseSheet(arr);
+      var ref = XLSX.utils.decode_range(st.dcWb.Sheets[st.dcSheet]["!ref"] || "A1"), firstRow = ref.s.r; // dòng Excel thật = chỉ số mảng + dòng đầu của vùng dữ liệu
+      var parsed = RC.parseSheet(arr, null, { firstRow: firstRow });
       if (parsed.headerRow < 0) {
         card.appendChild(h("div", { class: "warn", text: "Không nhận ra dòng tiêu đề (cần có cột 'Mã NV' hoặc 'Họ và tên') trong sheet '" + st.dcSheet + "'. Thử chọn sheet khác." }));
       } else {
@@ -4014,7 +4019,7 @@
         var cmp = RC.compare(src.kq.bangluong, parsed.rows);
         var lech = cmp.rows.filter(function (r) { return r["Chênh lệch"] !== 0; });
         card.appendChild(h("div", { class: lech.length ? "warn" : "ok", text: lech.length ? lech.length + " dòng chênh lệch, trên " + cmp.rows.length + " dòng đã đối chiếu (" + parsed.rows.length + " người trong file Excel)." : cmp.rows.length ? "Khớp hoàn toàn trên " + cmp.rows.length + " dòng đã đối chiếu." : "Không có chỉ tiêu nào đối chiếu được — kiểm tra lại cột trong file." }));
-        if (cmp.khongKhop.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ " + cmp.khongKhop.length + " người trong file Excel KHÔNG khớp được với app</b> (không có Mã NV khớp, hoặc trùng họ tên nhiều người — không tự đoán):<br>" + cmp.khongKhop.slice(0, 20).map(function (x) { return esc(x.hoTen || x.ma); }).join(", ") + (cmp.khongKhop.length > 20 ? "…" : "") }));
+        if (cmp.khongKhop.length) card.appendChild(khongKhopPanel(cmp));
         if (lech.length) {
           var onlyLech = h("input", { type: "checkbox" }); onlyLech.checked = st.dcOnlyLech !== false;
           onlyLech.addEventListener("change", function () { st.dcOnlyLech = onlyLech.checked; render(); });
@@ -4024,12 +4029,12 @@
         card.appendChild(simpleTable(showRows));
         if (cmp.rows.length) card.appendChild(btn("⬇ Xuất Excel đối chiếu", "", function () {
           var sheets = [{ name: "DoiChieu", cols: Object.keys(cmp.rows[0]), rows: cmp.rows }];
-          if (cmp.khongKhop.length) sheets.push({ name: "KhongKhopNguoi", cols: ["ma", "hoTen"], rows: cmp.khongKhop });
+          if (cmp.khongKhop.length) sheets.push({ name: "KhongKhopNguoi", cols: ["Dòng Excel", "Mã NV", "Họ tên", "Loại", "Ghi chú"], rows: cmp.khongKhop.map(function (x) { return { "Dòng Excel": x.dong || "", "Mã NV": x.ma, "Họ tên": x.hoTen, "Loại": x.loai, "Ghi chú": x.ghiChu }; }) });
           saveXlsx("DoiChieu_" + kyKey(st.nam, st.thang) + ".xlsx", sheets);
           audit("Xuất Excel đối chiếu lương", kyLabel(kyKey(st.nam, st.thang)) + " · file nguồn: " + st.dcFile);
         }));
         // Riêng tăng ca: đối chiếu chi tiết hơn nếu file có đủ cột (mục XVII)
-        var parsedTC = RC.parseSheet(arr, RC.CHI_TIEU_TANGCA);
+        var parsedTC = RC.parseSheet(arr, RC.CHI_TIEU_TANGCA, { firstRow: firstRow });
         if (parsedTC.matched.length) {
           var cmpTC = RC.compare(src.kq.bangluong, parsedTC.rows, RC.CHI_TIEU_TANGCA);
           var lechTC = cmpTC.rows.filter(function (r) { return r["Chênh lệch"] !== 0; });
@@ -4041,6 +4046,21 @@
     }
     card.appendChild(h("div", { class: "hint", style: "margin-top:10px", text: "Chưa hỗ trợ đối chiếu Đại Hiệp theo từng ngày ở màn hình này — dùng sheet \"Bu luong theo ngay - DH\" trong file Excel Phân bổ khối lượng (Báo cáo lương → Sản lượng) để so sánh thủ công theo ngày." }));
     w.appendChild(card); return w;
+  }
+  /** Các dòng Excel không đối chiếu được, nhóm theo lý do; mỗi dòng nêu số dòng Excel, mã NV và họ tên để đối chiếu với file. */
+  function khongKhopPanel(cmp) {
+    var box = h("div", { class: "warn", "data-dc-khongkhop": "1" }, [h("div", { html: "<b>⚠ " + cmp.khongKhop.length + " dòng trong file Excel KHÔNG đối chiếu được</b> — không tự đoán người; sửa mã NV hoặc họ tên trong file rồi đối chiếu lại:" })]);
+    Object.keys(RC.LOAI).map(function (k) { return RC.LOAI[k]; }).forEach(function (loai) {
+      var items = cmp.khongKhop.filter(function (x) { return x.loai === loai; }); if (!items.length) return;
+      box.appendChild(h("div", { class: "fh", text: loai + " (" + items.length + ")" }));
+      var list = h("ul");
+      items.slice(0, 30).forEach(function (x) {
+        list.appendChild(h("li", { text: "Dòng " + (x.dong || "?") + " · Mã NV: " + (x.ma || "(trống)") + " · " + (x.hoTen || "(không có họ tên)") + (x.ghiChu ? " — " + x.ghiChu : "") }));
+      });
+      if (items.length > 30) list.appendChild(h("li", { text: "… và " + (items.length - 30) + " dòng nữa (xem đầy đủ trong file Excel đối chiếu)." }));
+      box.appendChild(list);
+    });
+    return box;
   }
   /** Thanh 7 bước Tính lương (V10.1): trạng thái THẬT tính từ dữ liệu (core/payroll-steps.js) — xong / đang ở / bị chặn / chưa tới. */
   var STEP_CACHE = { key: "", v: null };
@@ -6492,10 +6512,38 @@
         code.appendChild(h("option", { value: value, text: value }));
       });
       var from = benefitField("Hiệu lực từ", "date", HRM.today());
+      // Phiên bản tiêu chuẩn có hiệu lực tại ngày bắt đầu áp dụng: hiện mặt hàng, định mức và khoảng hiệu lực TRƯỚC khi lưu.
+      // Cùng hàm kiểm tra (C.benefits.standardProblem) với tiến trình chính, nên giao diện không cho qua điều mà main sẽ từ chối.
+      var preview = h("div", { "data-benefit-preview": "1" });
+      function previewRows(rule) { return rule.items.map(function (item) { return { "Mặt hàng": item.name, "Đơn vị": item.unit, "Định mức/tháng": item.quantity }; }); }
+      function rangeText(rule) { return "từ " + rule.from + " đến " + (rule.until || "chưa giới hạn"); }
+      function showPreview() {
+        var found = code.value && from.input.value ? C.benefits.standardAt(db, code.value, from.input.value) : null;
+        preview.textContent = "";
+        if (!found) return;
+        var problem = C.benefits.standardProblem(db, code.value, from.input.value);
+        if (problem) { preview.appendChild(h("p", { class: "warn", text: problem })); if (found.rule) preview.appendChild(h("p", { class: "hint", text: "Phiên bản gần nhất: " + rangeText(found.rule) + "." })); return; }
+        preview.appendChild(h("p", { class: "hint", text: "Tiêu chuẩn " + code.value + " có hiệu lực " + rangeText(found.rule) + ":" }));
+        preview.appendChild(simpleTable(previewRows(found.rule)));
+      }
+      code.addEventListener("change", showPreview); from.input.addEventListener("input", showPreview); from.input.addEventListener("change", showPreview);
       body.appendChild(h("div", { class: "bar" }, [code, from.field, btn("Gắn tiêu chuẩn", "pri", function () {
         var row = { employee: ma, contract: contract, code: code.value, from: from.input.value };
-        benefitSave("benefitAssignments", (db.benefitAssignments || []).concat(row), "Gắn tiêu chuẩn phúc lợi", ma + " · " + contract + " · " + code.value, refresh);
+        if (!row.code || !row.from) { alert("Chọn mã tiêu chuẩn và ngày bắt đầu áp dụng."); return; }
+        var problem = C.benefits.standardProblem(db, row.code, row.from);
+        if (problem) { showPreview(); alert(problem); return; }
+        var rule = C.benefits.standardAt(db, row.code, row.from).rule;
+        modal("Xác nhận gắn tiêu chuẩn", h("div", {}, [
+          h("p", { text: ma + " · hợp đồng " + contract + " · tiêu chuẩn " + row.code + " áp dụng từ " + row.from + "." }),
+          h("p", { class: "hint", text: "Phiên bản có hiệu lực " + rangeText(rule) + (rule.until ? ". Hết hạn thì ngừng áp dụng, không tự quay lại định mức cũ." : ".") }),
+          simpleTable(previewRows(rule))
+        ]), function (close) {
+          return [btn("Hủy", "", close), btn("Lưu", "pri", function () {
+            benefitSave("benefitAssignments", (db.benefitAssignments || []).concat(row), "Gắn tiêu chuẩn phúc lợi", ma + " · " + contract + " · " + row.code, function () { close(); refresh(); });
+          })];
+        }, { wide: true });
       })]));
+      body.appendChild(preview); showPreview();
     }
     return body;
   }
