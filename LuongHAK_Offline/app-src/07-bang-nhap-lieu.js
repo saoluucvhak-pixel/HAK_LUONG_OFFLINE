@@ -16,7 +16,8 @@
     }
     var shared = key === "chamcong"; // Chấm công dùng bộ lọc chung (phòng ban, từ khóa) như Báo cáo lương
     var deptOf = {};
-    if (shared && can("payroll.view")) { try { kqKy(st.nam, st.thang).kq.bangluong.forEach(function (r) { deptOf[r["Mã NV"]] = r["Phòng ban"] || ""; }); } catch (e) { /* không tính được lương kỳ này: bỏ lọc phòng ban */ } }
+    // Phòng ban của dòng chấm công = tổ hiệu lực tại ngày cuối kỳ (từ hồ sơ/phụ lục), KHÔNG lấy từ bảng lương: lọc không phụ thuộc quyền xem lương hay việc tính lương thành công.
+    if (shared) { var deptRes = window.HAKUi.inputDept.create(db, HRM), endDay = kyEndDay(); db.nhanvien.forEach(function (n) { deptOf[n["Mã NV"]] = deptRes.at(n["Mã NV"], endDay).pb; }); }
     if (st.ktReturn && ["chamcong", "sanluong", "bandam"].indexOf(key) >= 0) {
       bar.appendChild(btn("Quay lại kiểm tra kỳ lương", "ghost", function () {
         if (!leaveOk()) return;
@@ -106,7 +107,7 @@
       if (pcMode || inMode) { quick.push("period"); adv.push("period"); }
       if (pcMode) add({ key: "pb", label: "Phòng ban", type: "multi", withNone: true, options: deptOpts }, true);
       if (inMode) {
-        add({ key: "pb", label: "Phòng ban", type: "multi", withNone: true, options: function () { INDEX_PB = INDEX_PB || inputPbMap(); var d = {}; db.nhanvien.forEach(function (n) { var p = INDEX_PB[n["Mã NV"]]; if (p) d[p] = 1; }); return Object.keys(d).sort(); } }, true);
+        add({ key: "pb", label: "Phòng ban", type: "multi", withNone: true, options: function () { var d = {}; (db.dm_phongban || []).forEach(function (r) { var v = String(r["Mã phòng ban"] || "").trim(); if (v) d[v] = 1; }); db[key].forEach(function (r) { INDEX_PB = INDEX_PB || inputPbMap(); var v = INDEX_PB.at(r["Mã NV"], VAL.normDate(r[INPUT_FILTER[key]])).pb; if (v) d[v] = 1; }); return Object.keys(d).sort(); } }, true);
         add({ key: "nv", label: "Nhân viên", type: "multi", options: function () { return db.nhanvien.map(function (n) { return { value: n["Mã NV"], label: n["Mã NV"] + " — " + (n["Họ và tên"] || "") }; }).sort(function (x, y) { return x.value < y.value ? -1 : 1; }); } }, false);
       }
       if (shared) {

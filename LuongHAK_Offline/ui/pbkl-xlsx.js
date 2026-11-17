@@ -252,9 +252,14 @@
     P("• Dữ liệu - ...: chép lại nguyên dữ liệu phiếu cân của kỳ để đối chiếu.");
     r++; H("2. QUY TẮC PHÂN BỔ KHỐI LƯỢNG / SỐ XE");
     P("Mỗi phiếu ghi Mã phòng ban (tổ): khối lượng (hoặc số xe) CHIA ĐỀU cho công nhân của tổ đang làm việc ngày cân (đã vào làm, chưa nghỉ việc — theo hợp đồng và phụ lục lương trong hồ sơ) và KHÔNG có tên trong cột \"NV vắng\" của phiếu đó (so theo từ cuối của họ tên, không dấu; hoặc Mã NV). Phiếu không tìm được người nhận → \"chưa phân bổ\", có cảnh báo, không bị bỏ sót âm thầm. Phiếu ghi Mã NV → giao trực tiếp cho người đó.");
+    if (ctx.luongOn && ctx.chot && ctx.rules && ctx.rules.missing.length) {
+      // Kỳ đã chốt không in đơn giá; chỉ báo khi bản chốt thiếu căn cứ (không tính lại để lấp chỗ trống).
+      r++; H("3. THAM SỐ ĐÃ LƯU TRONG BẢN CHỐT"); ctx.rules.lines.forEach(function (line) { P(line); });
+    }
     if (ctx.luongOn && !ctx.chot) {
       r++; H("3. CƠ CHẾ TÍNH LƯƠNG");
       P("Đơn giá khối lượng: " + (ctx.giaKl || 0).toLocaleString("vi-VN") + " đ/tấn" + (ctx.bdOn ? "   •   Đơn giá bơm/ban dăm: " + (ctx.giaBd || 0).toLocaleString("vi-VN") + " đ/xe" : "") + "   •   Mức sàn bù lương: " + (ctx.mucSan || 0).toLocaleString("vi-VN") + " đ/ngày công (Danh mục mã lương).");
+      if (ctx.rules) ctx.rules.lines.forEach(function (line) { P(line); });
       if (ctx.coChe === "to") P("Bù lương THEO BÌNH QUÂN CẢ TỔ: tổng tiền sản lượng cả tổ (tấn × đơn giá + xe × đơn giá) ÷ số ngày của tháng (" + ctx.soNgay + ") ÷ số người của tổ = bình quân đ/người/ngày. Nếu bình quân THẤP HƠN mức sàn, người có công BT từ " + ctx.nguong + " công/tháng trở lên được bù (mức sàn − bình quân tổ) × công BT của mình; dưới ngưỡng không được bù.");
       else if (ctx.coChe === "daihiep") P("Bù lương THEO TỪNG CÁ NHÂN, THEO NGÀY (mẫu Đại Hiệp): mỗi ngày có sản lượng, mức tham chiếu = bậc thang công BT ngày đó × mức sàn — ngày thường: công BT < 0,5 → 0; 0,5 – <1 → 0,5; ≥ 1 → 1; Chủ nhật thêm bậc ≥ 1,5 → 1,5 (tương đương 0 / 16,666667 / 33,333333 / 50 tấn với đơn giá 6.000đ, mức sàn 200.000đ). Tiền ngày = MAX(tấn ngày × đơn giá, mức tham chiếu). Bù cả tháng = tổng phần chênh. Không xét ngưỡng công tháng; không áp dụng cho bơm/ban dăm; ngày không có công BT = không có mức tham chiếu.");
       else P("Bù lương theo cách cũ của app: " + (CO_CHE[ctx.coChe] || ctx.coChe) + " (xem Hướng dẫn & Quy chế trong app).");

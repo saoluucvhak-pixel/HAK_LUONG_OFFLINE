@@ -124,10 +124,13 @@
     if (f.tu || f.den) { if (!d || (f.tu && d < f.tu) || (f.den && d > f.den)) return false; }
     else if (!rowInKy(r, S[key])) return false;
     if (f.nv.length && f.nv.indexOf(r["Mã NV"]) < 0) return false;
-    if (f.pb.length) { var pb = (INDEX_PB && INDEX_PB[r["Mã NV"]]); if (pb === undefined) pb = ""; if (!LF.inSet(f.pb, pb)) return false; }
+    if (f.pb.length) { var pb = INDEX_PB ? INDEX_PB.at(r["Mã NV"], VAL.normDate(r[col]) || d).pb : ""; if (!LF.inSet(f.pb, pb)) return false; }
     return true;
   }
-  function inputPbMap() { var ix = HRM.buildIndex(db), m = {}; db.nhanvien.forEach(function (n) { m[n["Mã NV"]] = HRM.hienHanh(db, n["Mã NV"], null, ix).pb || ""; }); return m; }
+  // Tổ/phòng ban theo NGÀY của từng dòng (không dùng tổ hiện tại cho dữ liệu kỳ cũ); thiếu căn cứ lịch sử thì để trống (lọc "(không)").
+  function inputPbMap() { return window.HAKUi.inputDept.create(db, HRM); }
+  function kyEndDay() { return kyStr() + "-" + String(new Date(st.nam, st.thang, 0).getDate()).padStart(2, "0"); }
+
   function inputScopeText(key) { var f = inputF(key), p = [(f.tu || f.den) ? (f.tu ? fmtDate(f.tu) : "…") + " → " + (f.den ? fmtDate(f.den) : "…") : "kỳ " + st.thang + "/" + st.nam]; if (f.pb.length) p.push("PB: " + f.pb.length + " mục"); if (f.nv.length) p.push("NV: " + f.nv.length + " người"); return p.join(" · "); }
 
   /** Có điều kiện ngày/tháng/kỳ riêng thì KHÔNG bó theo kỳ đang chọn trên thanh trên cùng. */
