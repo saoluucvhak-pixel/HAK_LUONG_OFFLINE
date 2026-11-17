@@ -20,7 +20,7 @@ let usersCache = { sig: "", list: [] };
 function readUsersFromDisk() {
   try {
     if (!storage) return [];
-    const st = fsNode.statSync(storage.dataFile), sig = st.mtimeMs + ":" + st.size;
+    const sig = storage.sig ? storage.sig() : (() => { const st = fsNode.statSync(storage.dataFile); return st.mtimeMs + ":" + st.size; })();
     if (sig === usersCache.sig) return usersCache.list;
     const ld = storage.load(); if (!ld || !ld.ok || !ld.text) return [];
     const d = JSON.parse(ld.text), list = Array.isArray(d.nguoidung) ? d.nguoidung : [];
@@ -92,8 +92,8 @@ function registerIpc() {
   const yearWorker = async (method,args) => {
     if(yearBusy||fbJob||(restorer&&restorer.busy()))return {ok:false,error:"Đang có thao tác dữ liệu khác; vui lòng chờ"};
     yearBusy=true;
-    try{return await require('./main/year-archive-worker').run(app.getPath('userData'),method,args);}
-    finally{yearBusy=false;years.release();wpol=null;}
+    try{if(storage.syncJson)storage.syncJson();return await require('./main/year-archive-worker').run(app.getPath('userData'),method,args);}
+    finally{if(storage.adoptJson)storage.adoptJson();yearBusy=false;years.release();wpol=null;}
   };
   const yearCall = fn => { try{return fn();}catch(err){return {ok:false,error:String(err.message||err)};} };
   ipcMain.handle("year-list",guarded("backup.restore",async()=>yearCall(()=>({...years.list(),token:years.token()}))));
@@ -103,7 +103,7 @@ function registerIpc() {
   ipcMain.handle("year-table",guarded("backup.restore",async(e,year,kind,period,page)=>yearWorker("table",[year,kind,period,page])));
   ipcMain.handle("year-export",guarded("export",async(e,year,kind,period,format,page)=>{const denied=guard.deny(e,"backup.restore");if(denied)return {ok:false,error:denied};try{return await require('./main/year-archive-export').exportYear({years,exportsDir,year,kind,period,format,page,renderPdf:p=>pdfSvc.renderPdf({BrowserWindow},p)});}catch(err){return {ok:false,error:String(err.message||err)};}}));
   ipcMain.handle("year-restore",guardedW("system.admin",async(e,year,reason,token)=>yearWorker("restore",[year,reason,token,guard.userOf(e)])));
-  const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, sigOf: fileSig(storage.dataFile), gate: payGate }));
+  const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, sigOf: storage.sig ? () => storage.sig() : fileSig(storage.dataFile), gate: payGate }));
   ipcMain.on("store-save", (e, text) => {
     try {
       if(yearBusy){e.returnValue="Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại";return;}
@@ -403,7 +403,8 @@ app.whenReady().then(() => {
     });
     return;
   }
-  storage = createStorage(app.getPath("userData"));
+  // Nguồn dữ liệu chính: mặc định data.json. HAK_STORAGE=sqlite bật kho SQLite làm nguồn chính (chưa là mặc định cho tới khi qua nghiệm thu Setup).
+  storage = process.env.HAK_STORAGE === "sqlite" ? require("./main/sqlite-storage").createSqliteStorage(app.getPath("userData")) : createStorage(app.getPath("userData"));
   // Bản sao bóng SQLite (mặc định TẮT): bọc storage.save — điểm ghi data.json DUY NHẤT, gồm cả store-save của giao diện lẫn lưu trữ/khôi phục năm trong tiến trình chính. Mirror không bao giờ ném lỗi.
   if (process.env.HAK_SQLITE_SHADOW) { try { shadow = require("./main/sqlite-mirror").create(storage.dataFile, process.env.HAK_SQLITE_SHADOW); const saveJson = storage.save; storage.save = (text) => { const r = saveJson(text); if (r === true && shadow) shadow.mirror(text); return r; }; } catch (e) { shadow = null; } }
   const spaths = require("./main/storage-paths").resolve(app.getPath("userData"), storage.readSettings(), "");
@@ -423,4 +424,4 @@ app.on("before-quit", e => {if(yearBusy)e.preventDefault();});
 app.on("window-all-closed", () => app.quit());
 // Lịch sao lưu (α17): cửa sổ đã đóng (giao diện đã lưu lần cuối ở beforeunload) → sao lưu "khi-dong" nếu dữ liệu đã đổi.
 // will-quit chạy cả khi bấm ✕ lẫn khi app.quit() (tắt máy / cài bản mới).
-app.on("will-quit", () => { if (shadow) shadow.close(); if (storage) storage.backupOnClose(); if (ocr) ocr.terminate().catch(() => {}); });
+app.on("will-quit", () => { if (shadow) shadow.close(); if (storage && storage.close) storage.close(); if (storage) storage.backupOnClose(); if (ocr) ocr.terminate().catch(() => {}); });

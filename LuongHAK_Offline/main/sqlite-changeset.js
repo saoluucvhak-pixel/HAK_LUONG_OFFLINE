@@ -11,8 +11,9 @@ const str = (v) => JSON.stringify(v);
 const sha16 = (s) => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
 const isTable = (v) => Array.isArray(v);
 
-function diffRows(a, b) {
-  const sa = a.map(str), sb = b.map(str);
+function diffRows(a, b, cache, key) {
+  const sa = cache && cache.prev && cache.prev[key] && cache.prev[key].length === a.length ? cache.prev[key] : a.map(str), sb = b.map(str);
+  if (cache) (cache.next = cache.next || {})[key] = sb;
   let p = 0; const n = sa.length, m = sb.length;
   while (p < n && p < m && sa[p] === sb[p]) p++;
   if (p === n && p === m) return null;
@@ -26,7 +27,7 @@ function diffRows(a, b) {
 }
 
 /** prev/next: đối tượng dữ liệu (các bảng là mảng, còn lại là giá trị cấp ngoài cùng). prev = null/{} → toàn bộ là mới. */
-function diff(prev, next) {
+function diff(prev, next, cache) {
   prev = prev || {};
   const cs = { tables: {}, top: {}, dropTables: [], dropTop: [], keyOrder: null, rows: 0 };
   const prevKeys = Object.keys(prev), nextKeys = Object.keys(next);
@@ -34,8 +35,8 @@ function diff(prev, next) {
   nextKeys.forEach((k) => {
     const a = prev[k], b = next[k];
     if (isTable(b)) {
-      if (!isTable(a)) { if (k in prev) cs.dropTop.push(k); const d = diffRows([], b); cs.tables[k] = d || { kind: "splice", from: 0, remove: 0, insert: [], length: 0, fresh: true }; cs.tables[k].fresh = true; }
-      else { const d = diffRows(a, b); if (d) cs.tables[k] = d; }
+      if (!isTable(a)) { if (k in prev) cs.dropTop.push(k); const d = diffRows([], b, cache, k); cs.tables[k] = d || { kind: "splice", from: 0, remove: 0, insert: [], length: 0, fresh: true }; cs.tables[k].fresh = true; }
+      else { const d = diffRows(a, b, cache, k); if (d) cs.tables[k] = d; }
     } else {
       if (isTable(a)) cs.dropTables.push(k);
       if (!(k in prev) || isTable(a) || str(a) !== str(b)) cs.top[k] = b;

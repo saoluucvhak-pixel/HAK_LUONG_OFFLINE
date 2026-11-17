@@ -9,7 +9,7 @@
 | 0 | Fetch, kiểm kê, F01/F02 | **Xong** | v2.0.28 (PR #69, commit `e7f1a96`); `docs/NGHIEM_THU_V2_0_28.md` |
 | 1 | Repository/delta, ID ổn định, read model | **Làm một phần** | Đã kiểm kê: `data.json` chỉ ghi qua `storage.save` (`docs/WRITE_PATHS_INVENTORY.md`); đã có change set theo dòng + ghi delta vào SQLite, kiểm chứng bằng bản sao bóng chạy cả bộ E2E (0 sai lệch). Chưa có delta từ giao diện qua IPC; chưa có read model/ID ổn định lưu trong dữ liệu |
 | 2 | SQLite/schema/migrations, đối chiếu trên dữ liệu giả | **Làm một phần** | `main/sqlite-store.js`, `main/sqlite-migrate.js`, 9 test `sqlite-migrate.test.js`. Lược đồ v1 là "dòng nguyên vẹn + khóa nghiệp vụ", chưa chuẩn hóa theo nghiệp vụ/khóa ngoại |
-| 3 | Cutover, backup/restore SQLite, kho năm, quay lui | **Chưa làm** | `exportJson` (đường quay lui) đã có và kiểm; chưa tích hợp backup/restore, chưa cutover |
+| 3 | Cutover, backup/restore SQLite, kho năm, quay lui | **Làm một phần, sau cờ, MẶC ĐỊNH TẮT** | `main/sqlite-storage.js` (bật bằng `HAK_STORAGE=sqlite`): SQLite là nguồn chính, `data.json` là bản xuất dẫn xuất; chuyển lần đầu có sao lưu + đối chiếu; xung đột `data.json` bị sửa ngoài app thì báo lỗi, không đoán. Sao lưu, Full Backup, kho năm dùng `data.json` xuất ra; chưa dùng SQLite Backup API/`VACUUM INTO`. Chưa thử Setup Windows. |
 | 4 | Đồng bộ UI/luồng/bộ lọc/báo cáo | **Chưa làm** (ngoài F01/F02/Cấp phát đã xong ở v2.0.28) | Không đổi menu/bố cục trong đợt này vì chưa có lỗi thao tác được chứng minh |
 | 5 | E2E toàn bộ, thử Setup cài mới/nâng cấp | **Chưa làm** | Môi trường này không cài được Setup Windows |
 | 6 | Gộp main, phát hành | **Không áp dụng** | Chưa có gì để phát hành là bản SQLite |
@@ -50,3 +50,28 @@ Kế hoạch truy vấn khóa nghiệp vụ dùng chỉ mục `records_bkey`. Ch
 7. Tài liệu `DATABASE_SCHEMA.md` chưa được viết lại theo lược đồ thực tế; `DATA_FLOW_AND_RECONCILIATION.md`, `UI_WORKFLOW_GUIDE.md` chưa lập.
 
 Không nên cutover khi các mục 1–3 và 5–6 chưa đạt.
+
+
+## 5. Cutover sớm có cờ (HAK_STORAGE=sqlite) — kết quả
+
+Theo lựa chọn của chủ sở hữu: giao diện vẫn gửi cả tài liệu, tiến trình chính tính delta và ghi SQLite làm nguồn chính. **Mặc định vẫn là `data.json`**; chưa đổi mặc định vì chưa thử Setup Windows.
+
+Thiết kế: `save()` kiểm hợp lệ (phân tích một lần) → bảo vệ cũ (bản đầu ngày/năm/giảm đột ngột chụp TRẠNG THÁI TRƯỚC thay đổi) → delta vào SQLite trong một giao dịch `synchronous=FULL` (điểm bền vững) → `data.json` xuất lại nguyên tử ở nhịp trễ 3 giây, khi đóng app và NGAY TRƯỚC mọi hàm sao lưu đọc nó. Kho năm (tiến trình phụ ghi `data.json` bằng kho JSON) được đồng bộ trước và nhận lại sau (`syncJson`/`adoptJson`).
+
+| Kiểm chứng (Linux, dữ liệu giả) | Kết quả |
+|---|---|
+| Unit `sqlite-storage.test.js` (11): lưu/đọc lại, khởi động lại, kill trước khi xuất `data.json`, chuyển lần đầu có sao lưu, chuyển hỏng giữ nguyên `data.json`, xung đột bị sửa ngoài app, bảo vệ cũ, sao lưu đọc dữ liệu mới nhất, `sig`, schema mới hơn app, tiến trình phụ, lỗi ghi SQLite giữa chừng | 11/11 |
+| E2E với cờ bật (xuất `data.json` đồng bộ để bộ E2E đọc được): `run-e2e` 297/297, `capphat` 42/42, F01 10/10, kho năm 13/13, khôi phục hồ sơ mới 3/3, nâng cấp từ dữ liệu cũ đạt | Đạt |
+| `hr-save-close.cjs` với cờ bật | **Không áp dụng**: ca này giả lập lỗi đĩa bằng cách làm `fs.renameSync` ném lỗi, đường mà SQLite không đi qua; ở chế độ SQLite thay bằng unit U-SS-11. Chạy ở chế độ mặc định vẫn đạt |
+
+**Hiệu năng (main process, `save()` một lần sửa nhỏ, 4 vCPU Xeon 2,1 GHz, Node 22, dữ liệu tổng hợp):**
+
+| | JSON | SQLite chính (xuất trễ) |
+|---|---|---|
+| 300 NV, p50 / p95 | 12 / 77 ms | 18 / 114 ms |
+| 5.000 NV, p50 / p95 | 244 / 1.317 ms | 377 / 1.727 ms |
+| 5.000 NV, lần lưu đầu | 482 ms | 2.538 ms |
+
+**Kết luận về hiệu năng: cách này CHẬM HƠN ghi `data.json`** (khoảng 1,5 lần ở p50 5.000 NV), vì phần tốn kém là tuần tự hóa và so sánh cả tài liệu, không phải việc ghi đĩa; ghi SQLite chỉ vài phần nghìn giây. Lợi ích có được: ghi bền vững theo giao dịch thay vì viết lại cả file, đọc lại không phụ thuộc kích thước file, nền cho bước tiếp theo. Lợi ích về tốc độ chỉ đến khi giao diện gửi delta (cần lớp theo dõi thay đổi theo bảng trong giao diện — chưa làm). Không nên đổi mặc định vì lý do hiệu năng.
+
+**Chưa làm cho cutover:** SQLite Backup API/`VACUUM INTO` cho Full Backup; kho năm trên SQLite; kiểm kill/crash ở mốc sau commit trước phản hồi bằng kill tiến trình thật; thử Setup Windows (cài mới và nâng cấp từ JSON); chặn hai phiên ghi vào cùng hồ sơ; hướng dẫn người dùng và quy trình quay lui trên Setup.
