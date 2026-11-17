@@ -287,7 +287,7 @@ function createPolicy(opts) {
           if (matching.length !== 1 || h(matching[0]) !== h(entry)) return deny("không được sửa lịch sử phê duyệt của kỳ " + entry.ky);
         }
       }
-      if (["benefitStandards", "benefitAssignments", "benefitIssues"].includes(t)) {
+      if (["benefitStandards", "benefitAssignments", "benefitIssues", "benefitPpeItems", "benefitAdjustments"].includes(t)) {
         const error = require("../core/benefits.js").validateChanges(t, saved, next, who, workflow.mode(saved));
         if (error) return deny(error);
         continue;

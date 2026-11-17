@@ -145,6 +145,13 @@
   - So tên vắng trên cả người đã loại: có dấu trước ("Tưởng" ≠ "Tường").
   - So với Excel cũ (Excel chỉ dựa NV vắng): Đại Hiệp 8/2026 không đổi; CNHAK 9/2026, HAKQN 7/2026, HAK ĐN 11/2025 có vài người nhận phiếu ngày công trống nên số đổi (tối đa −341.953đ / người — HAKQN).
 
+- R-74 **Cấp phát thống nhất (sữa phúc lợi + bảo hộ lao động)** — Nghiệp vụ nhân sự → Cấp phát: một nơi lập phiếu, nhập Excel, xác nhận, thu hồi và báo cáo. Bộ chọn Tất cả / Sữa phúc lợi / Bảo hộ lao động; lối cấp phát sữa cũ chuyển về đây với bộ lọc Sữa phúc lợi.
+  - Phiếu thuộc **một loại**; dòng = một người nhận một mặt hàng (bảo hộ thêm kích cỡ). Phiếu nháp **không tính** vào thực cấp. Phiếu đã xác nhận giữ nguyên nội dung; tổ/phòng ban, tên người, tên và đơn vị vật tư được **lưu tại ngày cấp** nên báo cáo cũ không đổi khi đổi tổ hay đổi tên vật tư.
+  - Bảo hộ: danh mục vật tư (Danh mục → Cấp phát → Đồ bảo hộ lao động) có mã duy nhất, nhóm, đơn vị, quy cách, kích cỡ hợp lệ, trạng thái sử dụng; không xóa, chỉ ngừng sử dụng. Sai cỡ, thiếu cỡ, vật tư ngừng sử dụng, số lượng không nguyên dương, trùng dòng bị chặn ở cả giao diện và tiến trình chính. Phạm vi đợt này là ghi nhận cấp phát thực tế; tồn kho, chu kỳ thay thế và định mức theo chức danh cần quy chế riêng.
+  - Thu hồi / điều chỉnh tham chiếu phiếu gốc, ghi lý do, người thao tác, thời điểm; cho thu hồi một phần, chặn thu hồi vượt số còn lại (tính cả các lần thu hồi trước). Đổi cỡ ghi **hai lượt**: thu hồi cỡ cũ và cấp cỡ mới (cùng số lượng). Thực cấp = đã cấp − thu hồi; sữa trừ phần thu hồi vào số thực cấp của tháng hưởng khi kiểm tra chặn cấp vượt.
+  - Phân quyền: chế độ một người cho Quản trị tự xác nhận; chế độ phân quyền yêu cầu quyền xác nhận và người xác nhận khác người lập (cả thu hồi/điều chỉnh). Tiến trình chính kiểm tra lại quyền, trạng thái, định mức và số lượng khi lưu.
+  - Nhập Excel: mẫu riêng cho sữa và bảo hộ; các dòng cùng Mã phiếu gom vào một phiếu nháp; lỗi nêu số dòng Excel. Nhập lại cùng file **không cộng lần hai** (phiếu y hệt: bỏ qua; nháp cùng mã: cập nhật; phiếu đã xác nhận nội dung khác: chặn, dùng thu hồi). Dòng ví dụ của mẫu mới có cột 'Dòng ví dụ = VÍ DỤ' nên bị bỏ qua; dòng thật trùng giá trị ví dụ vẫn được giữ (chỉ cảnh báo).
+  - Báo cáo cấp phát (Tổng hợp / Chi tiết) dùng chung bộ lọc (HAK Smart Filter) và **một nguồn dữ liệu** với Excel và PDF. Sữa đã cấp vẫn hiện nếu mặt hàng không còn định mức, kèm ghi chú 'Không còn định mức hiệu lực'. Dữ liệu sữa cũ (không có loại phiếu) hiểu là loại Sữa, không cần nâng cấp ghi lại.
 ## 2. Câu hỏi mở — cần chủ sở hữu / kế toán xác nhận
 Phase 1 **giữ nguyên** hành vi hiện tại cho đến khi có xác nhận.
 

@@ -7,9 +7,12 @@
   var MONEY = /^(Thưởng|Thu nhập (khác|từ|đến)|Trừ khác|Tạm ứng|Số tiền|Đơn giá|Lương|Trừ nhanh|Tiền)/;
   var DATE = /^(Ngày|Hiệu lực)/;
   // Cột định danh: định dạng Text (@) cho CẢ CỘT để Excel không biến "0005" thành 5 khi người dùng nhập tay.
-  var TEXT_COL = /^(Mã |Số (tài khoản|CCCD|HĐLĐ|chứng từ|điện thoại|BHXH|BHYT|sổ)|STK|MST|CCCD|SĐT|Điện thoại|Biển số)/;
+  var TEXT_COL = /^(Mã |Số (tài khoản|CCCD|HĐLĐ|chứng từ|điện thoại|BHXH|BHYT|sổ)|STK|MST|CCCD|SĐT|Điện thoại|Biển số|Kích cỡ)/;
   var SAMPLE_COL = "Dòng ví dụ", SAMPLE_VALUE = "VÍ DỤ", SAMPLE_FILL_HEAD = "FF7F6000";
   var isDay = function (c) { return /^\d\d$/.test(c); };
+  var ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
+  // Ngày mẫu là ô ngày thật (dd/mm/yyyy, giữ 12:00 UTC để không lệch ngày theo múi giờ): người dùng nhập tiếp vẫn là ngày hợp lệ.
+  var asDate = function (c, v) { var m = DATE.test(c) && typeof v === "string" ? ISO.exec(v) : null; return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)) : v; };
   var border = function () { return { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER }; };
   function width(col, rows) {
     var longest = String(col).length + 4;
@@ -20,7 +23,7 @@
   function dataSheet(wb, sh, tab) {
     var ws = wb.addWorksheet(safeName(sh.name), { properties: { tabColor: { argb: tab } }, views: [{ state: "frozen", ySplit: 1 }] });
     var rows = sh.rows || [], marked = !!(sh.sampleMark && rows.length), cols = marked ? sh.cols.concat([SAMPLE_COL]) : sh.cols;
-    ws.columns = cols.map(function (c) { return { header: c, key: c, width: c === SAMPLE_COL ? 14 : width(c, rows), style: TEXT_COL.test(c) ? { numFmt: "@" } : {} }; });
+    ws.columns = cols.map(function (c) { return { header: c, key: c, width: c === SAMPLE_COL ? 14 : width(c, rows), style: TEXT_COL.test(c) ? { numFmt: "@" } : DATE.test(c) ? { numFmt: "dd/mm/yyyy" } : /^Số lượng$/.test(c) ? { numFmt: "0" } : {} }; });
     var head = ws.getRow(1);
     head.height = 32;
     head.eachCell(function (cell, n) {
@@ -31,7 +34,7 @@
       cell.border = border();
     });
     rows.forEach(function (r) {
-      var row = ws.addRow(cols.map(function (c) { return c === SAMPLE_COL ? SAMPLE_VALUE : (r[c] === undefined ? "" : r[c]); }));
+      var row = ws.addRow(cols.map(function (c) { return c === SAMPLE_COL ? SAMPLE_VALUE : (r[c] === undefined ? "" : asDate(c, r[c])); }));
       row.eachCell({ includeEmpty: true }, function (cell, n) {
         var c = cols[n - 1];
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: SAMPLE_FILL } };
@@ -39,7 +42,8 @@
         cell.border = border();
         if (TEXT_COL.test(c)) cell.numFmt = "@";
         if (c === SAMPLE_COL) { cell.font = { bold: true, color: { argb: "FFC00000" } }; cell.alignment = { vertical: "middle", horizontal: "center" }; }
-        else if (typeof cell.value === "number") { cell.numFmt = MONEY.test(c) ? "#,##0" : "General"; cell.alignment = { horizontal: isDay(c) ? "center" : "right" }; }
+        else if (cell.value instanceof Date) { cell.numFmt = "dd/mm/yyyy"; cell.alignment = { vertical: "middle", horizontal: "center" }; }
+        else if (typeof cell.value === "number") { cell.numFmt = MONEY.test(c) ? "#,##0" : /^Số lượng$/.test(c) ? "0" : "General"; cell.alignment = { horizontal: isDay(c) ? "center" : "right" }; }
         else cell.alignment = { vertical: "middle", horizontal: DATE.test(c) ? "center" : "left" };
       });
     });
