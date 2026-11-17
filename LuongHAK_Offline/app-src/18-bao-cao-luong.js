@@ -93,12 +93,12 @@
         });
         var affected = new Map();
         service.affected(db, rows).forEach(function (match) {
-          var r = match.receipt, key = JSON.stringify([match.table, r.phieu, r.ngay, r.maPB]);
+          var r = match.receipt, key = JSON.stringify([r.table, r.phieu, r.ngay, r.maPB]);
           if (affected.has(key)) return;
           var matches = function (item) { return item.phieu === r.phieu && item.ngay === r.ngay && item.maPB === r.maPB; };
-          var pair = pairs.get(match.table), before = pair[0].find(matches), after = pair[1].find(matches);
+          var pair = pairs.get(r.table), before = pair[0].find(matches), after = pair[1].find(matches);
           if (!before || !after) return;
-          affected.set(key, { "Bảng": ALL[match.table].ten, "Phiếu": r.phieu, "Ngày": r.ngay, "Tổ": r.maPB,
+          affected.set(key, { "Bảng": ALL[r.table].ten, "Phiếu": r.phieu, "Ngày": r.ngay, "Tổ": r.maPB,
             "Người chia trước": before.names.join(", "), "Người chia sau": after.names.join(", "),
             "Số người trước": before.soNguoi, "Số người sau": after.soNguoi, "Phần mỗi người trước": before.share, "Phần mỗi người sau": after.share });
         });
