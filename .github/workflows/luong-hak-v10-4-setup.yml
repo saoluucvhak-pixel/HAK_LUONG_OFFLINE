@@ -200,6 +200,10 @@ jobs:
         run: node tests/e2e/capphat.cjs
         env:
           E2E_SHOTS: tests/e2e/screenshots
+      - name: Verify input filters follow the department on each row date (role without payroll view)
+        run: node tests/e2e/input-filter-dept.cjs
+        env:
+          E2E_SHOTS: tests/e2e/screenshots
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v7
