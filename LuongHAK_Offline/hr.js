@@ -243,6 +243,7 @@
       if (String(r["Kỳ"] || "").slice(0, 7) !== ky || KHONG_DI_LAM[String(r["Hình thức công"] || "BT").trim().toUpperCase()]) return;
       for (var dd = 1; dd <= 31; dd++) if (coCong(r[("0" + dd).slice(-2)])) (coMat[r["Mã NV"]] = coMat[r["Mã NV"]] || {})[dd] = 1;
     });
+    var confirmed = new Set((db.productionAttendance || []).map(function (row) { return JSON.stringify([row.date, row.team, row.employee]); }));
     var membersOf = function (ngay, pb) {
       var key = ngay + "\u0001" + pb;
       if (cache[key]) return cache[key];
@@ -261,7 +262,12 @@
         // công 0 hoặc TRỐNG (kể cả không có dòng chấm công, hay chỉ có PN / CL / CC) = không có công
         out.forEach(function (e) { e.congBangKhong = !(coMat[e.ma] && coMat[e.ma][dn]); });
         if (coCC) { // tổ đã có chấm công ngày này → ai công = 0 coi như nghỉ nguyên ngày
-          var co = out.filter(function (e) { return coMat[e.ma] && coMat[e.ma][dn]; });
+          var co = out.filter(function (e) {
+            if (!e.congBangKhong) return true;
+            if (!confirmed.has(JSON.stringify([ngay, pb, e.ma]))) return false;
+            e.congBangKhong = false;
+            return true;
+          });
           out.filter(function (e) { return co.indexOf(e) < 0; }).forEach(function (e) { nghi.push({ ma: e.ma, hoTen: e.hoTen, loai: "Không có công (chấm công = 0 / trống)", khongCong: true, congBangKhong: e.congBangKhong }); });
           var nn = nghi; out = co; out.nghi = nn;
         } else {

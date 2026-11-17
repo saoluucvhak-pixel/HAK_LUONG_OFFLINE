@@ -33,7 +33,7 @@
     if (st.bcl === "cong") { var r2 = FX(bcCong(nam, thang)); if (snapshot && !Array.isArray(snapshot.input?.data?.chamcong)) info("Bản chốt cũ thiếu dữ liệu chấm công.", "warn"); info("Tổng hợp từ bảng chấm công kỳ " + thang + "/" + nam + ". Ngày có nhãn: VD QC×7 = 7 ngày công tác QC."); card.appendChild(simpleTable(r2)); sheets.push({ name: "TongHopCong", rows: r2 }); }
     else if (st.bcl === "sanluong") {
       st.bclLoai = st.bclLoai || "sanluong";
-      var ls = h("select"); [["sanluong", "Sản lượng gỗ (tấn)"], ["bandam", "Bơm dăm (số xe)"]].forEach(function (o) { ls.appendChild(h("option", { value: o[0], text: o[1] })); });
+      var ls = h("select"); [["sanluong", "Sản lượng gỗ (tấn)"], ["bandam", "Ban dăm xuất hàng (số xe)"]].forEach(function (o) { ls.appendChild(h("option", { value: o[0], text: o[1] })); });
       ls.value = st.bclLoai; ls.addEventListener("change", function () { st.bclLoai = ls.value; render(); }); tools.appendChild(ls);
       var allocation = reportAllocation(nam, thang, st.bclLoai);
       if (!allocation) {
@@ -52,8 +52,8 @@
         });
       });
       tools.appendChild(btn("⬇ Xuất bộ phân bổ toàn kỳ", "", function () { exportPBKL(nam, thang); },
-        "Toàn kỳ: sản lượng và bơm dăm, không áp dụng bộ lọc đang xem"));
-      info("Excel/PDF đang xem xuất loại đã chọn và giữ bộ lọc của bảng đối chiếu chấm công. Bộ phân bổ toàn kỳ xuất cả sản lượng và bơm dăm.");
+        "Toàn kỳ: sản lượng và Ban dăm xuất hàng, không áp dụng bộ lọc đang xem"));
+      info("Excel/PDF đang xem xuất loại đã chọn và giữ bộ lọc của bảng đối chiếu chấm công. Bộ phân bổ toàn kỳ xuất cả sản lượng và Ban dăm xuất hàng.");
 
       info("Phiếu ghi <b>Mã phòng ban</b> (tổ) → chia đều cho người của tổ đang làm việc ngày cân, trừ người trong <b>NV vắng</b> (như công cụ phân bổ khối lượng). Phiếu ghi <b>Mã NV</b> → giao trực tiếp. Cách bù lương đang chọn ở Tính lương: <b>" + esc(buLabel(snapshot ? snapshot.buTheoNgay : st.bu)) + "</b>.");
       if (r3.warnings.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ Cần kiểm tra (" + r3.warnings.length + "):</b><br>" + r3.warnings.map(esc).join("<br>") }));
@@ -73,15 +73,90 @@
       if (r3.attendanceReview.length) {
         var reviewFilter = reportFilterBar(receiptRows, { compact: true, showEmployees: true, screenId: "phieu-doi-chieu", searchPlaceholder: "Tìm phiếu, mã hoặc tên người cần kiểm tra…" });
         var matchingReceipts = new Set(FX(receiptRows).map(function (row) { return row.index; }));
-        var visibleReview = r3.attendanceReview.filter(function (_, index) { return matchingReceipts.has(index); });
+        var fields = [["receipt", "Số phiếu"], ["plate", "Biển số xe"], ["team", "Mã tổ"], ["date", "Ngày phân bổ"]];
+        if (st.bclLoai === "bandam") fields.push(["quantity", "Số lượng xe"]);
+        var filters = st.attendanceReceiptFilters || {}, controls = {}, filterBar = h("form", { class: "bar" });
+        fields.forEach(function (field) {
+          var input = h("input", { class: "i", type: field[0] === "date" ? "date" : field[0] === "quantity" ? "number" : "text",
+            "aria-label": field[1], placeholder: field[1], value: filters[field[0]] || "" });
+          if (field[0] === "quantity") { input.min = "0"; input.step = "any"; }
+          controls[field[0]] = input;
+          filterBar.appendChild(h("label", { class: "fld" }, [field[1], input]));
+        });
+        filterBar.appendChild(h("button", { type: "submit", class: "pri", text: "Lọc phiếu" }));
+        filterBar.appendChild(btn("Xóa bộ lọc phiếu", "ghost", function (event) {
+          event.preventDefault(); st.attendanceReceiptFilters = {}; render();
+        }));
+        filterBar.addEventListener("submit", function (event) {
+          event.preventDefault();
+          st.attendanceReceiptFilters = {};
+          fields.forEach(function (field) { st.attendanceReceiptFilters[field[0]] = controls[field[0]].value.trim(); });
+          render();
+        });
+        var original = new Map((r3.al.raw || []).map(function (row) {
+          return [[String(row["Phiếu cân"] || "").trim(), VAL.normDate(row["Ngày cân"]), String(row["Mã phòng ban"] || "").trim()].join("|"), row];
+        }));
+        function contains(value, query) { return !query || String(value || "").toLocaleLowerCase("vi").includes(query.toLocaleLowerCase("vi")); }
+        var visibleReview = r3.attendanceReview.map(function (row, index) {
+          var key = [String(row["Phiếu cân"] || "").trim(), row["Ngày cân"], row["Mã phòng ban"]].join("|");
+          var receipt = original.get(key);
+          return { index: index, row: Object.assign({ "Biển số xe": receipt ? receipt["Biển số"] || "" : "" }, row) };
+        }).filter(function (entry) {
+          var row = entry.row;
+          return matchingReceipts.has(entry.index) && contains(row["Phiếu cân"], filters.receipt) &&
+            contains(row["Biển số xe"], filters.plate) && contains(row["Mã phòng ban"], filters.team) &&
+            (!filters.date || filters.date === row["Ngày cân"]) &&
+            (st.bclLoai !== "bandam" || !filters.quantity || Number(filters.quantity) === row["KL / số xe"]);
+        }).map(function (entry) { return entry.row; });
         card.appendChild(h("div", { class: "fh", text: "Phiếu cần đối chiếu chấm công" }));
         card.appendChild(h("p", { class: "hint", text: "Người có ô chấm công ghi bằng 0 hoặc để trống và chưa có tên hoặc mã trong NV vắng. Kiểm tra chấm công trước khi điều chỉnh." }));
+        card.appendChild(filterBar);
         card.appendChild(reviewFilter);
         if (Object.keys(rfSkip).length) card.appendChild(h("div", { class: "hint", text: "Tiêu chí không áp dụng cho bảng này: " + Object.keys(rfSkip).join(", ") }));
-        var reviewTable = visibleReview.length ? simpleTable(visibleReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });
+        var actionableReview = visibleReview.map(function (row) {
+          var entry = r3.al.attendanceReview.find(function (item) {
+            return item.phieu === row["Phiếu cân"] && item.ngay === row["Ngày cân"] && item.maPB === row["Mã phòng ban"];
+          });
+          var actions = [];
+          if (tabAllowed(origin)) actions.push(btn("Mở phiếu cân", "ghost", function () {
+            st.opsReceipt = { type: originType, number: String(row["Phiếu cân"]).trim(), date: row["Ngày cân"], ky: kyKey(nam, thang) };
+            st.opsKw = ""; st.opsPB = ""; st.tab = origin; saveUi(); render();
+          }));
+          if (!snapshot && entry && tabAllowed("chamcong")) entry.employees.forEach(function (employee) {
+            actions.push(btn("Mở công " + employee.ma, "ghost", function () {
+              st.rf = RF.normalize({ maNV: [employee.ma] });
+              st.attendanceReviewDay = row["Ngày cân"];
+              st.tab = "chamcong"; saveUi(); render();
+            }));
+          });
+          return Object.assign({}, row, { "Thao tác": h("div", { class: "bar" }, actions) });
+        });
+        var reviewTable = visibleReview.length ? simpleTable(actionableReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });
         reviewTable.classList.add("attendance-review-table");
         card.appendChild(reviewTable);
+        if (!snapshot && visibleReview.length && can("input.edit")) card.appendChild(btn("Xác nhận có làm", "pri", function () {
+          confirmProductionAttendance(visibleReview, r3.al, st.bclLoai);
+        }));
         sheets.push({ name: "DoiChieuChamCong", rows: visibleReview });
+      }
+      var recorded = ((snapshot ? snapshot.input?.data?.productionAttendance : db.productionAttendance) || []).filter(function (row) {
+        return row.date.slice(0, 7) === kyKey(nam, thang);
+      });
+      if (recorded.length) {
+        card.appendChild(h("div", { class: "fh", text: "Xác nhận làm ca dài đã lưu" }));
+        card.appendChild(simpleTable(recorded.map(function (row) {
+          return { "Ngày phân bổ": row.date, "Mã tổ": row.team, "Mã NV": row.employee, "Lý do": row.reason, "Người xác nhận": row.user,
+            "Thao tác": !snapshot && can("input.edit") ? btn("Thu hồi", "ghost", function () {
+              askText("Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team, { label: "Lý do thu hồi", required: true }, function (reason) {
+                var service = C.productionAttendance;
+                var next = db.productionAttendance.filter(function (item) { return service.key(item) !== service.key(row); });
+                var error = service.checkChanges(db, Object.assign({}, db, { productionAttendance: next }), { user: session.tenDangNhap, perms: ["input.edit"] });
+                if (error) { alert(error); return; }
+                if (!REPO.saveWorkflowRows("productionAttendance", next, "Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team + " · " + reason).ok) { alert(lastTxnError); return; }
+                render();
+              });
+            }) : "" };
+        })));
       }
       sheets.push({ name: "TheoPhongBan", rows: r3.pb }, { name: "TheoCongNhan", rows: r3.nv }, { name: "DoiSoatPhieu", rows: r3.audit }, { name: "ChuaGanNguoi", rows: r3.chuaGan });
     }

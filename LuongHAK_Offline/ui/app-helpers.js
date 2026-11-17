@@ -14,7 +14,7 @@
     if (nulls) msg.push(nulls + " ô chấm công ghi chữ \"null\" (từ hệ thống cũ) đã chuyển thành ô trống");
     if (tot.length) {
       var tan = tot.reduce(function (s0, x) { return s0 + (parseFloat(String(x.row["KL hàng (Tấn)"]).replace(",", ".")) || 0); }, 0);
-      msg.push("Đã loại " + tot.length + " dòng tổng (\"" + tot.map(function (x) { return x.row["Phiếu cân"]; }).join("\", \"") + "\") không có ngày cân khỏi Sản lượng / Bơm dăm" + (tan ? " (cộng " + tan.toLocaleString("vi-VN", { maximumFractionDigits: 3 }) + " tấn — đây là số tổng, không phải phiếu thật)" : ""));
+      msg.push("Đã loại " + tot.length + " dòng tổng (\"" + tot.map(function (x) { return x.row["Phiếu cân"]; }).join("\", \"") + "\") không có ngày cân khỏi Sản lượng / Ban dăm xuất hàng" + (tan ? " (cộng " + tan.toLocaleString("vi-VN", { maximumFractionDigits: 3 }) + " tấn — đây là số tổng, không phải phiếu thật)" : ""));
     }
     return msg;
   }

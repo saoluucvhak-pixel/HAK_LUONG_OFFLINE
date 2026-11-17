@@ -12,7 +12,7 @@
   var TYPES = {
     NHAN_SU: { title: "DANH SÁCH NHÂN SỰ", file: "DanhSachNhanSu", perm: "hr.view", donVi: "Người", theoKy: false, chuKy: ["Người lập", "Trưởng phòng nhân sự", "Giám đốc"] },
     SAN_LUONG: { title: "BẢNG KÊ PHIẾU CÂN SẢN LƯỢNG", file: "BangKeSanLuong", perm: "input.view", donVi: "Tấn", theoKy: true, chuKy: ["Người lập", "Nhân viên cân", "Trưởng bộ phận", "Giám đốc"] },
-    BOM_DAM: { title: "BẢNG KÊ BƠM DĂM", file: "BangKeBomDam", perm: "input.view", donVi: "Số xe", theoKy: true, chuKy: ["Người lập", "Nhân viên cân", "Trưởng bộ phận", "Giám đốc"] },
+    BOM_DAM: { title: "BẢNG KÊ BAN DĂM XUẤT HÀNG", file: "BangKeBomDam", perm: "input.view", donVi: "Số xe", theoKy: true, chuKy: ["Người lập", "Nhân viên cân", "Trưởng bộ phận", "Giám đốc"] },
     THUONG: { title: "BẢNG KÊ THƯỞNG VÀ CÁC KHOẢN THU NHẬP, KHẤU TRỪ KHÁC", file: "BangKeThuong", perm: "payroll.view", donVi: "Đồng (VND)", theoKy: true, chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] },
     TAM_UNG: { title: "BẢNG KÊ TẠM ỨNG LƯƠNG", file: "BangKeTamUng", perm: "payroll.view", donVi: "Đồng (VND)", theoKy: true, chuKy: ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] },
     SUAT_COM: { title: "BẢNG TỔNG HỢP SUẤT CƠM", file: "TongHopSuatCom", perm: "input.view", donVi: "Suất", theoKy: true, chuKy: ["Người lập", "Người chấm cơm", "Trưởng bộ phận", "Giám đốc"] }
@@ -164,7 +164,7 @@
     if (nvRows.length) ex.push({ name: "TheoCongNhan", title: out.title + " — TỔNG HỢP THEO CÔNG NHÂN", cols: mkCols([["Mã NV", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Số ngày có SL", "qty"], [klLabel, "qty3"]]), rows: nvRows, tong: (function () { var t = {}; t[klLabel] = r3(nvRows.reduce(function (a, x) { return a + x[klLabel]; }, 0)); return t; })() });
     out.extras = ex;
     if (al && al.warnings && al.warnings.length) al.warnings.forEach(function (w) { out.canhbao.push(w); });
-    out.ghiChu = [isXe ? "Cột \"Số xe\" lấy từ cột KL hàng của bảng Bơm dăm (mỗi phiếu thường = 1 xe)." : "Khối lượng tính bằng tấn, làm tròn 3 chữ số thập phân khi hiển thị."];
+    out.ghiChu = [isXe ? "Cột \"Số xe\" lấy từ cột KL hàng của bảng Ban dăm xuất hàng (mỗi phiếu thường = 1 xe)." : "Khối lượng tính bằng tấn, làm tròn 3 chữ số thập phân khi hiển thị."];
   }
 
   // ---------- THƯỞNG / TRỪ ----------
@@ -251,7 +251,19 @@
     for (var d = 1; d <= nd; d++) days.push(("0" + d).slice(-2));
     var cols = mkCols(base.concat(days.map(function (x) { return [x, "qty"]; }), [["Tổng suất", "qty"], ["Ghi chú", "text"]]));
     var groups = spans([{ label: "NHÂN VIÊN", n: 4 }, { label: "SỐ SUẤT CƠM THEO NGÀY", n: nd }, { label: "TỔNG HỢP", n: 2 }]);
-    var raw = (db.tiencom || []).filter(function (r) { return r; }), per = {}, bad = 0, nIn = 0;
+    var raw = (db.tiencom || []).filter(function (r) { return r; }), per = Object.create(null), bad = 0, nIn = 0;
+    var engine = isNode ? require("../../engine.js") : root.LuongEngine;
+    var attendance = engine.tongHopChamCong(db.chamcong || [], opt.nam, opt.thang), detail = [];
+    function record(ma, day, quantity, kind) {
+      var p = per[ma] || (per[ma] = { d: {}, notes: [] });
+      if (kind !== "pending") p.d[day] = (p.d[day] || 0) + quantity;
+      detail.push({ ma: ma, day: day, quantity: quantity, kind: kind });
+      return p;
+    }
+    Object.keys(attendance).forEach(function (ma) {
+      var amounts = attendance[ma].congComTheoNgay || {};
+      Object.keys(amounts).forEach(function (day) { record(ma, +day, amounts[day], "cc"); });
+    });
     raw.forEach(function (r) {
       var k = ymd(r["Ngày"]); if (!k) { if (s(r["Mã NV"]) || s(r["Số suất cơm"])) bad++; return; } if (k.y !== opt.nam || k.m !== opt.thang) return;
       nIn++; var ma = s(r["Mã NV"]), x = cx.qty(r["Số suất cơm"]);
@@ -259,7 +271,9 @@
       if (!cx.has(ma)) out.loi.push("Ngày " + ddmmyyyy(r["Ngày"]) + ": Mã NV '" + ma + "' không có trong hồ sơ nhân viên");
       if (!isFinite(x)) { out.loi.push(ma + " ngày " + ddmmyyyy(r["Ngày"]) + ": Số suất cơm '" + s(r["Số suất cơm"]) + "' không phải số"); return; }
       if (x < 0) { out.loi.push(ma + " ngày " + ddmmyyyy(r["Ngày"]) + ": Số suất cơm âm (" + x + ")"); return; }
-      var p = per[ma] = per[ma] || { d: {}, notes: [] }; p.d[k.d] = (p.d[k.d] || 0) + x; if (s(r["Ghi chú"]) && p.notes.indexOf(s(r["Ghi chú"])) < 0) p.notes.push(s(r["Ghi chú"]));
+      var kind = engine.mealKind(r, x, attendance[ma], k.d), p = record(ma, k.d, x, kind);
+      if (kind === "pending") out.canhbao.push(ma + " ngày " + ddmmyyyy(r["Ngày"]) + ": trùng công CC, cần xác nhận Suất bổ sung.");
+      if (s(r["Ghi chú"]) && p.notes.indexOf(s(r["Ghi chú"])) < 0) p.notes.push(s(r["Ghi chú"]));
     });
     if (bad) out.canhbao.push(bad + " dòng suất cơm có Ngày trống/sai định dạng (YYYY-MM-DD) — không nằm trong báo cáo.");
     var rows = [];
@@ -272,10 +286,19 @@
     out.cols = cols; out.rows = rows; out.groups = groups; out.soDongGoc = Object.keys(per).length;
     out.tong = {}; days.concat(["Tổng suất"]).forEach(function (k) { var sm = r3(rows.reduce(function (a, r) { return a + (+r[k] || 0); }, 0)); out.tong[k] = sm || ""; });
     out.tongNhan = null; out.donVi = "Suất cơm"; out.nIn = nIn;
-    out.ghiChu = ["Mỗi ô là số suất cơm của nhân viên trong ngày (cộng các dòng cùng ngày). Ngưỡng cảnh báo " + ngVuot + " suất/ngày chỉ là giá trị tham khảo."];
+    out.ghiChu = ["Tổng suất gồm công CC và suất nhập hợp lệ. Dòng trùng CC chưa đánh dấu Suất bổ sung hiện trong bảng đối chiếu. Ngưỡng tham khảo: " + ngVuot + " suất/ngày."];
     var by = {}; rows.forEach(function (r) { var p = r["Phòng ban"] || "(Chưa có phòng ban)"; by[p] = by[p] || { n: 0, t: 0 }; by[p].n++; by[p].t += r["Tổng suất"]; });
     var ex = Object.keys(by).sort().map(function (p) { return { "Phòng ban": p, "Số người ăn cơm": by[p].n, "Tổng suất": r3(by[p].t) }; });
     out.extras = ex.length ? [{ name: "TheoPhongBan", title: out.title + " — TỔNG HỢP THEO PHÒNG BAN", cols: mkCols([["Phòng ban", "text"], ["Số người ăn cơm", "qty"], ["Tổng suất", "qty"]]), rows: ex, tong: { "Số người ăn cơm": ex.reduce(function (a, x) { return a + x["Số người ăn cơm"]; }, 0), "Tổng suất": r3(ex.reduce(function (a, x) { return a + x["Tổng suất"]; }, 0)) } }] : [];
+    var included = new Set(rows.map(function (row) { return row["Mã NV"]; }));
+    var categories = { cc: "Công CC", separate: "Suất nhập riêng", extra: "Suất bổ sung", pending: "Dòng trùng chờ xử lý" };
+    var detailRows = detail.filter(function (item) { return included.has(item.ma); }).map(function (item) {
+      return { "Mã NV": item.ma, "Họ và tên": cx.name(item.ma), "Ngày": ("0" + item.day).slice(-2), "Nguồn": categories[item.kind],
+        "Số suất ghi nhận": item.quantity, "Số suất tính lương": item.kind === "pending" ? 0 : item.quantity };
+    });
+    if (detailRows.length) out.extras.push({ name: "DoiChieuSuatCom", title: "ĐỐI CHIẾU SUẤT CƠM",
+      cols: mkCols([["Mã NV", "text"], ["Họ và tên", "text"], ["Ngày", "text"], ["Nguồn", "text"], ["Số suất ghi nhận", "qty"], ["Số suất tính lương", "qty"]]),
+      rows: detailRows, tong: {} });
   }
 
   /**
@@ -333,7 +356,7 @@
       })),
       tenCongTy: ((catalog.congty || [])[0] || {})["Tên công ty"] || ""
     });
-    var report = build(type, Object.assign({}, catalog, { nhanvien: Array.from(people.values()), [table]: raw || [] }), opt);
+    var report = build(type, Object.assign({}, catalog, { nhanvien: Array.from(people.values()), [table]: raw || [], chamcong: type === "SUAT_COM" ? input.data?.chamcong || [] : [] }), opt);
     var notes = [];
     if (!Array.isArray(raw)) notes.push("Bản chốt cũ chưa lưu bảng dữ liệu phát sinh này.");
     else if ((type === "SAN_LUONG" || type === "BOM_DAM") && !allocation) notes.push("Bản chốt cũ thiếu chi tiết phân bổ; báo cáo dùng phiếu cân đã lưu.");

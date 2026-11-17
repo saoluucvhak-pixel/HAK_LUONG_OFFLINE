@@ -3,7 +3,7 @@
     var wrap = h("div"), card = h("div", { class: "card" }), bar = h("div", { class: "bar" }), body = h("div", { class: "tw" });
     var inputReview = ["chamcong", "sanluong", "bandam"].indexOf(key) >= 0, pumpMode = key === "bandam" ? (st.pumpMode || "team") : "", reviewState = h("div", { class: "hint", "data-input-review": key });
     if (key === "bandam") {
-      var tabs = h("div", { class: "bar", "aria-label": "Phân bổ bơm dăm" });
+      var tabs = h("div", { class: "bar", "aria-label": "Phân bổ Ban dăm xuất hàng" });
       [["team", "Phân bổ theo tổ"], ["direct", "Phân bổ trực tiếp nhân viên"]].forEach(function (m) { tabs.appendChild(btn(m[1], pumpMode === m[0] ? "pri" : "", function () { st.pumpMode = m[0]; render(); })); }); wrap.appendChild(tabs);
       def = Object.assign({}, def, { cols: def.cols.filter(function (c) { return pumpMode === "direct" ? ["Mã phòng ban", "NV vắng"].indexOf(c) < 0 : c !== "Mã NV"; }) });
     }
@@ -11,6 +11,9 @@
     var editPerm = S[key] ? "input.edit" : "dm.edit", noRight = !can(editPerm), isCat = !S[key];
     var locked = (theoKy && !!kyChot(kyStr())) || noRight || (["chamcong", "sanluong", "bandam"].indexOf(key) >= 0 && (db.sl_chuyenky || []).some(function (r) { return r.source === kyStr(); }));
     var inMode = !!INPUT_FILTER[key], pcMode = key === "sanluong" || key === "bandam", pcTot = h("div", { class: "card", "data-pc-totals": key, style: "margin:6px 0;padding:8px" });
+    if (key === "chamcong" && st.attendanceReviewDay && st.attendanceReviewDay.slice(0, 7) === kyStr()) {
+      card.appendChild(h("p", { class: "hint", text: "Ngày cần đối chiếu: " + fmtDate(st.attendanceReviewDay) }));
+    }
     var shared = key === "chamcong"; // Chấm công dùng bộ lọc chung (phòng ban, từ khóa) như Báo cáo lương
     var deptOf = {};
     if (shared && can("payroll.view")) { try { kqKy(st.nam, st.thang).kq.bangluong.forEach(function (r) { deptOf[r["Mã NV"]] = r["Phòng ban"] || ""; }); } catch (e) { /* không tính được lương kỳ này: bỏ lọc phòng ban */ } }

@@ -1024,7 +1024,7 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=psluong]"); await w.selectOption("#top select", "9"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
       const EX2 = require(path.join(APP, "exceljs.min.js"));
       const waitFile = async (re, before) => { let n = null; for (let i = 0; i < 40 && !n; i++) { await w.waitForTimeout(250); n = fs.readdirSync(DL).filter((f) => re.test(f) && !before.includes(f))[0]; } return n; };
-      const spec = [["rp_ns", "DANH SÁCH NHÂN SỰ", "NHAN_SU", "Mã NV"], ["rp_sl", "BẢNG KÊ PHIẾU CÂN SẢN LƯỢNG", "SAN_LUONG", "Phiếu cân"], ["rp_bd", "BẢNG KÊ BƠM DĂM", "BOM_DAM", "Số xe"],
+      const spec = [["rp_ns", "DANH SÁCH NHÂN SỰ", "NHAN_SU", "Mã NV"], ["rp_sl", "BẢNG KÊ PHIẾU CÂN SẢN LƯỢNG", "SAN_LUONG", "Phiếu cân"], ["rp_bd", "BẢNG KÊ BAN DĂM XUẤT HÀNG", "BOM_DAM", "Số xe"],
         ["rp_th", "BẢNG KÊ THƯỞNG VÀ CÁC KHOẢN THU NHẬP, KHẤU TRỪ KHÁC", "THUONG", "Thực nhận"], ["rp_tu", "BẢNG KÊ TẠM ỨNG LƯƠNG", "TAM_UNG", "Ký nhận"], ["rp_com", "BẢNG TỔNG HỢP SUẤT CƠM", "SUAT_COM", "Tổng suất"]];
       const info = [];
       for (const [nav, title, type, col] of spec) {

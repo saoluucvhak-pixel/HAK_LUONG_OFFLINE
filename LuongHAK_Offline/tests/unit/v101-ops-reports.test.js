@@ -89,7 +89,7 @@ test("U-OPS-04 BƠM DĂM: đơn vị là số xe, tiêu đề riêng, không l�
   db.bandam.push({ "Phiếu cân": "B1", "Ngày cân": "2026-09-10", "KL hàng (Tấn)": "1", "Mã NV": "NV003" }, { "Phiếu cân": "B2", "Ngày cân": "2026-09-11", "KL hàng (Tấn)": "2", "Mã NV": "NV003" });
   db.sanluong.push({ "Phiếu cân": "S1", "Ngày cân": "2026-09-10", "KL hàng (Tấn)": "50", "Mã NV": "NV001" });
   const vm = OPS.build("BOM_DAM", db, base(db));
-  assert.equal(vm.title, "BẢNG KÊ BƠM DĂM"); assert.ok(vm.cols.some((c) => c.label === "Số xe")); assert.ok(!vm.cols.some((c) => c.label === "KL hàng (Tấn)"));
+  assert.equal(vm.title, "BẢNG KÊ BAN DĂM XUẤT HÀNG"); assert.ok(vm.cols.some((c) => c.label === "Số xe")); assert.ok(!vm.cols.some((c) => c.label === "KL hàng (Tấn)"));
   assert.equal(vm.tong["Số xe"], 3); assert.equal(vm.rows.length, 2);
 });
 
@@ -265,4 +265,19 @@ test("Link phiếu gốc khớp chính xác cả số phiếu và ngày và khô
   assert.equal(report.rows.length, 1);
   assert.equal(report.tong["KL hàng (Tấn)"], 2);
   assert.ok(!report.extras.some(s => s.name === "TheoCongNhan"));
+});
+
+test("Suất cơm đối chiếu công CC, suất bổ sung và dòng trùng chưa xác nhận", () => {
+  const db = mkDb();
+  db.chamcong = [{ "Kỳ": "2026-09", "Mã NV": "NV001", "Hình thức công": "CC", "01": 1, "02": 1 }];
+  db.tiencom = [
+    { "Ngày": "2026-09-01", "Mã NV": "NV001", "Số suất cơm": 2 },
+    { "Ngày": "2026-09-02", "Mã NV": "NV001", "Số suất cơm": 1, "Suất bổ sung": "Có" },
+    { "Ngày": "2026-09-03", "Mã NV": "NV001", "Số suất cơm": 3 }
+  ];
+  const report = OPS.build("SUAT_COM", db, base(db));
+  assert.equal(report.tong["Tổng suất"], 6);
+  const rows = report.extras.find(sheet => sheet.name === "DoiChieuSuatCom").rows;
+  assert.equal(rows.find(row => row["Nguồn"] === "Dòng trùng chờ xử lý")["Số suất tính lương"], 0);
+  assert.equal(rows.find(row => row["Nguồn"] === "Suất bổ sung")["Số suất tính lương"], 1);
 });

@@ -50,7 +50,7 @@
     }).sort(function (a, b) { return a["Hình thức công"].localeCompare(b["Hình thức công"]) || String(a["Mã NV"]).localeCompare(String(b["Mã NV"])); });
     var production = details && details.production;
     var employeeRows = production ? production.flatMap(function (g) {
-      return g.employees.map(function (e) { return { "Loại": g.type === "bandam" ? "Bơm dăm" : "Sản lượng",
+      return g.employees.map(function (e) { return { "Loại": g.type === "bandam" ? "Ban dăm xuất hàng" : "Sản lượng",
         "Mã phòng ban": e["Mã phòng ban"], "Mã NV": e["Mã NV"], "Họ và tên": e["Họ và tên"],
         "Số ngày có SL": e["Số ngày có SL"], "Sản lượng (tấn)": e["Sản lượng (tấn)"], "Số xe": e["Số xe"] }; });
     }) : result.bangluong.filter(function (r) { return n0(r["Sản lượng (tấn)"]) || n0(r["Số xe bơm dăm"]); }).map(function (r) {
@@ -58,7 +58,7 @@
         "Sản lượng (tấn)": r["Sản lượng (tấn)"], "Số xe": r["Số xe bơm dăm"] };
     });
     var audit = (production || []).flatMap(function (g) {
-      return g.audit.map(function (r) { return Object.assign({ "Loại": g.type === "bandam" ? "Bơm dăm" : "Sản lượng" }, r); });
+      return g.audit.map(function (r) { return Object.assign({ "Loại": g.type === "bandam" ? "Ban dăm xuất hàng" : "Sản lượng" }, r); });
     });
     var topup = result.bangluong.filter(function (r) { return (r._ct && r._ct.laSanLuong) || n0(r["Lương bù SL"]) || n0(r["Bù SL kỳ trước"]); }).map(function (r) {
       var c = r._ct || {};
@@ -220,9 +220,9 @@
     var a = snap.input && snap.input.approval;
     return a ? "Người lập: " + a.preparer + " · Người duyệt: " + a.approver + " · Duyệt lúc: " + fmtTime(a.approvedAt) + " · Phiên bản duyệt: v" + a.version : "";
   }
-  function approvalDigest(ky, result) {
+  function approvalDigest(ky, result, legacy) {
     var snapshot = CLS.buildSnapshot(db, ky, result, result._staff, { buTheoNgay: st.bu, quyChe: result.quyChe, engineVersion: E.ENGINE_VERSION });
-    return C.workflowApproval.fingerprint(db, snapshot);
+    return C.workflowApproval.fingerprint(db, snapshot, legacy);
   }
 
   function savePayrollApproval(approve) {
@@ -233,7 +233,7 @@
     if (GATE.blockers(fresh).length || !fresh.bangluong.length) { alert("Cần xử lý lỗi đầu vào và có bảng lương trước khi gửi hoặc duyệt."); return; }
     var digest = approvalDigest(ky, fresh);
     if (digest !== approvalDigest(ky, st.kq)) { st.kq = fresh; render(); alert("Bảng lương đã thay đổi. Kiểm tra bảng mới rồi thao tác lại."); return; }
-    if (approve && (!prior || prior.approver || prior.preparer === user || prior.digest !== digest)) {
+    if (approve && (!prior || prior.approver || prior.preparer === user || (prior.digest !== digest && prior.digest !== approvalDigest(ky, fresh, true)))) {
       alert("Cần yêu cầu còn hiệu lực từ người lập khác. Kiểm tra phương pháp bù, quy chế và dữ liệu của kỳ."); return;
     }
     var row = approve ? Object.assign({}, prior, { approver: user, approvedAt: new Date().toISOString() }) : { ky: ky, digest: digest, preparer: user, approver: "" };
@@ -337,7 +337,7 @@
     if (C.workflowApproval.mode(db) === "roles") {
       var approved = C.workflowApproval.ticket(db, ky);
       var approval = C.workflowApproval.approvalRecord(approved, snap.version);
-      if (!approval || approval.digest !== C.workflowApproval.fingerprint(db, snap)) {
+      if (!approval || !C.workflowApproval.matchesFingerprint(db, snap, approval.digest)) {
         alert("Kỳ lương cần được người khác duyệt trên đúng dữ liệu hiện tại trước khi chốt."); return;
       }
       snap.input.approval = approval;

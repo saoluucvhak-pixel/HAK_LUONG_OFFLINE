@@ -292,3 +292,22 @@ test("Employee allocation keeps each department separately including directly as
   assert.deepEqual(Object.values(result.byEmpDept).map(r => [r.maPB, r.total]), [["T1", 10], ["T2", 11]]);
   assert.equal(result.byEmp.A.total, 21);
 });
+
+test("Xác nhận ca dài chỉ chia phiếu hợp lệ và giữ công BT", () => {
+  const A = require("../../core/production-attendance");
+  const db = hrDb();
+  db.chamcong = [{ "Kỳ": "2026-10", "Mã NV": "T1", "Hình thức công": "BT", "01": 1 }];
+  const base = { "Ngày cân": "2026-10-01", "KL hàng (Tấn)": 12, "Mã phòng ban": "02.02" };
+  db.sanluong = [{ ...base, "Phiếu cân": "A" }, { ...base, "Phiếu cân": "B", "NV vắng": "T2" },
+    { ...base, "Phiếu cân": "C", "Ngày cân": "2026-10-02" }];
+  const row = { date: "2026-10-01", team: "02.02", employee: "T2", reason: "Làm ca dài", user: "admin" };
+  const user = { user: "admin", perms: ["input.edit"] };
+  const changed = { ...db, productionAttendance: [row] };
+  assert.equal(A.checkChanges(db, changed, user), "");
+  assert.deepEqual(A.affected(db, [row]).map(match => match.receipt.phieu), ["A"]);
+  const result = HR.sanLuongKy(changed, 2026, 10, "sanluong").alloc;
+  assert.deepEqual(result.shares.map(part => [part.phieu, part.ma, part.kl]), [["A", "T1", 6], ["A", "T2", 6], ["B", "T1", 12]]);
+  assert.deepEqual(changed.chamcong, db.chamcong);
+  assert.match(A.checkChanges(db, { ...db, productionAttendance: [{ ...row, date: "2026-10-02" }] }, user), /tổ có chấm công/);
+  assert.match(A.checkChanges({ ...db, kyluong: [{ ky: "2026-10" }] }, changed, user), /đã khóa/);
+});

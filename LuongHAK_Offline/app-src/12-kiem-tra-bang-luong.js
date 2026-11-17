@@ -12,6 +12,14 @@
       if (match) out.push({ id: "NL-" + (i + 1), muc: "ERROR", ten: "Lỗi dữ liệu đầu vào",
         chiTiet: [message], goto: [match[1], null, Number(match[2]) - 1] });
     });
+    [["sanluong", slA], ["bandam", bdA]].forEach(function (entry, index) {
+      var receipts = entry[1].attendanceReview || [];
+      if (receipts.length) out.push({ id: "CC-SL-" + (index + 1), muc: "WARNING",
+        ten: ALL[entry[0]].ten + " · Phiếu cần đối chiếu chấm công (" + receipts.length + ")",
+        chiTiet: receipts.map(function (receipt) { return receipt.phieu + " · " + receipt.ngay + " · " + receipt.maPB + " · " +
+          receipt.employees.map(function (employee) { return employee.ma + " — " + employee.hoTen; }).join(", "); }),
+        goto: ["baocaoluong", entry[0]] });
+    });
     var order = { ERROR: 0, WARNING: 1, INFO: 2 };
     out.sort(function (a, b) { return order[a.muc] - order[b.muc]; });
     st.kt = { ky: kyStr(), rev: dbRev, at: new Date().toISOString(), rows: out };
@@ -20,6 +28,9 @@
     if (!g) return; if (!leaveOk()) return;
     if (g[0] === "dm" && g[1]) st.dm = g[1];
     if (!tabAllowed(g[0])) return;
+    if (g[0] === "baocaoluong" && g[1]) {
+      st.bcl = "sanluong"; st.bclLoai = g[1]; st.attendanceReceiptFilters = {};
+    }
     var row = Number.isInteger(g[2]) && (db[g[0]] || [])[g[2]];
     if (row) {
       var period = VAL.rowPeriod(g[0], row);

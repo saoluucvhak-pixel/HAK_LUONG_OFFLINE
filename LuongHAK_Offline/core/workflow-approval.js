@@ -28,8 +28,14 @@
     return { preparer: row.preparer, approver: row.approver, approvedAt: row.approvedAt, version: version, digest: row.digest };
   }
 
-  function fingerprint(db, snap) {
+  function fingerprint(db, snap, legacy) {
     const input = CLS.buildSnapshot(db, snap.ky, { bangluong: [], bhxh: [], tncn: [], canhbao: [] }, [], {}).input;
+    if (!legacy) {
+      for (const company of input.danhmuc.congty) {
+        for (const field of ["Tên công ty", "Địa chỉ", "Mã số thuế", "Số điện thoại", "Người đại diện pháp luật"]) delete company[field];
+      }
+      input.danhmuc.congty = input.danhmuc.congty.filter(row => Object.keys(row).length);
+    }
     return CLS.checksum({
       settings: db.workflowSettings, ky: snap.ky, version: snap.version, method: snap.buTheoNgay,
       rule: snap.quyChe, engineVersion: snap.engineVersion, input,
@@ -57,6 +63,10 @@
     return "";
   }
 
-  const api = { mode, account, ticket, readiness, approvalRecord, fingerprint, checkApprovalChanges };
+  function matchesFingerprint(db, snap, digest) {
+    return digest === fingerprint(db, snap) || digest === fingerprint(db, snap, true);
+  }
+
+  const api = { mode, account, ticket, readiness, approvalRecord, fingerprint, matchesFingerprint, checkApprovalChanges };
   if (node) module.exports = api; else root.HAKCore.workflowApproval = api;
 })(typeof window !== "undefined" ? window : this);
