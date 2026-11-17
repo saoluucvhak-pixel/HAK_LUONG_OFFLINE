@@ -317,3 +317,23 @@ test("Payment self-approval is blocked in role-based mode and works for a single
   assert.equal(checkTtluong({ ...db, workflowSettings: [{ mode: "single" }] }, approved("admin"), admin), "");
   assert.equal(PLG.chuyen([line], "PC-01", PLG.TT.DUYET, { nguoi: "admin", admin: true, mode: "single" }).ok, true);
 });
+
+test("Không khóa người duyệt cuối cùng trong chế độ phân quyền", () => {
+  const users = [{ tenDangNhap: "admin", vaiTro: "admin" }, { tenDangNhap: "review", vaiTro: "pheduyet" }];
+  const { db, save } = setup({ nguoidung: users, workflowSettings: [{ mode: "roles" }] });
+  const admin = who("admin", "admin");
+  assert.match(save({ ...db, nguoidung: [users[0], { ...users[1], khoa: true }] }, admin).error, /hai tài khoản hoạt động/);
+  assert.match(save({ ...db, nguoidung: [users[0]] }, admin).error, /hai tài khoản hoạt động/);
+  assert.equal(save({ ...db, nguoidung: [users[0], { ...users[1], hoTen: "Người duyệt" }] }, admin).ok, true);
+});
+
+test("Đổi địa chỉ công ty giữ phê duyệt, đổi cấu hình lương hoặc phương pháp bù yêu cầu duyệt lại", () => {
+  const flow = require("../../core/workflow-approval");
+  const snap = { ky: "2026-10", version: 1, buTheoNgay: "to", kq: { bangluong: [], bhxh: [], tncn: [] } };
+  const db = { congty: [{ "Địa chỉ": "A", "Quy chế tính lương": "2026" }] };
+  const digest = flow.fingerprint(db, snap);
+  assert.equal(flow.fingerprint({ congty: [{ ...db.congty[0], "Địa chỉ": "B" }] }, snap), digest);
+  assert.notEqual(flow.fingerprint({ congty: [{ ...db.congty[0], "Quy chế tính lương": "1.7" }] }, snap), digest);
+  assert.notEqual(flow.fingerprint(db, { ...snap, buTheoNgay: "daihiep" }), digest);
+  assert.equal(flow.matchesFingerprint(db, snap, flow.fingerprint(db, snap, true)), true);
+});

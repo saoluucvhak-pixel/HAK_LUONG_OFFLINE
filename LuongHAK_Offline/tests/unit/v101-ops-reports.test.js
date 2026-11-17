@@ -89,7 +89,7 @@ test("U-OPS-04 BƠM DĂM: đơn vị là số xe, tiêu đề riêng, không l�
   db.bandam.push({ "Phiếu cân": "B1", "Ngày cân": "2026-09-10", "KL hàng (Tấn)": "1", "Mã NV": "NV003" }, { "Phiếu cân": "B2", "Ngày cân": "2026-09-11", "KL hàng (Tấn)": "2", "Mã NV": "NV003" });
   db.sanluong.push({ "Phiếu cân": "S1", "Ngày cân": "2026-09-10", "KL hàng (Tấn)": "50", "Mã NV": "NV001" });
   const vm = OPS.build("BOM_DAM", db, base(db));
-  assert.equal(vm.title, "BẢNG KÊ BƠM DĂM"); assert.ok(vm.cols.some((c) => c.label === "Số xe")); assert.ok(!vm.cols.some((c) => c.label === "KL hàng (Tấn)"));
+  assert.equal(vm.title, "BẢNG KÊ BAN DĂM XUẤT HÀNG"); assert.ok(vm.cols.some((c) => c.label === "Số xe")); assert.ok(!vm.cols.some((c) => c.label === "KL hàng (Tấn)"));
   assert.equal(vm.tong["Số xe"], 3); assert.equal(vm.rows.length, 2);
 });
 

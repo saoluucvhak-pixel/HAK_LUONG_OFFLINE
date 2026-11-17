@@ -40,7 +40,7 @@
       var approval = C.workflowApproval.ticket(db, kyStr()), actions = h("div", { class: "bar" });
       var reviewState = !approval ? "Chưa gửi duyệt" : approval.approver ? "Người lập: " + approval.preparer + " · Người duyệt: " + approval.approver : "Chờ duyệt · Người lập: " + approval.preparer;
       if (approval && approval.approver && !approval.approvedAt) reviewState = "Cần gửi duyệt lại để ghi nhận thời điểm duyệt";
-      if (approval && st.kq && st.kq.ky === kyStr() && approval.digest !== approvalDigest(kyStr(), st.kq)) reviewState = "Cần gửi duyệt lại · Bảng hiện tại khác bản đã gửi";
+      if (approval && st.kq && st.kq.ky === kyStr() && approval.digest !== approvalDigest(kyStr(), st.kq) && approval.digest !== approvalDigest(kyStr(), st.kq, true)) reviewState = "Cần gửi duyệt lại · Bảng hiện tại khác bản đã gửi";
       actions.appendChild(h("span", { class: "hint", text: reviewState }));
       if (st.kq && can("payroll.calc")) actions.appendChild(btn(approval ? "Gửi duyệt lại" : "Gửi duyệt", "", function () { savePayrollApproval(false); }));
       if (st.kq && approval && !approval.approver && can("payroll.approve") && approval.preparer !== C.workflowApproval.account(session.tenDangNhap)) {

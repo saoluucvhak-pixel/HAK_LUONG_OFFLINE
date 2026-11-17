@@ -88,7 +88,7 @@
     }
     var company = snapshot ? (catalog.congty || [])[0] || {} : congTy();
     var meta = { donVi: company["Tên công ty"] || "", thang: "Tháng " + thang + "/" + nam, nguoiLap: session ? session.hoTen : "" };
-    var attendanceReview = [["sanluong", sl, "Sản lượng"], ["bandam", bd, "Bơm dăm"]].flatMap(function (item) {
+    var attendanceReview = [["sanluong", sl, "Sản lượng"], ["bandam", bd, "Ban dăm xuất hàng"]].flatMap(function (item) {
       return bcSanLuong(nam, thang, item[0], item[1]).attendanceReview.map(function (r) {
         return Object.assign({ "Loại": item[2] }, r);
       });
@@ -96,7 +96,7 @@
     var wb = window.HAKUi.pbkl.report(window.ExcelJS, { sl: sl, bd: bd, raw: { sl: sl.raw, bd: bd.raw },
       luong: rows.length ? { rows: rows, coChe: coChe, note: (src.chot ? "Số liệu lấy từ bảng lương ĐÃ CHỐT." : "Kỳ CHƯA chốt — số liệu tính tạm.") + " Số công = công BT trong chấm công." } : null,
       daihiepDetail: daihiepDetail, attendanceReview: attendanceReview,
-      ctx: { coChe: coChe, chot: src.chot, source: allocationReportSource("sanluong", kyKey(nam, thang)) + " | Bơm dăm: " + inputReportSource("bandam", kyKey(nam, thang)), giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
+      ctx: { coChe: coChe, chot: src.chot, source: allocationReportSource("sanluong", kyKey(nam, thang)) + " | Ban dăm xuất hàng: " + inputReportSource("bandam", kyKey(nam, thang)), giaKl: n0(dmL["Số tiền khoán"]), giaBd: n0(((catalog.dm_luong || []).filter(function (r) { return r["Mã lương"] === "BD"; })[0] || {})["Số tiền khoán"]), mucSan: n0(dmL["Đơn giá bù lương"]), nguong: n0(dmL["Ngưỡng công bù theo tổ"]), soNgay: new Date(nam, thang, 0).getDate() } }, meta);
     wb.xlsx.writeBuffer().then(function (buf) {
       download("Phan_bo_khoi_luong_" + kyKey(nam, thang) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel phân bổ khối lượng", kyLabel(kyKey(nam, thang)));

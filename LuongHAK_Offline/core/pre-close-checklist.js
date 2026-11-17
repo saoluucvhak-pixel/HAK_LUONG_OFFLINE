@@ -54,7 +54,7 @@
     add(8, "Không có phiếu cân trùng (Phiếu cân + Mã NV)", dupPhieu.length ? "loi" : "ok", dupPhieu);
     var slUnalloc = (ctx.slAlloc && ctx.slAlloc.unallocated) || 0, bdUnalloc = (ctx.bdAlloc && ctx.bdAlloc.unallocated) || 0;
     add(9, "Không có sai lệch khối lượng (tổng phân bổ = tổng phiếu cân)", (slUnalloc || bdUnalloc) ? "loi" :
-      "ok", (slUnalloc ? ["Sản lượng: " + Math.round(slUnalloc * 1000) / 1000 + " tấn chưa phân bổ được cho ai"] : []).concat(bdUnalloc ? ["Bơm dăm: " + Math.round(bdUnalloc * 1000) / 1000 + " xe chưa phân bổ được cho ai"] : []));
+      "ok", (slUnalloc ? ["Sản lượng: " + Math.round(slUnalloc * 1000) / 1000 + " tấn chưa phân bổ được cho ai"] : []).concat(bdUnalloc ? ["Ban dăm xuất hàng: " + Math.round(bdUnalloc * 1000) / 1000 + " xe chưa phân bổ được cho ai"] : []));
 
     // 10. Không có lỗi công BT (thiếu chấm công BT ngày có sản lượng — ảnh hưởng bù lương Đại Hiệp)
     var thieuBT = byMsg(/CHƯA chấm công BT ngày/);

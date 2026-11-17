@@ -77,7 +77,12 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
     if(kind!=='bangluong'&&period)rows=rows.filter(r=>String(MONTHLY.includes(kind)?V.rowPeriod(kind,r):r.ky)===period);
     const total=rows.length;page=Number.isInteger(page)&&page>=0?page:0;
     // Closed snapshots are summarized here; detailed payroll is available via bangluong.
-    if(['kyluong','kyluong_lichsu'].includes(kind)) rows=rows.map(s=>({ky:s.ky,version:s.version,ngayChot:s.ngayChot,nguoiChot:s.nguoiChot,...s.totals}));
+    if(['kyluong','kyluong_lichsu'].includes(kind)) rows=rows.map(s=>{
+      const approval=s.input?.approval;
+      return {ky:s.ky,version:s.version,ngayChot:s.ngayChot,nguoiChot:s.nguoiChot,
+        "Người lập":approval?.preparer||"", "Người duyệt":approval?.approver||"",
+        "Duyệt lúc":approval?.approvedAt||"", "Phiên bản duyệt":approval?.version||"", ...s.totals};
+    });
     return {ok:true,year:p.year,periods:p.data.kyluong.map(s=>s.ky),total,page,rows:all?rows:rows.slice(page*50,page*50+50)};
   }
   function restore(year,reason,token,user) {

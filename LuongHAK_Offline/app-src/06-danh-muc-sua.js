@@ -110,14 +110,14 @@
 
   function bandamDirectExcelTemplate() {
     if (!window.ExcelJS) { alert("Thiếu thư viện Excel — chưa tạo mẫu."); return; }
-    var book = new window.ExcelJS.Workbook(), sheet = book.addWorksheet("Bơm dăm");
+    var book = new window.ExcelJS.Workbook(), sheet = book.addWorksheet("Ban dăm xuất hàng");
     sheet.columns = [{ header: "Phiếu cân", key: "phieu", width: 20 }, { header: "Ngày cân", key: "ngay", width: 16 }, { header: "Biển số", key: "xe", width: 18 }, { header: "Số xe", key: "soxe", width: 16 }, { header: "Mã NV", key: "ma", width: 24 }];
     [1, 3, 5].forEach(function (n) { sheet.getColumn(n).numFmt = "@"; });
     sheet.getColumn(2).numFmt = "dd/mm/yyyy"; sheet.getColumn(4).numFmt = "0.###";
     sheet.views = [{ state: "frozen", ySplit: 1 }]; sheet.getRow(1).font = { bold: true };
     var guide = book.addWorksheet("Hướng dẫn"); guide.getColumn(1).width = 110;
     guide.addRow(["Điền số phiếu, ngày cân, số xe được giao và Mã NV có trong Nhân sự. Mỗi dòng là phần xe giao cho nhân viên đó; không ghi thêm dòng chia tổ cho cùng phiếu."]);
-    guide.addRow(["Mã NV, số phiếu và biển số đã định dạng Chữ để giữ số 0 đầu. Không đổi tên cột. Nhập tại Bơm dăm → Nhập Excel."]);
+    guide.addRow(["Mã NV, số phiếu và biển số đã định dạng Chữ để giữ số 0 đầu. Không đổi tên cột. Nhập tại Ban dăm xuất hàng → Nhập Excel."]);
     guide.eachRow(function (r) { r.alignment = { wrapText: true }; r.height = 40; });
     book.xlsx.writeBuffer().then(function (buf) { download("Mau_BomDam_GiaoTrucTiep.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf); }).catch(function (e) { alert("Không tạo được mẫu: " + e.message); });
   }
@@ -141,12 +141,12 @@
     f["Mã phòng ban"].value = row && row["Mã phòng ban"] || ""; f["NV vắng"] = h("input", { class: "i", "aria-label": "NV vắng bơm dăm", value: row && row["NV vắng"] || "" });
     team.appendChild(h("div", { class: "fld" }, [h("label", { text: "Tổ / phòng ban" }), f["Mã phòng ban"]])); team.appendChild(h("div", { class: "fld" }, [h("label", { text: "NV vắng" }), f["NV vắng"]])); body.appendChild(team);
     var drawMode = function () { direct.style.display = mode.value === "direct" ? "" : "none"; team.style.display = mode.value === "team" ? "" : "none"; }; mode.addEventListener("change", drawMode); drawMode();
-    modal((row ? "Sửa" : "Thêm") + " phiếu Bơm dăm", body, function (close) { return [btn("Hủy", "", close), btn("Lưu phiếu bơm dăm", "pri", function () {
+    modal((row ? "Sửa" : "Thêm") + " phiếu Ban dăm xuất hàng", body, function (close) { return [btn("Hủy", "", close), btn("Lưu phiếu Ban dăm xuất hàng", "pri", function () {
       if (!need("input.edit")) return;
       if (row && JSON.stringify(db.bandam[ri]) !== token) { alert("Phiếu đã thay đổi — mở lại để sửa."); return; }
       var input = { mode: mode.value }; Object.keys(f).forEach(function (k) { input[k] = f[k].value; }); var data;
       try { data = C.bandamEntry.build(db, input, row ? db.bandam[ri] : null); } catch (e) { alert(e.message); return; }
-      if (!txn(["bandam"], function () { return !!commit(REPO.plan(row ? "update" : "insert", "bandam", row ? db.bandam[ri] : null, data), { action: "Lưu phiếu bơm dăm " + (mode.value === "direct" ? "trực tiếp" : "theo tổ") }); })) { alert("Chưa lưu phiếu: " + lastTxnError); return; }
+      if (!txn(["bandam"], function () { return !!commit(REPO.plan(row ? "update" : "insert", "bandam", row ? db.bandam[ri] : null, data), { action: "Lưu phiếu Ban dăm xuất hàng " + (mode.value === "direct" ? "trực tiếp" : "theo tổ") }); })) { alert("Chưa lưu phiếu: " + lastTxnError); return; }
       close(); after(); toast("Đã giữ phiếu ở Nháp — bấm Lưu để tính lương");
     })]; });
   }

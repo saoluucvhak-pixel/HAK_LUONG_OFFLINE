@@ -12,7 +12,7 @@
   var TYPES = {
     NHAN_SU: { title: "DANH SÁCH NHÂN SỰ", file: "DanhSachNhanSu", perm: "hr.view", donVi: "Người", theoKy: false, chuKy: ["Người lập", "Trưởng phòng nhân sự", "Giám đốc"] },
     SAN_LUONG: { title: "BẢNG KÊ PHIẾU CÂN SẢN LƯỢNG", file: "BangKeSanLuong", perm: "input.view", donVi: "Tấn", theoKy: true, chuKy: ["Người lập", "Nhân viên cân", "Trưởng bộ phận", "Giám đốc"] },
-    BOM_DAM: { title: "BẢNG KÊ BƠM DĂM", file: "BangKeBomDam", perm: "input.view", donVi: "Số xe", theoKy: true, chuKy: ["Người lập", "Nhân viên cân", "Trưởng bộ phận", "Giám đốc"] },
+    BOM_DAM: { title: "BẢNG KÊ BAN DĂM XUẤT HÀNG", file: "BangKeBomDam", perm: "input.view", donVi: "Số xe", theoKy: true, chuKy: ["Người lập", "Nhân viên cân", "Trưởng bộ phận", "Giám đốc"] },
     THUONG: { title: "BẢNG KÊ THƯỞNG VÀ CÁC KHOẢN THU NHẬP, KHẤU TRỪ KHÁC", file: "BangKeThuong", perm: "payroll.view", donVi: "Đồng (VND)", theoKy: true, chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] },
     TAM_UNG: { title: "BẢNG KÊ TẠM ỨNG LƯƠNG", file: "BangKeTamUng", perm: "payroll.view", donVi: "Đồng (VND)", theoKy: true, chuKy: ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] },
     SUAT_COM: { title: "BẢNG TỔNG HỢP SUẤT CƠM", file: "TongHopSuatCom", perm: "input.view", donVi: "Suất", theoKy: true, chuKy: ["Người lập", "Người chấm cơm", "Trưởng bộ phận", "Giám đốc"] }
@@ -164,7 +164,7 @@
     if (nvRows.length) ex.push({ name: "TheoCongNhan", title: out.title + " — TỔNG HỢP THEO CÔNG NHÂN", cols: mkCols([["Mã NV", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Số ngày có SL", "qty"], [klLabel, "qty3"]]), rows: nvRows, tong: (function () { var t = {}; t[klLabel] = r3(nvRows.reduce(function (a, x) { return a + x[klLabel]; }, 0)); return t; })() });
     out.extras = ex;
     if (al && al.warnings && al.warnings.length) al.warnings.forEach(function (w) { out.canhbao.push(w); });
-    out.ghiChu = [isXe ? "Cột \"Số xe\" lấy từ cột KL hàng của bảng Bơm dăm (mỗi phiếu thường = 1 xe)." : "Khối lượng tính bằng tấn, làm tròn 3 chữ số thập phân khi hiển thị."];
+    out.ghiChu = [isXe ? "Cột \"Số xe\" lấy từ cột KL hàng của bảng Ban dăm xuất hàng (mỗi phiếu thường = 1 xe)." : "Khối lượng tính bằng tấn, làm tròn 3 chữ số thập phân khi hiển thị."];
   }
 
   // ---------- THƯỞNG / TRỪ ----------

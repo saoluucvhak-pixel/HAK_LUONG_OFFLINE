@@ -310,11 +310,11 @@ function createPolicy(opts) {
           for (const key of added) {
             const snap = next.kyluong.find(row => kyKey(row) === key);
             const approved = workflow.ticket(saved, snap.ky);
-            let digest;
-            try { digest = workflow.fingerprint(next, snap); }
-            catch (e) { return deny("không xác minh được dữ liệu yêu cầu duyệt kỳ " + snap.ky); }
             const approval = workflow.approvalRecord(approved, snap.version);
-            if (!approval || approval.digest !== digest) return deny("kỳ " + snap.ky + " cần được người khác duyệt đúng dữ liệu hiện tại trước khi chốt");
+            let matches = false;
+            try { matches = approval && workflow.matchesFingerprint(next, snap, approval.digest); }
+            catch (e) { return deny("không xác minh được dữ liệu yêu cầu duyệt kỳ " + snap.ky); }
+            if (!matches) return deny("kỳ " + snap.ky + " cần được người khác duyệt đúng dữ liệu hiện tại trước khi chốt");
             if (snap.version !== payrollClose.history(saved, snap.ky).length + 1 ||
                 !snap.input || h(snap.input.approval || null) !== h(approval) || !snap.inputChecksum || payrollClose.verify(snap) !== "ok") return deny("bản chốt kỳ " + snap.ky + " thiếu hoặc sai thông tin phê duyệt");
           }
@@ -330,7 +330,13 @@ function createPolicy(opts) {
         continue;
       }
       if (t === "nguoidung") {
-        if (has("system.admin")) continue;
+        if (has("system.admin")) {
+          if (workflow.mode(saved) === "roles" && !workflow.readiness(saved)) {
+            const unavailable = workflow.readiness(next);
+            if (unavailable) return deny(unavailable);
+          }
+          continue;
+        }
         // người thường chỉ được đổi mật khẩu CỦA CHÍNH MÌNH
         const me = String(who.user || "").toLowerCase(), diff = nx.users.filter((u) => { const p = prev.users.filter((x) => x.name === u.name)[0]; return !p || p.h !== u.h; });
         const gone = prev.users.filter((p) => !nx.users.some((u) => u.name === p.name));

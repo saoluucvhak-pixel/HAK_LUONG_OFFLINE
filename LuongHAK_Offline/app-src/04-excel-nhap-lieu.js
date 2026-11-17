@@ -102,7 +102,7 @@
     var plans = [], extraEmp = {};
     var keys = onlyKey ? [onlyKey] : importOrder(Object.keys(ALL));
     keys.forEach(function (k) {
-      var alt = { sanluong: ["Khoi luong", "Khối lượng"], bandam: ["Bom ban dam", "Bơm dăm"] }[k] || []; // tên sheet trong mẫu công cụ phân bổ
+      var alt = { sanluong: ["Khoi luong", "Khối lượng"], bandam: ["Bom ban dam", "Bơm dăm", "Ban dăm xuất hàng"] }[k] || []; // tên sheet trong mẫu công cụ phân bổ
       var name = wb.SheetNames.filter(function (x) { return x === sheetName(ALL[k].ten); })[0] || wb.SheetNames.filter(function (x) { return alt.indexOf(x) >= 0; })[0];
       if (!name && onlyKey) name = wb.SheetNames[0];
       if (!name) return;
