@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [Chưa phát hành]
+- Tách `core/benefits.js` thành `benefits-rules.js` (tiêu chuẩn, định mức, kiểm tra, thu hồi), `benefits-ledger.js` (sổ cái, báo cáo) và `benefits-import.js` (nhập Excel); `core/benefits.js` còn là cửa chung giữ nguyên tên hàm. Chỉ chuyển mã, không đổi hành vi; kiểm thử cũ chạy nguyên không sửa.
+
 ## [2.0.26] — 17/11/2026
 - Báo cáo tổng hợp Cấp phát gom theo tổ đã lưu trên từng lượt: người chuyển tổ nhận ở hai tổ thì hiện đúng từng tổ (Tổ 1 = 10, Tổ 2 = 5, tổng = 15), trước đây dồn vào tổ đầu tiên. Phân biệt theo mã vật tư, đơn vị tính và cỡ. Sữa: định mức tính một lần theo nhân viên/tháng, người chuyển tổ có dòng định mức riêng.
 - Lượt thu hồi và lượt cấp thay thế (đổi cỡ) giữ tổ, tên mặt hàng, đơn vị, cỡ của dòng cấp gốc (trước đây tra lại tổ hiện tại và tên vật tư hiện tại). Chi tiết có Ngày giao dịch, Ngày cấp gốc, Mã điều chỉnh, thời điểm thao tác. Phiếu cũ thiếu tổ: ghi rõ nguồn suy ra hoặc thiếu căn cứ.
