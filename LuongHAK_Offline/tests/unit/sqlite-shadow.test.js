@@ -89,13 +89,15 @@ test("U-SQL-06 kho bóng trên đĩa: đóng, mở lại vẫn đúng; không gh
   assert.equal(cp.spawnSync(process.execPath, [path.join(__dirname, "../../tools/sqlite-shadow.js"), src, src], { encoding: "utf8" }).status, 2, "đầu ra trùng file gốc phải bị từ chối");
 });
 
-test("U-SQL-07 kho bóng không vào bộ cài và không được app nạp", () => {
+test("U-SQL-07 kho bóng/công cụ không vào bộ cài; giao diện không nạp mã SQLite", () => {
   const pkg = require("../../package.json"), read = (f) => fs.readFileSync(path.join(__dirname, "../..", f), "utf8");
   assert.ok(!pkg.build.files.some((f) => /^tools/.test(f)), "tools/ không nằm trong build.files");
-  for (const f of ["main.js", "preload.js", "index.html", "app.js"]) assert.doesNotMatch(read(f), /sqlite-shadow|node:sqlite/, f + " không được dùng kho bóng");
-  // Kho ứng viên (main/sqlite-store.js, main/sqlite-migrate.js) được phép dùng node:sqlite, nhưng CHƯA được app nạp: không file nào khác tham chiếu tới chúng.
-  const CANDIDATE = ["sqlite-store.js", "sqlite-migrate.js", "sqlite-changeset.js", "sqlite-mirror.js", "sqlite-storage.js"];
+  for (const f of ["main.js", "preload.js", "index.html", "app.js"]) assert.doesNotMatch(read(f), /sqlite-shadow\b/, f + " không được dùng công cụ so sánh sqlite-shadow");
+  for (const f of ["preload.js", "index.html", "app.js"]) assert.doesNotMatch(read(f), /node:sqlite/, f + " (giao diện/preload) không được dùng node:sqlite");
+  // Mã SQLite chỉ nằm trong các file main/sqlite-*.js (và được main.js nạp qua sqlite-storage/mirror/selftest); không file main/ nào khác tham chiếu tới chúng.
+  const CANDIDATE = ["sqlite-store.js", "sqlite-migrate.js", "sqlite-changeset.js", "sqlite-mirror.js", "sqlite-storage.js", "sqlite-selftest.js"];
   for (const f of fs.readdirSync(path.join(__dirname, "../../main")).filter((x) => !CANDIDATE.includes(x))) assert.doesNotMatch(read("main/" + f), /sqlite-shadow|node:sqlite|sqlite-store\b|sqlite-migrate|sqlite-changeset|sqlite-mirror|sqlite-storage/, "main/" + f);
-  for (const f of ["preload.js", "index.html", "app.js"]) assert.doesNotMatch(read(f), /sqlite-store|sqlite-migrate|sqlite-changeset|sqlite-mirror|sqlite-storage/, f + " chưa được nạp kho ứng viên (chưa cutover)");
-  assert.doesNotMatch(read("main.js"), /sqlite-store|sqlite-migrate|sqlite-changeset|node:sqlite/, "main.js chỉ được nạp sqlite-mirror, và chỉ khi bật HAK_SQLITE_SHADOW");
+  for (const f of ["preload.js", "index.html", "app.js"]) assert.doesNotMatch(read(f), /sqlite-store|sqlite-migrate|sqlite-changeset|sqlite-mirror|sqlite-storage/, f + " (giao diện/preload) không nạp mã kho SQLite");
+  // Từ v2.0.29 SQLite là kho chính mặc định: main.js được nạp sqlite-storage (và kiểm node:sqlite có sẵn), nhưng không nạp trực tiếp các lớp thấp.
+  assert.doesNotMatch(read("main.js"), /sqlite-store\b|sqlite-migrate|sqlite-changeset/, "main.js chỉ nạp sqlite-storage và sqlite-mirror");
 });

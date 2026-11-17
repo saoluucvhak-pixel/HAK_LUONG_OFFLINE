@@ -39,10 +39,11 @@ function createSqliteStorage(dir, opts) {
       atomicWrite(dataFile, cur.text);
       if (!Buffer.from(fs.readFileSync(dataFile)).equals(Buffer.from(cur.text, "utf8"))) return false;
       setMeta("exported_sha", sha(cur.text)); jsonStale = false;
-      try { atomicWrite(noteFile, "Nguồn dữ liệu chính của hồ sơ này là data.sqlite. data.json là bản xuất (được ghi lại khi đóng app và trước mỗi sao lưu); không sửa tay.\n"); } catch (e) { /* ghi chú không bắt buộc */ }
+      writeNote();
       return true;
     } catch (e) { return false; }
   }
+  function writeNote() { try { if (!fs.existsSync(noteFile)) atomicWrite(noteFile, "Nguồn dữ liệu chính của hồ sơ này là data.sqlite. data.json là bản xuất (được ghi lại khi đóng app và trước mỗi sao lưu); không sửa tay.\n"); } catch (e) { /* ghi chú không bắt buộc */ } }
   const scheduleExport = () => { if (exportSync) { syncJson(); return; } clearTimeout(timer); timer = setTimeout(() => { syncJson(); }, delayMs); if (timer.unref) timer.unref(); };
 
   function openDb() {
@@ -60,10 +61,15 @@ function createSqliteStorage(dir, opts) {
         if (fs.existsSync(dataFile)) {
           const f = fileSha(), last = meta("exported_sha");
           if (f !== last && f !== sha(text) && process.env.HAK_SQLITE_ADOPT_EXTERNAL === "1") { opened = true; if (adoptJson()) return { ok: true, text: cur.text }; } // CHỈ để nghiệm thu: bộ E2E tự ghi data.json giữa các lần mở
-          if (f !== last && f !== sha(text)) conflict = "data.json khác với dữ liệu trong data.sqlite (có thể bị sửa/thay ngoài ứng dụng). Ứng dụng không tự chọn: hãy cất file data.json lạ sang bản .bak rồi dùng dữ liệu SQLite, hoặc khôi phục từ bản sao lưu.";
+          if (f !== last && f !== sha(text)) {
+            const t = (file) => { try { return fs.statSync(file).mtime.toISOString().replace("T", " ").slice(0, 16) + " UTC"; } catch (e) { return "?"; } };
+            conflict = "data.json khác với dữ liệu trong data.sqlite (có thể bị sửa/thay ngoài ứng dụng, hoặc đã dùng HAK_STORAGE=json sau khi chuyển sang SQLite). Sửa lần cuối: data.json " + t(dataFile) + ", data.sqlite " + t(dbFile) +
+              ". Ứng dụng không tự chọn. File nào mới hơn là bản đầy đủ hơn. Chọn giữ dữ liệu SQLite thì data.json lạ được CẤT sang file .bak (không xóa); nếu data.json mới hơn, hãy khôi phục từ nó (hoặc từ bản sao lưu) thay vì giữ SQLite.";
+          }
           else jsonStale = f !== sha(text); // JSON cũ hơn do chưa kịp xuất (mất điện/đóng đột ngột) → xuất lại
         } else jsonStale = true;
         if (conflict) return { ok: false, error: conflict, backups: json.list() };
+        writeNote();
         if (jsonStale) syncJson();
         return { ok: true, text };
       }
@@ -91,14 +97,17 @@ function createSqliteStorage(dir, opts) {
       return { ok: false, error: "Chuyển sang SQLite không thành công, data.json giữ nguyên: " + (e && e.message || e), backups: json.list() };
     }
     try { fs.rmSync(tmpSrc, { force: true }); } catch (e) { /* bỏ qua */ }
-    openDb(); const doc = M.toData(db); cur = { text: JSON.stringify(doc), doc }; rev = 0; jsonStale = sha(cur.text) !== sha(text);
+    openDb(); writeNote(); const doc = M.toData(db); cur = { text: JSON.stringify(doc), doc }; rev = 0; jsonStale = sha(cur.text) !== sha(text);
     return { ok: true, text: cur.text };
   }
 
   function load() {
     if (cur && !conflict) return { ok: true, text: cur.text };
     if (conflict) return { ok: false, error: conflict, backups: json.list() };
-    if (!opened || !cur) { const r = init(); return r; }
+    if (!opened || !cur) {
+      try { return init(); } // lỗi mở kho (schema mới hơn app, file hỏng) → báo cho giao diện, KHÔNG quay về data.json cũ một cách âm thầm
+      catch (e) { return { ok: false, error: "Không mở được kho dữ liệu SQLite: " + String(e && e.message || e), backups: json.list() }; }
+    }
     return { ok: true, text: cur.text };
   }
 
@@ -148,7 +157,7 @@ function createSqliteStorage(dir, opts) {
   return Object.assign({}, json, {
     load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson,
     backup: wrapSync("backup"), backupYear: wrapSync("backupYear"), changedSinceBackup: wrapSync("changedSinceBackup"), tickSchedule: wrapSync("tickSchedule"), backupOnClose: wrapSync("backupOnClose"), syncMirror: wrapSync("syncMirror"),
-    sig: () => "sqlite:" + rev, kind: "sqlite", dbFile
+    sig: () => "sqlite:" + rev, kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });
 }
 

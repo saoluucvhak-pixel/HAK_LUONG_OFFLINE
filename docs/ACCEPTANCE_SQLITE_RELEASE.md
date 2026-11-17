@@ -1,5 +1,7 @@
 # Nghiệm thu SQLite — trạng thái 18/11/2026
 
+> **Cập nhật phát hành v2.0.29:** SQLite là nguồn dữ liệu chính MẶC ĐỊNH (theo yêu cầu của chủ sở hữu). Mục 5 và các bảng bên dưới mô tả trạng thái trước khi đổi mặc định; xem `docs/releases/v2.0.29.md` cho hướng dẫn nâng cấp/quay lui. Kết luận phát hành: **chỉ đủ thử nghiệm có kiểm soát** (chưa thử Setup Windows, chưa thử máy in, chưa dùng SQLite Backup API).
+
 **Kết luận: Chưa hoàn thành đợt SQLite — không phát hành "bản SQLite".** Đã làm xong phần nền (giai đoạn 0 và một phần giai đoạn 2). Chưa có cutover, nên app vẫn lưu `data.json`. Không dùng đợt này để tuyên bố đã chuyển sang SQLite.
 
 ## 1. Trạng thái theo giai đoạn (prompt tổng thể, mục L)
