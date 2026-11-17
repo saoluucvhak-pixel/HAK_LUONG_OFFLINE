@@ -7,7 +7,7 @@
 | GĐ | Nội dung | Trạng thái | Bằng chứng / ghi chú |
 |---|---|---|---|
 | 0 | Fetch, kiểm kê, F01/F02 | **Xong** | v2.0.28 (PR #69, commit `e7f1a96`); `docs/NGHIEM_THU_V2_0_28.md` |
-| 1 | Repository/delta, ID ổn định, read model | **Chưa làm** | Chưa kiểm kê hết đường ghi `data.json`; chưa có delta qua IPC |
+| 1 | Repository/delta, ID ổn định, read model | **Làm một phần** | Đã kiểm kê: `data.json` chỉ ghi qua `storage.save` (`docs/WRITE_PATHS_INVENTORY.md`); đã có change set theo dòng + ghi delta vào SQLite, kiểm chứng bằng bản sao bóng chạy cả bộ E2E (0 sai lệch). Chưa có delta từ giao diện qua IPC; chưa có read model/ID ổn định lưu trong dữ liệu |
 | 2 | SQLite/schema/migrations, đối chiếu trên dữ liệu giả | **Làm một phần** | `main/sqlite-store.js`, `main/sqlite-migrate.js`, 9 test `sqlite-migrate.test.js`. Lược đồ v1 là "dòng nguyên vẹn + khóa nghiệp vụ", chưa chuẩn hóa theo nghiệp vụ/khóa ngoại |
 | 3 | Cutover, backup/restore SQLite, kho năm, quay lui | **Chưa làm** | `exportJson` (đường quay lui) đã có và kiểm; chưa tích hợp backup/restore, chưa cutover |
 | 4 | Đồng bộ UI/luồng/bộ lọc/báo cáo | **Chưa làm** (ngoài F01/F02/Cấp phát đã xong ở v2.0.28) | Không đổi menu/bố cục trong đợt này vì chưa có lỗi thao tác được chứng minh |
@@ -41,7 +41,7 @@ Kế hoạch truy vấn khóa nghiệp vụ dùng chỉ mục `records_bkey`. Ch
 
 ## 4. Chưa kiểm chứng / còn thiếu
 
-1. Mọi đường ghi dữ liệu trong app vẫn đi qua `data.json`; chưa có thao tác nào ghi delta vào SQLite.
+1. Giao diện vẫn gửi cả tài liệu mỗi lần lưu; SQLite chỉ nhận delta ở chế độ bóng (mặc định TẮT, `HAK_SQLITE_SHADOW`). Chưa có thao tác nào ghi trực tiếp SQLite làm nguồn chính.
 2. Chưa có cutover (con trỏ nguồn hoạt động, journal phục hồi khi khởi động dở dang, chặn hai phiên ghi).
 3. Chưa có Full Backup/restore bằng SQLite Backup API hoặc `VACUUM INTO`; chưa có kho năm trên SQLite.
 4. Chưa chuẩn hóa lược đồ theo nghiệp vụ (bảng phiếu cân/dòng phân bổ, cấp phát, thanh toán…), chưa có khóa ngoại/CHECK nghiệp vụ.

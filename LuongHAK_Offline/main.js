@@ -46,6 +46,7 @@ const guard = createGuard(__dirname, {
 // Gỡ cài đặt KHÔNG xóa thư mục này (electron-builder: deleteAppDataOnUninstall mặc định false).
 let yearBusy = false;
 let fbJob = null; // Full Backup đang chạy (worker)
+let shadow = null; // bản sao bóng SQLite (chỉ nghiệm thu, mặc định tắt)
 let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, restorer = null;
 // Umi-OCR (tuỳ chọn): người dùng tự cài và chạy Umi-OCR trên MÁY NÀY → ô số được đọc thêm làm ý kiến thứ hai (không thay kết quả Tesseract).
 // Tắt: HAK_UMI_OCR=0 · cổng khác: HAK_UMI_OCR=<cổng>. Umi không chạy → tự bỏ qua (ngắt mạch 30 giây).
@@ -403,6 +404,8 @@ app.whenReady().then(() => {
     return;
   }
   storage = createStorage(app.getPath("userData"));
+  // Bản sao bóng SQLite (mặc định TẮT): bọc storage.save — điểm ghi data.json DUY NHẤT, gồm cả store-save của giao diện lẫn lưu trữ/khôi phục năm trong tiến trình chính. Mirror không bao giờ ném lỗi.
+  if (process.env.HAK_SQLITE_SHADOW) { try { shadow = require("./main/sqlite-mirror").create(storage.dataFile, process.env.HAK_SQLITE_SHADOW); const saveJson = storage.save; storage.save = (text) => { const r = saveJson(text); if (r === true && shadow) shadow.mirror(text); return r; }; } catch (e) { shadow = null; } }
   const spaths = require("./main/storage-paths").resolve(app.getPath("userData"), storage.readSettings(), "");
   vault = createVault(spaths.docs);
   ocrLib = require("./main/ocr-library").createStore(spaths.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") });
@@ -420,4 +423,4 @@ app.on("before-quit", e => {if(yearBusy)e.preventDefault();});
 app.on("window-all-closed", () => app.quit());
 // Lịch sao lưu (α17): cửa sổ đã đóng (giao diện đã lưu lần cuối ở beforeunload) → sao lưu "khi-dong" nếu dữ liệu đã đổi.
 // will-quit chạy cả khi bấm ✕ lẫn khi app.quit() (tắt máy / cài bản mới).
-app.on("will-quit", () => { if (storage) storage.backupOnClose(); if (ocr) ocr.terminate().catch(() => {}); });
+app.on("will-quit", () => { if (shadow) shadow.close(); if (storage) storage.backupOnClose(); if (ocr) ocr.terminate().catch(() => {}); });
