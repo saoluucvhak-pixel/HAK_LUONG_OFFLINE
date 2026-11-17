@@ -42,6 +42,7 @@
     if (kind !== "template" && !need("export", "xuất dữ liệu ra Excel")) return;
     if (kind !== "template" && formulaErrorsBlock(filename)) return;
     if (kind === "pro" && sheets.length === 1 && proXlsx(filename, sheets[0])) return;
+    if (kind === "template" && styledTemplate(filename, sheets)) return;
     if (!window.XLSX) { alert("Thiếu thư viện Excel"); return; }
     var wb = XLSX.utils.book_new();
     sheets.forEach(function (sh) {
@@ -51,6 +52,15 @@
       XLSX.utils.book_append_sheet(wb, ws, sheetName(sh.name));
     });
     XLSX.writeFile(wb, filename);
+  }
+  /** File mẫu nhập liệu có định dạng (tiêu đề tô màu, cố định dòng đầu, dòng ví dụ nền vàng). Cùng tên sheet/cột/giá trị như bản thô. Trả true nếu đã xử lý. */
+  function styledTemplate(filename, sheets) {
+    if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.templateXlsx) return false;
+    var prepared = sheets.map(function (sh) { return { name: sheetName(sh.name), cols: sh.cols, rows: sh.rows.map(function (r) { var o = {}; sh.cols.forEach(function (c) { o[c] = excelCell(c, r[c]); }); return o; }) }; });
+    window.HAKUi.templateXlsx.build(window.ExcelJS, prepared, { creator: currentUser() }).xlsx.writeBuffer().then(function (buf) {
+      download(filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+    }, function (e) { alert("Không tạo được file mẫu: " + e.message); });
+    return true;
   }
   /** V10: xuất 1 bảng bằng mẫu Excel chuyên nghiệp (tiêu đề công ty, tên báo cáo, ngày lập, dòng tổng, chữ ký, A4, lặp tiêu đề). Trả true nếu đã xử lý. */
   function proXlsx(filename, sh) {
