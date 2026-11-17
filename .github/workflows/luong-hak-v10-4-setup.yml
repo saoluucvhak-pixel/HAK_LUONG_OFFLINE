@@ -24,14 +24,12 @@ on:
 env:
   # Một phiên bản Playwright duy nhất cho mọi job E2E (chỉ là bộ điều khiển Electron khi test, không đi vào bộ cài).
   PLAYWRIGHT_VERSION: '1.64.1'
-permissions:
-  contents: read
-# Bộ E2E cũ tự ghi data.json giữa các lần mở app và đọc data.json ngay sau khi lưu. Ở chế độ SQLite (mặc định từ v2.0.29) hai cờ nghiệm thu này
-# xuất data.json đồng bộ và nhận data.json do bộ test ghi. Kịch bản sqlite-default.cjs đặt chúng về "0" để kiểm chế độ THẬT.
-env:
+  # Bộ E2E cũ tự ghi data.json giữa các lần mở app và đọc data.json ngay sau khi lưu. Ở chế độ SQLite (mặc định từ v2.0.29) hai cờ nghiệm thu này
+  # xuất data.json đồng bộ và nhận data.json do bộ test ghi. Kịch bản sqlite-default.cjs đặt chúng về "0" để kiểm chế độ THẬT.
   HAK_SQLITE_EXPORT_SYNC: "1"
   HAK_SQLITE_ADOPT_EXTERNAL: "1"
-
+permissions:
+  contents: read
 jobs:
   check:
     name: Cú pháp · Lint · Unit/Integration/Regression · Phụ thuộc
