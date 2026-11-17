@@ -394,6 +394,14 @@ app.on("second-instance", () => {
   if (w) { if (w.isMinimized()) w.restore(); w.focus(); }
 });
 app.whenReady().then(() => {
+  // Kiểm tra SQLite trong BẢN ĐÓNG GÓI (CI Windows): HAK_SQLITE_SELFTEST=<file kết quả> → chạy trọn vòng lưu/đóng/mở/đọc trên thư mục tạm, ghi JSON, thoát.
+  if (process.env.HAK_SQLITE_SELFTEST) {
+    const out = process.env.HAK_SQLITE_SELFTEST, fs = require("fs"), os = require("os");
+    let r;
+    try { r = require("./main/sqlite-selftest").run(path.join(os.tmpdir(), "hak-sqlite-selftest-" + process.pid)); } catch (e) { r = { ok: false, error: String(e && e.message || e) }; }
+    fs.writeFileSync(out, JSON.stringify(Object.assign({ packaged: app.isPackaged, electron: process.versions.electron, node: process.versions.node }, r)));
+    app.exit(r.ok ? 0 : 1); return;
+  }
   // Kiểm tra OCR trong BẢN ĐÓNG GÓI (CI Windows): HAK_OCR_SELFTEST=<file kết quả> → đọc thử, ghi JSON, thoát. Không mở dữ liệu, không mở cửa sổ.
   if (process.env.HAK_OCR_SELFTEST) {
     const out = process.env.HAK_OCR_SELFTEST;
@@ -403,8 +411,14 @@ app.whenReady().then(() => {
     });
     return;
   }
-  // Nguồn dữ liệu chính: mặc định data.json. HAK_STORAGE=sqlite bật kho SQLite làm nguồn chính (chưa là mặc định cho tới khi qua nghiệm thu Setup).
-  storage = process.env.HAK_STORAGE === "sqlite" ? require("./main/sqlite-storage").createSqliteStorage(app.getPath("userData")) : createStorage(app.getPath("userData"));
+  // Nguồn dữ liệu chính (từ v2.0.29): SQLite (data.sqlite); data.json là bản xuất dẫn xuất. HAK_STORAGE=json quay về kho data.json như các bản trước.
+  // Nếu runtime không có node:sqlite thì dùng data.json (không mở SQLite hỏng/thiếu một cách âm thầm trên dữ liệu đã chuyển: xem sqlite-storage.js).
+  storage = (() => {
+    const dir = app.getPath("userData");
+    if (process.env.HAK_STORAGE === "json") return createStorage(dir);
+    try { require("node:sqlite"); } catch (e) { return createStorage(dir); }
+    return require("./main/sqlite-storage").createSqliteStorage(dir);
+  })();
   // Bản sao bóng SQLite (mặc định TẮT): bọc storage.save — điểm ghi data.json DUY NHẤT, gồm cả store-save của giao diện lẫn lưu trữ/khôi phục năm trong tiến trình chính. Mirror không bao giờ ném lỗi.
   if (process.env.HAK_SQLITE_SHADOW) { try { shadow = require("./main/sqlite-mirror").create(storage.dataFile, process.env.HAK_SQLITE_SHADOW); const saveJson = storage.save; storage.save = (text) => { const r = saveJson(text); if (r === true && shadow) shadow.mirror(text); return r; }; } catch (e) { shadow = null; } }
   const spaths = require("./main/storage-paths").resolve(app.getPath("userData"), storage.readSettings(), "");

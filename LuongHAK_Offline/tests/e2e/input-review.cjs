@@ -14,9 +14,9 @@ for(const key of ['chamcong','sanluong']) {
  await w.click('#nav button[data-k=luong]');await w.getByRole('button',{name:/Tính lương tháng/}).click();assert.ok(dialogs.some(m=>/Chưa tính lương.*Nháp/.test(m)));
  await w.click('#nav button[data-k='+key+']');
  // Inject disk failure in isolated Electron main; approval must roll back to draft.
- await app.evaluate(()=>{const f=process.getBuiltinModule('fs');globalThis._reviewRename=f.renameSync;f.renameSync=function(){throw Error('SYNTHETIC_DISK_FAILURE');};});
+ await app.evaluate(()=>{const f=process.getBuiltinModule('fs');globalThis._reviewRename=f.renameSync;f.renameSync=function(){throw Error('SYNTHETIC_DISK_FAILURE');};const Q=process.getBuiltinModule('node:sqlite').DatabaseSync.prototype;globalThis._oldExecSql=Q.exec;Q.exec=function(s){if(/^BEGIN/.test(String(s)))throw Error('SYNTHETIC_DISK_FAILURE');return globalThis._oldExecSql.apply(this,arguments);};});
  await w.getByRole('button',{name:'Lưu để tính lương',exact:true}).click();
- await app.evaluate(()=>{process.getBuiltinModule('fs').renameSync=globalThis._reviewRename;delete globalThis._reviewRename;});
+ await app.evaluate(()=>{process.getBuiltinModule('fs').renameSync=globalThis._reviewRename;delete globalThis._reviewRename;process.getBuiltinModule('node:sqlite').DatabaseSync.prototype.exec=globalThis._oldExecSql;});
  assert.ok(IR.changed(read(),key,'2026-09',''));assert.ok(dialogs.some(m=>/Chưa lưu để tính lương/.test(m)));
  await w.getByRole('button',{name:'Lưu để tính lương',exact:true}).click();assert.equal(IR.changed(read(),key,'2026-09',''),false,JSON.stringify(dialogs));assert.doesNotThrow(()=>G.computeKy(read(),'2026-09',{}));
  console.log('PASS '+key+': draft blocks renderer/main payroll; failed save retains draft; retry approves');

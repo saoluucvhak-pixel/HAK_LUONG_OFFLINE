@@ -52,7 +52,7 @@ test("U-SS-04 chuyển hỏng giữa chừng (file nguồn không hợp lệ) �
 test("U-SS-05 data.json bị thay ngoài app → KHÔNG đoán: báo xung đột, từ chối ghi; cất file lạ rồi dùng SQLite", () => {
   const dir = dirOf(), s = createSqliteStorage(dir, opts), d = doc(); s.save(JSON.stringify(d)); s.close();
   fs.writeFileSync(path.join(dir, "data.json"), JSON.stringify({ nhanvien: [{ "Mã NV": "LẠ" }] }));
-  const s2 = createSqliteStorage(dir, opts), r = s2.load(); assert.equal(r.ok, false); assert.match(r.error, /khác với dữ liệu trong data\.sqlite/);
+  const s2 = createSqliteStorage(dir, opts), r = s2.load(); assert.equal(r.ok, false); assert.match(r.error, /khác với dữ liệu trong data\.sqlite/); assert.match(r.error, /Sửa lần cuối: data\.json .* UTC, data\.sqlite .* UTC/);
   assert.match(String(s2.save(JSON.stringify(d))), /khác với dữ liệu trong data\.sqlite/, "không ghi khi đang xung đột");
   const moved = s2.quarantineCorrupt(); assert.match(moved, /^data\.corrupt_.*\.json\.bak$/);
   assert.equal(s2.load().ok, true); assert.deepEqual(JSON.parse(s2.load().text), d); assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, "data.json"), "utf8")), d); s2.close();
@@ -78,12 +78,14 @@ test("U-SS-08 sig đổi theo mỗi lần lưu (để write-policy không dùng 
   const dir = dirOf(), s = createSqliteStorage(dir, opts), d = doc(); s.save(JSON.stringify(d)); const a = s.sig(); d.nhanvien[0]["Họ và tên"] = "Y"; s.save(JSON.stringify(d)); assert.notEqual(s.sig(), a);
   assert.match(String(s.save("không phải json")), /không hợp lệ/); assert.match(String(s.save("[1,2]")), /không hợp lệ/); s.close();
   const db = store.open(path.join(dir, "data.sqlite")); db.exec("PRAGMA user_version = " + (store.SCHEMA_VERSION + 1)); store.close(db);
-  const s2 = createSqliteStorage(dir, opts); assert.throws(() => s2.load(), /mới hơn app/);
+  const s2 = createSqliteStorage(dir, opts), r2 = s2.load(); assert.equal(r2.ok, false); assert.match(r2.error, /mới hơn app/); assert.match(String(s2.save(JSON.stringify(d))), /mới hơn app/, "không ghi đè khi không mở được kho");
 });
 
-test("U-SS-09 mặc định vẫn là data.json: main.js chỉ dùng SQLite khi HAK_STORAGE=sqlite", () => {
+test("U-SS-09 từ v2.0.29 mặc định là SQLite; HAK_STORAGE=json quay về data.json; thiếu node:sqlite thì dùng data.json", () => {
   const src = fs.readFileSync(path.join(__dirname, "../../main.js"), "utf8");
-  assert.ok(src.includes('process.env.HAK_STORAGE === "sqlite" ? require("./main/sqlite-storage").createSqliteStorage(app.getPath("userData")) : createStorage(app.getPath("userData"))'), "mặc định createStorage (data.json)");
+  assert.match(src, /if \(process\.env\.HAK_STORAGE === "json"\) return createStorage\(dir\);/);
+  assert.match(src, /try \{ require\("node:sqlite"\); \} catch \(e\) \{ return createStorage\(dir\); \}/);
+  assert.match(src, /return require\("\.\/main\/sqlite-storage"\)\.createSqliteStorage\(dir\);/);
 });
 
 test("U-SS-10 tiến trình phụ (kho năm) ghi data.json bằng kho JSON → adoptJson đưa vào SQLite; không còn xung đột khi mở lại", () => {
@@ -101,4 +103,9 @@ test("U-SS-11 lỗi ghi SQLite giữa chừng: save trả lỗi, KHÔNG báo th�
   try { assert.match(String(s.save(JSON.stringify(d2))), /SYNTHETIC_DISK_FAILURE/); } finally { cset.applyToDb = real; }
   assert.deepEqual(JSON.parse(s.load().text), d, "bộ nhớ không đi trước đĩa"); s.close();
   const s2 = createSqliteStorage(dir, opts); assert.deepEqual(JSON.parse(s2.load().text), d, "đĩa giữ nguyên trạng thái trước"); assert.equal(s2.save(JSON.stringify(d2)), true); assert.equal(JSON.parse(s2.load().text).nhanvien[0]["Họ và tên"], "Lưu lỗi"); s2.close();
+});
+
+test("U-SS-12 tự kiểm đóng gói: vòng lưu/sửa/đóng/mở/đọc đạt, dọn sạch thư mục tạm", () => {
+  const st = require("../../main/sqlite-selftest.js"), dir = path.join(os.tmpdir(), "hak-selftest-" + process.pid), r = st.run(dir);
+  assert.equal(r.ok, true, JSON.stringify(r)); assert.ok(/^\d+\.\d+/.test(r.sqliteVersion)); assert.ok(r.steps.length >= 6 && r.steps.every((x) => x.pass)); assert.ok(!fs.existsSync(dir));
 });

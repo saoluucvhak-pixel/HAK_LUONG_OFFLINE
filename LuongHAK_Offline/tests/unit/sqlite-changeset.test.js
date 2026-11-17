@@ -70,10 +70,10 @@ test("U-CS-05 mirror: lỗi không ném ra; dữ liệu khớp ở chế độ v
   assert.equal(fs.readFileSync(path.join(dir, "back.json"), "utf8"), JSON.stringify(cur));
 });
 
-test("U-CS-06 chế độ bóng TẮT mặc định: main.js chỉ tạo mirror khi có HAK_SQLITE_SHADOW", () => {
+test("U-CS-06 bản sao bóng TẮT mặc định: main.js chỉ tạo mirror khi có HAK_SQLITE_SHADOW", () => {
   const src = fs.readFileSync(path.join(__dirname, "../../main.js"), "utf8");
   assert.match(src, /if \(process\.env\.HAK_SQLITE_SHADOW\) \{ try \{ shadow = require\("\.\/main\/sqlite-mirror"\)/);
   assert.match(src, /const saveJson = storage\.save; storage\.save = \(text\) => \{ const r = saveJson\(text\); if \(r === true && shadow\) shadow\.mirror\(text\)/, "bọc storage.save (điểm ghi duy nhất)");
   assert.doesNotMatch(src.slice(src.indexOf('ipcMain.on("store-save"'), src.indexOf('ipcMain.on("store-info"')), /shadow/, "store-save không gọi mirror riêng (tránh ghi hai lần)");
-  assert.doesNotMatch(src, /sqlite-store|sqlite-migrate|node:sqlite/, "main.js không nạp kho trực tiếp");
+  assert.doesNotMatch(src, /sqlite-store\b|sqlite-migrate|sqlite-changeset/, "main.js không nạp lớp thấp của kho trực tiếp (chỉ qua sqlite-storage / sqlite-mirror)");
 });

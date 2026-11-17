@@ -3,6 +3,13 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.29] — 18/11/2026
+- **Kho dữ liệu chính chuyển sang SQLite (`data.sqlite`)**, mặc định BẬT. Lần mở đầu: tự sao lưu `truoc-chuyen-sqlite`, chuyển `data.json` vào SQLite, đối chiếu từng ký tự rồi mới dùng; hỏng giữa chừng thì `data.json` giữ nguyên.
+- `data.json` thành bản xuất (ghi lại sau tối đa 3 giây, khi đóng app và ngay trước mỗi sao lưu/Full Backup) nên sao lưu, Full Backup, kho năm và công cụ cũ vẫn dùng như trước. `HAK_STORAGE=json` quay về kho `data.json`.
+- Ghi bền vững theo giao dịch SQLite (WAL, synchronous FULL); bị kill ngay sau khi lưu vẫn không mất. `data.json` bị sửa/thay ngoài app thì app báo xung đột kèm ngày giờ hai file, không tự đoán.
+- Hiệu năng: lưu một lần sửa nhỏ chậm hơn kho JSON khoảng 1,5 lần ở 5.000 nhân viên (giao diện vẫn gửi cả tài liệu); đổi lại ghi nguyên tử theo giao dịch. Dung lượng ổ đĩa tăng (SQLite + data.json xuất).
+- Kiểm thử mới: `sqlite-storage`, `sqlite-changeset`, `sqlite-migrate`, E2E chế độ thật `sqlite-default.cjs` (nâng cấp từ data.json, kill sau khi lưu, xung đột, quay lui) và tự kiểm SQLite trong bản đóng gói Windows.
+
 ## [2.0.28] — 18/11/2026
 - Cấp phát: thu hồi/đổi cỡ có Ngày giao dịch do người dùng chọn (mặc định ngày Việt Nam); hồ sơ cũ quy đổi UTC → giờ Việt Nam khi xem/lọc, không sửa chứng từ cũ.
 - F01: bộ lọc Phòng ban của Thưởng/Trừ, Tạm ứng, Suất cơm và Chấm công theo tổ TẠI NGÀY của từng dòng (trước đây dùng tổ hiện tại nên chứng từ kỳ cũ biến mất khi lọc tổ cũ); không còn phụ thuộc quyền xem lương hay việc tính lương thành công; thiếu căn cứ lịch sử thì ghi "(Không có)", không gán tổ hiện tại.
