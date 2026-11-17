@@ -7,6 +7,9 @@
     var out = ck.items.map(function (x) { return { id: "KT-" + ("0" + x.id).slice(-2), muc: KT_SEV[x.trangThai] || "INFO", ten: x.ten, chiTiet: x.chiTiet || [], goto: KT_GOTO[x.id] || null }; });
     INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN)/.test(i.msg); }).forEach(function (i, n) { out.push({ id: "DL-" + (n + 1), muc: "ERROR", ten: "Lỗi dữ liệu nghiêm trọng (chặn chốt kỳ)", chiTiet: [i.msg], goto: ["backup"] }); });
     if (kq.canhbao.length) out.push({ id: "CB-01", muc: "WARNING", ten: "Cảnh báo dữ liệu khi tính lương (" + kq.canhbao.length + ")", chiTiet: kq.canhbao.slice(), goto: ["luong"] });
+    (kq.loiTyLeBH || []).forEach(function (message, i) {
+      out.push({ id: "BH-" + (i + 1), muc: "ERROR", ten: "Thiếu tỷ lệ bảo hiểm người lao động — chặn chốt kỳ", chiTiet: [message], goto: ["dm", "dm_baohiem"] });
+    });
     (kq.inputErrors || []).forEach(function (message, i) {
       var match = /^(chamcong|sanluong|bandam) dòng (\d+):/.exec(message);
       if (match) out.push({ id: "NL-" + (i + 1), muc: "ERROR", ten: "Lỗi dữ liệu đầu vào",

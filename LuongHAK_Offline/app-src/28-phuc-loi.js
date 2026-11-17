@@ -61,10 +61,38 @@
         code.appendChild(h("option", { value: value, text: value }));
       });
       var from = benefitField("Hiệu lực từ", "date", HRM.today());
+      // Phiên bản tiêu chuẩn có hiệu lực tại ngày bắt đầu áp dụng: hiện mặt hàng, định mức và khoảng hiệu lực TRƯỚC khi lưu.
+      // Cùng hàm kiểm tra (C.benefits.standardProblem) với tiến trình chính, nên giao diện không cho qua điều mà main sẽ từ chối.
+      var preview = h("div", { "data-benefit-preview": "1" });
+      function previewRows(rule) { return rule.items.map(function (item) { return { "Mặt hàng": item.name, "Đơn vị": item.unit, "Định mức/tháng": item.quantity }; }); }
+      function rangeText(rule) { return "từ " + rule.from + " đến " + (rule.until || "chưa giới hạn"); }
+      function showPreview() {
+        var found = code.value && from.input.value ? C.benefits.standardAt(db, code.value, from.input.value) : null;
+        preview.textContent = "";
+        if (!found) return;
+        var problem = C.benefits.standardProblem(db, code.value, from.input.value);
+        if (problem) { preview.appendChild(h("p", { class: "warn", text: problem })); if (found.rule) preview.appendChild(h("p", { class: "hint", text: "Phiên bản gần nhất: " + rangeText(found.rule) + "." })); return; }
+        preview.appendChild(h("p", { class: "hint", text: "Tiêu chuẩn " + code.value + " có hiệu lực " + rangeText(found.rule) + ":" }));
+        preview.appendChild(simpleTable(previewRows(found.rule)));
+      }
+      code.addEventListener("change", showPreview); from.input.addEventListener("input", showPreview); from.input.addEventListener("change", showPreview);
       body.appendChild(h("div", { class: "bar" }, [code, from.field, btn("Gắn tiêu chuẩn", "pri", function () {
         var row = { employee: ma, contract: contract, code: code.value, from: from.input.value };
-        benefitSave("benefitAssignments", (db.benefitAssignments || []).concat(row), "Gắn tiêu chuẩn phúc lợi", ma + " · " + contract + " · " + code.value, refresh);
+        if (!row.code || !row.from) { alert("Chọn mã tiêu chuẩn và ngày bắt đầu áp dụng."); return; }
+        var problem = C.benefits.standardProblem(db, row.code, row.from);
+        if (problem) { showPreview(); alert(problem); return; }
+        var rule = C.benefits.standardAt(db, row.code, row.from).rule;
+        modal("Xác nhận gắn tiêu chuẩn", h("div", {}, [
+          h("p", { text: ma + " · hợp đồng " + contract + " · tiêu chuẩn " + row.code + " áp dụng từ " + row.from + "." }),
+          h("p", { class: "hint", text: "Phiên bản có hiệu lực " + rangeText(rule) + (rule.until ? ". Hết hạn thì ngừng áp dụng, không tự quay lại định mức cũ." : ".") }),
+          simpleTable(previewRows(rule))
+        ]), function (close) {
+          return [btn("Hủy", "", close), btn("Lưu", "pri", function () {
+            benefitSave("benefitAssignments", (db.benefitAssignments || []).concat(row), "Gắn tiêu chuẩn phúc lợi", ma + " · " + contract + " · " + row.code, function () { close(); refresh(); });
+          })];
+        }, { wide: true });
       })]));
+      body.appendChild(preview); showPreview();
     }
     return body;
   }

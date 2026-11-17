@@ -22,6 +22,7 @@ function computeKy(db, ky, opts) {
   const carry = CARRY.prepare(db, ky, sp.list, slK.rows, opts.bu, { quyChe: opts.quyChe || "2026" });
   const kq = E.tinhBangLuong(Object.assign({}, carry.data, { bandam: bdK.rows }), p.nam, p.thang, opts.bu === undefined ? false : opts.bu, { quyChe: opts.quyChe || "2026", suppressProduction: carry.suppress });
   CARRY.annotate(kq, carry.pay);
+  kq.loiTyLeBH = GATE.insuranceRateIssues({ kq, staff: carry.staff, catalog: E.hieuLuc(db.dm_baohiem, "Mã bảo hiểm", p.nam, p.thang) }); // cùng kiểm tra với renderer, không tin kết quả renderer gửi
   const staffById = Object.fromEntries(carry.staff.map((x) => [x["Mã nhân viên"], x]));
   kq.bangluong.forEach((row) => {
     const x = staffById[row["Mã NV"]] || {};
