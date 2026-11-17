@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.24] — 17/11/2026
+- File Excel mẫu nhập liệu (nút "Tải file mẫu") có định dạng: tiêu đề tô màu, cố định dòng đầu, bộ lọc, độ rộng cột theo nội dung, dòng ví dụ nền vàng kèm ghi chú xóa, cột tiền có dấu phân cách nghìn, sheet Hướng dẫn tô màu. Chỉ đổi trình bày: tên sheet, tên cột và giá trị mẫu giữ nguyên nên nhập lại vẫn đọc đúng. Có phương án dự phòng nếu thiếu ExcelJS.
+
 ## [2.0.23] — 17/11/2026
 - Bảo hiểm: ô tỷ lệ BHXH/BHYT/BHTN phía người lao động để TRỐNG ở mã bảo hiểm đang dùng trong kỳ (có người có căn cứ đóng) nay chặn chốt kỳ, nêu rõ mã, tên cột và người bị ảnh hưởng; main process tự tính lại. Khai 0 hoặc 0% vẫn hợp lệ (0đ). Danh mục không dùng trong kỳ không chặn. Công thức, cách đọc tỷ lệ, ngưỡng công, truy thu giữ nguyên.
 - Đối chiếu bảng lương Excel: Excel có mã NV nhưng không khớp thì vào mục "Mã NV không khớp" kể cả khi họ tên trùng duy nhất; chỉ khớp theo họ tên khi Excel để trống mã và tên khớp đúng một người. Hiện số dòng Excel, mã, họ tên; báo tên trùng nhiều người và mã trùng trong file; giữ mã có số 0 đầu.
