@@ -6,29 +6,11 @@ Bảng duy nhất gom hai nguồn: các mục **Q-xx chưa có dấu ✅** trong
 
 ## A. Câu hỏi Q-xx đang mở
 
-| ID | Chủ đề | Câu hỏi | Hiện tại (app đang làm) | Ai trả lời |
-|---|---|---|---|---|
-| Q-02 | Tổng công | "Tổng công" có **gồm công tăng ca** không? Ảnh hưởng ngưỡng BH, phụ cấp theo công, hỗ trợ cơ giới. | Có (giữ như bản Google gốc). | Kế toán tiền lương |
-| Q-03 | Thuế | Tiền cơm: loại trừ **toàn bộ** khỏi thu nhập chịu thuế hay chỉ đến mức quy định? | Loại trừ toàn bộ. | Kế toán / thuế |
-| Q-05 | Lương âm | Khoản trừ vượt thu nhập (thực lĩnh âm): chuyển sang kỳ sau, thu hồi tiền mặt hay xóa? | Để thực lĩnh 0 và cảnh báo; ghi cột "Còn thiếu (thực lĩnh âm)". | Kế toán tiền lương |
-| Q-08 | Sản lượng | Một phiếu cân nhiều người: chia theo tỷ lệ, khối lượng, số công, hệ số hay tổ? | Đã chạy theo R-66/R-73 (chia theo tổ và công BT). Mục này cần đóng lại nếu chủ sở hữu xác nhận R-66/R-73 thay thế hoàn toàn. | Chủ sở hữu |
-| Q-09 | Phụ cấp | Ngày công tác có nhãn (QC…) trên dòng CL/PN có được phụ cấp công tác không? | Có (mọi dòng có nhãn). | Kế toán tiền lương |
-| Q-10 | Thuế | Khấu trừ vãng lai 10%: áp dụng mọi khoản hay chỉ khi mỗi lần chi đạt ngưỡng theo quy định hiện hành? | Áp dụng mọi khoản. | Kế toán / thuế |
-| Q-11 | Bảo mật | Bản Google Apps Script (GAS-01): đổi quyền truy cập web app sang chỉ người trong tổ chức hoặc danh sách email? | Đang mở cho mọi người có link. | Chủ sở hữu |
-| Q-17 | Pháp lý | Tiền làm thêm giờ: hệ số tăng ca đang khai báo (ví dụ 0,5) và việc công tăng ca nằm trong *Tổng công* có bảo đảm mức tối thiểu của Bộ luật Lao động không? | Giữ nguyên công thức bảng lương gốc. | Kế toán / pháp chế |
+Không còn. Ngày 17/11/2026 chủ sở hữu trả lời **"giữ nguyên theo app"** cho Q-02, Q-03, Q-05, Q-08, Q-09, Q-10, Q-11, Q-17: giữ hành vi hiện tại, không đổi công thức (đã đánh dấu ✅ trong `BUSINESS_RULES.md` §2).
 
-## B. Bốn điểm lệch giữa app và Excel gốc (đối chiếu T9/2025 và T11/2025)
+## B. Bốn điểm lệch giữa app và Excel gốc
 
-Nguồn: `LuongHAK_Offline/docs/V9_PAYROLL_RECONCILIATION.md`, nhóm **E — cần quyết định của quản lý**. Đây là các điểm app và Excel tính **khác nhau**; cần chọn cách nào là đúng.
-
-| # | Điểm lệch | Excel gốc làm | App đang làm | Ảnh hưởng | Ai quyết |
-|---|---|---|---|---|---|
-| E1 | Thuế TNCN trong "Thu nhập còn lại" | **Không** khấu trừ thuế TNCN (ví dụ nhân viên lương 30 triệu). | Có khấu trừ. | Tiền thực lĩnh của người có thuế. | Quản lý / kế toán |
-| E2 | KPCĐ khi tính thu nhập chịu thuế | Không đồng nhất: T9 không trừ, T11 có trừ. | Có trừ (`engine.js`: chịu thuế = tổng thu nhập − BH NLĐ − KPCĐ NLĐ − tiền cơm). | Số thuế TNCN. | Kế toán / thuế |
-| E3 | Truy thu BH khi chưa đủ công | Vừa trừ phần người lao động, vừa truy thu phần doanh nghiệp. | Theo R-57 / R-60 (chủ sở hữu đã chọn phương án A). Cần xác nhận lại có trùng cách Excel không. | Số BH trừ và truy thu. | Kế toán tiền lương |
-| E4 | Công chuẩn của mã CĐ | Hai bên dùng hai giá trị khác nhau: 25 và 30 ngày (báo cáo đối chiếu không ghi rõ bên nào dùng giá trị nào — cần kiểm tra Danh mục Mã lương và file Excel). | Xem cột bên trái. | Báo cáo đối chiếu ghi không ảnh hưởng tiền. | Kế toán tiền lương |
-
-Các nhóm khác trong cùng báo cáo đối chiếu **không** cần câu trả lời mới: B (khác biệt quy chế đã duyệt, R-73), C (1 nhân viên lệch thuế ~3,2 nghìn đồng do hồ sơ người phụ thuộc, là việc sửa dữ liệu), D (quy định pháp lý theo kỳ, cần người có thẩm quyền xác nhận khi cần).
+Đã đóng ngày 17/11/2026: chủ sở hữu chọn **giữ nguyên theo app** cho E1 (thuế TNCN trong "Thu nhập còn lại"), E2 (KPCĐ khi tính thu nhập chịu thuế), E3 (truy thu BH theo R-57/R-60) và E4 (công chuẩn mã CĐ). Chi tiết gốc xem `LuongHAK_Offline/docs/V9_PAYROLL_RECONCILIATION.md` phần E.
 
 ## C. Việc dữ liệu (không phải câu hỏi quy tắc) cần bên vận hành xử lý
 
