@@ -369,6 +369,11 @@
     return kq > 0 ? kq : 26;
   }
 
+  function mealKind(row, quantity, attendance, day) {
+    if (!(quantity > 0 && attendance && attendance.comDays && attendance.comDays.has(day))) return "separate";
+    return /^(có|1|true)$/i.test(String(row["Suất bổ sung"] || "").trim()) ? "extra" : "pending";
+  }
+
   function tongHopChamCong(list, nam, thang, invalidDays) {
     var maxDay = new Date(nam, thang, 0).getDate();
     var res = {};
@@ -394,7 +399,11 @@
             if (btLabels.indexOf(t.nhan) < 0) btLabels.push(t.nhan);
           }
         }
-        if (ht === "CC" && t.soCong > 0) (r.comDays || (r.comDays = new Set())).add(d); // Công chuẩn 2 / 500k chỉ xét dòng công BT
+        if (ht === "CC") {
+          var ccByDay = r.congComTheoNgay || (r.congComTheoNgay = {});
+          ccByDay[d] = (ccByDay[d] || 0) + t.soCong;
+          if (t.soCong > 0) (r.comDays || (r.comDays = new Set())).add(d);
+        }
         if (!laTC && laCong) {
           var dt = new Date(nam, thang - 1, d);
           if (dt.getMonth() === thang - 1 && dt.getDay() === 0) r.congChuNhat += t.soCong;
@@ -495,8 +504,7 @@
       var ma = r["Mã NV"], date = ky(r, "Ngày"), quantity = num(r["Số suất cơm"]);
       if (!ma || !date || date.y !== nam || date.m !== thang) return;
       var mealAttendance = cc[ma];
-      if (quantity > 0 && mealAttendance && mealAttendance.comDays && mealAttendance.comDays.has(date.d) &&
-          !/^(có|1|true)$/i.test(String(r["Suất bổ sung"] || "").trim())) {
+      if (mealKind(r, quantity, mealAttendance, date.d) === "pending") {
         loiDauVao.push(ma + ": " + date.d + "/" + thang + " có công CC và dòng Suất cơm chưa đánh dấu Suất bổ sung. Kiểm tra và bỏ dòng trùng hoặc đánh dấu Có.");
         return;
       }
@@ -938,6 +946,6 @@
   }
 
   var ENGINE_VERSION = "1.8.0"; // 1.8.0: quy chế lương HAK Group 2026 (opts.quyChe "2026", R-68 — C1…C10); không bật = số như 1.7.0 · 1.5.0: Q-22 áp dụng phụ lục từ ngày hiệu lực · 1.6.0: Q-19 "Phân bổ PB" khi điều chuyển (không dùng = số tiền giống 1.4.0) · 1.7.0: thêm cách bù "daihiep" / "to" (công cụ HAK; 2 cách cũ giữ nguyên số)
-  var api = { ENGINE_VERSION: ENGINE_VERSION, money: money, tinhBangLuong: tinhBangLuong, tinhThueLuyTien: tinhThueLuyTien, tinhThueTruNhanh: tinhThueTruNhanh, taxResolver: taxResolver, thuThuTNCN: thuThuTNCN, congChuan: congChuan, congChuanTheoMa: congChuanTheoMa, ngayGiamTru: ngayGiamTru, tachCong: tachCong, tongHopChamCong: tongHopChamCong, hieuLuc: hieuLuc, num: num, pct: pct, bacThang: bacThang, chiTietBuNgayDaiHiep: chiTietBuNgayDaiHiep, quyCheBuChinhThuc: quyCheBuChinhThuc };
+  var api = { ENGINE_VERSION: ENGINE_VERSION, money: money, tinhBangLuong: tinhBangLuong, tinhThueLuyTien: tinhThueLuyTien, tinhThueTruNhanh: tinhThueTruNhanh, taxResolver: taxResolver, thuThuTNCN: thuThuTNCN, congChuan: congChuan, congChuanTheoMa: congChuanTheoMa, ngayGiamTru: ngayGiamTru, tachCong: tachCong, tongHopChamCong: tongHopChamCong, mealKind: mealKind, hieuLuc: hieuLuc, num: num, pct: pct, bacThang: bacThang, chiTietBuNgayDaiHiep: chiTietBuNgayDaiHiep, quyCheBuChinhThuc: quyCheBuChinhThuc };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.LuongEngine = api;
 })(typeof window !== "undefined" ? window : this);
