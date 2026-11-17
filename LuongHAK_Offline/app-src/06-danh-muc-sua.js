@@ -125,7 +125,7 @@
   function bandamEntryForm(ri, after, initialMode) {
     if (!need("input.edit")) return;
     var row = ri == null ? null : db.bandam[ri], token = row ? JSON.stringify(row) : "", body = h("div"), f = {};
-    var mode = h("select", { "aria-label": "Cách phân bổ bơm dăm" }, [h("option", { value: "direct", text: "Trực tiếp theo Mã NV" }), h("option", { value: "team", text: "Chia theo tổ / phòng ban" })]);
+    var mode = h("select", { "aria-label": "Cách phân bổ Ban dăm xuất hàng" }, [h("option", { value: "direct", text: "Trực tiếp theo Mã NV" }), h("option", { value: "team", text: "Chia theo tổ / phòng ban" })]);
     mode.value = row ? (row["Mã NV"] ? "direct" : "team") : initialMode || "team"; mode.disabled = true;
     body.appendChild(h("div", { class: "fld" }, [h("label", { text: "Cách phân bổ" }), mode]));
     body.appendChild(h("p", { class: "hint", text: "Trực tiếp: số xe của dòng này giao cho đúng nhân viên đã chọn, không chia lại cho tổ. Theo tổ: chia theo người có mặt và NV vắng như hiện tại. Hồ sơ và đơn giá kỳ lương vẫn được áp dụng." }));
@@ -134,11 +134,11 @@
       body.appendChild(h("div", { class: "fld" }, [h("label", { text: col === "KL hàng (Tấn)" ? "Số xe được giao" : col }), f[col]]));
     });
     var direct = h("div", { class: "fld" }), team = h("div");
-    f["Mã NV"] = h("select", { "aria-label": "Nhân viên nhận bơm dăm" }, [h("option", { value: "", text: "— Chọn nhân viên —" })].concat(db.nhanvien.map(function (n) { return h("option", { value: n["Mã NV"], text: n["Mã NV"] + " — " + (n["Họ và tên"] || "") }); })));
+    f["Mã NV"] = h("select", { "aria-label": "Nhân viên nhận Ban dăm xuất hàng" }, [h("option", { value: "", text: "— Chọn nhân viên —" })].concat(db.nhanvien.map(function (n) { return h("option", { value: n["Mã NV"], text: n["Mã NV"] + " — " + (n["Họ và tên"] || "") }); })));
     f["Mã NV"].value = row && row["Mã NV"] || "";
     direct.appendChild(h("label", { text: "Nhân viên nhận phiếu" })); direct.appendChild(f["Mã NV"]); body.appendChild(direct);
-    f["Mã phòng ban"] = h("select", { "aria-label": "Tổ nhận bơm dăm" }, [h("option", { value: "", text: "— Chọn tổ —" })].concat((db.dm_phongban || []).map(function (r) { return h("option", { value: r["Mã phòng ban"], text: r["Mã phòng ban"] + " — " + (r["Tên phòng ban"] || "") }); })));
-    f["Mã phòng ban"].value = row && row["Mã phòng ban"] || ""; f["NV vắng"] = h("input", { class: "i", "aria-label": "NV vắng bơm dăm", value: row && row["NV vắng"] || "" });
+    f["Mã phòng ban"] = h("select", { "aria-label": "Tổ nhận Ban dăm xuất hàng" }, [h("option", { value: "", text: "— Chọn tổ —" })].concat((db.dm_phongban || []).map(function (r) { return h("option", { value: r["Mã phòng ban"], text: r["Mã phòng ban"] + " — " + (r["Tên phòng ban"] || "") }); })));
+    f["Mã phòng ban"].value = row && row["Mã phòng ban"] || ""; f["NV vắng"] = h("input", { class: "i", "aria-label": "NV vắng Ban dăm xuất hàng", value: row && row["NV vắng"] || "" });
     team.appendChild(h("div", { class: "fld" }, [h("label", { text: "Tổ / phòng ban" }), f["Mã phòng ban"]])); team.appendChild(h("div", { class: "fld" }, [h("label", { text: "NV vắng" }), f["NV vắng"]])); body.appendChild(team);
     var drawMode = function () { direct.style.display = mode.value === "direct" ? "" : "none"; team.style.display = mode.value === "team" ? "" : "none"; }; mode.addEventListener("change", drawMode); drawMode();
     modal((row ? "Sửa" : "Thêm") + " phiếu Ban dăm xuất hàng", body, function (close) { return [btn("Hủy", "", close), btn("Lưu phiếu Ban dăm xuất hàng", "pri", function () {
