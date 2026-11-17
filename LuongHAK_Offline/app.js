@@ -4044,19 +4044,30 @@
   }
   /** Thanh 7 bước Tính lương (V10.1): trạng thái THẬT tính từ dữ liệu (core/payroll-steps.js) — xong / đang ở / bị chặn / chưa tới. */
   var STEP_CACHE = { key: "", v: null };
+  /** Trạng thái duyệt bảng lương của kỳ (chỉ chế độ phân quyền): null | "chua_gui" | "cho_duyet" | "het_hieu_luc" | "da_duyet". Cùng phép so mã băm với savePayrollApproval(). */
+  function approvalStateIn(ky) {
+    if (C.workflowApproval.mode(db) !== "roles") return null;
+    var t = C.workflowApproval.ticket(db, ky);
+    if (!t) return "chua_gui";
+    try {
+      if (t.digest !== approvalDigest(ky, st.kq) && t.digest !== approvalDigest(ky, st.kq, true)) return "het_hieu_luc";
+    } catch (e) { return "het_hieu_luc"; }
+    return t.approver ? "da_duyet" : "cho_duyet";
+  }
   function luongStepsIn(chot) {
     var ky = kyStr(), daTinh = !!(st.kq && !st.kqStale && st.kq.ky === ky);
     var key = [ky, dbRev, daTinh ? 1 : 0, chot ? 1 : 0, (db.ttluong || []).length].join("|");
     if (STEP_CACHE.key === key) return STEP_CACHE.v;
-    var loiDauVao = 0, loiChan = 0, tt = { soNV: 0, soCT: 0, nguoiDaTraDu: 0 };
+    var loiDauVao = 0, loiChan = 0, duyet = null, tt = { soNV: 0, soCT: 0, nguoiDaTraDu: 0 };
     if (!chot) {
       try { loiDauVao = INT.check(db).filter(function (x) { return x.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN)/.test(x.msg); }).length; } catch (e) { loiDauVao = 1; }
       if (daTinh) { try { loiChan = GATE.blockers(st.kq).length; } catch (e) { loiChan = 1; } }
+      if (daTinh && !loiChan && !loiDauVao) duyet = approvalStateIn(ky);
     } else {
       var os = PLG.outstanding(chot.kq.bangluong || [], db.ttluong || [], ky);
       tt = { soNV: os.length, soCT: (db.ttluong || []).filter(function (l) { return l["Kỳ"] === ky && l["Trạng thái"] !== PLG.TT.HUY; }).length, nguoiDaTraDu: os.filter(function (o) { return o.thucLinh > 0 ? o.daTra >= o.thucLinh : true; }).length };
     }
-    var v = C.payrollSteps.compute({ chot: !!chot, daTinh: daTinh, loiDauVao: loiDauVao, loiChan: loiChan, thanhToan: tt });
+    var v = C.payrollSteps.compute({ chot: !!chot, daTinh: daTinh, loiDauVao: loiDauVao, loiChan: loiChan, duyet: duyet, thanhToan: tt });
     STEP_CACHE = { key: key, v: v }; return v;
   }
   function luongSteps(chot) {

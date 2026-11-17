@@ -111,3 +111,22 @@ test("classify: ngưỡng làm tròn khác nhau cho tiền (≤1đ) và công/t�
   assert.equal(RC.classify("Công BT", false, 0.01), "Khác làm tròn");
   assert.notEqual(RC.classify("Công BT", false, 0.02), "Khác làm tròn");
 });
+
+// Ô Excel dạng CHỮ: số tiền "500.000" phải ra 500000, không phải 500 (bản cũ chỉ bỏ dấu phẩy). Đọc theo cùng quy tắc engine.js.
+test("num: ô chữ đọc đúng theo loại chỉ tiêu, khớp engine.js (tiền: money, còn lại: num)", () => {
+  const E = require("../../engine.js");
+  const cases = ["1.234,5", "1,234.5", "1.500.000", "1,500,000", "1234,5", "0,175", "12,50", "1.250", "1,250", "28.5", "1.5", "1.234", "12.345,67", "500.000", "-1.200,5", "26,5", "500000", " 1 500 000 ", "1.500.000đ", "12,345", "0.08", "30"];
+  for (const c of cases) {
+    assert.equal(RC.num(c, true), E.money(c), "tiền: " + JSON.stringify(c));
+    assert.equal(RC.num(c, false), E.num(c), "số: " + JSON.stringify(c));
+  }
+  assert.equal(RC.num("500.000", true), 500000); assert.equal(RC.num("0,175", false), 0.175); assert.equal(RC.num("1.234,5", true), 1234.5);
+  assert.equal(RC.num(5000000, true), 5000000, "ô số thật giữ nguyên"); assert.equal(RC.num("", true), null); assert.equal(RC.num(null, false), null);
+  assert.equal(RC.num("abc", true), null, "không đọc được → null, không giả vờ là 0");
+});
+test("parseSheet: cột tiền dạng chữ đọc theo tiền, cột công đọc theo số thập phân", () => {
+  const sheet = [["Mã NV", "Họ và tên", "Công BT", "Thực lĩnh", "Tiền tăng ca"], ["NV001", "Nguyễn Văn A", "26,5", "5.250.000", "1.234,5"]];
+  const r = RC.parseSheet(sheet);
+  assert.deepEqual(r.rows[0].values, { congBT: 26.5, thucLinh: 5250000, tienTangCa: 1234.5 });
+});
+

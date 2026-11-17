@@ -23,3 +23,16 @@ test("U-V101-STEP-04 đã chốt: bước 1-5 xong; thanh toán 'dang' đến kh
   x = st({ chot: true, thanhToan: { soNV: 10, soCT: 3, nguoiDaTraDu: 10 } }); assert.equal(x[5], "xong");
   x = st({ chot: true, thanhToan: { soNV: 0, soCT: 0, nguoiDaTraDu: 0 } }); assert.equal(x[5], "dang", "0 nhân viên không được coi là đã thanh toán xong");
 });
+test("U-V101-STEP-05 chế độ phân quyền: thanh bước nói rõ cần duyệt trước khi chốt, không đổi trạng thái các bước", () => {
+  const base = { chot: false, daTinh: true, loiDauVao: 0, loiChan: 0 }, plain = S.compute(base);
+  assert.match(plain[3].ly, /có thể chốt/); assert.equal(plain[4].ly, "", "không bật chế độ phân quyền: giữ nguyên lời cũ");
+  for (const duyet of ["chua_gui", "cho_duyet", "het_hieu_luc", "da_duyet"]) {
+    const r = S.compute({ ...base, duyet });
+    assert.deepEqual(r.map((x) => x.trangThai), plain.map((x) => x.trangThai), "trạng thái không đổi: " + duyet);
+    assert.ok(r[3].ly.includes(S.DUYET[duyet]) && r[4].ly === S.DUYET[duyet], duyet);
+  }
+  assert.doesNotMatch(S.compute({ ...base, duyet: "cho_duyet" })[3].ly, /có thể chốt/);
+  assert.equal(S.compute({ ...base, loiChan: 2, duyet: "cho_duyet" })[4].ly, "", "còn lỗi chặn: không nói chuyện duyệt");
+  assert.equal(S.compute({ chot: true, duyet: "cho_duyet", thanhToan: { soNV: 1, soCT: 1, nguoiDaTraDu: 1 } })[4].ly, "");
+});
+
