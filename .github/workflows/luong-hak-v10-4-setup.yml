@@ -196,6 +196,10 @@ jobs:
         run: node tests/e2e/bandam-direct.cjs
         env:
           E2E_SHOTS: tests/e2e/screenshots
+      - name: Verify dispensing end to end (roles mode, transfer, recall, reports, backup restore)
+        run: node tests/e2e/capphat.cjs
+        env:
+          E2E_SHOTS: tests/e2e/screenshots
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v7

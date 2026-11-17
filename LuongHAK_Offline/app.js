@@ -6740,7 +6740,7 @@
     }
     if (doc && doc.status === "draft") {
       if (canConfirm) bar.appendChild(btn("Xác nhận cấp phát", "pri", function () { cpTransition(doc, { status: "issued", reviewer: me, confirmedAt: new Date().toISOString() }, "Xác nhận cấp phát"); }));
-      else if (!d) bar.appendChild(h("span", { class: "hint", style: "margin:0", text: mode === "roles" ? "Cần người có quyền xác nhận khác người lập." : "Cần quyền Quản trị để xác nhận." }));
+      else bar.appendChild(h("span", { class: "hint", "data-cp-confirm-hint": "1", style: "margin:0", text: mode === "roles" ? "Cần người có quyền xác nhận khác người lập." : "Cần quyền Quản trị để xác nhận." }));
       if (can("hr.edit") || canConfirm) bar.appendChild(btn("Hủy phiếu nháp", "ghost", function () {
         askText("Hủy phiếu nháp " + doc.id, "Ghi rõ lý do hủy.", { label: "Lý do", required: true }, function (reason) { cpTransition(doc, { status: "recalled", recalledBy: me, reason: reason }, "Hủy phiếu nháp"); });
       }));
