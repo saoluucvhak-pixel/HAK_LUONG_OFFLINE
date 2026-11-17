@@ -249,7 +249,7 @@
     }
 
     function saveWorkflowRows(table, rows, action, detail) {
-      if (!["benefitStandards", "benefitAssignments", "benefitIssues", "productionAttendance"].includes(table)) return deny("table", "Bảng nghiệp vụ không hợp lệ.");
+      if (!["benefitStandards", "benefitAssignments", "benefitIssues", "benefitPpeItems", "benefitAdjustments", "productionAttendance"].includes(table)) return deny("table", "Bảng nghiệp vụ không hợp lệ.");
       return writeBatch([table], function (current) {
         current[table] = rows;
         ctx.audit(action, detail);
