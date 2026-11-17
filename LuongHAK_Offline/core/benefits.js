@@ -65,6 +65,46 @@
     return totals;
   }
 
+  /**
+   * Báo cáo phúc lợi tháng theo (nhân viên, mặt hàng): định mức còn hiệu lực + số ĐÃ CẤP theo phiếu đã xác nhận (status "issued";
+   * phiếu nháp và phiếu đã thu hồi không cộng). Mặt hàng đã từng cấp trong tháng nhưng nay không còn định mức hiệu lực (tiêu chuẩn
+   * bị thay thế/hết hạn) vẫn có dòng với số đã cấp và ghi chú NO_STANDARD_NOTE — số liệu đã cấp không bị mất.
+   * Mỗi dòng: { employee, name, code, itemName, unit, allowance, given, remaining, over, docs: [mã phiếu], note }.
+   */
+  const NO_STANDARD_NOTE = "Không còn định mức hiệu lực";
+  function monthlyReport(db, period) {
+    const given = new Map(), docs = new Map();
+    (db.benefitIssues || []).forEach(doc => {
+      if (doc.period !== period || doc.status !== "issued") return;
+      (doc.lines || []).forEach(line => {
+        const key = JSON.stringify([line.employee, line.item]);
+        given.set(key, (given.get(key) || 0) + line.quantity);
+        const list = docs.get(key) || []; if (!list.includes(doc.id)) list.push(doc.id); docs.set(key, list);
+      });
+    });
+    const catalog = new Map();
+    (db.benefitStandards || []).slice().sort((a, b) => String(a.from).localeCompare(String(b.from))).forEach(rule =>
+      (rule.items || []).forEach(item => catalog.set(item.code, { name: item.name, unit: item.unit })));
+    const people = new Map();
+    (db.nhanvien || []).forEach(row => people.set(row["Mã NV"], row["Họ và tên"] || ""));
+    given.forEach((_, key) => { const employee = JSON.parse(key)[0]; if (!people.has(employee)) people.set(employee, ""); });
+    const rows = [];
+    people.forEach((name, employee) => {
+      const seen = new Set();
+      entitlement(db, employee, period).forEach(item => {
+        const key = JSON.stringify([employee, item.code]), taken = given.get(key) || 0; seen.add(item.code);
+        rows.push({ employee, name, code: item.code, itemName: item.name, unit: item.unit, allowance: item.allowance, given: taken,
+          remaining: Math.max(0, item.allowance - taken), over: Math.max(0, taken - item.allowance), docs: docs.get(key) || [], note: "" });
+      });
+      given.forEach((taken, key) => {
+        const [owner, code] = JSON.parse(key); if (owner !== employee || seen.has(code)) return;
+        const info = catalog.get(code) || { name: code, unit: "" };
+        rows.push({ employee, name, code, itemName: info.name, unit: info.unit, allowance: 0, given: taken, remaining: 0, over: 0, docs: docs.get(key) || [], note: NO_STANDARD_NOTE });
+      });
+    });
+    return rows;
+  }
+
   function reviewIssue(db, doc) {
     const issues = [], entries = [], cache = new Map(), seen = new Set();
     if (!doc || !V.normDate(doc.date) || V.normDate(doc.date) !== doc.date || doc.date.slice(0, 7) !== doc.period ||
@@ -147,6 +187,6 @@
     return "";
   }
 
-  const api = { entitlement, issued, reviewIssue, validateChanges, standardAt, standardProblem };
+  const api = { entitlement, issued, reviewIssue, validateChanges, standardAt, standardProblem, monthlyReport, NO_STANDARD_NOTE };
   if (node) module.exports = api; else root.HAKCore.benefits = api;
 })(typeof window !== "undefined" ? window : this);

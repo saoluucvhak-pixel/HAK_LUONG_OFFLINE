@@ -6,6 +6,9 @@
   var HEAD_FILL = "FF1F4E79", GUIDE_FILL = "FF7F6000", TAB = "FF2E75B6", SAMPLE_FILL = "FFFFF8E1", BORDER = { style: "thin", color: { argb: "FFBFBFBF" } };
   var MONEY = /^(Thưởng|Thu nhập (khác|từ|đến)|Trừ khác|Tạm ứng|Số tiền|Đơn giá|Lương|Trừ nhanh|Tiền)/;
   var DATE = /^(Ngày|Hiệu lực)/;
+  // Cột định danh: định dạng Text (@) cho CẢ CỘT để Excel không biến "0005" thành 5 khi người dùng nhập tay.
+  var TEXT_COL = /^(Mã |Số (tài khoản|CCCD|HĐLĐ|chứng từ|điện thoại|BHXH|BHYT|sổ)|STK|MST|CCCD|SĐT|Điện thoại|Biển số)/;
+  var SAMPLE_COL = "Dòng ví dụ", SAMPLE_VALUE = "VÍ DỤ", SAMPLE_FILL_HEAD = "FF7F6000";
   var isDay = function (c) { return /^\d\d$/.test(c); };
   var border = function () { return { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER }; };
   function width(col, rows) {
@@ -16,29 +19,33 @@
   var safeName = function (n) { return String(n || "Sheet").replace(/[\\/?*:\[\]]/g, "-").slice(0, 31); };
   function dataSheet(wb, sh, tab) {
     var ws = wb.addWorksheet(safeName(sh.name), { properties: { tabColor: { argb: tab } }, views: [{ state: "frozen", ySplit: 1 }] });
-    var cols = sh.cols, rows = sh.rows || [];
-    ws.columns = cols.map(function (c) { return { header: c, key: c, width: width(c, rows) }; });
+    var rows = sh.rows || [], marked = !!(sh.sampleMark && rows.length), cols = marked ? sh.cols.concat([SAMPLE_COL]) : sh.cols;
+    ws.columns = cols.map(function (c) { return { header: c, key: c, width: c === SAMPLE_COL ? 14 : width(c, rows), style: TEXT_COL.test(c) ? { numFmt: "@" } : {} }; });
     var head = ws.getRow(1);
     head.height = 32;
-    head.eachCell(function (cell) {
+    head.eachCell(function (cell, n) {
+      cell.numFmt = "General";
       cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEAD_FILL } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: marked && n === cols.length ? SAMPLE_FILL_HEAD : HEAD_FILL } };
       cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
       cell.border = border();
     });
     rows.forEach(function (r) {
-      var row = ws.addRow(cols.map(function (c) { return r[c] === undefined ? "" : r[c]; }));
+      var row = ws.addRow(cols.map(function (c) { return c === SAMPLE_COL ? SAMPLE_VALUE : (r[c] === undefined ? "" : r[c]); }));
       row.eachCell({ includeEmpty: true }, function (cell, n) {
         var c = cols[n - 1];
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: SAMPLE_FILL } };
         cell.font = { italic: true, color: { argb: "FF7F6000" } };
         cell.border = border();
-        if (typeof cell.value === "number") { cell.numFmt = MONEY.test(c) ? "#,##0" : "General"; cell.alignment = { horizontal: isDay(c) ? "center" : "right" }; }
+        if (TEXT_COL.test(c)) cell.numFmt = "@";
+        if (c === SAMPLE_COL) { cell.font = { bold: true, color: { argb: "FFC00000" } }; cell.alignment = { vertical: "middle", horizontal: "center" }; }
+        else if (typeof cell.value === "number") { cell.numFmt = MONEY.test(c) ? "#,##0" : "General"; cell.alignment = { horizontal: isDay(c) ? "center" : "right" }; }
         else cell.alignment = { vertical: "middle", horizontal: DATE.test(c) ? "center" : "left" };
       });
     });
-    if (rows.length) {
-      ws.getCell("A1").note = "Dòng nền vàng là VÍ DỤ. Xóa các dòng vàng rồi nhập dữ liệu thật. Không đổi tên cột ở dòng này.";
+    if (rows.length && !marked) ws.getCell("A1").note = "Dòng nền vàng là VÍ DỤ. Xóa các dòng vàng rồi nhập dữ liệu thật. Không đổi tên cột ở dòng này.";
+    if (marked) {
+      ws.getCell("A1").note = "Dòng nền vàng là VÍ DỤ (cột '" + SAMPLE_COL + "' ghi " + SAMPLE_VALUE + "): app tự bỏ qua khi nhập, nên có thể để nguyên hoặc xóa. Nhập dữ liệu thật ở dòng mới bên dưới. Không đổi tên cột ở dòng này. Cột Mã/Số tài khoản đã định dạng Text để giữ số 0 đầu.";
     }
     ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
     ws.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
@@ -71,6 +78,6 @@
     sheets.forEach(function (sh) { if (sh.name === "Hướng dẫn") guideSheet(wb, sh); else dataSheet(wb, sh, TAB); });
     return wb;
   }
-  var api = { build: build };
+  var api = { build: build, SAMPLE_COL: SAMPLE_COL, SAMPLE_VALUE: SAMPLE_VALUE, TEXT_COL: TEXT_COL };
   if (node) module.exports = api; else { root.HAKUi = root.HAKUi || {}; root.HAKUi.templateXlsx = api; }
 })(typeof window !== "undefined" ? window : this);

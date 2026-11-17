@@ -387,6 +387,8 @@ async function launch(dataDir, opt) {
   const dcTxt = await w.locator("main").first().innerText();
   ok("Đối chiếu lương Power Query (mục XVII): nhận file, phát hiện 1 dòng chênh lệch Thực lĩnh (50.000đ), không báo lệch giả ở 'Tiền tăng ca' (cả 2 bên đều 0)",
     /1 dòng chênh lệch/.test(dcTxt) && /50\.000/.test(dcTxt) && /Thực lĩnh/.test(dcTxt), dcTxt.replace(/\s+/g, " ").slice(0, 400));
+  ok("Đối chiếu hai chiều: có tổng kết (số người đã đối chiếu, thiếu trong Excel, không khớp app) và xuất Excel luôn có nút",
+    /Tổng kết đối chiếu/.test(dcTxt) && /đã đối chiếu 1 người/.test(dcTxt) && /thiếu trong Excel \d+/.test(dcTxt) && /Xuất Excel đối chiếu/.test(dcTxt), dcTxt.replace(/\s+/g, " ").slice(0, 400));
   await w.click("#nav button[data-k=luong]");
   await w.click('button:has-text("Chốt kỳ lương")'); await w.waitForSelector(".dlg");
   await w.locator(".dlg input").fill("Chốt bởi E2E"); await w.click(".dlg footer button.pri"); await w.waitForSelector('[data-payroll-closed="1"]');

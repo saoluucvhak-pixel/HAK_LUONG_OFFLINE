@@ -31,9 +31,11 @@
         card.appendChild(h("div", { class: "warn", text: "Không nhận ra dòng tiêu đề (cần có cột 'Mã NV' hoặc 'Họ và tên') trong sheet '" + st.dcSheet + "'. Thử chọn sheet khác." }));
       } else {
         card.appendChild(h("div", { class: "hint", html: "Đã đọc <b>" + parsed.rows.length + "</b> dòng, nhận ra <b>" + parsed.matched.length + "</b> chỉ tiêu: " + esc(parsed.matched.join(", ") || "(không có)") + (parsed.unmatched.length ? ". Cột KHÔNG nhận ra (bỏ qua): " + esc(parsed.unmatched.slice(0, 15).join(", ")) + (parsed.unmatched.length > 15 ? "…" : "") : "") }));
-        var cmp = RC.compare(src.kq.bangluong, parsed.rows);
+        var cmp = RC.compare(src.kq.bangluong, parsed.rows), tk = cmp.tongKet;
         var lech = cmp.rows.filter(function (r) { return r["Chênh lệch"] !== 0; });
-        card.appendChild(h("div", { class: lech.length ? "warn" : "ok", text: lech.length ? lech.length + " dòng chênh lệch, trên " + cmp.rows.length + " dòng đã đối chiếu (" + parsed.rows.length + " người trong file Excel)." : cmp.rows.length ? "Khớp hoàn toàn trên " + cmp.rows.length + " dòng đã đối chiếu." : "Không có chỉ tiêu nào đối chiếu được — kiểm tra lại cột trong file." }));
+        var sach = !lech.length && !tk.thieuTrongExcel && !tk.khongKhopApp && cmp.rows.length;
+        card.appendChild(h("div", { class: sach ? "ok" : "warn", "data-dc-tongket": "1", html: "<b>Tổng kết đối chiếu</b>: app có <b>" + tk.tongApp + "</b> nhân viên, Excel có <b>" + tk.tongExcel + "</b> dòng người · đã đối chiếu <b>" + tk.daDoiChieu + "</b> người · thiếu trong Excel <b>" + tk.thieuTrongExcel + "</b> · Excel không khớp app <b>" + tk.khongKhopApp + "</b> · có chênh lệch <b>" + tk.coChenhLech + "</b> người (<b>" + lech.length + "</b> dòng chênh lệch trên " + cmp.rows.length + " dòng chỉ tiêu đã đối chiếu)." + (sach ? " Khớp hoàn toàn." : "") + (!cmp.rows.length ? " Không có chỉ tiêu nào đối chiếu được — kiểm tra lại cột trong file." : "") }));
+        if (cmp.thieuTrongExcel.length) card.appendChild(thieuTrongExcelPanel(cmp));
         if (cmp.khongKhop.length) card.appendChild(khongKhopPanel(cmp));
         if (lech.length) {
           var onlyLech = h("input", { type: "checkbox" }); onlyLech.checked = st.dcOnlyLech !== false;
@@ -42,10 +44,8 @@
         }
         var showRows = (st.dcOnlyLech !== false) ? lech : cmp.rows;
         card.appendChild(simpleTable(showRows));
-        if (cmp.rows.length) card.appendChild(btn("⬇ Xuất Excel đối chiếu", "", function () {
-          var sheets = [{ name: "DoiChieu", cols: Object.keys(cmp.rows[0]), rows: cmp.rows }];
-          if (cmp.khongKhop.length) sheets.push({ name: "KhongKhopNguoi", cols: ["Dòng Excel", "Mã NV", "Họ tên", "Loại", "Ghi chú"], rows: cmp.khongKhop.map(function (x) { return { "Dòng Excel": x.dong || "", "Mã NV": x.ma, "Họ tên": x.hoTen, "Loại": x.loai, "Ghi chú": x.ghiChu }; }) });
-          saveXlsx("DoiChieu_" + kyKey(st.nam, st.thang) + ".xlsx", sheets);
+        card.appendChild(btn("⬇ Xuất Excel đối chiếu", "", function () {
+          saveXlsx("DoiChieu_" + kyKey(st.nam, st.thang) + ".xlsx", doiChieuSheets(cmp));
           audit("Xuất Excel đối chiếu lương", kyLabel(kyKey(st.nam, st.thang)) + " · file nguồn: " + st.dcFile);
         }));
         // Riêng tăng ca: đối chiếu chi tiết hơn nếu file có đủ cột (mục XVII)
@@ -64,7 +64,7 @@
   }
   /** Các dòng Excel không đối chiếu được, nhóm theo lý do; mỗi dòng nêu số dòng Excel, mã NV và họ tên để đối chiếu với file. */
   function khongKhopPanel(cmp) {
-    var box = h("div", { class: "warn", "data-dc-khongkhop": "1" }, [h("div", { html: "<b>⚠ " + cmp.khongKhop.length + " dòng trong file Excel KHÔNG đối chiếu được</b> — không tự đoán người; sửa mã NV hoặc họ tên trong file rồi đối chiếu lại:" })]);
+    var box = h("div", { class: "warn", "data-dc-khongkhop": "1" }, [h("div", { html: "<b>⚠ Có trong Excel, không khớp app: " + cmp.khongKhop.length + " dòng KHÔNG đối chiếu được</b> — không tự đoán người; sửa mã NV hoặc họ tên trong file rồi đối chiếu lại:" })]);
     Object.keys(RC.LOAI).map(function (k) { return RC.LOAI[k]; }).forEach(function (loai) {
       var items = cmp.khongKhop.filter(function (x) { return x.loai === loai; }); if (!items.length) return;
       box.appendChild(h("div", { class: "fh", text: loai + " (" + items.length + ")" }));
@@ -76,4 +76,24 @@
       box.appendChild(list);
     });
     return box;
+  }
+  /** Người có trong app nhưng không có dòng Excel nào khớp (chiều ngược lại của "không khớp app"). */
+  function thieuTrongExcelPanel(cmp) {
+    var items = cmp.thieuTrongExcel, box = h("div", { class: "warn", "data-dc-thieu": "1" }, [h("div", { html: "<b>⚠ Có trong app, thiếu trong Excel: " + items.length + " người</b> — chưa có dòng Excel nào được đối chiếu với họ (kể cả khi các số còn lại đều khớp):" })]);
+    var list = h("ul");
+    items.slice(0, 30).forEach(function (x) { list.appendChild(h("li", { text: (x.ma || "(không có mã)") + " · " + (x.hoTen || "(không có họ tên)") + (x.ghiChu ? " — " + x.ghiChu : "") })); });
+    if (items.length > 30) list.appendChild(h("li", { text: "… và " + (items.length - 30) + " người nữa (xem đầy đủ trong file Excel đối chiếu)." }));
+    box.appendChild(list);
+    return box;
+  }
+  /** Các sheet của file Excel đối chiếu — cùng số liệu với màn hình (tổng kết, thiếu trong Excel, không khớp app, chênh lệch). */
+  function doiChieuSheets(cmp) {
+    var tk = cmp.tongKet, sheets = [{ name: "TongKet", cols: ["Chỉ tiêu", "Số lượng"], rows: [
+      { "Chỉ tiêu": "Nhân viên trong app", "Số lượng": tk.tongApp }, { "Chỉ tiêu": "Dòng người trong Excel", "Số lượng": tk.tongExcel },
+      { "Chỉ tiêu": "Đã đối chiếu (người)", "Số lượng": tk.daDoiChieu }, { "Chỉ tiêu": "Có trong app, thiếu trong Excel (người)", "Số lượng": tk.thieuTrongExcel },
+      { "Chỉ tiêu": "Có trong Excel, không khớp app (dòng)", "Số lượng": tk.khongKhopApp }, { "Chỉ tiêu": "Người có chênh lệch", "Số lượng": tk.coChenhLech }] }];
+    sheets.push({ name: "ThieuTrongExcel", cols: ["Mã NV", "Họ tên", "Ghi chú"], rows: cmp.thieuTrongExcel.map(function (x) { return { "Mã NV": x.ma, "Họ tên": x.hoTen, "Ghi chú": x.ghiChu }; }) });
+    sheets.push({ name: "KhongKhopNguoi", cols: ["Dòng Excel", "Mã NV", "Họ tên", "Loại", "Ghi chú"], rows: cmp.khongKhop.map(function (x) { return { "Dòng Excel": x.dong || "", "Mã NV": x.ma, "Họ tên": x.hoTen, "Loại": x.loai, "Ghi chú": x.ghiChu }; }) });
+    sheets.push({ name: "DoiChieu", cols: cmp.rows.length ? Object.keys(cmp.rows[0]) : ["Dòng Excel", "Mã NV", "Họ và tên", "Chỉ tiêu", "Excel", "App", "Chênh lệch", "Loại lệch"], rows: cmp.rows });
+    return sheets;
   }

@@ -3,6 +3,12 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [Chưa phát hành] — rà soát sau v2.0.24
+- Đối chiếu bảng lương Excel hai chiều: hiện riêng "Có trong app, thiếu trong Excel" và "Có trong Excel, không khớp app"; tổng kết số nhân viên đã đối chiếu, số người thiếu mỗi bên, số người có chênh lệch. File Excel xuất có sheet TongKet, ThieuTrongExcel, KhongKhopNguoi, DoiChieu cùng số liệu với màn hình và luôn xuất được. Giữ quy tắc v2.0.23 (có mã thì khớp theo mã; chỉ khớp theo tên khi Excel trống mã và tên duy nhất).
+- Báo cáo phúc lợi tháng giữ mọi khoản đã cấp theo phiếu đã xác nhận: mặt hàng không còn định mức hiệu lực (tiêu chuẩn bị thay thế/hết hạn) vẫn hiện mã NV, mặt hàng, số đã cấp, ghi chú "Không còn định mức hiệu lực", cột Phiếu cấp và nút mở phiếu gốc; Excel và PDF cùng số liệu. Phiếu nháp và phiếu đã thu hồi không cộng.
+- File mẫu nhập liệu: cột Mã NV, số tài khoản, CCCD, số HĐLĐ và các cột mã định dạng Text cho cả cột để giữ số 0 đầu khi nhập tay; dòng ví dụ có cột "Dòng ví dụ = VÍ DỤ" nên app bỏ qua khi nhập và nêu trong bản xem trước; dòng thật trùng giá trị mẫu vẫn được giữ (chỉ cảnh báo); mẫu cũ vẫn đọc được.
+- `build:app --check` so khớp sau khi chuẩn hóa xuống dòng nên đúng trên cả Windows (CRLF) và Linux (LF).
+
 ## [2.0.24] — 17/11/2026
 - File Excel mẫu nhập liệu (nút "Tải file mẫu") có định dạng: tiêu đề tô màu, cố định dòng đầu, bộ lọc, độ rộng cột theo nội dung, dòng ví dụ nền vàng kèm ghi chú xóa, cột tiền có dấu phân cách nghìn, sheet Hướng dẫn tô màu. Chỉ đổi trình bày: tên sheet, tên cột và giá trị mẫu giữ nguyên nên nhập lại vẫn đọc đúng. Có phương án dự phòng nếu thiếu ExcelJS.
 
