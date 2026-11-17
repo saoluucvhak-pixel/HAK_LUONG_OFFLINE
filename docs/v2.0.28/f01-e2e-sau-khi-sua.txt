@@ -1,0 +1,12 @@
+PASS Vai trò Nhân sự: có xem đầu vào, KHÔNG có quyền xem lương
+PASS Tạm ứng tháng 10 chưa lọc: 3 dòng (TU-1002, TU-1031, TU-B)
+PASS Tháng 10, lọc tổ 02.01: vẫn đủ 3 dòng dù A hiện ở tổ 02.02 (chứng từ lịch sử không bị ẩn)
+PASS Tháng 10, lọc tổ 02.02: 0 dòng (A thuộc 02.02 từ 01/11)
+PASS Tháng 11, lọc tổ 02.02: chứng từ 01/11 của A
+PASS Tháng 11, lọc tổ 02.01: 0 dòng
+PASS Thưởng/Trừ tháng 10, tổ 02.01: thưởng 1.000.000 của A còn hiện
+PASS Không lỗi JavaScript
+PASS Lọc/xem không ghi đổi dữ liệu đầu vào
+PASS Đóng ứng dụng bình thường (không treo)
+
+F01 E2E: 10/10 đạt

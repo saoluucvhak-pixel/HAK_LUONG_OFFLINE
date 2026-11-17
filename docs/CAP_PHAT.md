@@ -19,3 +19,16 @@ Tổng hợp: theo tổ/phòng ban và mặt hàng (bảo hộ có thể tách t
 
 ## Phạm vi
 Ghi nhận cấp phát thực tế. Tồn kho, chu kỳ thay thế và định mức bảo hộ theo chức danh cần quy chế riêng.
+
+## Ngày giao dịch thu hồi và đổi cỡ (từ v2.0.28)
+- Khi ghi thu hồi/đổi cỡ, chọn **Ngày giao dịch** đúng ngày phát sinh. Mặc định là ngày hiện tại theo giờ Việt Nam; không được trước ngày cấp gốc.
+- Ngày giao dịch dùng để lọc khoảng ngày trên báo cáo, Excel và PDF. **Ngày cấp gốc**, **tháng hưởng**, tổ/phòng ban của dòng cấp gốc vẫn giữ nguyên.
+- Ví dụ: cấp ngày 20/10, thu hồi ngày 02/11 → lọc giao dịch tháng 11 thấy lượt thu hồi; tháng hưởng vẫn là tháng 10. Nếu lọc thêm tháng hưởng 11 thì lượt này không thuộc phạm vi đó.
+- Thời điểm thao tác được giữ riêng phục vụ tra cứu, hiển thị giờ Việt Nam. Dữ liệu cũ chưa có ngày giao dịch sẽ lấy ngày theo giờ Việt Nam từ thời điểm đã lưu; không ghi sửa lại chứng từ cũ.
+- Phiếu cũ thu hồi toàn bộ không có thời điểm thu hồi vẫn hiển thị theo ngày cấp gốc kèm chú thích thiếu ngày thu hồi; không suy đoán ngày.
+
+## Kiểm tra trước bàn giao
+1. Cấp tháng 10, thu hồi tháng 11; đối chiếu Tổng hợp/Chi tiết và Excel/PDF cùng bộ lọc.
+2. Nhân viên chuyển tổ sau khi cấp: lượt thu hồi/đổi cỡ vẫn thuộc tổ đã lưu ở dòng cấp gốc.
+3. Sao lưu toàn bộ, khôi phục sang hồ sơ mới; đối chiếu mã phiếu, số lượng và lịch sử điều chỉnh.
+4. Sữa tính định mức theo nhân viên/tháng hưởng. Người chuyển tổ trong tháng có dòng định mức riêng, không tự phân đôi định mức theo tổ.

@@ -300,8 +300,8 @@ test("Closed production export uses the frozen allocation even after live depart
   const c = {
     kyChot: () => snap, kyKey: () => "2026-09", kyLabel: String, kqKy: () => ({ chot: true, kq: payroll }),
     need: () => true, session: null, n0: Number, download: () => {}, audit: () => {}, alert: msg => { warning = msg; },
-    C: { periodReports: require("../../core/reporting/period-reports.js") },
-    window: { ExcelJS: {}, HAKUi: { pbkl: { report: (_, model) => {
+    C: { periodReports: require("../../core/reporting/period-reports.js") }, E: require("../../engine.js"),
+    window: { ExcelJS: {}, HAKUi: { pbklRules: require("../../ui/pbkl-rules.js"), pbkl: { report: (_, model) => {
       workbook = model;
       return { xlsx: { writeBuffer: () => Promise.resolve(Buffer.alloc(0)) } };
     } } } }
@@ -343,4 +343,34 @@ test("Nguồn phân bổ cảnh báo chấm công nháp dù các phiếu đã l�
   const c = { db, kyChot: () => null, C: { inputReview: input } };
   vm.runInNewContext(source.slice(source.indexOf("  function inputReportSource("), source.indexOf("  function reportAllocation(")), c);
   assert.match(c.allocationReportSource("sanluong", "2026-10"), /Phiếu: Đã lưu.*Chấm công dùng để chia:.*1 dòng nháp/);
+});
+
+// F02 qua hàm xuất thật (chặn đầu vào workbook): kỳ đã chốt đọc danh mục lương ĐÃ LƯU, chọn theo hiệu lực của kỳ, không theo thứ tự dòng.
+test("U-F02-10 exportPBKL kỳ đã chốt: tháng 9 giữ đơn giá/sàn tháng 9, tháng 10 theo tháng 10, đảo thứ tự danh mục vẫn đúng; bản chốt cũ thiếu danh mục báo thiếu căn cứ", async () => {
+  const vm = require("node:vm"), fs = require("node:fs"), path = require("node:path");
+  const source = fs.readFileSync(path.join(__dirname, "../../app-src/18-bao-cao-luong.js"), "utf8");
+  const close = require("../../core/payroll-close.js");
+  const alloc = { raw: [], byDept: {}, byEmpDept: {}, audit: [], attendanceReview: [], chuaGan: [], warnings: [] };
+  const payroll = { bangluong: [], bhxh: [], tncn: [], canhbao: [] };
+  const luong = (code, tu, gia, san, nguong) => ({ "Mã lương": code, "Hiệu lực từ": tu, "Số tiền khoán": gia, "Đơn giá bù lương": san, "Ngưỡng công bù theo tổ": nguong });
+  const catalog = [luong("SP", "2026-01-01", 100, 10, 15), luong("SP", "2026-10-01", 200, 20, 18), luong("BD", "2026-01-01", 5000, 0, 0)];
+  const run = (ky, dm) => {
+    const snap = close.buildSnapshot({}, ky, payroll, [], { payrollReports: { production: ["sanluong", "bandam"].map(type => ({ type, allocation: alloc })) } });
+    if (dm) snap.input.danhmuc = { dm_luong: dm };
+    let model;
+    const c = {
+      kyChot: () => snap, kyKey: (n, t) => n + "-" + String(t).padStart(2, "0"), kyLabel: String, kqKy: () => ({ chot: true, kq: payroll }),
+      need: () => true, session: null, n0: Number, download: () => {}, audit: () => {}, alert: () => {},
+      C: { periodReports: require("../../core/reporting/period-reports.js") }, E: require("../../engine.js"), st: {},
+      window: { ExcelJS: {}, HAKUi: { pbklRules: require("../../ui/pbkl-rules.js"), pbkl: { report: (_, m) => { model = m; return { xlsx: { writeBuffer: () => Promise.resolve(Buffer.alloc(0)) } }; } } } }
+    };
+    vm.runInNewContext(source.slice(source.indexOf("  function inputReportSource("), source.indexOf("  /** File mẫu phiếu cân")), c);
+    c.exportPBKL(2026, +ky.slice(5)); return model;
+  };
+  const sep = run("2026-09", catalog).ctx, oct = run("2026-10", catalog).ctx, rev = run("2026-09", catalog.slice().reverse()).ctx;
+  assert.deepEqual([sep.giaKl, sep.mucSan, sep.nguong, sep.giaBd], [100, 10, 15, 5000], "tháng 9 không nhận mức tháng 10 (lỗi cũ: 200/20)");
+  assert.deepEqual([oct.giaKl, oct.mucSan, oct.nguong], [200, 20, 18]);
+  assert.deepEqual([rev.giaKl, rev.mucSan], [100, 10], "đảo thứ tự danh mục không đổi kết quả");
+  const old = run("2026-09", null).ctx;
+  assert.ok(old.rules.missing.includes("SP")); assert.equal(old.giaKl, 0); assert.match(old.rules.lines.join(" "), /Thiếu căn cứ/);
 });

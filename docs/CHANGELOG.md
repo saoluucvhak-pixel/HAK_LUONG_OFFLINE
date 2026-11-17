@@ -3,6 +3,12 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.28] — 18/11/2026
+- Cấp phát: thu hồi/đổi cỡ có Ngày giao dịch do người dùng chọn (mặc định ngày Việt Nam); hồ sơ cũ quy đổi UTC → giờ Việt Nam khi xem/lọc, không sửa chứng từ cũ.
+- F01: bộ lọc Phòng ban của Thưởng/Trừ, Tạm ứng, Suất cơm và Chấm công theo tổ TẠI NGÀY của từng dòng (trước đây dùng tổ hiện tại nên chứng từ kỳ cũ biến mất khi lọc tổ cũ); không còn phụ thuộc quyền xem lương hay việc tính lương thành công; thiếu căn cứ lịch sử thì ghi "(Không có)", không gán tổ hiện tại.
+- F02: phần giải thích đơn giá, mức sàn, ngưỡng công trong Excel phân bổ theo hiệu lực của kỳ (cùng API tra hiệu lực của engine) thay vì dòng đầu/cuối danh mục; kỳ có nhiều mức nêu từng mức; bản chốt thiếu danh mục báo thiếu căn cứ. Không đổi công thức hay số tiền bảng lương.
+- Thêm kiểm thử: `input-dept`, `pbkl-rules`, `v94-payroll-reports` U-F02-10, E2E `input-filter-dept.cjs` (chạy cả trên Windows CI).
+
 ## [2.0.27] — 17/11/2026
 - Tách `core/benefits.js` thành `benefits-rules.js` (tiêu chuẩn, định mức, kiểm tra, thu hồi), `benefits-ledger.js` (sổ cái, báo cáo) và `benefits-import.js` (nhập Excel); `core/benefits.js` còn là cửa chung giữ nguyên tên hàm. Chỉ chuyển mã, không đổi hành vi; kiểm thử cũ chạy nguyên không sửa.
 
