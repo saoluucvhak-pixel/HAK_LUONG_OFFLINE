@@ -34,7 +34,7 @@ test("Bảo vệ sổ cấp phát theo chế độ một người và phân quy�
   const reviewer = { user: "reviewer", perms: ["hr.approve"] };
   const draft = { ...db, benefitIssues: [doc] };
   assert.equal(B.validateChanges("benefitIssues", db, draft, maker, "roles"), "");
-  const issue = (user) => ({ ...db, benefitIssues: [{ ...doc, status: "issued", reviewer: user, confirmedAt: "2026-10-15T08:00:00Z" }] });
+  const issue = (user) => ({ ...db, benefitIssues: [{ ...doc, status: "issued", reviewer: user, confirmedAt: "2026-10-15T08:00:00.000Z" }] });
   assert.match(B.validateChanges("benefitIssues", draft, issue("maker"), maker, "roles"), /khác người lập/);
   assert.equal(B.validateChanges("benefitIssues", draft, issue("reviewer"), reviewer, "roles"), "");
   assert.equal(B.validateChanges("benefitIssues", draft, issue("maker"), { ...maker, perms: ["system.admin"] }, "single"), "");
@@ -43,4 +43,12 @@ test("Bảo vệ sổ cấp phát theo chế độ một người và phân quy�
   const recalled = { ...db, benefitIssues: [{ ...issued.benefitIssues[0], status: "recalled", recalledBy: "reviewer", reason: "Nhập nhầm" }] };
   assert.equal(B.validateChanges("benefitIssues", issued, recalled, reviewer, "roles"), "");
   assert.equal(B.issued(recalled, "2026-10").size, 0);
+});
+test("Thời điểm xác nhận cấp phát phải là chuỗi ISO UTC thật, cùng chuẩn với duyệt bảng lương", () => {
+  const doc = { id: "P1", date: "2026-10-15", period: "2026-10", maker: "maker", status: "draft", lines: [{ employee: "A", item: "MILK", quantity: 4 }] };
+  const reviewer = { user: "reviewer", perms: ["hr.approve"] }, draft = { ...db, benefitIssues: [doc] };
+  const confirm = (confirmedAt) => B.validateChanges("benefitIssues", draft, { ...db, benefitIssues: [{ ...doc, status: "issued", reviewer: "reviewer", confirmedAt }] }, reviewer, "roles");
+  assert.equal(confirm(new Date().toISOString()), "", "đúng định dạng do ứng dụng tạo ra");
+  for (const bad of ["", undefined, null, 20261015, "khong-phai-ngay", "2026-10-15", "2026-10-15T08:00:00Z", "2026-13-40T08:00:00.000Z", "2026-02-30T08:00:00.000Z"])
+    assert.match(confirm(bad), /Thời điểm cấp phát không hợp lệ/, "phải từ chối: " + String(bad));
 });

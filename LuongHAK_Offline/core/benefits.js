@@ -2,6 +2,9 @@
   "use strict";
   const node = typeof module !== "undefined" && module.exports;
   const V = node ? require("./validate.js") : root.HAKCore.validate;
+  // Cùng định dạng với core/workflow-approval.js (validApprovalTime): chuỗi ISO UTC có mili giây, đúng một ngày giờ có thật.
+  const validTime = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+    Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
   const latest = (rows, date) => rows.filter(row => row.from <= date && (!row.until || row.until >= date))
     .reduce((found, row) => !found || row.from > found.from ? row : found, null);
 
@@ -115,7 +118,8 @@
       if (old.status === "draft" && doc.status === "issued") {
         if (!same(doc, Object.assign({}, old, { status: "issued", reviewer: account, confirmedAt: doc.confirmedAt }))) return "Nội dung phiếu cấp phát đã thay đổi.";
         const check = reviewIssue(next, doc);
-        if (!doc.confirmedAt || check.issues.length) return check.issues.join("; ") || "Thiếu thời điểm cấp phát.";
+        if (!validTime(doc.confirmedAt)) return "Thời điểm cấp phát không hợp lệ.";
+        if (check.issues.length) return check.issues.join("; ");
       } else if (["draft", "issued"].includes(old.status) && doc.status === "recalled") {
         if (!text(doc.reason) || !same(doc, Object.assign({}, old, { status: "recalled", recalledBy: account, reason: doc.reason }))) return "Thu hồi phiếu cần lý do.";
       } else return "Không được sửa nội dung phiếu đã ghi.";
