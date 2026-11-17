@@ -4,13 +4,35 @@
 (function (root) {
   "use strict";
   function fold(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
-  function num(v) {
+  // Hai cách đọc số, CÙNG quy tắc với engine.js (num / money) để file Excel dạng chữ ("500.000", "1.234,5", "26,5")
+  // được hiểu giống hệt cách app hiểu khi nhập. Bản cũ chỉ bỏ dấu phẩy nên "500.000" thành 500 và "0,175" thành 175.
+  // tests/unit/reconcile.test.js so khớp với engine.js trên một bảng giá trị để hai bên không lệch lại.
+  function parseNumber(s) { // công, hệ số, khối lượng: dấu chấm hoặc phẩy đơn là thập phân
+    var dots = (s.match(/\./g) || []).length, commas = (s.match(/,/g) || []).length;
+    if (dots && commas) {
+      var dec = s.lastIndexOf(".") > s.lastIndexOf(",") ? "." : ",";
+      s = dec === "." ? s.replace(/,/g, "") : s.replace(/\./g, "").replace(",", ".");
+    } else if (dots > 1) s = s.replace(/\./g, "");
+    else if (commas > 1) s = s.replace(/,/g, "");
+    else s = s.replace(",", ".");
+    return parseFloat(s);
+  }
+  function parseMoney(s) { // tiền đồng: "500.000" / "1.500.000,5" / "1,500,000" — dấu chấm cách nghìn là hàng nghìn
+    s = s.replace(/đ|VNĐ|VND/gi, "");
+    var neg = /^-/.test(s); if (neg) s = s.slice(1);
+    var n;
+    if (/^[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(s)) n = parseFloat(s.replace(/\./g, "").replace(",", "."));
+    else if (/^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(s)) n = parseFloat(s.replace(/,/g, ""));
+    else n = parseNumber(s);
+    return neg ? -n : n;
+  }
+  /** Đọc một ô: ô trống → null; số thật giữ nguyên; chữ → đọc theo loại chỉ tiêu (laTien = tiền đồng). Không đọc được → null. */
+  function num(v, laTien) {
     if (v === "" || v == null) return null;
     if (typeof v === "number") return v;
     var s = String(v).trim().replace(/\s/g, ""); if (!s) return null;
-    if (/,\d{1,2}$/.test(s) && !/\.\d{3}/.test(s)) s = s.replace(/\./g, "").replace(",", ".");
-    else s = s.replace(/,/g, "");
-    var n = parseFloat(s); return isNaN(n) ? null : n;
+    var n = laTien ? parseMoney(s) : parseNumber(s);
+    return isNaN(n) ? null : n;
   }
 
   // Chỉ tiêu đối chiếu chính (mục XVII) — "aliases" = các tên cột đã gặp trong Excel thật các công ty
@@ -56,11 +78,11 @@
     if (headerIdx < 0) return { rows: [], matched: [], unmatched: [], headerRow: -1, error: "Không tìm thấy dòng tiêu đề (cần có cột 'Mã NV' hoặc 'Họ và tên')" };
     var iMa = cols.findIndex(function (c) { return MA_NV_HDR.indexOf(c) >= 0; });
     var iHo = cols.findIndex(function (c) { return HO_TEN_HDR.indexOf(c) >= 0; });
-    var map = {}, matched = [], unmatched = [];
+    var map = {}, laTien = {}, matched = [], unmatched = [];
     cols.forEach(function (c, ci) {
       if (ci === iMa || ci === iHo || !c) return;
       var hit = ct.find(function (tc) { return !map[tc.key] && tc.aliases.indexOf(c) >= 0; });
-      if (hit) { map[hit.key] = ci; matched.push(hit.ten); } else unmatched.push(c);
+      if (hit) { map[hit.key] = ci; laTien[hit.key] = !!hit.laTien; matched.push(hit.ten); } else unmatched.push(c);
     });
     var rows = [];
     for (var r = headerIdx + 1; r < rows2D.length; r++) {
@@ -68,7 +90,7 @@
       var ma = iMa >= 0 ? String(rr[iMa] || "").trim() : "", hoTen = iHo >= 0 ? String(rr[iHo] || "").trim() : "";
       if (!ma && !hoTen) continue;
       var values = {};
-      Object.keys(map).forEach(function (key) { values[key] = num(rr[map[key]]); });
+      Object.keys(map).forEach(function (key) { values[key] = num(rr[map[key]], laTien[key]); });
       rows.push({ ma: ma, hoTen: hoTen, values: values });
     }
     return { rows: rows, matched: matched, unmatched: unmatched, headerRow: headerIdx };
@@ -119,7 +141,7 @@
     return { rows: out, khongKhop: khongKhop };
   }
 
-  var api = { CHI_TIEU: CHI_TIEU, CHI_TIEU_TANGCA: CHI_TIEU_TANGCA, parseSheet: parseSheet, compare: compare, classify: classify, fold: fold };
+  var api = { CHI_TIEU: CHI_TIEU, CHI_TIEU_TANGCA: CHI_TIEU_TANGCA, parseSheet: parseSheet, compare: compare, classify: classify, fold: fold, num: num };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.reconcile = api; }
 })(typeof window !== "undefined" ? window : this);

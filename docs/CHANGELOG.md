@@ -3,6 +3,15 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.22] — 17/11/2026
+- Đối chiếu phiếu cân và chấm công: bộ lọc phiếu cần đối chiếu; xác nhận ca dài theo người, tổ, ngày, xem trước phiếu bị ảnh hưởng, thu hồi có nhật ký.
+- Đổi tên "Bơm dăm" thành "Ban dăm xuất hàng", giữ khả năng đọc mẫu Excel cũ. Suất cơm: báo cáo và máy tính lương dùng chung một quy tắc.
+- Duyệt lương: giữ cặp lập–duyệt khi đổi tài khoản, bỏ thông tin hành chính khỏi dấu kiểm duyệt, hiện phê duyệt trong kho năm.
+- Phúc lợi (định mức sữa): danh mục, gắn tiêu chuẩn vào hợp đồng, nhập tay hoặc Excel theo phiếu, xác nhận và thu hồi, báo cáo tháng Excel/PDF. Xác nhận cấp phát phải có thời điểm ISO hợp lệ.
+- Đối chiếu bảng lương Excel: ô dạng chữ nay đọc đúng theo cùng quy tắc của engine — tiền `"500.000"` ra 500.000 (trước là 500), `"1.234,5"` ra 1.234,5, công/hệ số `"0,175"` ra 0,175 (trước là 175). Chỉ ảnh hưởng kết quả đối chiếu, không ảnh hưởng bảng lương.
+- Thanh 7 bước tính lương: ở chế độ phân quyền, nói rõ trạng thái duyệt (chưa gửi duyệt, đang chờ duyệt, dữ liệu đã đổi cần gửi lại, đã duyệt) thay vì chỉ "có thể chốt". Không đổi trạng thái từng bước.
+- CI: thêm hai ngoại lệ có ghi lý do cho `core/reconcile.js` và `core/payroll-steps.js` trong bước chặn sửa nguồn chưa duyệt (chủ sở hữu duyệt sửa hai lỗi này ngày 17/11/2026).
+
 ## [2.0.20] — 16/11/2026
 - Chốt lương chỉ rõ khoản lệch theo từng nhân viên, kể cả khi tổng thu nhập và thực lĩnh vẫn khớp.
 - Khi chốt lại kỳ đã chi, đối chiếu đã trả, đang chờ chi, còn phải trả và trả thừa. Chi bổ sung tham chiếu chứng từ cũ.
