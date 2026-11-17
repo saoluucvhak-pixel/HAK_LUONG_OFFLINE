@@ -93,5 +93,9 @@ test("U-SQL-07 kho bóng không vào bộ cài và không được app nạp", (
   const pkg = require("../../package.json"), read = (f) => fs.readFileSync(path.join(__dirname, "../..", f), "utf8");
   assert.ok(!pkg.build.files.some((f) => /^tools/.test(f)), "tools/ không nằm trong build.files");
   for (const f of ["main.js", "preload.js", "index.html", "app.js"]) assert.doesNotMatch(read(f), /sqlite-shadow|node:sqlite/, f + " không được dùng kho bóng");
-  for (const f of fs.readdirSync(path.join(__dirname, "../../main"))) assert.doesNotMatch(read("main/" + f), /sqlite-shadow|node:sqlite/, "main/" + f);
+  // Kho ứng viên (main/sqlite-store.js, main/sqlite-migrate.js) được phép dùng node:sqlite, nhưng CHƯA được app nạp: không file nào khác tham chiếu tới chúng.
+  const CANDIDATE = ["sqlite-store.js", "sqlite-migrate.js", "sqlite-changeset.js", "sqlite-mirror.js", "sqlite-storage.js"];
+  for (const f of fs.readdirSync(path.join(__dirname, "../../main")).filter((x) => !CANDIDATE.includes(x))) assert.doesNotMatch(read("main/" + f), /sqlite-shadow|node:sqlite|sqlite-store\b|sqlite-migrate|sqlite-changeset|sqlite-mirror|sqlite-storage/, "main/" + f);
+  for (const f of ["preload.js", "index.html", "app.js"]) assert.doesNotMatch(read(f), /sqlite-store|sqlite-migrate|sqlite-changeset|sqlite-mirror|sqlite-storage/, f + " chưa được nạp kho ứng viên (chưa cutover)");
+  assert.doesNotMatch(read("main.js"), /sqlite-store|sqlite-migrate|sqlite-changeset|node:sqlite/, "main.js chỉ được nạp sqlite-mirror, và chỉ khi bật HAK_SQLITE_SHADOW");
 });

@@ -73,3 +73,17 @@ Việc tiếp theo nếu muốn đi tiếp (mỗi việc cần chủ sở hữu 
 | `psluong` / `ungluong` | salary_adjustments / advances |
 | `kyluong`, `kyluong_lichsu` | payroll_periods + payroll_versions + payroll_results (+ snapshot JSON trong `input_snapshot`) |
 | `auditlog` | audit_logs |
+
+
+## 3. Cập nhật 18/11/2026 — quyết định hiện hành (thay thế các mục mâu thuẫn ở trên)
+
+**Các quyết định dưới đây là nguồn đúng; bảng "bước" cũ ở mục 2 (có nhắc `better-sqlite3`, quay lui chỉ bằng cờ) chỉ còn giá trị lịch sử.**
+
+- **Driver:** `node:sqlite` (`DatabaseSync`) có sẵn trong Node của Electron — đã chạy thử trên Electron 45.3.2 (Node 24.22.2, SQLite 3.53.4) ở máy phát triển Linux. Không dùng `better-sqlite3`. Cần xác nhận lại trên bộ cài Windows đóng gói (CHƯA làm).
+- **Trạng thái:** SQLite CHƯA là nguồn vận hành. App vẫn đọc/ghi `data.json`. Đã có "kho ứng viên" + công cụ chuyển/đối chiếu (xem `main/sqlite-store.js`, `main/sqlite-migrate.js`, `docs/ACCEPTANCE_SQLITE_RELEASE.md`). `tools/sqlite-shadow.js` vẫn chỉ là công cụ so sánh (khóa theo vị trí dòng), không dùng cho vận hành.
+- **Lược đồ v1 của kho ứng viên:** `records(tbl, id, pos, bkey, json, rev)` với id nội bộ ổn định (dùng `_id` nếu có, ngược lại băm nội dung + số lần xuất hiện; dòng trùng y hệt vẫn có id riêng), `pos` giữ thứ tự gốc, `json` là payload nguyên vẹn (kể cả snapshot kỳ chốt, không chuẩn hóa lại nên checksum cũ không đổi), `bkey` là khóa nghiệp vụ chuẩn hóa theo `core/importer.js` KEYS — **không UNIQUE** (trùng khóa được báo trong báo cáo, không tự gộp); giá trị cấp ngoài cùng không phải bảng nằm ở `top_value`; `applied_requests` (idempotency), `audit`, `migration_journal`, `schema_migrations`. Chưa chuẩn hóa thành bảng/cột/khóa ngoại theo từng nghiệp vụ (xem lộ trình dưới).
+- **Chặn số ngoài miền an toàn:** số nguyên vượt ±2^53−1 làm migration dừng, không chuyển âm thầm.
+- **Quy tắc quay lui:** trước khi có ghi mới vào SQLite → bỏ ứng viên, tiếp tục JSON nguyên bản (đã kiểm SHA-256). Sau khi có ghi mới → KHÔNG chỉ bật cờ về JSON; dùng `exportJson` (đã có, đối chiếu từng ký tự khi chưa có ghi mới) để tạo bản JSON chứa đủ giao dịch mới, hoặc khôi phục một bản nhất quán và thông báo phạm vi quay lui. Bản app cũ không mở schema mới (kho có `user_version` mới hơn app → từ chối).
+- **Chưa làm (lộ trình còn lại):** (1) kiểm kê mọi đường ghi và chuyển sang delta qua IPC có kiểm quyền; (2) chuẩn hóa lược đồ theo nghiệp vụ, khóa ngoại/CHECK; (3) cutover có journal và phục hồi khi khởi động dở dang; (4) Full Backup bằng SQLite Backup API/`VACUUM INTO`, restore staging; (5) kho năm; (6) thử Setup Windows cài mới/nâng cấp từ JSON.
+
+**Cập nhật cutover có cờ (18/11/2026):** `main/sqlite-storage.js` đã có, bật bằng `HAK_STORAGE=sqlite`, mặc định TẮT. Xem `docs/ACCEPTANCE_SQLITE_RELEASE.md` mục 5 cho thiết kế, kết quả kiểm chứng và số đo (chậm hơn JSON ~1,5 lần vì vẫn tuần tự hóa cả tài liệu ở giao diện).
