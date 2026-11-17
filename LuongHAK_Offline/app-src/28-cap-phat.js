@@ -247,7 +247,7 @@
     if (history.length) {
       act.appendChild(h("h4", { text: "Lịch sử thu hồi / điều chỉnh" }));
       act.appendChild(simpleTable(history.map(function (adj) {
-        return { "Thời điểm": String(adj.at || "").replace("T", " ").slice(0, 16), "Người thao tác": adj.by, "Loại": adj.kind === "resize" ? "Đổi cỡ" : "Thu hồi", "Lý do": adj.reason,
+        return { "Thời điểm": C.benefits.adjustmentDate(adj) + " · ghi nhận " + C.benefits.adjustmentClock(adj.at) + " (giờ Việt Nam)", "Người thao tác": adj.by, "Loại": adj.kind === "resize" ? "Đổi cỡ" : "Thu hồi", "Lý do": adj.reason,
           "Chi tiết": adj.lines.map(function (l) { return l.employee + " · " + l.item + (l.size ? " cỡ " + l.size : "") + " × " + l.quantity; }).join("; ") + (adj.to && adj.to.length ? " → " + adj.to.map(function (l) { return "cỡ " + l.size + " × " + l.quantity; }).join("; ") : "") };
       })));
     }
@@ -294,8 +294,9 @@
       controls.push({ r: r, qty: qty, newSize: newSize }); tb.appendChild(row);
     });
     table.appendChild(tb);
+    var transactionDate = h("input", { class: "i", type: "date", min: doc.date, value: C.benefits.adjustmentDate({ at: new Date().toISOString() }), "aria-label": "Ngày giao dịch thu hồi hoặc đổi cỡ" });
     var reason = h("input", { class: "i", "aria-label": "Lý do thu hồi hoặc điều chỉnh", placeholder: "Lý do (bắt buộc)", style: "min-width:320px" });
-    modal("Thu hồi / điều chỉnh phiếu " + doc.id, h("div", {}, [h("p", { class: "hint", text: "Nhập số thu hồi cho từng dòng (không vượt số còn lại)." + (type === "ppe" ? " Chọn cỡ mới để ghi hai lượt: thu hồi cỡ cũ và cấp cỡ mới." : "") }), h("div", { class: "tw" }, [table]), h("label", { class: "fld" }, ["Lý do", reason])]), function (close) {
+    modal("Thu hồi / điều chỉnh phiếu " + doc.id, h("div", {}, [h("p", { class: "hint", text: "Nhập số thu hồi cho từng dòng (không vượt số còn lại)." + (type === "ppe" ? " Chọn cỡ mới để ghi hai lượt: thu hồi cỡ cũ và cấp cỡ mới." : "") }), h("div", { class: "tw" }, [table]), h("label", { class: "fld" }, ["Ngày giao dịch", transactionDate]), h("label", { class: "fld" }, ["Lý do", reason])]), function (close) {
       return [btn("Hủy", "", close), btn("Ghi thu hồi / điều chỉnh", "pri", function () {
         var recall = [], resizeOut = [], resizeIn = [], why = reason.value.trim();
         controls.forEach(function (c) {
@@ -308,9 +309,11 @@
         if (!why) { alert("Ghi lý do thu hồi hoặc điều chỉnh."); return; }
         if (!recall.length && !resizeOut.length) { alert("Chưa nhập số thu hồi nào."); return; }
         var seq = (db.benefitAdjustments || []).filter(function (a) { return a.ref === doc.id; }).length, at = new Date().toISOString(), made = [];
-        var make = function (kind, lines, to) { seq++; var a = { id: "DC-" + doc.id + "-" + ("0" + seq).slice(-2), ref: doc.id, kind: kind, reason: why, by: me, at: at, lines: lines }; if (to) a.to = to; made.push(a); };
+        var make = function (kind, lines, to) { seq++; var a = { id: "DC-" + doc.id + "-" + ("0" + seq).slice(-2), ref: doc.id, kind: kind, reason: why, by: me, at: at, date: transactionDate.value, lines: lines }; if (to) a.to = to; made.push(a); };
         if (recall.length) make("recall", recall);
         if (resizeOut.length) make("resize", resizeOut, resizeIn);
+        var problem = made.map(function (a) { return C.benefits.adjustmentProblem(db, a); }).filter(Boolean)[0];
+        if (problem) { alert(problem); return; }
         benefitSave("benefitAdjustments", (db.benefitAdjustments || []).concat(made), "Thu hồi / điều chỉnh phiếu phúc lợi", doc.id + " · " + why, function () { close(); render(); });
       })];
     }, { wide: true });

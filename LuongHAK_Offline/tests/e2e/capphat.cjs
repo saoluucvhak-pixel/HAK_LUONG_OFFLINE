@@ -127,6 +127,8 @@ async function guarded(name, fn) { try { await fn(); } catch (e) { ok(name + " �
     ok("Tiến trình chính ghi người xác nhận và thời điểm", readData(D1).benefitIssues.filter((x) => ["BH1", "BH2"].includes(x.id)).every((x) => x.status === "issued" && x.reviewer === "boss" && /^\d{4}-\d{2}-\d{2}T/.test(x.confirmedAt)));
     // thu hồi sau khi A đã chuyển Tổ 2: vượt, rồi đúng
     await w.locator('[data-cp-voucher="BH1"] button').click(); await w.waitForSelector("[data-cp-detail]"); await w.click('button:has-text("Thu hồi / điều chỉnh")'); await w.waitForSelector("[data-cp-adjust]");
+    await w.fill('.dlg input[aria-label="Ngày giao dịch thu hồi hoặc đổi cỡ"]', "2026-11-17");
+    await shot(w, "cp-win-07-ngay-giao-dich");
     const rec = w.locator('[data-cp-adjust] input[aria-label^="Số thu hồi A GIAY"]'); await rec.fill("11"); await w.fill('.dlg input[aria-label="Lý do thu hồi hoặc điều chỉnh"]', "Trả lại 2 đôi sai cỡ");
     dialogs.length = 0; await w.click('.dlg button:has-text("Ghi thu hồi / điều chỉnh")'); await w.waitForTimeout(300);
     ok("Thu hồi vượt số lượng còn lại bị chặn", dialogs.some((m) => /vượt số lượng còn lại/.test(m)) && readData(D1).benefitAdjustments.length === 0, dialogs.join("|"));
@@ -161,7 +163,7 @@ async function guarded(name, fn) { try { await fn(); } catch (e) { ok(name + " �
     await w.fill("[data-sf-q]", ""); await w.press("[data-sf-q]", "Enter"); await w.waitForTimeout(600);
     ok("Chi tiết: có Ngày giao dịch và Ngày cấp gốc riêng, Mã điều chỉnh, tổ tại ngày cấp", ["Ngày giao dịch", "Ngày cấp gốc", "Mã điều chỉnh", "Tổ/Phòng ban tại ngày cấp"].every((c) => header.includes(c)));
     const iT = header.indexOf("Lượt"), recall = detailRows.find((r) => r[iT] === "Thu hồi" && r[header.indexOf("Mã phiếu")] === "BH1");
-    ok("Chi tiết dòng thu hồi: ngày 'giao dịch' là ngày thu hồi (hôm nay), ngày cấp gốc 03/11/2026 hiển thị riêng, tổ = Tổ 1 dù A đã sang Tổ 2", !!recall && recall[header.indexOf("Ngày cấp gốc")] === "2026-11-03" && /^Tổ 1/.test(recall[header.indexOf("Tổ/Phòng ban tại ngày cấp")]) && recall[header.indexOf("Mã điều chỉnh")] === adj.id && recall[header.indexOf("Ngày giao dịch")] === adj.at.slice(0, 10), JSON.stringify(recall));
+    ok("Chi tiết dòng thu hồi: ngày 'giao dịch' là ngày nghiệp vụ đã chọn (17/11), ngày cấp gốc 03/11/2026 hiển thị riêng, tổ = Tổ 1 dù A đã sang Tổ 2", !!recall && recall[header.indexOf("Ngày cấp gốc")] === "2026-11-03" && /^Tổ 1/.test(recall[header.indexOf("Tổ/Phòng ban tại ngày cấp")]) && recall[header.indexOf("Mã điều chỉnh")] === adj.id && recall[header.indexOf("Ngày giao dịch")] === "2026-11-17" && adj.date === "2026-11-17", JSON.stringify(recall));
     await shot(w, "cp-win-05-bao-cao-chi-tiet");
     // trang 2 (có >100 dòng do 110 phiếu mũ) + bộ lọc đang áp dụng → mở phiếu gốc → quay lại
     await w.fill("[data-sf-q]", "0005"); await w.press("[data-sf-q]", "Enter"); await w.waitForTimeout(700);

@@ -87,7 +87,7 @@ test("U-DIS-TR-05 ca bắt buộc: thu hồi 2 đôi từ phiếu 10 đôi của
   const detail = B.report(db, { type: "ppe", mode: "detail", deptOf }), recall = detail.rows.find((r) => r["Lượt"] === "Thu hồi");
   assert.equal(recall._voucher, "BH1"); assert.equal(recall["Mã phiếu"], "BH1"); assert.equal(recall["Tổ/Phòng ban tại ngày cấp"], "Tổ 1");
   assert.equal(recall["Ngày giao dịch"], "2026-11-25"); assert.equal(recall["Ngày cấp gốc"], "2026-11-03"); assert.equal(recall["Mã điều chỉnh"], "DC1");
-  assert.equal(recall["Người xác nhận"], "boss"); assert.match(recall["Ghi chú"], /Trả lại/); assert.match(recall["Ghi chú"], /09:30/, "giữ thời điểm thao tác");
+  assert.equal(recall["Người xác nhận"], "boss"); assert.match(recall["Ghi chú"], /Trả lại/); assert.match(recall["Ghi chú"], /16:30/, "hiển thị thời điểm thao tác theo giờ Việt Nam (UTC+7)");
   const issueRow = detail.rows.find((r) => r["Mã phiếu"] === "BH1" && r["Lượt"] === "Cấp"); assert.equal(issueRow["Ngày giao dịch"], "2026-11-03"); assert.equal(issueRow["Ngày cấp gốc"], "2026-11-03"); assert.equal(issueRow["Mã điều chỉnh"], "");
   const t1Detail = B.report(db, { type: "ppe", mode: "detail", filters: { dept: ["T1"] }, deptOf }).rows.map((r) => [r["Lượt"], r["Số lượng"]]);
   assert.deepEqual(t1Detail, [["Cấp", 10], ["Thu hồi", 2]]);

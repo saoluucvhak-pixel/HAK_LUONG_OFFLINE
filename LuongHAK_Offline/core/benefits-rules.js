@@ -218,6 +218,7 @@
     if (!["recall", "resize"].includes(adj.kind)) return "Loại điều chỉnh không hợp lệ.";
     if (!text(adj.reason)) return "Cần ghi lý do thu hồi hoặc điều chỉnh.";
     if (!text(adj.by) || !validTime(adj.at)) return "Thiếu người thao tác hoặc thời điểm điều chỉnh.";
+    if (adj.date != null && (!V.normDate(adj.date) || V.normDate(adj.date) !== adj.date || adj.date < doc.date)) return "Ngày giao dịch không hợp lệ hoặc trước ngày cấp gốc.";
     if (!Array.isArray(adj.lines) || !adj.lines.length) return "Cần ít nhất một dòng thu hồi.";
     const remaining = new Map(recallable(db, doc.id, adj.id).map(entry => [JSON.stringify([entry.employee, entry.item, entry.size]), entry]));
     const used = new Map();

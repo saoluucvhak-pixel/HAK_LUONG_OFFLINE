@@ -8,6 +8,15 @@
   const NO_DEPT = { code: "", name: "(Chưa có tổ/phòng ban)" };
   const LABEL = { milk: "Sữa phúc lợi", ppe: "Bảo hộ lao động" };
 
+  // Ngày nghiệp vụ tách khỏi dấu thời gian kiểm toán UTC. Hồ sơ cũ quy đổi về giờ Việt Nam.
+  function adjustmentClock(at) {
+    const time = Date.parse(at);
+    return Number.isFinite(time) ? new Date(time + 7 * 60 * 60 * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
+  }
+  function adjustmentDate(adj) {
+    return adj.date || adjustmentClock(adj.at).slice(0, 10);
+  }
+
   function catalogOf(db) {
     const milk = new Map(), ppe = new Map((db.benefitPpeItems || []).map(item => [item.code, item]));
     (db.benefitStandards || []).slice().sort((a, b) => String(a.from).localeCompare(String(b.from))).forEach(rule =>
@@ -46,7 +55,6 @@
         item: line.item, itemName: line.itemName || (item ? item.name : line.item), unit: line.unit || (item ? item.unit : ""), size: sizeOf(line) };
     };
     const original = (doc, line) => (doc.lines || []).find(row => row.employee === line.employee && row.item === line.item && sizeOf(row) === sizeOf(line)) || null;
-    const clock = at => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(at || "")) ? String(at).slice(0, 10) + " " + String(at).slice(11, 16) : "";
     docs.forEach(doc => {
       const type = docType(doc), wasIssued = doc.status === "issued" || (doc.status === "recalled" && !!doc.confirmedAt);
       if (doc.status === "recalled" && !wasIssued && !all) return; // nháp bị hủy: chưa từng cấp (chỉ hiện ở danh sách phiếu)
@@ -59,7 +67,7 @@
     });
     (db.benefitAdjustments || []).forEach(adj => {
       const doc = docs.get(adj.ref); if (!doc) return;
-      const type = docType(doc), date = String(adj.at || "").slice(0, 10), when = clock(adj.at);
+      const type = docType(doc), date = adjustmentDate(adj), when = adjustmentClock(adj.at);
       const shared = { type, voucher: doc.id, adjustment: adj.id, date, origDate: doc.date, period: doc.period, place: doc.place || "", status: doc.status, reviewer: doc.reviewer || "", counted: true, by: adj.by || "" };
       (adj.lines || []).forEach(line => entries.push({ ...fill(type, { ...(original(doc, line) || line), size: sizeOf(line) }, doc.date), ...shared,
         note: (adj.reason || "") + (when ? " · lúc " + when : ""), quantity: line.quantity, kind: "recall" }));
@@ -202,6 +210,6 @@
   const report = (db, opts) => opts && opts.mode === "detail" ? detailReport(db, opts) : summaryReport(db, opts);
 
 
-  const api = { LABEL, STATUS_LABEL, DETAIL_COLUMNS, ledger, report, detailReport, summaryReport, listVouchers, buildVoucher, snapshotLine, norm, setOf };
+  const api = { adjustmentClock, adjustmentDate, LABEL, STATUS_LABEL, DETAIL_COLUMNS, ledger, report, detailReport, summaryReport, listVouchers, buildVoucher, snapshotLine, norm, setOf };
   if (node) module.exports = api; else root.HAKCore.benefitsLedger = api;
 })(typeof window !== "undefined" ? window : this);

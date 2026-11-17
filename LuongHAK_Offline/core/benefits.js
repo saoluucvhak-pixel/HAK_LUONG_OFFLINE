@@ -12,7 +12,7 @@
     entitlement: R.entitlement, issued: R.issued, reviewIssue: R.reviewIssue, validateChanges: R.validateChanges, standardAt: R.standardAt, standardProblem: R.standardProblem,
     monthlyReport: R.monthlyReport, NO_STANDARD_NOTE: R.NO_STANDARD_NOTE, GROUPS: R.GROUPS, docType: R.docType, sizeOf: R.sizeOf, ppeItemProblem: R.ppeItemProblem,
     recallable: R.recallable, adjustmentProblem: R.adjustmentProblem,
-    LABEL: L.LABEL, STATUS_LABEL: L.STATUS_LABEL, DETAIL_COLUMNS: L.DETAIL_COLUMNS, ledger: L.ledger, report: L.report, detailReport: L.detailReport,
+    adjustmentClock: L.adjustmentClock, adjustmentDate: L.adjustmentDate, LABEL: L.LABEL, STATUS_LABEL: L.STATUS_LABEL, DETAIL_COLUMNS: L.DETAIL_COLUMNS, ledger: L.ledger, report: L.report, detailReport: L.detailReport,
     summaryReport: L.summaryReport, listVouchers: L.listVouchers, buildVoucher: L.buildVoucher, snapshotLine: L.snapshotLine,
     TEMPLATE_COLUMNS: I.TEMPLATE_COLUMNS, planImport: I.planImport
   };
