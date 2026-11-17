@@ -4,7 +4,7 @@
     var next = Object.assign({}, db, { [table]: rows });
     var error = C.benefits.validateChanges(table, db, next, { user: user, perms: Object.keys(PERM.PERMS).filter(can) }, C.workflowApproval.mode(db));
     if (error) { alert(error); return; }
-    if (!txn([table], function () { db[table] = rows; audit(action, detail); })) { alert(lastTxnError); return; }
+    if (!REPO.saveWorkflowRows(table, rows, action, detail).ok) { alert(lastTxnError); return; }
     if (done) done();
   }
   function benefitField(label, type, value) {

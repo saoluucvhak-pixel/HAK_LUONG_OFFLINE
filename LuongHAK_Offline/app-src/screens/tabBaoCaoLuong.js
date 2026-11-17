@@ -148,10 +148,11 @@
           return { "Ngày phân bổ": row.date, "Mã tổ": row.team, "Mã NV": row.employee, "Lý do": row.reason, "Người xác nhận": row.user,
             "Thao tác": !snapshot && can("input.edit") ? btn("Thu hồi", "ghost", function () {
               askText("Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team, { label: "Lý do thu hồi", required: true }, function (reason) {
-                if (!txn(["productionAttendance"], function () {
-                  db.productionAttendance = db.productionAttendance.filter(function (item) { return C.productionAttendance.key(item) !== C.productionAttendance.key(row); });
-                  audit("Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team + " · " + reason);
-                })) { alert(lastTxnError); return; }
+                var service = C.productionAttendance;
+                var next = db.productionAttendance.filter(function (item) { return service.key(item) !== service.key(row); });
+                var error = service.checkChanges(db, Object.assign({}, db, { productionAttendance: next }), { user: session.tenDangNhap, perms: ["input.edit"] });
+                if (error) { alert(error); return; }
+                if (!REPO.saveWorkflowRows("productionAttendance", next, "Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team + " · " + reason).ok) { alert(lastTxnError); return; }
                 render();
               });
             }) : "" };

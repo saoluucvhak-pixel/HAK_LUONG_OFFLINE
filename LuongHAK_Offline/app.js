@@ -3692,10 +3692,8 @@
         modal("Xem trước tất cả phiếu bị ảnh hưởng — " + ALL[selectedTable].ten, simpleTable(Array.from(affected.values())), function (done) {
           return [btn("Hủy", "", done), btn("Lưu xác nhận", "pri", function () {
             if (kyStr() !== period || dbRev !== revision || kyChot(period)) { alert("Dữ liệu kỳ đã thay đổi. Mở lại bảng đối chiếu."); return; }
-            if (!txn(["productionAttendance"], function () {
-              db.productionAttendance = next.productionAttendance;
-              audit("Xác nhận có làm để chia sản lượng", rows.map(function (row) { return row.employee + " · " + row.date + " · " + row.team; }).join("; ") + " · " + reason.value.trim());
-            })) { alert(lastTxnError); return; }
+            var detail = rows.map(function (row) { return row.employee + " · " + row.date + " · " + row.team; }).join("; ") + " · " + reason.value.trim();
+            if (!REPO.saveWorkflowRows("productionAttendance", next.productionAttendance, "Xác nhận có làm để chia sản lượng", detail).ok) { alert(lastTxnError); return; }
             done(); render();
           })];
         }, { wide: true });
@@ -3908,10 +3906,11 @@
           return { "Ngày phân bổ": row.date, "Mã tổ": row.team, "Mã NV": row.employee, "Lý do": row.reason, "Người xác nhận": row.user,
             "Thao tác": !snapshot && can("input.edit") ? btn("Thu hồi", "ghost", function () {
               askText("Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team, { label: "Lý do thu hồi", required: true }, function (reason) {
-                if (!txn(["productionAttendance"], function () {
-                  db.productionAttendance = db.productionAttendance.filter(function (item) { return C.productionAttendance.key(item) !== C.productionAttendance.key(row); });
-                  audit("Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team + " · " + reason);
-                })) { alert(lastTxnError); return; }
+                var service = C.productionAttendance;
+                var next = db.productionAttendance.filter(function (item) { return service.key(item) !== service.key(row); });
+                var error = service.checkChanges(db, Object.assign({}, db, { productionAttendance: next }), { user: session.tenDangNhap, perms: ["input.edit"] });
+                if (error) { alert(error); return; }
+                if (!REPO.saveWorkflowRows("productionAttendance", next, "Thu hồi xác nhận ca dài", row.employee + " · " + row.date + " · " + row.team + " · " + reason).ok) { alert(lastTxnError); return; }
                 render();
               });
             }) : "" };
@@ -6425,7 +6424,7 @@
     var next = Object.assign({}, db, { [table]: rows });
     var error = C.benefits.validateChanges(table, db, next, { user: user, perms: Object.keys(PERM.PERMS).filter(can) }, C.workflowApproval.mode(db));
     if (error) { alert(error); return; }
-    if (!txn([table], function () { db[table] = rows; audit(action, detail); })) { alert(lastTxnError); return; }
+    if (!REPO.saveWorkflowRows(table, rows, action, detail).ok) { alert(lastTxnError); return; }
     if (done) done();
   }
   function benefitField(label, type, value) {

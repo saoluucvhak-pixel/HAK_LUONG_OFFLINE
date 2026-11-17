@@ -248,7 +248,15 @@
       });
     }
 
-    return { plan: plan, apply: apply, importWorkbook: importWorkbook, mergeAttendance: mergeAttendance, createEmployee: createEmployee, removeEmployee: removeEmployee, permFor: permFor, retroText: retroText, identOf: identOf };
+    function saveWorkflowRows(table, rows, action, detail) {
+      if (!["benefitStandards", "benefitAssignments", "benefitIssues", "productionAttendance"].includes(table)) return deny("table", "Bảng nghiệp vụ không hợp lệ.");
+      return writeBatch([table], function (current) {
+        current[table] = rows;
+        ctx.audit(action, detail);
+      });
+    }
+
+    return { saveWorkflowRows: saveWorkflowRows, plan: plan, apply: apply, importWorkbook: importWorkbook, mergeAttendance: mergeAttendance, createEmployee: createEmployee, removeEmployee: removeEmployee, permFor: permFor, retroText: retroText, identOf: identOf };
   }
 
   var api = { createRepo: createRepo, permFor: permFor, retroText: retroText, identOf: identOf, HD_CHILD_DEFAULT: HD_CHILD_DEFAULT };

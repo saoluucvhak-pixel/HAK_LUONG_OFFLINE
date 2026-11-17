@@ -106,10 +106,8 @@
         modal("Xem trước tất cả phiếu bị ảnh hưởng — " + ALL[selectedTable].ten, simpleTable(Array.from(affected.values())), function (done) {
           return [btn("Hủy", "", done), btn("Lưu xác nhận", "pri", function () {
             if (kyStr() !== period || dbRev !== revision || kyChot(period)) { alert("Dữ liệu kỳ đã thay đổi. Mở lại bảng đối chiếu."); return; }
-            if (!txn(["productionAttendance"], function () {
-              db.productionAttendance = next.productionAttendance;
-              audit("Xác nhận có làm để chia sản lượng", rows.map(function (row) { return row.employee + " · " + row.date + " · " + row.team; }).join("; ") + " · " + reason.value.trim());
-            })) { alert(lastTxnError); return; }
+            var detail = rows.map(function (row) { return row.employee + " · " + row.date + " · " + row.team; }).join("; ") + " · " + reason.value.trim();
+            if (!REPO.saveWorkflowRows("productionAttendance", next.productionAttendance, "Xác nhận có làm để chia sản lượng", detail).ok) { alert(lastTxnError); return; }
             done(); render();
           })];
         }, { wide: true });
