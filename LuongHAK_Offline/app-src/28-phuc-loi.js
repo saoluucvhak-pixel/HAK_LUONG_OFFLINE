@@ -15,14 +15,14 @@
     var tbl = h("table"), rows = h("tbody"), controls = [];
     tbl.appendChild(h("thead", {}, [h("tr", {}, headers.map(function (column) { return h("th", { text: column[0] }); }).concat(h("th")))]));
     tbl.appendChild(rows);
-    function add() {
-      var inputs = headers.map(function (column) { return benefitField(column[0], column[1], "").input; });
+    function add(values) {
+      var inputs = headers.map(function (column, index) { return benefitField(column[0], column[1], Array.isArray(values) ? values[index] : "").input; });
       var record = { inputs: inputs, active: true }, tr = h("tr", {}, inputs.map(function (input) { return h("td", {}, [input]); }));
       tr.appendChild(h("td", {}, [btn("Xóa dòng", "ghost", function () { record.active = false; tr.remove(); })]));
       controls.push(record); rows.appendChild(tr);
     }
     add();
-    return { panel: h("div", { class: "tw" }, [tbl, btn("Thêm dòng", "", add)]), rows: function () {
+    return { panel: h("div", { class: "tw" }, [tbl, btn("Thêm dòng", "", function () { add(); })]), add: add, rows: function () {
       return controls.filter(function (row) { return row.active; }).map(function (row) {
         return row.inputs.map(function (input) { return input.value.trim(); });
       });
@@ -30,16 +30,17 @@
   }
   function benefitCatalog() {
     var standards = db.benefitStandards || [], rows = standards.flatMap(function (rule) {
-      return rule.items.map(function (item) { return { "Mã tiêu chuẩn": rule.code, "Hiệu lực từ": rule.from,
+      return rule.items.map(function (item) { return { "Mã tiêu chuẩn": rule.code, "Hiệu lực từ": rule.from, "Hiệu lực đến": rule.until || "",
         "Mã mặt hàng": item.code, "Mặt hàng phúc lợi": item.name, "Đơn vị": item.unit, "Số lượng/tháng": item.quantity }; });
     });
     var body = h("div", {}, [simpleTable(rows)]);
     if (can("dm.edit")) body.appendChild(btn("Thêm phiên bản tiêu chuẩn", "pri", function () {
       var code = benefitField("Mã tiêu chuẩn", "text"), from = benefitField("Hiệu lực từ", "date", HRM.today());
+      var until = benefitField("Hiệu lực đến", "date");
       var editor = benefitLineEditor([["Mã mặt hàng", "text"], ["Mặt hàng phúc lợi", "text"], ["Đơn vị", "text"], ["Số lượng/tháng", "number"]]);
-      modal("Tiêu chuẩn phúc lợi", h("div", {}, [code.field, from.field, editor.panel]), function (close) {
+      modal("Tiêu chuẩn phúc lợi", h("div", {}, [code.field, from.field, until.field, editor.panel]), function (close) {
         return [btn("Hủy", "", close), btn("Lưu tiêu chuẩn", "pri", function () {
-          var rule = { code: code.input.value.trim(), from: from.input.value, items: editor.rows().map(function (row) {
+          var rule = { code: code.input.value.trim(), from: from.input.value, until: until.input.value, items: editor.rows().map(function (row) {
             return { code: row[0], name: row[1], unit: row[2], quantity: row[3] === "" ? null : Number(row[3]) };
           }) };
           benefitSave("benefitStandards", (db.benefitStandards || []).concat(rule), "Thêm tiêu chuẩn phúc lợi", rule.code + " · " + rule.from, function () { close(); render(); });
@@ -70,10 +71,12 @@
   var BENEFIT_COLUMNS = ["Mã phiếu", "Ngày cấp", "Địa điểm", "Mã NV", "Mã mặt hàng", "Số lượng", "Ghi chú"];
   function benefitPreview(docs, done) {
     var original = db.benefitIssues || [], errors = [], rows = [], seen = new Set(original.map(function (doc) { return doc.id; }));
+    var projected = Object.assign({}, db, { benefitIssues: original.slice() });
     docs.forEach(function (doc) {
       if (seen.has(doc.id)) errors.push("Mã phiếu đã có: " + doc.id);
       seen.add(doc.id);
-      var summary = C.benefits.reviewIssue(db, doc);
+      var summary = C.benefits.reviewIssue(projected, doc);
+      if (!summary.issues.length) projected.benefitIssues.push(Object.assign({}, doc, { status: "issued" }));
       summary.issues.forEach(function (message) { errors.push(doc.id + " · " + message); });
       summary.entries.forEach(function (line) { rows.push({ "Mã phiếu": doc.id, "Mã NV": line.employee, "Mặt hàng": line.item,
         "Thực cấp": line.quantity, "Trước phiếu": line.before, "Sau phiếu": line.after }); });
@@ -101,11 +104,28 @@
       tools.appendChild(btn("Lập phiếu cấp phát", "pri", function () {
         var id = benefitField("Mã phiếu", "text"), day = benefitField("Ngày cấp", "date", HRM.today()), place = benefitField("Địa điểm", "text");
         var editor = benefitLineEditor([["Mã NV", "text"], ["Mã mặt hàng", "text"], ["Số lượng thực cấp", "number"], ["Ghi chú", "text"]]);
-        modal("Lập phiếu cấp phát", h("div", {}, [id.field, day.field, place.field, editor.panel]), function (close) {
+        var dept = h("select", { "aria-label": "Tổ cấp phát" }, [h("option", { value: "", text: "Chọn tổ / phòng ban" })]);
+        (db.dm_phongban || []).forEach(function (row) { dept.appendChild(h("option", { value: row["Mã phòng ban"], text: row["Tên phòng ban"] || row["Mã phòng ban"] })); });
+        var item = benefitField("Mã mặt hàng cấp theo tổ", "text"), qty = benefitField("Số lượng mỗi người", "number");
+        var quick = h("div", { class: "bar" }, [dept, item.field, qty.field, btn("Thêm người đủ điều kiện trong tổ", "", function () {
+          var month = day.input.value.slice(0, 7), code = item.input.value.trim();
+          if (!dept.value || !VAL.normDate(day.input.value) || !code || !Number.isSafeInteger(Number(qty.input.value)) || +qty.input.value <= 0) {
+            alert("Chọn ngày, tổ, mặt hàng và số lượng nguyên dương."); return;
+          }
+          var existing = new Set(editor.rows().filter(function (row) { return row[1] === code; }).map(function (row) { return row[0]; }));
+          var people = (db.nhanvien || []).filter(function (row) {
+            var ma = row["Mã NV"];
+            return !existing.has(ma) && HRM.hienHanh(db, ma, day.input.value).pb === dept.value &&
+              C.benefits.entitlement(db, ma, month).some(function (rule) { return rule.code === code && rule.allowance > 0; });
+          });
+          people.forEach(function (row) { editor.add([row["Mã NV"], code, qty.input.value, ""]); });
+          if (!people.length) alert("Không có thêm người phù hợp trong tổ.");
+        })]);
+        modal("Lập phiếu cấp phát", h("div", {}, [id.field, day.field, place.field, quick, editor.panel]), function (close) {
           return [btn("Hủy", "", close), btn("Xem trước", "pri", function () {
             var doc = benefitDocument(id.input.value.trim(), day.input.value, place.input.value.trim(), editor.rows().map(function (row) {
               return { employee: row[0], item: row[1], quantity: Number(row[2]), note: row[3] };
-            }));
+            }).filter(function (line) { return line.employee || line.item || line.quantity || line.note; }));
             close(); benefitPreview([doc], render);
           })];
         }, { wide: true });
@@ -159,6 +179,12 @@
       });
     });
     body.appendChild(h("h3", { text: "Đối chiếu phúc lợi kỳ " + current }));
+    var search = benefitField("Lọc mã NV, họ tên hoặc mặt hàng", "text", st.benefitQuery || "");
+    search.input.addEventListener("change", function () { st.benefitQuery = search.input.value; render(); });
+    body.appendChild(search.field);
+    if (st.benefitQuery) summary = summary.filter(function (row) {
+      return fold([row["Mã NV"], row["Họ và tên"], row["Mặt hàng"]].join(" ")).includes(fold(st.benefitQuery));
+    });
     if (can("export") && summary.length) body.appendChild(h("div", { class: "bar" }, [
       btn("Xuất Excel đối chiếu", "", function () { saveXlsx("DoiChieuPhucLoi_" + current + ".xlsx", [{ name: "Đối chiếu phúc lợi", rows: summary }]); }),
       btn("Xuất PDF đối chiếu", "", function () { exportSheetsPdf({ title: "ĐỐI CHIẾU PHÚC LỢI", ky: current,

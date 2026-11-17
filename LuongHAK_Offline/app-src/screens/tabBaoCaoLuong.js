@@ -113,7 +113,25 @@
         card.appendChild(filterBar);
         card.appendChild(reviewFilter);
         if (Object.keys(rfSkip).length) card.appendChild(h("div", { class: "hint", text: "Tiêu chí không áp dụng cho bảng này: " + Object.keys(rfSkip).join(", ") }));
-        var reviewTable = visibleReview.length ? simpleTable(visibleReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });
+        var actionableReview = visibleReview.map(function (row) {
+          var entry = r3.al.attendanceReview.find(function (item) {
+            return item.phieu === row["Phiếu cân"] && item.ngay === row["Ngày cân"] && item.maPB === row["Mã phòng ban"];
+          });
+          var actions = [];
+          if (tabAllowed(origin)) actions.push(btn("Mở phiếu cân", "ghost", function () {
+            st.opsReceipt = { type: originType, number: String(row["Phiếu cân"]).trim(), date: row["Ngày cân"], ky: kyKey(nam, thang) };
+            st.opsKw = ""; st.opsPB = ""; st.tab = origin; saveUi(); render();
+          }));
+          if (!snapshot && entry && tabAllowed("chamcong")) entry.employees.forEach(function (employee) {
+            actions.push(btn("Mở công " + employee.ma, "ghost", function () {
+              st.rf = RF.normalize({ maNV: [employee.ma] });
+              st.attendanceReviewDay = row["Ngày cân"];
+              st.tab = "chamcong"; saveUi(); render();
+            }));
+          });
+          return Object.assign({}, row, { "Thao tác": h("div", { class: "bar" }, actions) });
+        });
+        var reviewTable = visibleReview.length ? simpleTable(actionableReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });
         reviewTable.classList.add("attendance-review-table");
         card.appendChild(reviewTable);
         if (!snapshot && visibleReview.length && can("input.edit")) card.appendChild(btn("Xác nhận có làm", "pri", function () {
