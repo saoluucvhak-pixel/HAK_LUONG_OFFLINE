@@ -3,6 +3,11 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [Chưa phát hành] — sửa chuyển tổ và thu hồi của Cấp phát
+- Báo cáo tổng hợp Cấp phát gom theo tổ đã lưu trên từng lượt: người chuyển tổ nhận ở hai tổ thì hiện đúng từng tổ (Tổ 1 = 10, Tổ 2 = 5, tổng = 15), trước đây dồn vào tổ đầu tiên. Phân biệt theo mã vật tư, đơn vị tính và cỡ. Sữa: định mức tính một lần theo nhân viên/tháng, người chuyển tổ có dòng định mức riêng.
+- Lượt thu hồi và lượt cấp thay thế (đổi cỡ) giữ tổ, tên mặt hàng, đơn vị, cỡ của dòng cấp gốc (trước đây tra lại tổ hiện tại và tên vật tư hiện tại). Chi tiết có Ngày giao dịch, Ngày cấp gốc, Mã điều chỉnh, thời điểm thao tác. Phiếu cũ thiếu tổ: ghi rõ nguồn suy ra hoặc thiếu căn cứ.
+- Thêm kiểm thử Electron `tests/e2e/capphat.cjs` (chạy cả trên runner Windows): hai chế độ sử dụng, nhập Excel, chuyển tổ + thu hồi, báo cáo màn hình/Excel/PDF, đóng-mở lại, nâng cấp từ dữ liệu kiểu v2.0.24, Full Backup → khôi phục vào hồ sơ riêng.
+
 ## [2.0.25] — 17/11/2026
 - Cấp phát thống nhất sữa phúc lợi + bảo hộ lao động (Nghiệp vụ nhân sự → Cấp phát): danh sách phiếu, màn chi tiết ba vùng (thông tin phiếu · người nhận · thao tác), nhập Excel theo phiếu có xem trước và báo lỗi theo số dòng, xác nhận, thu hồi một phần và đổi cỡ, báo cáo Tổng hợp/Chi tiết dùng chung HAK Smart Filter, Excel và PDF cùng nguồn số liệu. Danh mục Cấp phát: Tiêu chuẩn phúc lợi và Đồ bảo hộ lao động. Mở phiếu gốc từ báo cáo hoặc hồ sơ nhân viên, quay lại giữ bộ lọc và trang. Dữ liệu sữa cũ dùng nguyên. Chi tiết: `docs/CAP_PHAT.md`, quy tắc R-74.
 - Đối chiếu bảng lương Excel hai chiều: hiện riêng "Có trong app, thiếu trong Excel" và "Có trong Excel, không khớp app"; tổng kết số nhân viên đã đối chiếu, số người thiếu mỗi bên, số người có chênh lệch. File Excel xuất có sheet TongKet, ThieuTrongExcel, KhongKhopNguoi, DoiChieu cùng số liệu với màn hình và luôn xuất được. Giữ quy tắc v2.0.23 (có mã thì khớp theo mã; chỉ khớp theo tên khi Excel trống mã và tên duy nhất).

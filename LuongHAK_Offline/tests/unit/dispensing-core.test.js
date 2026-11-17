@@ -97,7 +97,7 @@ test("U-DIS-05 nhân viên chuyển tổ: báo cáo lịch sử dùng tổ đã 
   // dòng cũ không có thông tin lịch sử: tạm lấy theo tổ tại ngày cấp và tên trong danh mục hiện tại
   const legacy = { ...doc, lines: doc.lines.map(({ dept, deptName, itemName, unit, employeeName, ...rest }) => rest) };
   const l = B.report({ ...renamed, benefitIssues: [legacy] }, { type: "ppe", mode: "detail", deptOf: moved }).rows[0];
-  assert.equal(l["Tổ/Phòng ban tại ngày cấp"], "Tổ 2"); assert.equal(l["Mặt hàng"], "Giày an toàn");
+  assert.equal(l["Tổ/Phòng ban tại ngày cấp"], "Tổ 2 (suy ra từ hồ sơ hợp đồng tại ngày cấp)", "dòng cũ: ghi rõ tổ được suy ra, không giả làm dữ liệu đã lưu"); assert.equal(l["Mặt hàng"], "Giày an toàn");
 });
 
 test("U-DIS-06 sữa: cấp 4 hộp, mặt hàng không còn định mức vẫn hiện 4 hộp kèm ghi chú; thu hồi một phần trừ vào số thực cấp của tháng", () => {
