@@ -74,8 +74,23 @@
       db.auditlog.splice(0, db.auditlog.length - AUDIT_MAX);
     }
   }
-  window.hakFlushBeforeClose = function () { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (dirty && !saveNow()) { toast("Chưa lưu được dữ liệu — app giữ cửa sổ mở. " + lastSaveError); return false; } return true; };
-  window.addEventListener("beforeunload", function (e) { if (dirty && !saveNow()) { e.preventDefault(); e.returnValue = false; toast("Chưa lưu được dữ liệu — giữ app mở để thử lại hoặc sao lưu. " + lastSaveError); } });
+  window.hakFlushBeforeClose = function () {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    closingNow = true; var okSave = !dirty || saveNow(); closingNow = false;
+    if (okSave) return true;
+    // Bản nền cũ (kho đã đổi ở nơi khác): KHÔNG ghi đè; cho đóng nếu người dùng đồng ý bỏ thay đổi chưa lưu của màn hình này, nếu không giữ cửa sổ.
+    if (lastSaveStale) { if (confirm("Dữ liệu đã được thay đổi ở nơi khác nên bản đang mở là bản CŨ; app không ghi để tránh ghi đè dữ liệu mới.\n\nBấm OK để ĐÓNG và bỏ thay đổi chưa lưu của màn hình này. Bấm Hủy để giữ cửa sổ.")) { dirty = false; return true; } return false; }
+    toast("Chưa lưu được dữ liệu — app giữ cửa sổ mở. " + lastSaveError); return false;
+  };
+  window.addEventListener("beforeunload", function (e) {
+    if (!dirty) return;
+    closingNow = true; var okSave = saveNow(); closingNow = false;
+    if (okSave) return;
+    // Bản nền cũ (kho đã đổi ở nơi khác, thường vì chính app vừa khôi phục/lưu trữ rồi tải lại giao diện): KHÔNG ghi đè và KHÔNG giữ trang.
+    // Chromium chặn hộp thoại confirm() trong beforeunload nên không hỏi ở đây (đường đóng cửa sổ hỏi ở hakFlushBeforeClose; đường lưu thường hỏi ở onStaleBase).
+    if (lastSaveStale) { dirty = false; return; }
+    e.preventDefault(); e.returnValue = false; toast("Chưa lưu được dữ liệu — giữ app mở để thử lại hoặc sao lưu. " + lastSaveError);
+  });
   if (!readOnly && (fromLocal || migMsg.length)) saveNow();
   var now = new Date();
   var st = { tab: "home", dm: "dm_luong", nam: now.getFullYear(), thang: now.getMonth() + 1, bu: "to", kq: null, compact: true, q: "", qs: {}, pg: {}, pageSize: 100 };

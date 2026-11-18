@@ -26,7 +26,7 @@ Không phải câu hỏi quy tắc lương. Mỗi mục có tài liệu và số
 
 | # | Quyết định | Khuyến nghị | Tài liệu |
 |---|---|---|---|
-| D1 | Thêm kiểm tra bản nền (`baseSig`) cho lưu dữ liệu: ghi dựa trên bản cũ bị từ chối và giao diện nạp lại bản mới, thay vì ghi đè âm thầm. Đã tái hiện: ghi ngoài giao diện bị giao diện ghi đè khi đóng/tải lại | Làm trước, độc lập với D2 (chặn đúng lớp rủi ro này, chi phí nhỏ hơn D2) | `WRITE_PATH_DELTA_DESIGN.md` §7, `docs/v2.0.34/` |
+| D1 ✅ (v2.0.35) | Thêm kiểm tra bản nền (`baseSig`) cho lưu dữ liệu: ghi dựa trên bản cũ bị từ chối và giao diện nạp lại bản mới, thay vì ghi đè âm thầm. Đã tái hiện: ghi ngoài giao diện bị giao diện ghi đè khi đóng/tải lại | Làm trước, độc lập với D2 (chặn đúng lớp rủi ro này, chi phí nhỏ hơn D2) | `WRITE_PATH_DELTA_DESIGN.md` §7, `docs/v2.0.34/` |
 | D2 | Duyệt thiết kế delta giai đoạn 2 (giao diện chỉ gửi bảng đổi; main làm việc theo phần đổi) | Duyệt sau D1; cần thử trên Electron/Windows thật; mục tiêu < 150 ms ở 5.000 NV (hiện ≈272/378 ms p50/p95 ở main) | `WRITE_PATH_DELTA_DESIGN.md` §5, `PERFORMANCE_REPORT.md` |
 | D3 | Gộp PR bằng chứng nghiệm thu (#77: test đối chiếu báo cáo, CI kiểm bộ cài thật, đo quy mô) khi CI xanh | Gộp khi CI xanh đúng commit | PR #77 |
 | D4 | Bật lại mã hóa dữ liệu trên đĩa và ký số bộ cài | Tạm dừng theo yêu cầu 15/11/2026; khi bật lại phải trình bày thiết kế trước (dữ liệu nay nằm trong SQLite) | `TODO_ROADMAP.md` |

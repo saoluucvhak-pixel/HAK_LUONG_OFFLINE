@@ -9,7 +9,8 @@ contextBridge.exposeInMainWorld("hakYears",{
 // Cầu nối tối thiểu giữa giao diện và tiến trình chính: chỉ các thao tác lưu trữ dữ liệu của app.
 contextBridge.exposeInMainWorld("hakStore", {
   load: () => ipcRenderer.sendSync("store-load"),          // { ok, text } | { ok:false, error, backups }
-  save: (text) => ipcRenderer.sendSync("store-save", text), // true | "lỗi"
+  save: (text, baseSig) => ipcRenderer.sendSync("store-save", text, baseSig), // true | "lỗi" ("STALE_BASE: …" nếu bản nền đã cũ)
+  sig: () => ipcRenderer.sendSync("store-sig"), // phiên bản hiện tại của kho; giao diện gửi lại ở lần lưu sau để main từ chối ghi đè bản cũ
   info: () => ipcRenderer.sendSync("store-info"),
   backup: (tag) => ipcRenderer.sendSync("store-backup", tag),
   hasDataFile: () => ipcRenderer.sendSync("store-has-data-file"),

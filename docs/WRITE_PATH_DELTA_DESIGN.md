@@ -89,3 +89,6 @@ Unit/integration 1.111 ca đạt (cả khi bật deep-freeze), lint sạch, `bui
 - Tiêu chí nghiệm thu bổ sung: test tái hiện trên phải chuyển từ "mất 0099" sang "bị từ chối + giao diện nạp lại, 0099 còn".
 
 Bộ kiểm bộ cài thật (`tests/e2e/installed-setup.cjs`) vì vậy kiểm tính bền bằng dữ liệu do CHÍNH giao diện ghi (nhật ký đăng nhập), không dùng ghi ngoài giao diện.
+
+### Cập nhật 18/11/2026 — D1 đã làm ở v2.0.35
+`baseSig` đã triển khai: `preload` (`save(text, baseSig)`, `sig()`), `main` (`store-sig`, từ chối `STALE_BASE` trước khi kiểm quyền/ghi), giao diện (theo dõi và làm mới `baseSig`; hỏi/không giữ trang tùy đường). Kịch bản `tests/e2e/stale-base.cjs` chuyển từ "mất bản ghi" (tái hiện ở `docs/v2.0.34/`) sang "bị từ chối, giao diện hỏi, bản ghi còn nguyên" — 12/12 đạt. Giai đoạn 2 (delta) vẫn chưa làm và nay có thể dựa vào `baseSig` làm điều kiện nền (§5.1).

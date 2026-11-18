@@ -34,7 +34,6 @@ async function launch(exe, dir) {
 }
 async function launchRetry(exe, dir) { let last; for (let i = 0; i < 4; i++) { try { return await launch(exe, dir); } catch (e) { last = e; await sleep(3000); } } throw last; }
 const login = async (w) => { await w.waitForSelector("#main input[data-f=u]"); await w.fill("#main input[data-f=u]", "admin"); await w.fill("#main input[data-f=p]", PASS); await w.click("#main button.big"); await w.waitForSelector("#nav button[data-k=home]", { timeout: 60000 }); };
-const saveViaIpc = (w, js) => w.evaluate((src) => { const r = window.hakStore.load(); const d = JSON.parse(r.text); (new Function("d", src))(d); return window.hakStore.save(JSON.stringify(d)); }, js);
 const sqliteNv = (dir) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT json FROM records WHERE tbl='nhanvien'").all().map((r) => JSON.parse(r.json)["Mã NV"]); } finally { db.close(); } };
 const tblCount = (dir, tbl) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT COUNT(*) AS c FROM records WHERE tbl = ?").get(tbl).c; } finally { db.close(); } };
 const userVersion = (dir) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("PRAGMA user_version").get().user_version; } finally { db.close(); } };
@@ -61,11 +60,14 @@ const closeAll = async (app) => { let closed = true; try { await Promise.race([a
   const ver = await s.app.evaluate(({ app }) => app.getVersion());
   ok("Bản đã cài đúng phiên bản của bản ứng viên", ver === VERSION, ver + " ≠ " + VERSION);
   ok("Nâng cấp JSON→SQLite trong bản đã cài: có data.sqlite, schema v2, đủ nhân viên", fs.existsSync(path.join(d1.D, "data.sqlite")) && userVersion(d1.D) === 2 && sqliteNv(d1.D).length === d1.n);
-  // Lưu qua IPC thật: chỉ kiểm main nhận ghi và SQLite thấy NGAY. (Giao diện giữ bản dữ liệu riêng trong bộ nhớ và ghi lại cả tài liệu khi đóng/tải lại,
-  // nên ghi "ngoài giao diện" như thế này sẽ bị bản trong bộ nhớ ghi đè lúc đóng — xem docs/WRITE_PATH_DELTA_DESIGN.md §7. Vì vậy KHÔNG dùng nó để kiểm tính bền qua đóng/mở.)
-  const sv = await saveViaIpc(s.w, "d.nhanvien.push({'Mã NV':'0099','Họ và tên':'Nguyễn Văn Ánh','Trạng thái':'Đang làm việc'});");
-  ok("Lưu qua IPC thật trong bản đã cài trả true", sv === true, String(sv));
-  ok("SQLite thấy bản ghi IPC NGAY sau khi lưu (app còn chạy)", sqliteNv(d1.D).includes("0099"), "sqlite: " + sqliteNv(d1.D).slice(-3).join(","));
+  // Giao thức lưu thật trong bản đã cài: main nhận ghi có kèm bản nền ĐÚNG (từ chối bản nền sai). Dùng đúng văn bản đang lưu nên kho KHÔNG đổi phiên bản và giao diện không bị coi là bản cũ.
+  // (Không ghi nội dung mới "ngoài giao diện" ở đây: từ v2.0.35 bản ghi ngoài sẽ làm giao diện bị coi là bản cũ và lần ghi lúc đóng bị từ chối — đúng thiết kế, đã kiểm ở tests/e2e/stale-base.cjs.)
+  const sigNow = await s.w.evaluate(() => window.hakStore.sig());
+  const same = await s.w.evaluate(() => window.hakStore.save(window.hakStore.load().text, window.hakStore.sig()));
+  ok("Lưu qua IPC thật trong bản đã cài (kèm bản nền đúng) trả true", same === true, String(same));
+  const bad = await s.w.evaluate(() => window.hakStore.save(window.hakStore.load().text, "sqlite:999999"));
+  ok("Bản nền sai bị từ chối ('STALE_BASE') trong bản đã cài", typeof bad === "string" && /^STALE_BASE/.test(bad), String(bad));
+  ok("Phiên bản kho không đổi sau hai lệnh trên (giao diện vẫn đồng bộ)", (await s.w.evaluate(() => window.hakStore.sig())) === sigNow, sigNow);
   ok("Không lỗi JavaScript ở giao diện bản đã cài", s.errs.length === 0, s.errs.join(" | "));
   // Tính bền qua đóng/mở: dữ liệu do CHÍNH giao diện ghi (nhật ký đăng nhập) phải còn sau khi đóng bình thường, ở cả SQLite và data.json
   const closed1 = await closeAll(s.app); diag("sau đóng lần 1 (app.close " + (closed1 ? "ok" : "KHÔNG ok") + ")", d1.D);
