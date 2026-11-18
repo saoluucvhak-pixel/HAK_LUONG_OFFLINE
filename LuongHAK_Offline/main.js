@@ -278,7 +278,7 @@ function registerIpc() {
       const d = jsonDirOf(); fs2.mkdirSync(d, { recursive: true });
       const n0 = new Date(), p2 = (x) => String(x).padStart(2, "0"), stamp = n0.getFullYear() + p2(n0.getMonth() + 1) + p2(n0.getDate()) + "_" + p2(n0.getHours()) + p2(n0.getMinutes()) + p2(n0.getSeconds());
       let name = "LuongHAK_JSON_" + stamp + ".json", i = 2; while (fs2.existsSync(path.join(d, name))) name = "LuongHAK_JSON_" + stamp + "-" + (i++) + ".json";
-      const file = path.join(d, name), tmp = file + ".tmp" + process.pid; fs2.writeFileSync(tmp, ld.text, "utf8");
+      const file = path.join(d, name), tmp = file + ".tmp" + process.pid; require("./main/restore").writeTextDurable(tmp, ld.text); // ghi + fsync TRƯỚC rename: mất điện không để lại tệp rỗng mang tên hợp lệ
       const sha = crypto2.createHash("sha256").update(fs2.readFileSync(tmp)).digest("hex"), want = crypto2.createHash("sha256").update(Buffer.from(ld.text, "utf8")).digest("hex");
       if (sha !== want) { try { fs2.unlinkSync(tmp); } catch (err) { /* tệp tạm */ } return { ok: false, error: "Ghi file JSON không khớp SHA-256 — đã hủy, không để lại file" }; }
       fs2.renameSync(tmp, file); try { if (storage.noteExternal) storage.noteExternal(); } catch (err) { /* chỉ ghi nhận mốc sao lưu */ }
