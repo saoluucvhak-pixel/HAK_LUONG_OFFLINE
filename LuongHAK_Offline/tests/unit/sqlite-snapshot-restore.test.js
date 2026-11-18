@@ -88,7 +88,9 @@ for (const at of ["sau-marker", "truoc-doi-ten", "sau-doi-ten"]) {
   test("U-SNAP-05 kill -9 THẬT giữa lúc khôi phục (" + at + "): mở lại thấy trạng thái nhất quán = dữ liệu bản chụp, bản cũ còn được cất, marker dọn", () => {
     const { dir, v1 } = setup(); corrupt(dir); const rowsSnap = countRows(snap(dir));
     const r = cp.spawnSync(process.execPath, ["--no-warnings", KILL, dir, at], { encoding: "utf8", timeout: 60000 });
-    assert.equal(r.signal, "SIGKILL", "tiến trình con phải bị kill đúng điểm. stdout: " + r.stdout + " stderr: " + r.stderr.slice(0, 200));
+    // Linux/macOS báo signal = SIGKILL; Windows kết thúc tiến trình đột ngột nhưng spawnSync trả signal = null và mã thoát khác 0 (CI Windows 06:55). Cả hai đều là chết đột ngột đúng điểm: có dòng "KILL <điểm>" và KHÔNG có "DONE" (kiểm ngay bên dưới).
+    if (process.platform === "win32") assert.ok(r.status !== 0, "tiến trình con phải chết đột ngột (Windows). status=" + r.status + " stdout: " + r.stdout + " stderr: " + r.stderr.slice(0, 200));
+    else assert.equal(r.signal, "SIGKILL", "tiến trình con phải bị kill đúng điểm. stdout: " + r.stdout + " stderr: " + r.stderr.slice(0, 200));
     assert.match(r.stdout, new RegExp("KILL " + at)); assert.doesNotMatch(r.stdout, /DONE/);
     assert.ok(kept(dir, /^data\.sqlite\.truoc-khoi-phuc-/).length >= 1, "bản cũ đã được cất TRƯỚC mọi bước thay thế");
     const s = createSqliteStorage(dir, opts), ld = s.load();
