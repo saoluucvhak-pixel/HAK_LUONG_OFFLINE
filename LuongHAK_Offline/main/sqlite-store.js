@@ -47,15 +47,19 @@ function pragma(db, name) { const row = db.prepare("PRAGMA " + name).get(); retu
 /** Mở kết nối: bật foreign_keys, WAL, synchronous FULL, busy_timeout; ĐỌC LẠI để xác nhận từng PRAGMA thực sự có hiệu lực. */
 function open(file, opts) {
   const { DatabaseSync } = driver(), db = new DatabaseSync(file);
+  try { return configure(db, opts); }
+  catch (e) { try { db.close(); } catch (e2) { /* đã đóng */ } throw e; } // file hỏng/không hợp lệ: PHẢI nhả handle (Windows không cho đổi tên/xóa file còn handle mở)
+}
+function configure(db, opts) {
   const readonly = !!(opts && opts.readonly);
   db.exec("PRAGMA busy_timeout = " + BUSY_MS + "; PRAGMA foreign_keys = ON;");
   if (!readonly) db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;");
   const got = { foreign_keys: pragma(db, "foreign_keys"), journal_mode: String(pragma(db, "journal_mode")).toLowerCase(), synchronous: pragma(db, "synchronous"), busy_timeout: pragma(db, "busy_timeout") };
   if (got.foreign_keys !== 1 || got.busy_timeout !== BUSY_MS || (!readonly && (got.journal_mode !== "wal" || got.synchronous !== 2))) {
-    db.close(); throw new Error("PRAGMA không có hiệu lực như thiết kế: " + JSON.stringify(got));
+    throw new Error("PRAGMA không có hiệu lực như thiết kế: " + JSON.stringify(got));
   }
   const version = pragma(db, "user_version");
-  if (version > SCHEMA_VERSION) { db.close(); throw new Error("Kho dữ liệu có schema v" + version + " mới hơn app này (hỗ trợ tới v" + SCHEMA_VERSION + "): không mở — hãy cập nhật ứng dụng."); }
+  if (version > SCHEMA_VERSION) throw new Error("Kho dữ liệu có schema v" + version + " mới hơn app này (hỗ trợ tới v" + SCHEMA_VERSION + "): không mở — hãy cập nhật ứng dụng.");
   db.pragmas = got;
   return db;
 }

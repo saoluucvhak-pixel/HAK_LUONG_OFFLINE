@@ -248,7 +248,7 @@ function createSqliteStorage(dir, opts) {
       if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; }
       for (const x of ["-wal", "-shm"]) { try { fs.rmSync(dbFile + x, { force: true }); } catch (e) { /* bỏ qua */ } } // WAL cũ không được áp lên file mới (bản đầy đủ đã được cất trước đó)
       if (opts.testHook) opts.testHook("truoc-doi-ten"); // chỉ kiểm thử
-      fs.renameSync(candFile, dbFile);
+      retry(() => fs.renameSync(candFile, dbFile));
       if (opts.testHook) opts.testHook("sau-doi-ten"); // chỉ kiểm thử
       for (const x of ["-wal", "-shm"]) { try { fs.rmSync(candFile + x, { force: true }); } catch (e) { /* bỏ qua */ } }
     }
@@ -267,6 +267,8 @@ function createSqliteStorage(dir, opts) {
     conflict = ""; opened = true; fs.rmSync(markerFile, { force: true });
     return { ok: true, records: after };
   }
+  const pause = (ms) => { try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch (e) { /* bỏ qua */ } };
+  const retry = (fn) => { let last; for (let i = 0; i < 8; i++) { try { return fn(); } catch (e) { last = e; if (!e || !/^(EBUSY|EPERM|EACCES)$/.test(e.code || "")) throw e; pause(250); } } throw last; }; // Windows: antivirus/handle vừa nhả có thể giữ file vài trăm ms
   const sha256File = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
   /** Khôi phục data.sqlite từ bản chụp. Chỉ dùng khi kho không mở được (giao diện chặn ở main). Không hủy dữ liệu hiện có: cất data.sqlite(+wal/shm)/data.json sang tên 'truoc-khoi-phuc-<ts>'. */
   function restoreFromSnapshot(actor) {
@@ -283,7 +285,7 @@ function createSqliteStorage(dir, opts) {
       if (db) { try { before = db.prepare("SELECT COUNT(*) AS c FROM records").get().c; } catch (e) { before = null; } try { store.close(db); } catch (e) { /* đã đóng */ } db = null; }
       else { try { const { DatabaseSync } = store.driver(), r = new DatabaseSync(dbFile, { readOnly: true }); try { before = r.prepare("SELECT COUNT(*) AS c FROM records").get().c; } finally { r.close(); } } catch (e) { before = null; } }
       cur = null; opened = false; conflict = "";
-      for (const x of ["", "-wal", "-shm"]) if (fs.existsSync(dbFile + x)) { const k = "data.sqlite.truoc-khoi-phuc-" + ts + x; fs.copyFileSync(dbFile + x, path.join(dir, k)); kept.push(k); }
+      for (const x of ["", "-wal", "-shm"]) if (fs.existsSync(dbFile + x)) { const k = "data.sqlite.truoc-khoi-phuc-" + ts + x; retry(() => fs.copyFileSync(dbFile + x, path.join(dir, k))); kept.push(k); }
       if (fs.existsSync(dataFile)) { const k = "data.json.truoc-khoi-phuc-" + ts; fs.copyFileSync(dataFile, path.join(dir, k)); kept.push(k); }
       atomicWrite(markerFile, JSON.stringify({ ts, actor: String(actor || ""), from: "backups/data-snapshot.sqlite", candSha: sha256File(candFile), before, kept, at: new Date().toISOString() }));
       if (opts.testHook) opts.testHook("sau-marker"); // chỉ kiểm thử: kill -9 thật tại đây

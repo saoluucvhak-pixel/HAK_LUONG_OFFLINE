@@ -79,7 +79,10 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   const recBtn = 'button:has-text("Khôi phục từ bản chụp SQLite")';
   await w.waitForSelector(recBtn, { timeout: 15000 });
   ok("data.sqlite hỏng: màn hình khôi phục hiện nút khôi phục từ bản chụp (bản chụp đã kiểm hợp lệ)", (await w.locator("[data-snapshot=ok]").count()) === 1 && /Không mở được kho dữ liệu SQLite/.test(await w.locator("#main").innerText()));
-  await w.click(recBtn); await w.waitForSelector("#main input[data-f=u]", { timeout: 20000 }); await login(w);
+  const dlg = []; w.removeAllListeners("dialog"); w.on("dialog", (x) => { dlg.push(x.message().slice(0, 300)); x.accept().catch(() => {}); }); // ghi lại thông báo để chẩn đoán nếu khôi phục không thành
+  await w.click(recBtn);
+  try { await w.waitForSelector("#main input[data-f=u]", { timeout: 20000 }); } catch (e) { console.log("HỘP THOẠI: " + JSON.stringify(dlg) + " | thư mục: " + fs.readdirSync(D).join(",")); throw e; }
+  await login(w);
   const nvAfter = sqliteNv(D);
   ok("Khôi phục xong: dữ liệu = bản chụp (đủ 0099/0100, KHÔNG có 0101), số nhân viên đúng", nvAfter.length === nvSnap && nvAfter.includes("0100") && !nvAfter.includes("0101"), nvAfter.length + "/" + nvSnap);
   ok("Bản data.sqlite hỏng được cất, data.json cũ cũng được cất", fs.readdirSync(D).some((f) => /^data\.sqlite\.truoc-khoi-phuc-/.test(f)) && fs.readdirSync(D).some((f) => /^data\.json\.truoc-khoi-phuc-/.test(f)) && !fs.existsSync(path.join(D, "data.sqlite.restore-pending")));
