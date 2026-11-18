@@ -52,7 +52,7 @@ const planOf = (db, t, rows, mode) => IMP.plan(db, t, COLS[t], rows, { lockedPer
 const E = require("../../engine.js");
 function helpers() {
   const i = APP.indexOf("// IMPORT-REPORT-BEGIN"), j = APP.indexOf("// IMPORT-REPORT-END"); assert.ok(i > 0 && j > i, "thiếu dấu mốc IMPORT-REPORT trong app.js");
-  const c = {}; vm.createContext(c); vm.runInContext(APP.slice(i, j) + "\nthis.h = { hint: importFixHint, totals: importTotals, sheets: importErrorSheets, SUM: IMPORT_SUM_COLS };", c); return c.h;
+  const c = {}; vm.createContext(c); vm.runInContext(APP.slice(i, j) + "\nthis.h = { hint: importFixHint, totals: importTotals, sheets: importErrorSheets, SUM: IMPORT_SUM_COLS, money: typeof importMoneyEq === 'function' ? importMoneyEq : null };", c); return c.h;
 }
 const H = helpers();
 const MIXED = (t) => { const bad = Object.assign(raw(t, OPEN, "A2"), { [t === "chamcong" ? "Kỳ" : t === "sanluong" || t === "bandam" ? "Ngày cân" : t === "tiencom" ? "Ngày" : "Ngày hạch toán"]: "sai-ngày" }), ref = Object.assign(raw(t, OPEN, "A3"), { "Mã NV": "KHONGCO" }); return [raw(t, OPEN, "A1", 2), bad, ref, Object.assign({}, raw(t, OPEN, "A1", 2))]; };
@@ -66,11 +66,11 @@ test("U-IMPRPT-01 mỗi loại lỗi có 'Cách sửa' cụ thể bằng tiếng
 });
 
 for (const t of TABLES) {
-  test("U-IMPRPT-" + t + "-totals đối chiếu: số dòng file = ghi + gộp + không ghi; tổng cột số của file = ghi + không ghi", () => {
+  test("U-IMPRPT-" + t + "-totals đối chiếu: số dòng file = ghi + gộp + không ghi; tổng cột số của file = ghi + gộp + không ghi", () => {
     const db = newDb(), p = planOf(db, t, MIXED(t)), [r] = H.totals([p], E.num);
     assert.equal(r.file.rows, p.items.length); assert.equal(r.file.rows, r.ghi.rows + r.gop.rows + r.khong.rows);
     assert.equal(r.ghi.rows, p.items.filter((i) => i.action === "add" || i.action === "update").length);
-    for (const c of H.SUM[t] || []) assert.ok(Math.abs(r.file.sums[c] - (r.ghi.sums[c] + r.khong.sums[c])) < 1e-9, c);
+    for (const c of H.SUM[t] || []) assert.ok(Math.abs(r.file.sums[c] - (r.ghi.sums[c] + r.gop.sums[c] + r.khong.sums[c])) < 1e-9, c);
     // số liệu độc lập: cộng tay các dòng hợp lệ của file
     for (const c of H.SUM[t] || []) { const handSum = p.items.filter((i) => i.action === "add").reduce((n, i) => n + E.num(i.row[c]), 0); assert.equal(r.ghi.sums[c], handSum); }
     const res = repoFor(db).importWorkbook([p], "x", "merge", () => false); assert.equal(res.value, r.ghi.rows, "số dòng ghi thật = số 'Sẽ ghi' đã hiện");
@@ -94,4 +94,19 @@ test("U-IMPRPT-sheet file lỗi để sửa: chỉ dòng lỗi, đúng cột c�
   assert.deepEqual(again.items.map((i) => i.action), ["add", "add"], JSON.stringify(again.items.map((i) => i.reason))); assert.equal(again.items[0].row["Tạm ứng"], "500000");
   assert.equal(repoFor(db).importWorkbook([again], "sua.xlsx", "merge", () => false).value, 2);
   assert.equal(H.sheets([planOf(newDb(), t, [raw(t, OPEN, "A1")])], (x) => COLS[x], (x) => x).length, 0, "không có dòng lỗi → không có sheet");
+});
+
+test("U-IMPRPT-gop đối chiếu tiền: có dòng 'gộp' mang tiền > 0 thì file = ghi + gộp + không ghi ĐÚNG theo tổng tiền VÀ chuỗi hiển thị nêu đủ ba số hạng (CEO review #109)", () => {
+  assert.ok(H.money, "thiếu hàm importMoneyEq (chuỗi đối chiếu tiền dùng chung cho bảng và thông báo)");
+  const fmt = (n) => String(Math.round(n)), items = [["add", "500000"], ["merged", "300000"], ["duplicate", "100000"], ["locked", "50000"]].map(([action, v]) => ({ action, row: { "Tạm ứng": v } }));
+  const [t] = H.totals([{ table: "ungluong", items }], E.num), c = "Tạm ứng";
+  assert.equal(t.gop.sums[c], 300000, "gộp có tổng riêng"); assert.equal(t.file.sums[c], t.ghi.sums[c] + t.gop.sums[c] + t.khong.sums[c], "phương trình theo TỔNG TIỀN phải đúng khi có dòng gộp");
+  assert.equal(t.file.rows, t.ghi.rows + t.gop.rows + t.khong.rows, "phương trình theo số dòng");
+  const line = H.money(t, H.SUM.ungluong, fmt);
+  assert.equal(line, "Tạm ứng: file 950000 = ghi 500000 + gộp 300000 + không ghi 150000", line);
+  // không có dòng gộp: vẫn đủ ba số hạng, gộp = 0 (nhất quán, không làm người dùng tưởng thiếu tiền)
+  const [t0] = H.totals([{ table: "ungluong", items: items.filter((x) => x.action !== "merged") }], E.num);
+  assert.equal(H.money(t0, H.SUM.ungluong, fmt), "Tạm ứng: file 650000 = ghi 500000 + gộp 0 + không ghi 150000");
+  // bảng không có cột tiền (chấm công): không có chuỗi
+  assert.equal(H.money(H.totals([{ table: "chamcong", items: [{ action: "add", row: {} }] }], E.num)[0], H.SUM.chamcong || [], fmt), "");
 });

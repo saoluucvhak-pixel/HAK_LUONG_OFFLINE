@@ -527,8 +527,8 @@
     body.appendChild(simpleTable(sumRows));
     var recon = importTotals(plans, E.num), reconRows = [];
     recon.forEach(function (t) {
-      var money = (IMPORT_SUM_COLS[t.table] || []).map(function (c) { return c + ": file " + fmt(t.file.sums[c]) + " = ghi " + fmt(t.ghi.sums[c]) + " + không ghi " + fmt(t.khong.sums[c]); }).join(" · ");
-      reconRows.push({ "Bảng": ALL[t.table].ten, "Dòng trong file": t.file.rows, "Sẽ ghi": t.ghi.rows, "Gộp vào dòng khác": t.gop.rows, "Không ghi": t.khong.rows, "Tổng (file = ghi + không ghi)": money || "—" });
+      var money = importMoneyEq(t, IMPORT_SUM_COLS[t.table] || [], fmt);
+      reconRows.push({ "Bảng": ALL[t.table].ten, "Dòng trong file": t.file.rows, "Sẽ ghi": t.ghi.rows, "Gộp vào dòng khác": t.gop.rows, "Không ghi": t.khong.rows, "Tổng (file = ghi + gộp + không ghi)": money || "—" });
     });
     body.appendChild(h("div", { class: "fh", text: "Đối chiếu với file nguồn" })); body.appendChild(h("div", { "data-imp-recon": "1" }, [simpleTable(reconRows)]));
     var skipTotal = 0, lookTotal = 0; plans.forEach(function (p) { skipTotal += p.sampleSkipped || 0; lookTotal += (p.sampleLike || []).length; });
@@ -599,7 +599,7 @@
     if (action === "duplicate") return "Không cần làm gì (dòng đã có)";
     return "";
   }
-  /** Đối chiếu theo bảng: số dòng + tổng các cột số của FILE NGUỒN = ghi + không ghi (+ gộp). num: hàm đọc số (engine.num). */
+  /** Đối chiếu theo bảng: số dòng + tổng các cột số của FILE NGUỒN = ghi + gộp + không ghi. num: hàm đọc số (engine.num). */
   function importTotals(plans, num) {
     return plans.map(function (p) {
       var cols = IMPORT_SUM_COLS[p.table] || [], z = function () { var o = { rows: 0, sums: {} }; cols.forEach(function (c) { o.sums[c] = 0; }); return o; };
@@ -624,6 +624,10 @@
       }) });
     });
     return sheets;
+  }
+  /** Chuỗi đối chiếu TIỀN của một bảng: "<cột>: file X = ghi Y + gộp Z + không ghi W" (đủ ba số hạng để phương trình luôn đúng, kể cả khi có dòng gộp). fmt: hàm định dạng số. */
+  function importMoneyEq(t, cols, fmt) {
+    return (cols || []).map(function (c) { return c + ": file " + fmt(t.file.sums[c]) + " = ghi " + fmt(t.ghi.sums[c]) + " + gộp " + fmt(t.gop.sums[c]) + " + không ghi " + fmt(t.khong.sums[c]); }).join(" · ");
   }
   // IMPORT-REPORT-END
   function importFile(key, done, pumpMode) { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, key, m, pumpMode); }, name, done); }); }

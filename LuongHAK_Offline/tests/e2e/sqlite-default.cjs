@@ -172,7 +172,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       const [f2] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Nhập Excel")').first().click()]); await f2.setFiles((fs.writeFileSync(xf2, new Uint8Array(await wb2.xlsx.writeBuffer())), xf2)); await w.waitForSelector(".dlg", { timeout: 15000 });
       const pv2 = (await w.locator(".dlg").innerText()).replace(/\s+/g, " ");
       ok("Xem trước: có cột 'Cách sửa' nêu việc cần làm cho dòng chữ ở Số suất cơm và mã NV lạ", /Cách sửa/.test(pv2) && /Nhập số \(ví dụ 2/.test(pv2) && /Thêm nhân viên này ở màn Nhân sự/.test(pv2), pv2.slice(0, 700));
-      ok("Xem trước: bảng 'Đối chiếu với file nguồn' — 3 dòng trong file, tổng suất cơm \"file 3 = ghi 2 + không ghi 1\"", /Đối chiếu với file nguồn/.test(pv2) && /Dòng trong file/.test(pv2) && /Số suất cơm: file 3 = ghi 2 \+ không ghi 1/.test(pv2), pv2.slice(0, 900));
+      ok("Xem trước: bảng 'Đối chiếu với file nguồn' — 3 dòng trong file, tổng suất cơm \"file 3 = ghi 2 + gộp 0 + không ghi 1\"", /Đối chiếu với file nguồn/.test(pv2) && /Dòng trong file/.test(pv2) && /Số suất cơm: file 3 = ghi 2 \+ gộp 0 \+ không ghi 1/.test(pv2), pv2.slice(0, 900));
       const dl2 = path.join(D9, "downloads"), had2 = fs.existsSync(dl2) ? fs.readdirSync(dl2) : [];
       await w.click('.dlg button:has-text("Tải file lỗi để sửa")'); let xl2 = null; for (let i = 0; i < 40 && !xl2; i++) { const f = fs.existsSync(dl2) ? fs.readdirSync(dl2).filter((x) => /LoiNhapExcel.*\.xlsx$/i.test(x) && !had2.includes(x)) : []; if (f.length) xl2 = path.join(dl2, f[0]); else await w.waitForTimeout(250); }
       ok("Tải được file lỗi để sửa (.xlsx)", !!xl2);
