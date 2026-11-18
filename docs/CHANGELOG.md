@@ -5,6 +5,8 @@
 
 ## [2.0.41] — 18/11/2026
 - **Nhập Excel (handoff 009-B, issue #98):** bản xem trước thêm cột **"Cách sửa"** cho mọi dòng không ghi/lỗi (nêu việc cần làm bằng tiếng Việt), bảng **"Đối chiếu với file nguồn"** (số dòng + tổng cột số của file = ghi + gộp + không ghi, theo từng bảng) và nút **"⬇ Tải file lỗi để sửa & nhập lại"** (đúng cột của bảng + Dòng Excel/Lỗi/Cách sửa; sửa xong nhập lại bằng chính chức năng Nhập Excel, cột thêm bị bỏ qua). Thông báo sau khi ghi kèm đối chiếu "file N dòng = ghi + gộp + không ghi". Chỉ đổi hiển thị/xuất file lỗi: không đổi quy tắc nhập, công thức, lược đồ, kỳ đã chốt.
+## [2.0.40] — 18/11/2026
+- **Nhập liệu (handoff 009, issue #98):** (1) `Số suất cơm` chứa chữ (ví dụ "hai") nay bị **chặn khi nhập** (Excel, nhập tay, dán dùng chung `normCell`) với thông báo nêu dòng/cột/giá trị/cách sửa — trước đây được nhận và `engine.num` đọc thành 0 suất (mất tiền cơm âm thầm); (2) NV "Đã nghỉ việc" nhận tạm ứng/thưởng/suất cơm và (3) số tiền âm ở Tạm ứng/Thưởng/Thu nhập khác/Trừ khác chỉ **CẢNH BÁO** ở bản xem trước (vẫn ghi được sau khi xác nhận). Thêm script chỉ đọc `docs/v2.0.40/liet-ke-suat-com-khong-phai-so.cjs`. Không đổi công thức (`engine.num` giữ nguyên), không sửa dữ liệu đã lưu, không đổi lược đồ/kỳ đã chốt.
 
 ## [2.0.39] — 18/11/2026
 - **Sửa lỗi khóa phiên ghi:** nếu đường dẫn thư mục dữ liệu có chứa chữ "PID" (ví dụ tên người dùng/thư mục) và chưa có tệp `data.sqlite.lock`, kho SQLite không mở được (lỗi "ENOENT … data.sqlite.lock"), vì `acquireLock` nhận diện "tiến trình khác đang dùng" bằng cách khớp chữ `/PID/` trên thông báo lỗi. Nay dùng cờ riêng. Test mới `U-LOCK-01/02` (đỏ trước khi sửa). Không đổi công thức, lược đồ, định dạng dữ liệu, kỳ đã chốt.

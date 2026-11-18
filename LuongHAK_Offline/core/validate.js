@@ -111,6 +111,11 @@
       return { value: String(cap) };
     }
     if (isMoneyCol(col)) { if (v === "" || v == null) return { value: "" }; var n = parseMoney(v); return isNaN(n) ? { value: String(v), error: "Số tiền không đọc được" } : { value: String(Math.round(n * 1e6) / 1e6) }; }
+    if (col === "Số suất cơm") { // 009-1: chữ ("hai") bị engine.num đọc thành 0 → mất tiền cơm âm thầm; chặn khi nhập (không đổi cách tính, không đoán chữ thành số)
+      if (v === "" || v == null) return { value: "" };
+      var cnt = typeof v === "number" ? String(v) : String(v).trim();
+      return /^-?(?:\d+|\d+[.,]\d+|\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)$/.test(cnt) ? { value: cnt } : { value: cnt, error: "phải là số (ví dụ 2 hoặc 1,5), không nhập chữ — nhập 2 thay vì hai" };
+    }
     if (isRateCol(col)) { var re = rateError(v); return re ? { value: String(v == null ? "" : v).trim(), error: re } : { value: String(v == null ? "" : v).trim().replace(/\s/g, "") }; }
     if (isIdCol(col)) return { value: normId(col, v) };
     if (col === "Hình thức công") return { value: String(v == null ? "" : v).trim().toUpperCase() };

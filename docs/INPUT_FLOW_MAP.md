@@ -25,11 +25,11 @@ Chú thích đối chiếu với đề bài: **tăng ca** không phải bảng r
 6. **Lưu để tính lương** (`core/input-safety.js`, chỉ `chamcong`/`sanluong`/`bandam`): chặn dòng không có ngày/kỳ, khối lượng/số xe không phải số dương, trùng khóa, trộn phân bổ tổ/trực tiếp — thông báo nêu bảng, số dòng, số phiếu, giá trị.
 7. **Tiến trình chính** (`store-save`): kiểm quyền + chính sách ghi + `baseSig` (chống ghi đè bản cũ) khi lưu cả kho — không biết nghiệp vụ từng bảng.
 
-## 3. Ca xấu × bảng × kết quả (`tests/unit/import-bad-cases.test.js`, 64 đạt + 3 `todo`)
+## 3. Ca xấu × bảng × kết quả (`tests/unit/import-bad-cases.test.js`, 69 đạt, 0 `todo` sau v2.0.40)
 
 | Ca | Kết quả mong đợi | chamcong | sanluong | bandam | psluong | ungluong | tiencom |
 |---|---|---|---|---|---|---|---|
-| Chữ trong ô số (`abc`; chấm công `1.5.2`) | chặn, thông báo nêu cột + giá trị | **Đạt** | **Đạt\*** | **Đạt\*** | **Đạt** | **Đạt** | **HỎNG** (todo 009-1) |
+| Chữ trong ô số (`abc`; chấm công `1.5.2`) | chặn, thông báo nêu cột + giá trị | **Đạt** | **Đạt\*** | **Đạt\*** | **Đạt** | **Đạt** | **Đã sửa** (v2.0.40, 009-1) |
 | `500.000` / `1.234,5` / `500,000` / `  7 ` | chuẩn hóa đúng, không báo lỗi | n/a | **Đạt** (động cơ đọc `12,5`/`1.234,5`/`1.500.000` đúng) | **Đạt** | **Đạt** | **Đạt** | **Đạt** |
 | Ngày `dd/mm/yyyy`, `dd-mm-yyyy`, `dd.mm.yyyy`, số Excel | → `yyyy-mm-dd` | n/a | **Đạt** | **Đạt** | **Đạt** | **Đạt** | **Đạt** |
 | Ngày sai (`hôm qua`, `31/02`, `2026/10/12`, trống) | chặn, nêu cột | Kỳ: **Đạt** | **Đạt** | **Đạt** | **Đạt** | **Đạt** | **Đạt** |
@@ -40,8 +40,8 @@ Chú thích đối chiếu với đề bài: **tăng ca** không phải bảng r
 | Cột đổi thứ tự / thừa / tên gần đúng / tiêu đề lệch xuống / thiếu cột bắt buộc | đọc đúng; thừa bỏ; số dòng Excel thật; thiếu → chặn nêu cột | (kiểm trên `ungluong`; cùng đường đọc cho mọi bảng) | | | | **Đạt** | |
 | File rỗng / chỉ tiêu đề / sheet sai tên | 0 dòng, không lỗi, không ghi | (kiểm trên `ungluong`) | | | | **Đạt** | |
 | File 10.500 dòng | đủ dòng, một giao dịch, < 20 s | (kiểm trên `ungluong`: ghi 10.500 dòng) | | | | **Đạt** | |
-| NV "Đã nghỉ việc" | nhận kèm cảnh báo | — | — | — | **HỎNG** (todo 009-2) | **HỎNG** | **HỎNG** |
-| Số tiền âm | nhận kèm cảnh báo | — | — | — | **HỎNG** (todo 009-3, thấp) | **HỎNG** | — |
+| NV "Đã nghỉ việc" | nhận kèm cảnh báo (không chặn) | — | — | — | **Đã sửa** (v2.0.40, 009-2) | **Đã sửa** | **Đã sửa** |
+| Số tiền âm | nhận kèm cảnh báo (không chặn) | — | — | — | **Đã sửa** (v2.0.40, 009-3) | **Đã sửa** | — |
 | Số 0 ở số tiền | nhận | — | — | — | **Đạt** | **Đạt** | — |
 | `Hình thức công` ` bt `/`Bt` | → `BT`, trùng như một | **Đạt** | — | — | — | — | — |
 | File lẫn dòng tốt + dòng lỗi + mã lạ | chỉ dòng tốt được ghi, dòng lỗi không vào dữ liệu | **Đạt** | **Đạt** | **Đạt** | **Đạt** | **Đạt** | **Đạt** |
@@ -49,13 +49,16 @@ Chú thích đối chiếu với đề bài: **tăng ca** không phải bảng r
 
 \* Với sản lượng/ban dăm, bước nhập nhận chữ trong ô KL làm **nháp**; bước **Lưu để tính lương** (lớp 6) chặn có thông báo nêu số phiếu + giá trị (test khẳng định cả hai bước). Kỳ đã chốt: đã có `U-IMPK-*` (PR #96), không lặp lại.
 
-## 4. Lỗi thật tìm được (chưa sửa — chờ quyết định)
-- **009-1 (đáng kể): `Số suất cơm` nhận chữ (`hai`) không chặn, không cảnh báo; động cơ đọc `num("hai") = 0` → mất tiền cơm âm thầm.** `normCell` không kiểm cột này; lớp `inputSafety` không áp cho `tiencom`. Hướng sửa an toàn: chặn khi nhập (không đụng công thức) — nhưng nằm ở `core/validate.js`/`core/importer.js` (nhóm được bảo vệ bằng CI) nên cần quyết định trước.
-- **009-2:** NV `Đã nghỉ việc` nhận tạm ứng/thưởng/cơm không cảnh báo (có thể hợp lệ khi thanh toán cuối cùng, nhưng người dùng không được báo).
-- **009-3 (thấp):** số âm ở Tạm ứng/Thưởng nhận không cảnh báo (có thể là hoàn ứng).
-Ba test `todo` giữ làm tài liệu sống (hành vi mong muốn); khi sửa thì gỡ `todo`.
+## 4. Lỗi thật tìm được — ĐÃ SỬA ở v2.0.40 (hướng do CEO_LUONG chốt)
+- **009-1:** `Số suất cơm` nhận chữ (`hai`) → engine đọc 0 (mất tiền cơm âm thầm). **Đã chặn khi nhập** (`normCell`, dùng chung Excel/nhập tay/dán), thông báo nêu dòng/cột/giá trị/cách sửa; dòng đúng vẫn nhập. Dữ liệu đã lưu KHÔNG bị sửa; có script chỉ đọc `docs/v2.0.40/liet-ke-suat-com-khong-phai-so.cjs` để chủ sở hữu tự đối chiếu.
+- **009-2:** NV đã nghỉ việc nhận tạm ứng/thưởng/cơm: nay **cảnh báo** ở bản xem trước (không chặn).
+- **009-3:** số tiền âm ở Tạm ứng/Thưởng/Thu nhập khác/Trừ khác: nay **cảnh báo** (không chặn).
+Test: `tests/unit/import-bad-cases.test.js` (không còn `todo`), `tests/unit/suat-com-liet-ke.test.js`, E2E `sqlite-default` bước 9.
 
-## 5. Đã có sẵn cho mục 3 và 5 của đề bài (009-B sẽ bổ sung phần còn thiếu)
+## 5. Mục 3 và 5 của đề bài — ĐÃ LÀM ở v2.0.41 (009-B)
+- Bản xem trước có cột **Cách sửa**, bảng **Đối chiếu với file nguồn** (dòng và tổng cột số: file = ghi + gộp + không ghi) và nút **⬇ Tải file lỗi để sửa & nhập lại** (xem `docs/releases/v2.0.41.md`).
+
+### (trạng thái trước 009-B, giữ để đối chiếu)
 - Có: bảng chi tiết dòng không ghi (dòng Excel, phân loại, lý do nêu cột/giá trị) + **⬇ Tải chi tiết** ra Excel; tổng theo phân loại; kỳ báo "Đã ghi N dòng (X mới, Y cập nhật, gộp Z)".
 - Chưa kiểm/chưa có: danh sách lỗi dạng *file để sửa rồi nhập lại* (hiện là bảng chi tiết, không phải mẫu nhập lại); đối chiếu **tổng tiền** đã nhập so với tổng trong file nguồn trên màn hình; thông báo có "sửa thế nào" cho mọi loại lỗi.
 
