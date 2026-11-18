@@ -3,6 +3,7 @@
 // Chạy: xvfb-run -a node tests/e2e/v103-ui-check.js
 /* global document, performance, Event, setInterval, clearInterval, innerWidth, innerHeight */
 "use strict";
+require("./harness-env.cjs");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ELECTRON = process.env.ELECTRON_PATH || require("electron");

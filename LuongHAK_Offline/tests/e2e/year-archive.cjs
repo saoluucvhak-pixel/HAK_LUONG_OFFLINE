@@ -1,4 +1,5 @@
 'use strict';
+require("./harness-env.cjs");
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
 const {_electron}=require('playwright'),APP=path.resolve(__dirname,'../..'),C=require('../../core/payroll-close');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hak-year-e2e-')),downloads=path.join(dir,'downloads'),results=[],dialogs=[];let app;

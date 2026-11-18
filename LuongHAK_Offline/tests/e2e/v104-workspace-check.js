@@ -1,4 +1,5 @@
 // Real Electron screenshots and layout checks. Only isolated synthetic data is used.
+require("./harness-env.cjs");
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const APP = path.resolve(process.env.APP_UNDER_TEST || path.join(__dirname, '../..'));

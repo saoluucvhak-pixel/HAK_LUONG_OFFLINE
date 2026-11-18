@@ -1,4 +1,5 @@
 "use strict";
+require("./harness-env.cjs");
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const {_electron}=require('playwright'),APP=path.resolve(__dirname,'../..'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'hak-form-review-'));
 let app;const checks=[];function check(name,v){assert.ok(v,name);checks.push({name,pass:true});console.log('PASS '+name);}
