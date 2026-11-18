@@ -110,9 +110,9 @@ test("U-DUR-06b (kịch bản 6) -wal bị MẤT/CẮT CỤT/HỎNG sau crash kh
 });
 
 // GIỚI HẠN ĐÃ BIẾT, CHỜ QUYẾT ĐỊNH (issue #91, kịch bản 6): nếu -wal mất/hỏng trong cửa sổ trước lần xuất data.json (≤ 3 s) thì app mở bình thường và MẤT giao dịch cuối mà KHÔNG báo.
-// Test này mô tả hành vi MONG MUỐN (phải báo) nên hiện ĐỎ — đánh dấu todo để không làm đỏ CI; gỡ `todo` khi có quyết định + cách sửa.
+// Test này mô tả hành vi MONG MUỐN nếu sau này chọn B/C (phải báo mất giao dịch). Chủ sở hữu đã chọn A (chấp nhận rủi ro, issue #91): giữ `todo` làm tài liệu sống — không xóa, không nới.
 for (const damage of ["xóa", "cắt cụt", "rác"]) {
-  test("U-DUR-06c (kịch bản 6) -wal " + damage + " khi data.json CHƯA xuất kịp: phải báo mất giao dịch, không được mở âm thầm", { todo: "mất giao dịch âm thầm — chờ quyết định CEO/chủ sở hữu (hướng A/B/C ở issue #91)" }, () => {
+  test("U-DUR-06c (kịch bản 6) -wal " + damage + " khi data.json CHƯA xuất kịp: phải báo mất giao dịch, không được mở âm thầm", { todo: "hành vi mong muốn nếu sau này chọn B/C; hiện chủ sở hữu chấp nhận rủi ro (quyết định A, issue #91)" }, () => {
     const dir = walCrash("delay"), wal = path.join(dir, "data.sqlite-wal");
     if (damage === "xóa") wipeWal(dir); else if (damage === "cắt cụt") { fs.truncateSync(wal, 1000); fs.rmSync(wal.replace("-wal", "-shm"), { force: true }); } else { const n = fs.statSync(wal).size; fs.writeFileSync(wal, Buffer.alloc(n, 0xff)); fs.rmSync(wal.replace("-wal", "-shm"), { force: true }); }
     const s = createSqliteStorage(dir, opts), ld = s.load(); const silent = ld.ok === true && !hasV2(ld.text); s.close();
