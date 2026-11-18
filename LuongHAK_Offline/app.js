@@ -116,6 +116,16 @@
     try { ensureTables(); }
     catch (e) { loadError = { error: "Lỗi khi kiểm tra bảng dữ liệu: " + e.message + " — dữ liệu KHÔNG bị ghi đè", backups: store && store.listBackups ? store.listBackups() : [] }; readOnly = true; }
   }
+  // Phiên bản kho mà giao diện đã nạp/lưu gần nhất; gửi kèm mỗi lần lưu để tiến trình chính từ chối ghi đè khi kho đã đổi ở nơi khác (STALE_BASE).
+  var baseSig; try { baseSig = (store && !loadError && store.sig) ? String(store.sig()) : undefined; } catch (e) { baseSig = undefined; }
+  var lastSaveStale = false, staleDeclined = false, closingNow = false;
+  function isStale(r) { return typeof r === "string" && r.indexOf("STALE_BASE") === 0; }
+  /** Kho đã đổi ở nơi khác: bản trong bộ nhớ là bản CŨ. Không ghi; hỏi tải lại (bỏ thay đổi chưa lưu ở màn hình này) hoặc giữ màn hình để xử lý tay. */
+  function onStaleBase() {
+    if (staleDeclined) return;
+    if (confirm("Dữ liệu đã được thay đổi ở nơi khác (ví dụ khôi phục, lưu trữ năm hoặc thao tác khác) nên bản đang mở là bản CŨ. App KHÔNG ghi để tránh ghi đè dữ liệu mới.\n\nBấm OK để tải lại dữ liệu mới (thay đổi chưa lưu ở màn hình này sẽ bị bỏ).\nBấm Hủy để giữ màn hình này (sao lưu ra file nếu cần).")) { dirty = false; clearTimeout(saveTimer); window.location.reload(); }
+    else staleDeclined = true;
+  }
   var saveTimer = null, dirty = false, lastSaveError = "", lastTxnError = "";
   /** Ghi dữ liệu xuống nơi lưu bền vững. Trả true nếu chắc chắn đã lưu. */
   function saveNow() {
@@ -123,7 +133,7 @@
     lastSaveError = "";
     if (readOnly) { lastSaveError = "Đang ở chế độ khôi phục — chưa ghi dữ liệu"; toast("⚠ " + lastSaveError); return false; }
     var str = JSON.stringify(db);
-    if (store) { var r; try { r = store.save(str); } catch (e) { r = e && e.message || String(e); } if (r !== true) { lastSaveError = String(r && r.error || r || "Nơi lưu dữ liệu không xác nhận đã ghi thành công"); dirty = true; toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + lastSaveError); return false; } dirty = false; return true; }
+    if (store) { var r; lastSaveStale = false; try { r = store.save(str, baseSig); } catch (e) { r = e && e.message || String(e); } if (r !== true) { lastSaveError = String(r && r.error || r || "Nơi lưu dữ liệu không xác nhận đã ghi thành công"); dirty = true; if (isStale(r)) { lastSaveStale = true; toast("⛔ " + lastSaveError); if (!closingNow) onStaleBase(); return false; } toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + lastSaveError); return false; } try { if (store.sig) baseSig = String(store.sig()); } catch (e) { /* giữ baseSig cũ */ } dirty = false; return true; }
     try { localStorage.setItem(KEY, str); dirty = false; return true; } catch (e) { lastSaveError = "Không ghi được bộ nhớ trình duyệt: " + (e && e.message || String(e)); dirty = true; toast("⚠ " + lastSaveError + " — hãy bấm Sao lưu ra file ngay!"); return false; }
   }
   var dbRev = 0; // V9.4: tăng mỗi lần dữ liệu đổi → làm hết hiệu lực bản tính lương tạm đang nhớ (kqKy)
@@ -227,8 +237,23 @@
       db.auditlog.splice(0, db.auditlog.length - AUDIT_MAX);
     }
   }
-  window.hakFlushBeforeClose = function () { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (dirty && !saveNow()) { toast("Chưa lưu được dữ liệu — app giữ cửa sổ mở. " + lastSaveError); return false; } return true; };
-  window.addEventListener("beforeunload", function (e) { if (dirty && !saveNow()) { e.preventDefault(); e.returnValue = false; toast("Chưa lưu được dữ liệu — giữ app mở để thử lại hoặc sao lưu. " + lastSaveError); } });
+  window.hakFlushBeforeClose = function () {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    closingNow = true; var okSave = !dirty || saveNow(); closingNow = false;
+    if (okSave) return true;
+    // Bản nền cũ (kho đã đổi ở nơi khác): KHÔNG ghi đè; cho đóng nếu người dùng đồng ý bỏ thay đổi chưa lưu của màn hình này, nếu không giữ cửa sổ.
+    if (lastSaveStale) { if (confirm("Dữ liệu đã được thay đổi ở nơi khác nên bản đang mở là bản CŨ; app không ghi để tránh ghi đè dữ liệu mới.\n\nBấm OK để ĐÓNG và bỏ thay đổi chưa lưu của màn hình này. Bấm Hủy để giữ cửa sổ.")) { dirty = false; return true; } return false; }
+    toast("Chưa lưu được dữ liệu — app giữ cửa sổ mở. " + lastSaveError); return false;
+  };
+  window.addEventListener("beforeunload", function (e) {
+    if (!dirty) return;
+    closingNow = true; var okSave = saveNow(); closingNow = false;
+    if (okSave) return;
+    // Bản nền cũ (kho đã đổi ở nơi khác, thường vì chính app vừa khôi phục/lưu trữ rồi tải lại giao diện): KHÔNG ghi đè và KHÔNG giữ trang.
+    // Chromium chặn hộp thoại confirm() trong beforeunload nên không hỏi ở đây (đường đóng cửa sổ hỏi ở hakFlushBeforeClose; đường lưu thường hỏi ở onStaleBase).
+    if (lastSaveStale) { dirty = false; return; }
+    e.preventDefault(); e.returnValue = false; toast("Chưa lưu được dữ liệu — giữ app mở để thử lại hoặc sao lưu. " + lastSaveError);
+  });
   if (!readOnly && (fromLocal || migMsg.length)) saveNow();
   var now = new Date();
   var st = { tab: "home", dm: "dm_luong", nam: now.getFullYear(), thang: now.getMonth() + 1, bu: "to", kq: null, compact: true, q: "", qs: {}, pg: {}, pageSize: 100 };

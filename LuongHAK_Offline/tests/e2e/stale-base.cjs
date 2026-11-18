@@ -15,54 +15,63 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
 const seed = () => { const d = fixture(); d.auditlog = []; d.baomat = []; d.schemaVersion = 2; d.sanluong = []; d.chamcong = []; d.nguoidung = [account("admin", "Quản trị giả", "admin")]; return d; };
 const nv = (D) => { const db = new DatabaseSync(path.join(D, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT json FROM records WHERE tbl='nhanvien'").all().map((r) => JSON.parse(r.json)["Mã NV"]); } finally { db.close(); } };
 const audit = (D) => { const db = new DatabaseSync(path.join(D, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT COUNT(*) AS c FROM records WHERE tbl='auditlog'").get().c; } finally { db.close(); } };
+const answer = { ok: true }; // trả lời các hộp thoại confirm: true = OK, false = Hủy
 async function launch(D) {
   const app = await _electron.launch({ executablePath: require("electron"), args: ["--no-sandbox", APP],
     env: { ...process.env, HAK_USER_DATA: D, HAK_DOWNLOAD_DIR: path.join(D, "downloads"), HAK_NO_SHELL: "1", HAK_SQLITE_EXPORT_SYNC: "0", HAK_SQLITE_ADOPT_EXTERNAL: "0", HAK_STORAGE: "" } });
   const w = await app.firstWindow(), dialogs = [], errs = [];
-  w.on("pageerror", (e) => errs.push(e.message)); w.on("dialog", (x) => { dialogs.push(x.message()); x.accept(); });
+  w.on("pageerror", (e) => errs.push(e.message)); w.on("dialog", (x) => { dialogs.push(x.message()); if (answer.ok) x.accept(); else x.dismiss(); });
   await w.waitForSelector("#main > *"); return { app, w, dialogs, errs };
 }
 const login = async (w) => { await w.waitForSelector("#main input[data-f=u]"); await w.fill("#main input[data-f=u]", "admin"); await w.fill("#main input[data-f=p]", PASS); await w.click("#main button.big"); await w.waitForSelector("#nav button[data-k=home]"); };
 // Ghi vào kho "ngoài" trạng thái bộ nhớ của giao diện (không gửi baseSig), như một đường ghi mới ở tiến trình chính / cửa sổ khác
 const outsideWrite = (w, ma) => w.evaluate((m) => { const d = JSON.parse(window.hakStore.load().text); d.nhanvien.push({ "Mã NV": m, "Họ và tên": "Ghi từ nơi khác " + m, "Trạng thái": "Đang làm việc" }); return window.hakStore.save(JSON.stringify(d)); }, ma);
 (async () => {
-  const D = fs.mkdtempSync(path.join(os.tmpdir(), "hak-stale-")); fs.mkdirSync(path.join(D, "downloads")); createStorage(D).save(JSON.stringify(seed()));
-  let { app, w, dialogs, errs } = await launch(D); await login(w); await sleep(1000);
+  // Mỗi kịch bản dùng HỒ SƠ MỚI: lần mở đầu giao diện còn thay đổi chưa lưu (dirty) nên sẽ ghi lại khi đóng — đúng điều kiện gây ghi đè trước v2.0.35.
+  const fresh = () => { const D = fs.mkdtempSync(path.join(os.tmpdir(), "hak-stale-")); fs.mkdirSync(path.join(D, "downloads")); createStorage(D).save(JSON.stringify(seed())); return D; };
+  const asked = (dl) => dl.some((m) => /thay đổi ở nơi khác/.test(m));
+  let r;
 
-  // D. Giao thức: baseSig sai bị từ chối; đúng thì ghi được
-  const sig0 = await w.evaluate(() => window.hakStore.sig());
-  const txt = await w.evaluate(() => window.hakStore.load().text);
-  const bad = await w.evaluate((t) => window.hakStore.save(t, "sqlite:999999"), txt);
-  ok("IPC: baseSig sai → bị từ chối 'STALE_BASE', không ghi", typeof bad === "string" && /^STALE_BASE/.test(bad), String(bad));
-  ok("IPC: baseSig đúng → ghi được và sig đổi", (await w.evaluate((t) => window.hakStore.save(t, window.hakStore.sig()), txt)) === true && (await w.evaluate(() => window.hakStore.sig())) !== sig0);
+  // D. Giao thức IPC
+  { const D = fresh(); r = await launch(D); await login(r.w); await sleep(800);
+    const sig0 = await r.w.evaluate(() => window.hakStore.sig()), txt = await r.w.evaluate(() => window.hakStore.load().text);
+    const bad = await r.w.evaluate((t) => window.hakStore.save(t, "sqlite:999999"), txt);
+    ok("IPC: baseSig sai → bị từ chối 'STALE_BASE', không ghi", typeof bad === "string" && /^STALE_BASE/.test(bad), String(bad));
+    const changed = await r.w.evaluate((t) => { const d = JSON.parse(t); d.nhanvien[0]["Ghi chú"] = "thử baseSig"; return window.hakStore.save(JSON.stringify(d), window.hakStore.sig()); }, txt);
+    ok("IPC: baseSig đúng → ghi được và sig đổi", changed === true && (await r.w.evaluate(() => window.hakStore.sig())) !== sig0, String(changed));
+    ok("IPC: không gửi baseSig (khách cũ/kịch bản) → giữ hành vi cũ, ghi được", (await outsideWrite(r.w, "0090")) === true && nv(D).includes("0090"));
+    answer.ok = true; await r.app.close().catch(() => {}); await sleep(1500); }
 
-  // A. Đường đóng: ghi ngoài giao diện rồi đóng bình thường → bản ghi còn nguyên (trước v2.0.35 bị ghi đè)
-  ok("Ghi ngoài giao diện (không baseSig) vẫn được nhận (khách cũ/kịch bản)", (await outsideWrite(w, "0099")) === true && nv(D).includes("0099"));
-  await app.close().catch(() => {}); await sleep(2000);
-  ok("ĐÓNG: bản ghi 0099 (ghi từ nơi khác) CÒN NGUYÊN sau khi giao diện đóng — không bị ghi đè", nv(D).includes("0099"), "sqlite: " + nv(D).slice(-3).join(","));
-  ok("ĐÓNG: giao diện đã hỏi người dùng (hộp thoại nêu 'thay đổi ở nơi khác')", dialogs.some((m) => /thay đổi ở nơi khác/.test(m)), JSON.stringify(dialogs).slice(0, 200));
+  // 1. Đường ĐÓNG cửa sổ: ghi ngoài giao diện rồi đóng → bản ghi còn nguyên; giao diện hỏi
+  { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000); answer.ok = true;
+    ok("Ghi ngoài giao diện (0099)", (await outsideWrite(r.w, "0099")) === true && nv(D).includes("0099"));
+    await r.app.close().catch(() => {}); await sleep(2000);
+    ok("ĐÓNG: 0099 CÒN NGUYÊN sau khi giao diện đóng — không bị ghi đè (trước v2.0.35: bị mất)", nv(D).includes("0099"), "sqlite: " + nv(D).slice(-3).join(","));
+    ok("ĐÓNG: giao diện đã hỏi người dùng (hộp thoại nêu 'thay đổi ở nơi khác')", asked(r.dialogs), JSON.stringify(r.dialogs).slice(0, 160)); }
 
-  // B. Đường tải lại: ghi ngoài giao diện rồi tải lại giao diện → hỏi, tải lại dữ liệu mới, KHÔNG ghi đè
-  for (const f of fs.readdirSync(D).filter((x) => /^Singleton/.test(x))) fs.rmSync(path.join(D, f), { force: true });
-  ({ app, w, dialogs, errs } = await launch(D)); await login(w); await sleep(1000);
-  ok("Ghi ngoài giao diện lần 2 (0100)", (await outsideWrite(w, "0100")) === true && nv(D).includes("0100"));
-  await w.reload(); await sleep(1500);
-  ok("TẢI LẠI: giao diện hỏi, bỏ bản cũ và tải lại; 0099 và 0100 còn trong kho", dialogs.some((m) => /thay đổi ở nơi khác/.test(m)) && nv(D).includes("0099") && nv(D).includes("0100"), JSON.stringify(dialogs).slice(0, 160));
-  await login(w);
-  const after = await w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.map((r) => r["Mã NV"]));
-  ok("Sau tải lại + đăng nhập: giao diện thấy cả 0099 và 0100", after.includes("0099") && after.includes("0100"));
-  ok("Không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
+  // 2. Đường TẢI LẠI giao diện (như sau khôi phục/lưu trữ năm): không ghi đè, không giữ trang
+  { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000); answer.ok = true;
+    await outsideWrite(r.w, "0100"); await r.w.reload(); await sleep(1500);
+    ok("TẢI LẠI: 0100 còn nguyên trong kho và trang tải lại được (màn đăng nhập)", nv(D).includes("0100") && (await r.w.locator("#main input[data-f=u]").count()) === 1);
+    await login(r.w);
+    ok("Sau tải lại + đăng nhập: giao diện thấy 0100", (await r.w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.map((x) => x["Mã NV"]))).includes("0100"));
+    ok("Không lỗi JavaScript ở giao diện", r.errs.length === 0, r.errs.join(" | "));
+    await r.app.close().catch(() => {}); await sleep(1500); }
 
-  // C. Đối chứng: ghi do CHÍNH giao diện vẫn bền, nhiều lần liên tiếp (baseSig được làm mới sau mỗi lần ghi)
-  await sleep(1000); const a1 = audit(D);
-  await app.close().catch(() => {}); await sleep(2000);
-  ok("Đối chứng: đóng bình thường sau khi giao diện đã đồng bộ → ghi bền (nhật ký tăng hoặc giữ)", audit(D) >= a1);
-  for (const f of fs.readdirSync(D).filter((x) => /^Singleton/.test(x))) fs.rmSync(path.join(D, f), { force: true });
-  ({ app, w, dialogs, errs } = await launch(D)); await login(w); await sleep(800);
-  const a2 = audit(D); await app.close().catch(() => {}); await sleep(2000);
-  ok("Đối chứng: lần mở/đóng sau, ghi của giao diện vẫn bền (nhật ký tăng) và KHÔNG có hộp thoại 'nơi khác'", audit(D) > a2 && !dialogs.some((m) => /thay đổi ở nơi khác/.test(m)), "trước " + a2 + ", sau " + audit(D) + " | " + JSON.stringify(dialogs).slice(0, 120));
-  ok("Dữ liệu cuối còn đủ 0099 và 0100", nv(D).includes("0099") && nv(D).includes("0100"));
+  // 3. Gọi đường đóng cửa sổ trực tiếp: Hủy → giữ cửa sổ (false); OK → cho đóng (true); cả hai KHÔNG ghi đè
+  { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000);
+    await outsideWrite(r.w, "0101");
+    answer.ok = false; const keep = await r.w.evaluate(() => window.hakFlushBeforeClose());
+    ok("Hủy hộp thoại: hakFlushBeforeClose trả false (giữ cửa sổ), 0101 nguyên", keep === false && asked(r.dialogs) && nv(D).includes("0101"), String(keep));
+    answer.ok = true; r.dialogs.length = 0; const go = await r.w.evaluate(() => window.hakFlushBeforeClose());
+    ok("OK hộp thoại: hakFlushBeforeClose trả true (cho đóng), 0101 nguyên", go === true && asked(r.dialogs) && nv(D).includes("0101"), String(go));
+    await r.app.close().catch(() => {}); await sleep(1500); }
 
-  const fail = results.filter((r) => !r.pass).length;
+  // 4. Đối chứng: không có ghi ngoài giao diện → ghi của giao diện vẫn bền, KHÔNG hộp thoại 'nơi khác'
+  { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000); answer.ok = true; const a0 = audit(D);
+    await r.app.close().catch(() => {}); await sleep(2000);
+    ok("Đối chứng: đóng bình thường → giao diện ghi bền (nhật ký tăng) và không hỏi 'nơi khác'", audit(D) > a0 && !asked(r.dialogs), "trước " + a0 + ", sau " + audit(D) + " | " + JSON.stringify(r.dialogs).slice(0, 120)); }
+
+  const fail = results.filter((x) => !x.pass).length;
   console.log("\nBản nền (baseSig) E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });

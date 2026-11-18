@@ -234,6 +234,8 @@ jobs:
           E2E_SHOTS: tests/e2e/screenshots
       - name: Verify SQLite storage in real mode (upgrade from data.json, kill after save, outside edit conflict, rollback)
         run: node tests/e2e/sqlite-default.cjs
+      - name: Verify stale-base protection on save (outside writes are not overwritten; UI asks; reload and close paths)
+        run: node tests/e2e/stale-base.cjs
       - name: Verify input filters follow the department on each row date (role without payroll view)
         run: node tests/e2e/input-filter-dept.cjs
         env:

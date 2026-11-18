@@ -3,6 +3,11 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.35] — 18/11/2026
+- **Bản nền (`baseSig`) cho lưu dữ liệu:** giao diện gửi kèm phiên bản kho đã nạp/lưu gần nhất; tiến trình chính TỪ CHỐI ghi (`STALE_BASE`) khi kho đã đổi ở nơi khác, thay vì để bản cũ của giao diện ghi đè âm thầm (rủi ro cấu trúc phát hiện ở 2.0.34, tái hiện: `docs/v2.0.34/`). Đóng cửa sổ: hỏi, chỉ cho đóng khi người dùng đồng ý bỏ thay đổi chưa lưu; tải lại giao diện (sau khôi phục/lưu trữ năm): không ghi đè, không giữ trang; đường lưu thường: hỏi tải lại hoặc giữ màn hình.
+- Khách cũ/kịch bản không gửi `baseSig` giữ hành vi cũ. Không đổi công thức lương, kỳ đã chốt, định dạng dữ liệu.
+- Thêm `tests/e2e/stale-base.cjs` (12 ca, vào CI Windows) và `tests/unit/store-base-sig.test.js`.
+
 ## [2.0.34] — 18/11/2026
 - **Nghiệm thu:** thêm 20 test đối chiếu bảng ↔ Excel ↔ HTML (báo cáo vận hành 13 ca, bảo hiểm 4, cấp phát 3), kiểm từng dòng/cột và tổng = cộng dòng.
 - **CI:** bước mới trong job `windows-setup` cài im lặng bộ cài NSIS THẬT, chạy app đã cài (nâng cấp JSON→SQLite, lưu/đóng/mở), nâng cấp ĐÈ lên bản đã phát hành trước đó và gỡ cài (dữ liệu người dùng được giữ). Không thay thế thử trên máy Windows thật.

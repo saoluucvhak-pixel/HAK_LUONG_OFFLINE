@@ -86,8 +86,9 @@
     if (!dirty) return;
     closingNow = true; var okSave = saveNow(); closingNow = false;
     if (okSave) return;
-    // Bản nền cũ: không ghi đè; cho rời trang nếu người dùng đồng ý bỏ thay đổi chưa lưu (nếu không, giữ trang).
-    if (lastSaveStale && confirm("Dữ liệu đã được thay đổi ở nơi khác nên bản đang mở là bản CŨ; app không ghi để tránh ghi đè dữ liệu mới.\n\nBấm OK để rời và bỏ thay đổi chưa lưu của màn hình này. Bấm Hủy để giữ lại.")) { dirty = false; return; }
+    // Bản nền cũ (kho đã đổi ở nơi khác, thường vì chính app vừa khôi phục/lưu trữ rồi tải lại giao diện): KHÔNG ghi đè và KHÔNG giữ trang.
+    // Chromium chặn hộp thoại confirm() trong beforeunload nên không hỏi ở đây (đường đóng cửa sổ hỏi ở hakFlushBeforeClose; đường lưu thường hỏi ở onStaleBase).
+    if (lastSaveStale) { dirty = false; return; }
     e.preventDefault(); e.returnValue = false; toast("Chưa lưu được dữ liệu — giữ app mở để thử lại hoặc sao lưu. " + lastSaveError);
   });
   if (!readOnly && (fromLocal || migMsg.length)) saveNow();

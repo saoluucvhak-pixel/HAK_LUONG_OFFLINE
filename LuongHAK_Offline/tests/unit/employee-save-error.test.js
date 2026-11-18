@@ -4,7 +4,7 @@ const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
 function runtime(save) {
   const c = { session: null, clearTimeout() {}, toast() {}, store: { save }, readOnly: false, saveTimer: null, dirty: false, lastSaveError: "", lastTxnError: "", dbRev: 0, st: {}, db: { nhanvien: [], canhan: [], hopdong: [], auditlog: [] } };
   vm.createContext(c);
-  vm.runInContext(src.slice(src.indexOf("  function saveNow() {"), src.indexOf("  function save() {")), c);
+  vm.runInContext(src.slice(src.indexOf("  // Phiên bản kho mà giao diện đã nạp/lưu gần nhất"), src.indexOf("  function save() {")), c);
   return c;
 }
 for (const reason of ["Không có quyền ghi vào thư mục dữ liệu", "Ổ đĩa đã đầy", "Tiến trình chính từ chối ghi: chưa đăng nhập", "Năm 2025 đã lưu trữ"]) {
