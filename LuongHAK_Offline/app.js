@@ -5999,6 +5999,7 @@
       t.appendChild(h("tr", { "data-stg": k }, [h("td", { text: kk[1] }), h("td", { text: (k === "mirror" ? (STG.data.paths.mirror || "(chưa chọn)") : k === "export" ? STG.exportDir || "(thư mục xuất file mặc định)" : k === "sqlite" ? ((store && store.info && store.info().backupDir) || "…") : k === "json" ? (STG.json ? STG.json.dir : "…") : STG.data.paths[k]), style: "word-break:break-all" }),
         h("td", { text: inf ? (inf.exists ? inf.files + " file · " + fmtB(inf.bytes) + (inf.free != null ? " · trống " + fmtB(inf.free) : "") : "chưa tạo") : "…" }),
         acts]));
+      if (k === "sqlite") t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: "hint", "data-stg-note": "sqlite", text: "Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng" })])); // CEO chọn (a) ở #113: thư mục SQLite chỉ xem/mở/kiểm
       if (verify) t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: verify.good === false ? "warn" : "ok", "data-stg-verify": k, text: (verify.good === false ? "✕ " : verify.good ? "✓ " : "") + verify.text })]));
     });
     c.appendChild(h("div", { style: "overflow-x:auto;max-width:100%" }, [t])); // cửa sổ hẹp: bảng cuộn ngang, không tràn khỏi khung
