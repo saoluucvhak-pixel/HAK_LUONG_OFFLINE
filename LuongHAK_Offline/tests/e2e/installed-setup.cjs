@@ -38,7 +38,9 @@ const saveViaIpc = (w, js) => w.evaluate((src) => { const r = window.hakStore.lo
 const sqliteNv = (dir) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT json FROM records WHERE tbl='nhanvien'").all().map((r) => JSON.parse(r.json)["Mã NV"]); } finally { db.close(); } };
 const userVersion = (dir) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("PRAGMA user_version").get().user_version; } finally { db.close(); } };
 const freshData = () => { const D = fs.mkdtempSync(path.join(os.tmpdir(), "hak-inst-data-")); fs.mkdirSync(path.join(D, "downloads")); const base = seed(); createStorage(D).save(JSON.stringify(base)); return { D, n: base.nhanvien.length }; };
-const closeAll = async (app) => { try { await app.close(); } catch (e) { /* đã đóng */ } await sleep(2500); killAll(); await sleep(1500); };
+const diag = (label, dir) => { try { console.log("DIAG " + label + ": " + fs.readdirSync(dir).filter((f) => /^data\./.test(f) || /^backups$/.test(f)).map((f) => f + "=" + (fs.statSync(path.join(dir, f)).isDirectory() ? "dir" : fs.statSync(path.join(dir, f)).size)).join(", ")); } catch (e) { console.log("DIAG " + label + " lỗi: " + e.message); } };
+const jsonNv = (dir) => { try { return JSON.parse(fs.readFileSync(path.join(dir, "data.json"), "utf8")).nhanvien.map((x) => x["Mã NV"]); } catch (e) { return ["(lỗi đọc data.json: " + e.message + ")"]; } };
+const closeAll = async (app) => { let closed = true; try { await Promise.race([app.close(), sleep(40000).then(() => { throw new Error("app.close() quá 40 giây"); })]); } catch (e) { closed = false; console.log("INFO app.close(): " + e.message); } await sleep(2500); killAll(); await sleep(1500); return closed; };
 
 (async () => {
   if (process.platform !== "win32") { console.log("Bỏ qua: chỉ chạy trên Windows."); process.exit(0); }
@@ -58,13 +60,17 @@ const closeAll = async (app) => { try { await app.close(); } catch (e) { /* đã
   const ver = await s.app.evaluate(({ app }) => app.getVersion());
   ok("Bản đã cài đúng phiên bản của bản ứng viên", ver === VERSION, ver + " ≠ " + VERSION);
   ok("Nâng cấp JSON→SQLite trong bản đã cài: có data.sqlite, schema v2, đủ nhân viên", fs.existsSync(path.join(d1.D, "data.sqlite")) && userVersion(d1.D) === 2 && sqliteNv(d1.D).length === d1.n);
-  ok("Lưu qua IPC thật trong bản đã cài", (await saveViaIpc(s.w, "d.nhanvien.push({'Mã NV':'0099','Họ và tên':'Nguyễn Văn Ánh','Trạng thái':'Đang làm việc'});")) === true);
+  const sv = await saveViaIpc(s.w, "d.nhanvien.push({'Mã NV':'0099','Họ và tên':'Nguyễn Văn Ánh','Trạng thái':'Đang làm việc'});");
+  ok("Lưu qua IPC thật trong bản đã cài", sv === true, String(sv));
+  ok("SQLite có 0099 NGAY sau khi lưu (app còn chạy)", sqliteNv(d1.D).includes("0099"), "sqlite: " + sqliteNv(d1.D).slice(-3).join(","));
   ok("Không lỗi JavaScript ở giao diện bản đã cài", s.errs.length === 0, s.errs.join(" | "));
-  await closeAll(s.app);
-  ok("Đóng bình thường: SQLite có 0099 và data.json đã xuất", sqliteNv(d1.D).includes("0099") && JSON.parse(fs.readFileSync(path.join(d1.D, "data.json"), "utf8")).nhanvien.some((x) => x["Mã NV"] === "0099"));
+  const closed1 = await closeAll(s.app); diag("sau đóng lần 1 (app.close " + (closed1 ? "ok" : "KHÔNG ok") + ")", d1.D);
+  ok("Đóng bình thường: SQLite có 0099", sqliteNv(d1.D).includes("0099"), "sqlite cuối: " + sqliteNv(d1.D).slice(-3).join(","));
+  ok("Đóng bình thường: data.json đã xuất có 0099", jsonNv(d1.D).includes("0099"), "json cuối: " + jsonNv(d1.D).slice(-3).join(","));
   for (const f of fs.readdirSync(d1.D).filter((x) => /^Singleton/.test(x))) fs.rmSync(path.join(d1.D, f), { force: true });
   s = await launchRetry(exeA, d1.D); await login(s.w);
-  ok("Mở lại bản đã cài: dữ liệu còn đủ (0099)", (await s.w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.map((x) => x["Mã NV"]))).includes("0099"));
+  const again = await s.w.evaluate(() => { const r = window.hakStore.load(); return r.ok ? JSON.parse(r.text).nhanvien.map((x) => x["Mã NV"]) : ["LOAD LỖI: " + r.error]; });
+  ok("Mở lại bản đã cài: dữ liệu còn đủ (0099)", again.includes("0099"), "đọc được: " + again.slice(-4).join(","));
   await closeAll(s.app);
 
   // 3. Nâng cấp ĐÈ lên bản trước đã phát hành (nếu CI cung cấp)
@@ -75,16 +81,19 @@ const closeAll = async (app) => { try { await app.close(); } catch (e) { /* đã
     if (exeB0) {
       await sleep(3000); killAll();
       const d2 = freshData(); let p = await launchRetry(exeB0, d2.D); await login(p.w);
-      await saveViaIpc(p.w, "d.nhanvien.push({'Mã NV':'0777','Họ và tên':'Trước nâng cấp','Trạng thái':'Đang làm việc'});");
-      await closeAll(p.app);
-      ok("Bản trước đã lưu 0777 vào hồ sơ", sqliteNv(d2.D).includes("0777") || JSON.parse(fs.readFileSync(path.join(d2.D, "data.json"), "utf8")).nhanvien.some((x) => x["Mã NV"] === "0777"));
+      const sv2 = await saveViaIpc(p.w, "d.nhanvien.push({'Mã NV':'0777','Họ và tên':'Trước nâng cấp','Trạng thái':'Đang làm việc'});"); console.log("INFO bản trước lưu 0777 trả về: " + String(sv2));
+      const closed2 = await closeAll(p.app); diag("sau đóng bản trước (app.close " + (closed2 ? "ok" : "KHÔNG ok") + ")", d2.D);
+      const has0777 = (fs.existsSync(path.join(d2.D, "data.sqlite")) && sqliteNv(d2.D).includes("0777")) || jsonNv(d2.D).includes("0777");
+      ok("Bản trước đã lưu 0777 vào hồ sơ", has0777, "json: " + jsonNv(d2.D).slice(-3).join(","));
       const ru = install(SETUP, B); killAll(); await sleep(5000); killAll();
       ok("Cài đè bản ứng viên lên bản trước, cùng thư mục", ru.status === 0 || ru.status === null || !!installedExe(B), "exit=" + ru.status);
       for (const f of fs.readdirSync(d2.D).filter((x) => /^Singleton/.test(x))) fs.rmSync(path.join(d2.D, f), { force: true });
       const exeB = installedExe(B); p = await launchRetry(exeB, d2.D); await login(p.w);
       const v2 = await p.app.evaluate(({ app }) => app.getVersion());
       ok("Sau nâng cấp đè: đúng phiên bản mới", v2 === VERSION, v2);
-      ok("Sau nâng cấp đè: dữ liệu bản trước còn nguyên (0777), kho SQLite schema v2", (await p.w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.map((x) => x["Mã NV"]))).includes("0777") && userVersion(d2.D) === 2);
+      const after = await p.w.evaluate(() => { const r = window.hakStore.load(); return r.ok ? JSON.parse(r.text).nhanvien.map((x) => x["Mã NV"]) : ["LOAD LỖI: " + r.error]; });
+      ok("Sau nâng cấp đè: dữ liệu bản trước còn nguyên (0777)", after.includes("0777"), "đọc được: " + after.slice(-4).join(","));
+      ok("Sau nâng cấp đè: kho SQLite schema v2", fs.existsSync(path.join(d2.D, "data.sqlite")) && userVersion(d2.D) === 2);
       ok("Sau nâng cấp đè: không lỗi JavaScript", p.errs.length === 0, p.errs.join(" | "));
       await closeAll(p.app);
     }
@@ -92,7 +101,9 @@ const closeAll = async (app) => { try { await app.close(); } catch (e) { /* đã
 
   // 4. Gỡ cài: xóa chương trình, GIỮ dữ liệu người dùng
   const un = uninstaller(A);
-  if (un) { cp.spawnSync(un, ["/S", "_?=" + A], { windowsHide: true, timeout: 180000 }); await sleep(3000); }
+  let ur = null;
+  if (un) { ur = cp.spawnSync(un, ["/S", "_?=" + A], { windowsHide: true, timeout: 180000 }); await waitFor(() => !installedExe(A), 60000, 2000); }
+  console.log("DIAG gỡ cài: exit=" + (ur && ur.status) + "; còn lại: " + (fs.existsSync(A) ? fs.readdirSync(A).join(", ") : "(thư mục đã xóa)"));
   ok("Gỡ cài im lặng: file chạy chính đã bị xóa", !!un && !installedExe(A));
   ok("Gỡ cài KHÔNG xóa dữ liệu người dùng (thư mục dữ liệu riêng)", fs.existsSync(path.join(d1.D, "data.sqlite")));
 
