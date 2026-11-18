@@ -2,17 +2,19 @@
 
 > File này là "bộ nhớ" của dự án: phiên làm việc sau đọc file này để tiếp tục mà không mất ngữ cảnh.
 
-## Trạng thái hiện tại (16/11/2026)
-- Nhánh phát hành: `main` · phiên bản **2.0.18** (engine 1.8.x, quy chế lương HAK Group 2026). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`.
-- Đã xong từ 2.0.0 đến 2.0.18: đăng nhập và phân quyền, chốt kỳ an toàn, sao lưu theo năm và Full Backup, OCR chấm công (CNN chữ số tay, ý kiến thứ hai Umi-OCR tùy chọn), phân bổ sản lượng theo tổ và công BT (R-66/R-73), bộ báo cáo kỳ lương Excel/PDF, đối chiếu đơn nghỉ với chấm công và hạn mức phép năm, CI một luồng duy nhất (`.github/workflows/luong-hak-v10-4-setup.yml`), Electron 45.3.2, SheetJS 0.20.3.
-- Mới ở 2.0.17: `app.js` được ghép từ `app-src/` (28 đoạn + 21 màn hình trong `app-src/screens/`, `npm run build:app`); hàm trợ giúp ở `ui/app-helpers.js`; 7 báo cáo kỳ lương ở `core/reporting/period-reports.js`; bốn đường ghi (nhập Excel, gộp chấm công, thêm và xóa nhân viên) đi qua `core/repository.js` có hoàn tác; báo cáo kỳ đã chốt lấy số liệu lưu lúc chốt; file dùng chung với `HAK_SMART_FILTER` và design system được khóa bằng `shared-modules.lock.json`.
-- Kiến trúc đích: theo sơ đồ của chủ sở hữu (Giao diện → HRM/PAYROLL/REPORTS → Core Engine → Database & Integrations) — `ARCHITECTURE.md`.
-- Nghiệm thu: mọi bản đã kiểm tra trên Linux (unit, integration, regression, E2E Electron) và build bộ cài Windows trong CI. **Chưa nghiệm thu trên máy Windows thật** theo `LuongHAK_Offline/docs/V10_1_WINDOWS_UAT.md`.
+## Trạng thái hiện tại (18/11/2026)
+- Nhánh phát hành: `main` · phiên bản **2.0.33** (ghi chú phát hành: *thử nghiệm có kiểm soát*). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`. Kết luận nghiệm thu hiện hành: `ACCEPTANCE_SQLITE_RELEASE.md` §7 (**Chỉ đủ thử nghiệm có kiểm soát**).
+- **Kho dữ liệu:** từ 2.0.29 **SQLite (`data.sqlite`) là nguồn chính mặc định**, `data.json` là bản xuất (quay lui: `HAK_STORAGE=json`). 2.0.30 sửa A01 (kho năm ghi lùi) và A02 (sao lưu giả); 2.0.32 thêm schema v2 (CHECK) và bản chụp SQLite xoay vòng; 2.0.33 phân tích dữ liệu một lần ở đường ghi (chuỗi ghi ≈420–450 ms → ≈290 ms ở 5.000 NV).
+- **Mã giao diện:** `app.js` do `npm run build:app` ghép từ **31 file** trong `app-src/` (+ `app-src/screens/`); các đoạn vẫn chung một closure (chưa tách trách nhiệm — `KE_HOACH_TACH_APP_JS.md` là kế hoạch cũ trước `app-src/`).
+- **Cổng chất lượng:** CI một luồng `luong-hak-v10-4-setup.yml`; `scripts/verify-shared-modules.cjs` (8/8 file dùng chung `identical`); `scripts/check-consolidation.cjs` khóa `engine.js`, `hr.js`, `core/importer.js`… Không nới cổng để CI xanh.
+- **Đã có:** đăng nhập/phân quyền, chốt kỳ an toàn, sao lưu theo năm và Full Backup, OCR chấm công, phân bổ sản lượng, cấp phát, báo cáo (đối chiếu bảng↔Excel↔HTML cho lương, vận hành, bảo hiểm, cấp phát).
+- **Còn mở (không ghi là xong):** cài mới/nâng cấp bằng Setup trên Windows THẬT và in thử; giao diện vẫn gửi cả tài liệu mỗi lần lưu (thiết kế delta ở `WRITE_PATH_DELTA_DESIGN.md`, chưa làm; mục tiêu < 150 ms chưa đạt — xem `PERFORMANCE_REPORT.md`); `store-save` chưa kiểm tra bản nền (`baseSig`, §7 của tài liệu thiết kế); Full Backup/khôi phục bằng bản chụp SQLite; khóa ngoại/chuẩn hóa schema; Smart Filter mọi màn; kiểm bố cục 1366×768/1920×1080; so nội dung PDF thật. Dữ liệu trên đĩa chưa mã hóa và bộ cài chưa ký số (tạm dừng theo yêu cầu).
 
 ## Việc đang chờ người khác
 | Việc | Ai | Ghi chú |
 |---|---|---|
-| Trả lời các câu hỏi nghiệp vụ còn mở và 4 điểm lệch với Excel | Chủ sở hữu / kế toán | Bảng duy nhất: `CAU_HOI_CHO_CHU_SO_HUU.md`. Không đổi công thức trước khi có xác nhận. |
+| (Đã đóng 17/11/2026) Câu hỏi nghiệp vụ Q-xx và 4 điểm lệch E1–E4 | Chủ sở hữu | Quyết định "giữ nguyên theo app"; xem `CAU_HOI_CHO_CHU_SO_HUU.md`. Không đổi công thức. |
+| Quyết định kỹ thuật: có làm `baseSig` cho `store-save` không; duyệt thiết kế delta giai đoạn 2; có gộp PR bằng chứng nghiệm thu (#77) không | Chủ sở hữu | `WRITE_PATH_DELTA_DESIGN.md` §5, §7; mục D của `CAU_HOI_CHO_CHU_SO_HUU.md` |
 | Cài thử bộ cài mới nhất trên Windows; chạy *Kiểm tra dữ liệu* với dữ liệu thật | Chủ sở hữu / kế toán | Báo lại cảnh báo để nhập lại |
 | Xử lý dữ liệu thật: thiếu STK/ngân hàng, mã BH_KPCD, Quyền lợi phép chưa nhập, phiếu cân chưa gán người | Bên vận hành | Mục C của `CAU_HOI_CHO_CHU_SO_HUU.md` |
 | Duyệt thiết kế mã hóa file dữ liệu (RISK-07) và cung cấp chứng thư ký số bộ cài | Chủ sở hữu | Tạm dừng theo yêu cầu (15/11/2026) |
@@ -69,11 +71,11 @@
 - Tiếp theo (chờ chủ sở hữu duyệt): repository ghi nhận dòng thay đổi → SQLite ghi theo dòng
 
 ## Phase 2 — Chuẩn hóa kiến trúc (bước tiếp theo)
-0. (Đã khảo sát khi app dùng Electron 43; nay Electron 45.3.2 — kiểm lại khi làm) SQLite qua `node:sqlite` có sẵn trong Node đi kèm Electron, không cần module native. App hiện **chưa** dùng SQLite.
+0. ✅ SQLite qua `node:sqlite` (Electron 45.3.2), không cần module native. **Từ 2.0.29 là nguồn dữ liệu chính mặc định** (`HAK_STORAGE=json` để quay lui); tự kiểm trong bản đóng gói ở CI.
 1. ✅ (2.0.17) Tách `app.js`: hàm trợ giúp sang `ui/app-helpers.js`, mã giao diện chia theo màn hình trong `app-src/` và `app-src/screens/`, báo cáo kỳ lương sang `core/reporting`. Các đoạn vẫn dùng chung một phạm vi biến; chưa phải module độc lập (xem `KE_HOACH_TACH_APP_JS.md` §8).
 2. Tầng repository: mọi truy cập `db.<bảng>` qua `repo.list/get/insert/update/remove` (kiểm tra khóa, khóa kỳ, nhật ký trước/sau tại 1 chỗ). Viết test cho repository trước khi chuyển.
 3. ~~PERF-01~~ ✅ alpha.5 (22 ms / 5.000 NV).
-4. SQLite theo `MIGRATION_PLAN.md` §2 (chạy song song JSON/SQLite, so sánh kết quả = 0 khác biệt).
+4. ✅ (2.0.29) SQLite làm nguồn chính theo `MIGRATION_PLAN.md`; còn mở: delta từ giao diện, khóa ngoại/chuẩn hóa, Full Backup bằng bản chụp SQLite, thử trên Windows thật (`ACCEPTANCE_SQLITE_RELEASE.md` §4, §7).
 5. Bundler (esbuild) để dùng module ES trong renderer; giữ build không cần mạng khi chạy.
 
 ## Phase 3 — HRM chuyên nghiệp

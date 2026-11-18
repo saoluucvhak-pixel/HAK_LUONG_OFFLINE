@@ -81,3 +81,8 @@ Chủ sở hữu đồng ý cả bốn đề xuất (câu 2–5 ở §4):
 - `shared-modules.lock.json` ghim hai commit trên. **Cả 6 file gốc (8 bản trong repo này) đều ở trạng thái `identical`**; không còn mục `diverged`. CI đối chiếu với đúng hai commit này.
 - Ghi chú: bảng ở §1–§2 mô tả tình trạng trước khi đồng bộ, giữ lại làm lịch sử.
 
+## 8. Rà lại 18/11/2026 (bản 2.0.33)
+
+- `node scripts/verify-shared-modules.cjs` đạt: **8/8 file khớp khóa**; không còn mục `diverged`. Bước chạy trong job `inherited-quality` của CI (kèm đối chiếu với đúng hai commit gốc đã ghim).
+- `core/smart-filter.js` đã đồng bộ với `HAK_SMART_FILTER` (không ghi đè kho bộ lọc đã lưu bị lỗi); danh sách "sửa có chủ đích" ở job `inherited-quality` ghi lý do. Không còn việc nào ở §3–§5 mở.
+- Còn lại là việc vận hành, không phải mã: mỗi lần repo gốc đổi, cập nhật khóa và commit ghim cùng một PR.
