@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.39] — 18/11/2026
+- **Sửa lỗi khóa phiên ghi:** nếu đường dẫn thư mục dữ liệu có chứa chữ "PID" (ví dụ tên người dùng/thư mục) và chưa có tệp `data.sqlite.lock`, kho SQLite không mở được (lỗi "ENOENT … data.sqlite.lock"), vì `acquireLock` nhận diện "tiến trình khác đang dùng" bằng cách khớp chữ `/PID/` trên thông báo lỗi. Nay dùng cờ riêng. Test mới `U-LOCK-01/02` (đỏ trước khi sửa). Không đổi công thức, lược đồ, định dạng dữ liệu, kỳ đã chốt.
+
 ## [2.0.38] — 18/11/2026
 - **Bản chụp SQLite trong gói Full Backup** (`sqlite/data-snapshot.sqlite` + `manifest.sqliteSnapshot`, tùy chọn; `manifest.version` không đổi): kiểm khi tạo (integrity, số dòng = `data.json`) và khi mở (SHA-256, schema, lệch `data.json`); lỗi bản chụp chỉ là cảnh báo, gói vẫn đủ bằng `data.json`. Khôi phục từ bản chụp trong gói ở màn hình khôi phục (cùng đường kiểm/cất/thay nguyên tử của 2.0.36). App 2.0.35 mở gói mới bình thường (kiểm cả bằng app Electron thật). Dung lượng gói +3,95 MB ở 5.000 NV giả. Không đổi công thức, lược đồ, `data.json`, kỳ đã chốt.
 
