@@ -106,7 +106,7 @@ Thiết kế: `save()` kiểm hợp lệ (phân tích một lần) → bảo v�
 | Nghiệp vụ | Một phần | Như trên |
 | Chốt/thanh toán | Một phần | Như trên; không có thay đổi công thức/bản chốt |
 | Báo cáo/lọc | **Một phần, nhiều hơn** | Bảng↔Excel↔HTML từng dòng/cột cho lương (9 loại), vận hành (6), bảo hiểm, cấp phát. Chưa: nội dung PDF thật cho mọi báo cáo; chưa chuẩn hóa Smart Filter mọi màn |
-| SQLite | Một phần | Migration, idempotency, crash, busy, schema v2 CHECK, kho năm, bản chụp, **khôi phục từ bản chụp (v2.0.36: unit 7 ca gồm 3 ca kill -9 thật + E2E 7 ca; chưa thử Windows thật/đĩa đầy)**: có. Chưa: khóa ngoại/chuẩn hóa, bản chụp trong Full Backup trên Windows thật/đĩa đầy |
+| SQLite | Một phần | Migration, idempotency, crash, busy, schema v2 CHECK, kho năm, bản chụp, **khôi phục từ bản chụp (v2.0.36: unit 7 ca gồm 3 ca kill -9 thật + E2E 7 ca; chưa thử Windows thật/đĩa đầy)**: có. Chưa: khóa ngoại/chuẩn hóa, bản chụp trong Full Backup trên Windows thật/đĩa đầy Crash/độ bền: ma trận 6 kịch bản ở `docs/CRASH_DURABILITY_MATRIX.md` (5 đạt; **kịch bản 6c `-wal` mất khi data.json chưa xuất kịp = mất giao dịch âm thầm, HỎNG – chờ chủ sở hữu quyết định A/C; 3 test `todo`**). |
 | UI | **Chưa đủ** | CI `workspace-visual` (bố cục và các giao diện); chưa kiểm tay từng màn/modal ở 1366×768 và 1920×1080 |
 | Phân quyền | Đạt (phạm vi hiện có) | Hai chế độ, vai trò không có `payroll.view` (`input-filter-dept`), main guard |
 | Hiệu năng | Một phần | 300/5.000/10.000 NV: p50/p95 + RSS ở `docs/PERFORMANCE_REPORT.md`; **chưa đạt mục tiêu < 150 ms ở 5.000 NV**; chưa đo Electron/Windows |
