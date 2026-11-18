@@ -1,7 +1,7 @@
 # Smart Filter — phủ theo từng màn (issue #92 mục 3 / 004.3)
 
 Khảo sát bằng Electron thật, dữ liệu giả (3 nhân viên), tài khoản quản trị. "Có SF" = màn có ô `[data-sf-q]` + thanh lọc `.sf` của HAK Smart Filter.
-Test từng màn: `tests/e2e/input-filter-dept.cjs` (chạy trong CI job `electron-e2e`, Windows).
+Test từng màn: `LuongHAK_Offline/tests/e2e/input-filter-dept.cjs` (chạy trong CI job `electron-e2e`, Windows).
 
 ## 1. Màn CÓ Smart Filter và ĐÃ có test từng màn (7 màn)
 
