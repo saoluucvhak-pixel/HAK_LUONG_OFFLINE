@@ -240,6 +240,13 @@ function createSqliteStorage(dir, opts) {
     finally { rmDb(tmp); }
     return out;
   }
+  /** Bản chụp để đưa vào gói Full Backup: VACUUM INTO + integrity_check + đối chiếu số dòng (store.snapshot) NGAY TRONG tiến trình chính, cùng nhịp đồng bộ với data.json (cur.text) nên cùng revision. */
+  function snapshotForPackage(dest) {
+    if (!cur) { const r = load(); if (!r.ok || !cur) return { ok: false, error: "Kho dữ liệu chưa mở được" }; }
+    if (!db) return { ok: false, error: "Kho SQLite chưa mở" };
+    const r = store.snapshot(db, dest); if (!r.ok) return { ok: false, error: r.error };
+    return { ok: true, file: dest, rev, records: r.records };
+  }
   const stamp = () => { const d = now(); return ymd(d) + "-" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()); };
   /** Hoàn tất (idempotent) việc thay data.sqlite bằng ứng viên đã kiểm; chạy lại được sau mọi lần bị ngắt. Marker xóa CUỐI CÙNG. */
   function finishRestore(m) {
@@ -271,15 +278,16 @@ function createSqliteStorage(dir, opts) {
   const retry = (fn) => { let last; for (let i = 0; i < 8; i++) { try { return fn(); } catch (e) { last = e; if (!e || !/^(EBUSY|EPERM|EACCES)$/.test(e.code || "")) throw e; pause(250); } } throw last; }; // Windows: antivirus/handle vừa nhả có thể giữ file vài trăm ms
   const sha256File = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
   /** Khôi phục data.sqlite từ bản chụp. Chỉ dùng khi kho không mở được (giao diện chặn ở main). Không hủy dữ liệu hiện có: cất data.sqlite(+wal/shm)/data.json sang tên 'truoc-khoi-phuc-<ts>'. */
-  function restoreFromSnapshot(actor) {
+  function restoreFromSnapshot(actor, o) {
+    o = o || {}; const srcFile = o.file || snapFile;
     if (!needsRecovery()) return { ok: false, error: "Kho dữ liệu đang mở bình thường — không khôi phục từ bản chụp để tránh ghi đè dữ liệu tốt. Chỉ dùng khi data.sqlite hỏng hoặc mất." }; // tự bảo vệ ở lớp lưu trữ, không chỉ ở IPC
     clearTimeout(timer); timer = null;
     let before = null; const ts = stamp(), kept = [];
     try {
-      if (!fs.existsSync(snapFile)) return { ok: false, error: "Không có bản chụp SQLite để khôi phục." };
-      rmDb(candFile); fs.copyFileSync(snapFile, candFile);
+      if (!fs.existsSync(srcFile)) return { ok: false, error: "Không có bản chụp SQLite để khôi phục." };
+      rmDb(candFile); fs.copyFileSync(srcFile, candFile);
       const t = store.open(candFile); // từ chối bản chụp của app MỚI HƠN (schema > SCHEMA_VERSION) ngay ở đây
-      try { checkSnapshotDb(t); store.tx(t, () => { t.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('exported_sha', '')").run(); }); } finally { store.close(t); }
+      try { const chk = checkSnapshotDb(t); if (o.expectRecords != null && chk.records !== o.expectRecords) throw new Error("bản chụp lệch data.json trong gói (" + chk.records + " dòng so với " + o.expectRecords + " dòng của data.json)"); store.tx(t, () => { t.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('exported_sha', '')").run(); }); } finally { store.close(t); }
     } catch (e) { rmDb(candFile); return { ok: false, error: "Bản chụp SQLite không dùng được, KHÔNG thay đổi dữ liệu: " + String(e && e.message || e) }; }
     try {
       acquireLockOnly();
@@ -288,7 +296,7 @@ function createSqliteStorage(dir, opts) {
       cur = null; opened = false; conflict = "";
       for (const x of ["", "-wal", "-shm"]) if (fs.existsSync(dbFile + x)) { const k = "data.sqlite.truoc-khoi-phuc-" + ts + x; retry(() => fs.copyFileSync(dbFile + x, path.join(dir, k))); kept.push(k); }
       if (fs.existsSync(dataFile)) { const k = "data.json.truoc-khoi-phuc-" + ts; fs.copyFileSync(dataFile, path.join(dir, k)); kept.push(k); }
-      atomicWrite(markerFile, JSON.stringify({ ts, actor: String(actor || ""), from: "backups/data-snapshot.sqlite", candSha: sha256File(candFile), before, kept, at: new Date().toISOString() }));
+      atomicWrite(markerFile, JSON.stringify({ ts, actor: String(actor || ""), from: o.source || "backups/data-snapshot.sqlite", candSha: sha256File(candFile), before, kept, at: new Date().toISOString() }));
       if (opts.testHook) opts.testHook("sau-marker"); // chỉ kiểm thử: kill -9 thật tại đây
       const r = finishRestore(JSON.parse(fs.readFileSync(markerFile, "utf8")));
       return { ok: true, records: r.records, before, kept };
@@ -300,7 +308,7 @@ function createSqliteStorage(dir, opts) {
   function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
 
   return Object.assign({}, json, {
-    snapshotInfo, restoreFromSnapshot, needsRecovery, load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
+    snapshotInfo, restoreFromSnapshot, snapshotForPackage, needsRecovery, load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
     snapshotNow, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev, kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });

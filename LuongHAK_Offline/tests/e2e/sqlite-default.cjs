@@ -91,6 +91,27 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   const savedAgain = await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0102','Họ và tên':'Sau khôi phục'});");
   ok("Ghi tiếp sau khôi phục được; không lỗi JavaScript", savedAgain === true && sqliteNv(D).includes("0102") && errs.length === 0, String(savedAgain) + " " + errs.join("|"));
   await app.close(); void goodDb;
+  // 7. Full Backup có bản chụp SQLite → data.sqlite hỏng → khôi phục TỪ BẢN CHỤP TRONG GÓI (chỉ đạo 002b)
+  ({ app, w, errs } = await launch(D)); await login(w);
+  const fbr = await w.evaluate(() => window.hakFull.create({}));
+  const FBM = require("../../main/fullbackup"), pkgFile = fbr && fbr.dir && fbr.name ? path.join(fbr.dir, fbr.name) : "", rep = pkgFile ? FBM.inspect(pkgFile) : { ok: false, sqlite: null };
+  ok("Full Backup tạo thành công và có bản chụp SQLite hợp lệ trong gói (manifest.sqliteSnapshot, SHA-256, số dòng khớp data.json)", !!(fbr && fbr.ok === true) && rep.ok === true && !!rep.sqlite && rep.sqlite.ok === true, JSON.stringify(fbr).slice(0, 300) + " " + JSON.stringify(rep.sqlite));
+  const nvPkg = sqliteNv(D).length;
+  await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0103','Họ và tên':'Sau khi tạo gói'});");
+  await app.close(); await sleep(500);
+  fs.truncateSync(path.join(D, "data.sqlite"), 200); for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(D, "data.sqlite" + x), { force: true });
+  ({ app, w, errs } = await launch(D, { HAK_FB_PICK: pkgFile }));
+  const pkgBtn = 'button:has-text("Khôi phục từ gói Full Backup")';
+  await w.waitForSelector(pkgBtn, { timeout: 15000 });
+  const dlg2 = []; w.removeAllListeners("dialog"); w.on("dialog", (x) => { dlg2.push(x.message().slice(0, 300)); x.accept().catch(() => {}); });
+  await w.click(pkgBtn);
+  try { await w.waitForSelector("#main input[data-f=u]", { timeout: 20000 }); } catch (e) { console.log("HỘP THOẠI: " + JSON.stringify(dlg2) + " | thư mục: " + fs.readdirSync(D).join(",")); throw e; }
+  await login(w);
+  const nvAfterPkg = sqliteNv(D);
+  ok("Khôi phục từ gói: dữ liệu = lúc tạo gói (có 0102, KHÔNG có 0103), số nhân viên đúng", nvAfterPkg.length === nvPkg && nvAfterPkg.includes("0102") && !nvAfterPkg.includes("0103"), nvAfterPkg.length + "/" + nvPkg);
+  const aud2 = await w.evaluate(() => JSON.parse(window.hakStore.load().text).auditlog.filter((x) => x.thaoTac === "Khôi phục từ bản chụp SQLite" && /gói LuongHAK_FullBackup_/.test(x.chiTiet)).length);
+  ok("Nhật ký ghi nguồn là gói Full Backup; ghi tiếp được; không lỗi JavaScript", aud2 === 1 && (await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0104','Họ và tên':'Sau khôi phục từ gói'});")) === true && errs.length === 0, aud2 + " " + errs.join("|"));
+  await app.close();
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });
