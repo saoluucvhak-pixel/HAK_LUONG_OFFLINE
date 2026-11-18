@@ -482,6 +482,25 @@
     return out.join("; ");
   }
   // IMPORT-EXTRA-WARN-END
+  // IMPORT-NEARDUP-BEGIN (013-B, issue #114): "Nghi trùng" — dòng `add` có khóa chuẩn hóa (nv01 = NV 01 = ＮＶ01; pc-001 = PC - 001) trùng dòng đang có hoặc dòng trước trong file thì KHÔNG ghi. Chạy ngoài core/importer.js (tệp được CI bảo vệ); chỉ so sánh, không đổi giá trị đã lưu.
+  function importNearDup(database, plans) {
+    if (!IMP.LABEL.neardup) IMP.LABEL.neardup = "Nghi trùng (không ghi)";
+    plans.forEach(function (p) {
+      var cols = VAL.NEAR_COLS && VAL.NEAR_COLS[p.table]; if (!cols) return;
+      var text = function (r) { return cols.map(function (c) { return String(r[c] == null ? "" : r[c]).trim(); }).join(" / "); }, seen = {};
+      (database[p.table] || []).forEach(function (r) { var k = VAL.nearKeyOf(p.table, r); if (k && !seen[k]) seen[k] = text(r); });
+      p.summary.neardup = 0;
+      p.items.forEach(function (it) {
+        if (it.action !== "add" && it.action !== "update") return;
+        var k = VAL.nearKeyOf(p.table, it.row);
+        if (!k) return;
+        if (seen[k] && it.action === "add") { it.action = "neardup"; it.reason = "Nghi trùng: giống " + seen[k] + " đã có — chỉ khác chữ hoa/thường, khoảng trắng hoặc ký tự; không ghi để tránh nhân đôi"; return; }
+        if (!seen[k]) seen[k] = text(it.row);
+      });
+      Object.keys(p.summary).forEach(function (k) { p.summary[k] = 0; }); p.items.forEach(function (it) { p.summary[it.action] = (p.summary[it.action] || 0) + 1; });
+    });
+  }
+  // IMPORT-NEARDUP-END
   function importPreview(replan, fileName, done, mode) {
     impBusy = false;
     mode = mode || "merge";
@@ -489,6 +508,7 @@
     plans.forEach(function (p) { p.items.forEach(function (it) { if (it.action !== "add" && it.action !== "update") return; var w = importExtraWarn(db, p.table, it.row); if (w) it.warn = (it.warn ? it.warn + "; " : "") + w; }); });
     // 1 người 1 Mã NV: dòng gán CCCD của người khác (đã có, hoặc dòng khác trong file) → Xung đột (không ghi) — core/identity.js
     plans.forEach(function (p) { ID.blockImportItems(db, p.table, p.items); });
+    importNearDup(db, plans); // 013-B: nghi trùng theo khóa chuẩn hóa
     // Quyền theo từng bảng + chỉ Admin được ghi dữ liệu hồi tố (Q-14): dòng không đủ quyền → không ghi
     plans.forEach(function (p) {
       var perm = /^dm_/.test(p.table) ? "dm.edit" : (S[p.table] ? "input.edit" : "hr.edit"), okT = can(perm);
@@ -547,7 +567,7 @@
     var nWarn = 0;
     plans.forEach(function (p) { p.items.forEach(function (it) { if (it.warn && (it.action === "add" || it.action === "update")) nWarn++; if (it.action !== "add" || /HỒI TỐ/.test(it.reason) || it.warn) rows.push({ "Bảng": ALL[p.table].ten, "Dòng Excel": it.line, "Phân loại": IMP.LABEL[it.action], "Lý do": it.reason, "Cách sửa": importFixHint(it.action, it.reason), "Cảnh báo": it.warn || "", "Mã NV": it.row["Mã NV"] || "" }); }); });
     if (nWarn) body.appendChild(h("div", { class: "warn", text: "⚠ " + nWarn + " dòng sẽ ghi nhưng có ô bất thường (VD quá " + VAL.MAX_CONG_NGAY + " công/ngày, nhãn chưa có mã phụ cấp) — xem cột 'Cảnh báo'." }));
-    var order = { conflict: 0, invalid: 1, refError: 2, locked: 3, update: 4, add: 4, merged: 5, duplicate: 6 }, byLabel = {};
+    var order = { conflict: 0, neardup: 0, invalid: 1, refError: 2, locked: 3, update: 4, add: 4, merged: 5, duplicate: 6 }, byLabel = {};
     Object.keys(IMP.LABEL).forEach(function (k) { byLabel[IMP.LABEL[k]] = k; });
     rows.sort(function (a, b) { return order[byLabel[a["Phân loại"]]] - order[byLabel[b["Phân loại"]]]; });
     if (rows.length) { body.appendChild(h("div", { class: "fh", text: "Chi tiết các dòng cập nhật / không ghi (" + rows.length + ")" })); body.appendChild(simpleTable(rows.slice(0, 200))); if (rows.length > 200) body.appendChild(h("div", { class: "hint", text: "… và " + (rows.length - 200) + " dòng nữa — bấm 'Tải chi tiết' để xem đủ." })); }
@@ -581,7 +601,7 @@
   }
   // IMPORT-REPORT-BEGIN (009-B, issue #98): "sửa thế nào", file lỗi để sửa-rồi-nhập-lại, đối chiếu tổng với file nguồn. Hàm thuần (không phụ thuộc biến ngoài) — test lấy nguyên văn từ app.js.
   var IMPORT_SUM_COLS = { sanluong: ["KL hàng (Tấn)"], bandam: ["KL hàng (Tấn)"], psluong: ["Thưởng", "Thu nhập khác", "Trừ khác"], ungluong: ["Tạm ứng"], tiencom: ["Số suất cơm"] };
-  var IMPORT_BAD = { invalid: 1, refError: 1, conflict: 1, locked: 1 };
+  var IMPORT_BAD = { invalid: 1, refError: 1, conflict: 1, locked: 1, neardup: 1 };
   function importFixHint(action, reason) {
     var r = String(reason || ""), m;
     if (action === "invalid") {
@@ -594,6 +614,7 @@
       return "Sửa ô nêu ở cột Lý do rồi nhập lại file này";
     }
     if (action === "refError") return "Thêm nhân viên này ở màn Nhân sự trước, hoặc sửa Mã NV cho đúng (giữ số 0 đầu, đúng chữ hoa/thường)";
+    if (action === "neardup") return "Dòng này giống một bản ghi đã có (chỉ khác chữ hoa/thường/khoảng trắng). Nếu là người/phiếu mới: đổi Mã/Số phiếu cho khác hẳn rồi nhập lại; nếu là dòng cũ: bỏ dòng này";
     if (action === "conflict") return "Giữ một dòng; xóa hoặc sửa dòng còn lại để khác khóa (hoặc cho cùng số liệu)";
     if (action === "locked") return "Kỳ đã chốt lương: nếu cần sửa thì mở chốt (ghi lý do) trước, không thì bỏ dòng này";
     if (action === "duplicate") return "Không cần làm gì (dòng đã có)";
@@ -6114,6 +6135,7 @@
     var sch = SCH.validate(db, { tables: Object.keys(ALL), hrTables: Object.keys(HRT) });
     sch.errors.forEach(function (e) { issues.push({ level: "High", area: (ALL[e.table] ? ALL[e.table].ten : e.table) + " (cấu trúc)", msg: e.msg }); });
     sch.info.forEach(function (m) { issues.push({ level: "Low", area: "Cấu trúc", msg: m }); });
+    VAL.nearDuplicateGroups(db).forEach(function (g) { issues.push({ level: "High", area: (ALL[g.table] ? ALL[g.table].ten : g.table), msg: "NGHI TRÙNG (013-B): " + g.rows + " dòng có khóa giống nhau nhưng viết khác (" + g.keys.slice(0, 4).join(" ≈ ") + (g.keys.length > 4 ? " …" : "") + ") — kiểm tra rồi sửa/gộp theo quy trình có sẵn; app KHÔNG tự gộp." }); });
     var ord = { Critical: 0, High: 1, Medium: 2, Low: 3 }; issues.sort(function (a, b) { return ord[a.level] - ord[b.level]; });
     c.appendChild(h("h3", { text: "🩺 Kiểm tra dữ liệu" }));
     c.appendChild(h("div", { class: "hint", text: "Kiểm tra cấu trúc (phiên bản, bảng, kiểu ngày/tiền/kỳ, Mã NV, quan hệ hợp đồng–phụ lục, toàn vẹn kỳ đã chốt) và nghiệp vụ (trùng mã, trùng chấm công, lương nghi lỗi…). App KHÔNG tự xóa dữ liệu lỗi — bạn tự sửa theo danh sách." }));

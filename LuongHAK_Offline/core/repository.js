@@ -89,6 +89,14 @@
         if (k && db[table].some(function (r) { return r !== target && IMP.keyOf(table, r) === k; }))
           return deny("dup", "Đã có bản ghi trùng (" + (IMP.KEYS[table] || []).join(" + ") + "). Hãy sửa bản ghi đó thay vì thêm mới.");
       }
+      // 3b. 013-B: NGHI TRÙNG theo khóa chuẩn hóa (nv01 = NV 01 = ＮＶ01; pc-001 = PC - 001) cho mọi bảng có khóa dò (nhân sự, hợp đồng, sản lượng, ban dăm, tiền cơm, thưởng/trừ, tạm ứng). Chỉ kiểm khi khóa THAY ĐỔI/thêm mới, nên dữ liệu cũ đã lỡ trùng không chặn việc sửa ô khác.
+      if (after && V.NEAR_COLS && V.NEAR_COLS[table]) {
+        var nearCols = V.NEAR_COLS[table], nk = V.nearKeyOf(table, after), keyChanged = !before || nearCols.some(function (c) { return String(before[c] == null ? "" : before[c]).trim() !== String(after[c] == null ? "" : after[c]).trim(); });
+        if (nk && keyChanged) {
+          var twin = db[table].filter(function (r) { return r !== target && V.nearKeyOf(table, r) === nk; })[0];
+          if (twin) return deny("dup", "Nghi trùng: đã có bản ghi có khóa giống (" + nearCols.map(function (c) { return twin[c]; }).join(" / ") + ") — chỉ khác chữ hoa/thường, khoảng trắng hoặc ký tự. Hãy sửa bản ghi đó thay vì thêm mới.");
+        }
+      }
       // 4. Q-15
       if (table === "chitiethd" && before) {
         var fz = GRD.frozenAppendix(db, before);
