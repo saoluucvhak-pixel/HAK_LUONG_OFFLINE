@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld("hakStore", {
   verifyBackups: () => ipcRenderer.sendSync("store-verify"),  // [{ name, tag, created, status: ok|unverified|mismatch|invalid }]
   readBackup: (name) => ipcRenderer.sendSync("store-read", name),
   quarantine: () => ipcRenderer.sendSync("store-quarantine"),
+  snapshotInfo: () => ipcRenderer.sendSync("store-snapshot-info"),         // { exists, ok, mtime, size, records, error }
+  restoreSnapshot: () => ipcRenderer.sendSync("store-restore-snapshot"),   // { ok, records, before, kept } | { ok:false, error }
   openFolder: () => ipcRenderer.send("open-data-folder"),
   mirrorChoose: () => ipcRenderer.sendSync("backup-mirror-choose"), // { ok, copied?, error?, cancelled? }
   mirrorClear: () => ipcRenderer.sendSync("backup-mirror-clear"),
