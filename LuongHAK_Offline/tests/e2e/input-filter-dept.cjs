@@ -5,6 +5,7 @@ require("./harness-env.cjs");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path"), crypto = require("node:crypto");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const { fixture } = require("../fixtures/production-carry");
+const { createStorage } = require("../../main/storage.js");
 const APP = path.resolve(__dirname, "../.."), PASS = "LocPb2026e2e", SHOTS = process.env.E2E_SHOTS || "";
 const results = [];
 const ok = (name, cond, extra) => { results.push({ name, pass: !!cond, extra: extra || "" }); console.log((cond ? "PASS " : "FAIL ") + name + (!cond && extra ? " — " + String(extra).slice(0, 400) : "")); };
@@ -72,7 +73,7 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
     d2.psluong = NV.map((m, i) => ({ "Ngày hạch toán": dd(5 + i), "Số chứng từ": "PS-" + P[i], "Mã NV": m, "Diễn giải": "Thưởng " + P[i], "Thưởng": 100000 * (i + 1) }));
     d2.ungluong = NV.map((m, i) => ({ "Ngày hạch toán": dd(5 + i), "Số chứng từ": "UL-" + P[i], "Mã NV": m, "Diễn giải": "Ứng " + P[i], "Tạm ứng": 500000 * (i + 1) }));
     d2.tiencom = NV.map((m, i) => ({ "Ngày": dd(5 + i), "Mã NV": m, "Số suất cơm": i + 1, "Ghi chú": "com-" + P[i] }));
-    ({ app, w, errs } = await launch(D2)); await app.close(); fs.writeFileSync(path.join(D2, "data.json"), JSON.stringify(d2));
+    createStorage(D2).save(JSON.stringify(d2)); // cùng đường nạp dữ liệu giả với sqlite-default.cjs (chạy ổn trên CI Windows)
     const SCR = [ // k: màn · t1/t2: chuỗi chỉ có ở dòng của NV01 / NV02 (không dấu, chữ thường cũng khớp) · pb: nhãn phòng ban có đúng 1 dòng NV01 · n: số dòng của NV01
       { k: "chamcong", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", x1: "NV01", x2: "NV02", ten: "Chấm công" }, { k: "sanluong", t1: "PC-ANH", t2: "PC-BINH", ten: "Sản lượng" }, { k: "bandam", t1: "BD-ANH", t2: "BD-BINH", ten: "Ban dăm", pre: "Phân bổ trực tiếp nhân viên" },
       { k: "psluong", t1: "PS-ANH", t2: "PS-BINH", ten: "Thưởng/Trừ" }, { k: "ungluong", t1: "UL-ANH", t2: "UL-BINH", ten: "Tạm ứng" }, { k: "tiencom", t1: "com-ANH", t2: "com-BINH", ten: "Suất cơm" }, { k: "nhansu", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", ten: "Danh sách nhân viên", ex: "Excel danh sách đang lọc" }
