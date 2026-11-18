@@ -15,4 +15,4 @@ Nguồn: `core/reporting/*`, `core/bh-report.js`. Dòng tổng được đánh d
 ## Ghi chú trung thực
 - "Parity" bảng–Excel–PDF sau khi lọc chưa có test tự động riêng cho từng báo cáo; chỉ các báo cáo ghi "ĐÃ KIỂM" ở trên.
 - Kỳ đã chốt xuất không in đơn giá (test `payroll-close`), giữ nguyên.
-- Hiện không có test đối chiếu nội dung PDF với bảng cho mọi báo cáo.
+- **Nội dung PDF** (từ 004 mục 2): xuất PDF thật qua `hakReport.pdf` rồi trích văn bản và đối chiếu từng dòng với dữ liệu báo cáo cho 36 báo cáo/sheet của vận hành, bảo hiểm, cấp phát và bảng lương nội bộ — xem `docs/PDF_CONTENT_MATRIX.md`. Chưa phủ: các báo cáo lương nhiều bảng (`payroll-reports`), kỳ đã chốt, bộ báo cáo kỳ lương, PDF màn hình nhập liệu, kho năm, OCR; chưa kiểm bố cục bằng mắt.
