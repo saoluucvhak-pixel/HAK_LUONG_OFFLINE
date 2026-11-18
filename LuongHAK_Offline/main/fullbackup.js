@@ -9,7 +9,16 @@ const SNAP_DEFLATE_MAX = 256 * 1048576;
 const SNAPSHOT_PATH = "sqlite/data-snapshot.sqlite"; // 002b: bản chụp SQLite TÙY CHỌN trong gói (manifest.sqliteSnapshot); app cũ không biết tới và bỏ qua, data.json vẫn là nguồn khôi phục chuẩn
 const rowsOf = (o) => Object.keys(o).reduce((n, k) => n + (Array.isArray(o[k]) ? o[k].length : 0), 0);
 function shaFile(file) { const h = crypto.createHash("sha256"), fd = fs.openSync(file, "r"), b = Buffer.alloc(1 << 20); let n; try { while ((n = fs.readSync(fd, b, 0, b.length, null)) > 0) h.update(b.subarray(0, n)); } finally { fs.closeSync(fd); } return h.digest("hex"); }
-const checkSnapshotFile = (f, rows) => require("./sqlite-package").checkSnapshotFile(f, rows); // mã SQLite chỉ ở main/sqlite-*.js
+const SNAPSHOT_SCHEMA_MAX = 2; // schema SQLite tối đa app này hiểu; khớp với SCHEMA_VERSION của kho (tests/unit/fullbackup-snapshot.test.js kiểm hai số bằng nhau). Tệp này không tự mở SQLite (quy tắc U-SQL-07): bản chụp do kho chụp và kiểm, ở đây chỉ đối chiếu siêu dữ liệu
+/** Kiểm siêu dữ liệu bản chụp do kho SQLite cung cấp (kho đã VACUUM INTO + integrity_check + đối chiếu số dòng): có tệp, schema ≤ app, số dòng = số dòng của data.json cùng thời điểm. Ném lỗi nếu không đạt. */
+function checkSnapshotMeta(sn, wantRows) {
+  let st; try { st = fs.statSync(sn.file); } catch (e) { throw new Error("không đọc được tệp bản chụp"); }
+  if (!st.isFile() || st.size <= 0) throw new Error("tệp bản chụp rỗng");
+  if (!Number.isInteger(sn.schema) || !Number.isInteger(sn.records)) throw new Error("thiếu thông tin schema/số dòng của bản chụp");
+  if (sn.schema > SNAPSHOT_SCHEMA_MAX) throw new Error("schema v" + sn.schema + " mới hơn app này (v" + SNAPSHOT_SCHEMA_MAX + ")");
+  if (sn.records !== wantRows) throw new Error("lệch data.json (" + sn.records + " dòng so với " + wantRows + " dòng trong data.json)");
+  return { schema: sn.schema, records: sn.records, size: st.size };
+}
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 const stampOf = (d) => { const p = (n) => String(n).padStart(2, "0"); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()); };
 
@@ -69,7 +78,7 @@ function create(o) {
   const dest = path.join(o.destDir, name), tmp = dest + ".tmp";
   let snapInfo = null; // bản chụp SQLite (tùy chọn): lỗi ở đây KHÔNG làm hỏng gói — bỏ bản chụp, ghi cảnh báo
   if (o.sqliteSnapshot && o.sqliteSnapshot.file) {
-    try { const f = o.sqliteSnapshot.file, v = checkSnapshotFile(f, rowsOf(parsed)); snapInfo = { file: f, size: fs.statSync(f).size, sha256: shaFile(f), schema: v.schema, records: v.records, rev: Number(o.sqliteSnapshot.rev) || 0 }; }
+    try { const f = o.sqliteSnapshot.file, v = checkSnapshotMeta(o.sqliteSnapshot, rowsOf(parsed)); snapInfo = { file: f, size: v.size, sha256: shaFile(f), schema: v.schema, records: v.records, rev: Number(o.sqliteSnapshot.rev) || 0 }; }
     catch (e) { warnings.push("Không đưa bản chụp SQLite vào gói (" + (e.message || e) + "). Gói vẫn đầy đủ: khôi phục dùng data.json."); }
   } else if (o.sqliteSnapshotError) warnings.push("Không đưa bản chụp SQLite vào gói (" + o.sqliteSnapshotError + "). Gói vẫn đầy đủ: khôi phục dùng data.json.");
   const counts = {}; Object.keys(parsed).forEach((k) => { if (Array.isArray(parsed[k])) counts[k] = parsed[k].length; });
@@ -162,9 +171,9 @@ function inspect(file, vault) {
     if (m.sqliteSnapshot && res.dataText) { // bản chụp SQLite TÙY CHỌN: sai gì cũng chỉ là cảnh báo (bỏ bản chụp, dùng data.json), không làm gói mất hợp lệ
       const sn = m.sqliteSnapshot, bad = (why) => { res.sqlite = { ok: false, error: why }; res.warnings.push("Bỏ bản chụp SQLite trong gói (" + why + "): khôi phục dùng data.json."); };
       try {
-        const e = zip.byName[sn.path || ""], SQ = require("./sqlite-package"), rows = rowsOf(JSON.parse(res.dataText));
+        const e = zip.byName[sn.path || ""], rows = rowsOf(JSON.parse(res.dataText));
         if (sn.path !== SNAPSHOT_PATH || !e) bad("thiếu mục " + SNAPSHOT_PATH);
-        else if (!(Number(sn.schema) <= SQ.SCHEMA_VERSION)) bad("schema v" + sn.schema + " mới hơn app này (v" + SQ.SCHEMA_VERSION + ")");
+        else if (!(Number(sn.schema) <= SNAPSHOT_SCHEMA_MAX)) bad("schema v" + sn.schema + " mới hơn app này (v" + SNAPSHOT_SCHEMA_MAX + ")");
         else if (sn.records !== rows) bad("lệch data.json: bản chụp ghi " + sn.records + " dòng, data.json có " + rows + " dòng");
         else if (e.size !== sn.size || zip.sha256Of(e) !== sn.sha256) bad("sai SHA-256 hoặc kích thước");
         else res.sqlite = { ok: true, path: sn.path, size: sn.size, schema: sn.schema, records: sn.records, rev: sn.rev, createdAt: sn.createdAt };
@@ -235,4 +244,4 @@ function extractSqliteSnapshot(pkg, dest) {
   } catch (e) { try { fs.rmSync(dest, { force: true }); } catch (e2) { /* bỏ qua */ } return { ok: false, error: "Không giải nén được bản chụp: " + (e.message || e) }; }
   finally { zip.close(); }
 }
-module.exports = { STATUS: ST, create, inspect, extractSqliteSnapshot, SNAPSHOT_PATH, importDocuments, importOcrLibrary, importDocumentsFrom, importOcrLibraryFrom, zipReader, dirReader, FORMAT, VERSION };
+module.exports = { STATUS: ST, create, inspect, extractSqliteSnapshot, SNAPSHOT_PATH, SNAPSHOT_SCHEMA_MAX, importDocuments, importOcrLibrary, importDocumentsFrom, importOcrLibraryFrom, zipReader, dirReader, FORMAT, VERSION };

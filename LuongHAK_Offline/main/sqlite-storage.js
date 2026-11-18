@@ -245,7 +245,17 @@ function createSqliteStorage(dir, opts) {
     if (!cur) { const r = load(); if (!r.ok || !cur) return { ok: false, error: "Kho dữ liệu chưa mở được" }; }
     if (!db) return { ok: false, error: "Kho SQLite chưa mở" };
     const r = store.snapshot(db, dest); if (!r.ok) return { ok: false, error: r.error };
-    return { ok: true, file: dest, rev, records: r.records };
+    return { ok: true, file: dest, rev, records: r.records, schema: Number(store.pragma(db, "user_version")) };
+  }
+  /** Khôi phục từ bản chụp nằm trong gói Full Backup (002b): gói đã qua inspect → giải nén bản chụp ra tệp tạm → restoreFromSnapshot (cùng đường kiểm/cất bản cũ/thay nguyên tử/kiểm toán)
+   *  → dọn tệp tạm. Tự từ chối khi kho đang lành. opts.tmpDir: thư mục tệp tạm. */
+  function restoreFromPackage(pkgFile, actor, o) {
+    if (!needsRecovery()) return { ok: false, error: "Kho dữ liệu đang mở bình thường — không khôi phục từ bản chụp trong gói để tránh ghi đè dữ liệu tốt. Chỉ dùng khi data.sqlite hỏng hoặc mất." };
+    const FB = require("./fullbackup"), tmp = path.join((o && o.tmpDir) || path.dirname(pkgFile), "restore-snapshot-" + process.pid + "-" + Date.now() + ".sqlite");
+    try {
+      const ex = FB.extractSqliteSnapshot(pkgFile, tmp); if (!ex.ok) return { ok: false, error: ex.error };
+      return restoreFromSnapshot(actor, { file: tmp, source: "gói " + path.basename(pkgFile), expectRecords: ex.rows });
+    } finally { rmDb(tmp); }
   }
   const stamp = () => { const d = now(); return ymd(d) + "-" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()); };
   /** Hoàn tất (idempotent) việc thay data.sqlite bằng ứng viên đã kiểm; chạy lại được sau mọi lần bị ngắt. Marker xóa CUỐI CÙNG. */
@@ -308,7 +318,7 @@ function createSqliteStorage(dir, opts) {
   function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
 
   return Object.assign({}, json, {
-    snapshotInfo, restoreFromSnapshot, snapshotForPackage, needsRecovery, load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
+    snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, needsRecovery, load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
     snapshotNow, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev, kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });

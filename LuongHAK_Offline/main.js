@@ -146,11 +146,11 @@ function registerIpc() {
   ipcMain.on("store-restore-package-snapshot", (e) => {
     try {
       if (yearBusy || fbJob || (restorer && restorer.busy())) { e.returnValue = { ok: false, error: "Đang có thao tác dữ liệu khác; vui lòng chờ" }; return; }
-      if (!storage.restoreFromSnapshot || !storage.needsRecovery()) { e.returnValue = { ok: false, error: "Chỉ khôi phục từ bản chụp khi kho dữ liệu không mở được." }; return; }
+      if (!storage.restoreFromPackage || !storage.needsRecovery()) { e.returnValue = { ok: false, error: "Chỉ khôi phục từ bản chụp khi kho dữ liệu không mở được." }; return; }
       let f = process.env.HAK_FB_PICK || "";
       if (!f) { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup có bản chụp SQLite (.zip)", filters: [{ name: "Gói sao lưu", extensions: ["zip"] }], properties: ["openFile"] }); if (!r || !r[0]) { e.returnValue = { ok: false, cancelled: true }; return; } f = r[0]; }
       if (/\.hakenc$/i.test(f)) { e.returnValue = { ok: false, error: "Gói mã hóa chưa hỗ trợ ở màn hình khôi phục — giải mã trước hoặc dùng Khôi phục từ file." }; return; }
-      const r = require("./main/sqlite-package").restoreFromPackage(storage, f, "(màn hình khôi phục, chưa đăng nhập)", { tmpDir: app.getPath("userData") }); wpol = null; e.returnValue = r;
+      const r = storage.restoreFromPackage(f, "(màn hình khôi phục, chưa đăng nhập)", { tmpDir: app.getPath("userData") }); wpol = null; e.returnValue = r;
     } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
   });
   ipcMain.on("store-quarantine", (e) => { if(yearBusy){e.returnValue=null;return;} try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
@@ -258,7 +258,7 @@ function registerIpc() {
       const sp = spCur(), sender = e.sender;
       // 002b: bản chụp SQLite cùng nhịp đồng bộ với dataText (cùng revision) — lỗi chỉ thành cảnh báo, gói vẫn tạo bằng data.json
       let sqliteSnapshot = null, sqliteSnapshotError = "", snapTmp = "";
-      if (storage.snapshotForPackage) { try { snapTmp = path.join(app.getPath("userData"), "fb-snapshot-" + Date.now() + ".sqlite"); const sn = storage.snapshotForPackage(snapTmp); if (sn.ok) sqliteSnapshot = { file: snapTmp, rev: sn.rev }; else sqliteSnapshotError = sn.error || "không rõ lý do"; } catch (err) { sqliteSnapshotError = String(err && err.message || err); } }
+      if (storage.snapshotForPackage) { try { snapTmp = path.join(app.getPath("userData"), "fb-snapshot-" + Date.now() + ".sqlite"); const sn = storage.snapshotForPackage(snapTmp); if (sn.ok) sqliteSnapshot = { file: snapTmp, rev: sn.rev, records: sn.records, schema: sn.schema }; else sqliteSnapshotError = sn.error || "không rõ lý do"; } catch (err) { sqliteSnapshotError = String(err && err.message || err); } }
       dropSnap = () => { if (snapTmp) for (const x of ["", "-wal", "-shm"]) { try { require("fs").rmSync(snapTmp + x, { force: true }); } catch (err) { /* bỏ qua */ } } };
       fbJob = require("./main/fullbackup-worker").run({ dataText: ld.text, sqliteSnapshot, sqliteSnapshotError, yearArchiveDir:years.root, docsDir: sp.docs, ocrDir: sp.ocrLib, spoolDir: path.join(app.getPath("userData"), "ocr-spool"), destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
         restoreConfig: { note: "đường dẫn thư mục là của máy gốc; khi khôi phục sang máy khác dùng thư mục mặc định hoặc chọn lại", customPaths: Object.keys(storage.readSettings()).filter((k) => /Dir$/.test(k)) } },

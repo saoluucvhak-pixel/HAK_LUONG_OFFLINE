@@ -8,7 +8,6 @@ const FB = require("../../main/fullbackup"), Z = require("../../main/zip");
 const LEGACY = require("../fixtures/legacy-2.0.35/main/fullbackup.js"), LEGACY_RS = require("../fixtures/legacy-2.0.35/main/restore.js"); // nguyên văn mã tag v2.0.35 (xem README cạnh file)
 const { createSqliteStorage } = require("../../main/sqlite-storage.js");
 const { createVault } = require("../../main/documents"), { createStore } = require("../../main/ocr-library.js"), { createRestorer } = require("../../main/restore");
-const PR = require("../../main/sqlite-package.js");
 const store = require("../../main/sqlite-store.js");
 const { fixture } = require("../fixtures/production-carry");
 const KILL = path.resolve(__dirname, "../fixtures/sqlite-restore-kill.cjs");
@@ -35,6 +34,8 @@ const manifestOf = (file) => { const z = Z.openZip(file); try { return JSON.pars
 const setUserVersion = (file, v) => { const { DatabaseSync } = store.driver(), db = new DatabaseSync(file); try { db.exec("PRAGMA journal_mode = DELETE; PRAGMA user_version = " + v); } finally { db.close(); } };
 const corrupt = (dir) => { fs.truncateSync(path.join(dir, "data.sqlite"), 200); for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(dir, "data.sqlite") + x, { force: true }); };
 const rowsOf = (text) => { const o = JSON.parse(text); return Object.keys(o).reduce((n, k) => n + (Array.isArray(o[k]) ? o[k].length : 0), 0); };
+
+test("U-FBS-00 hằng số schema của gói khớp schema của kho SQLite", () => { assert.equal(FB.SNAPSHOT_SCHEMA_MAX, store.SCHEMA_VERSION); });
 
 test("U-FBS-01 gói mới: có sqlite/data-snapshot.sqlite + manifest.sqliteSnapshot đủ trường; manifest.version không đổi; data.json vẫn là nguồn chuẩn", () => {
   const { pkg, text } = make();
@@ -70,8 +71,8 @@ test("U-FBS-04 bản chụp sai SHA-256 trong gói: gói VẪN hợp lệ (dùng
 });
 
 test("U-FBS-05 bản chụp schema MỚI HƠN app: (a) lúc tạo gói bị bỏ kèm cảnh báo, gói vẫn tốt; (b) gói giả mạo manifest/bản chụp schema mới → inspect bỏ bản chụp, cảnh báo", () => {
-  const { dir, s, text } = make(); const f = path.join(dir, "newer.sqlite"); fs.copyFileSync(path.join(dir, "pkg-snap.sqlite"), f); setUserVersion(f, store.SCHEMA_VERSION + 3);
-  const r = FB.create({ dataText: text, destDir: path.join(dir, "out2"), sqliteSnapshot: { file: f, rev: 1 } }); assert.equal(r.ok, true); assert.equal(r.sqliteSnapshot, false); assert.match(r.warnings.join("|"), /schema/i);
+  const { dir, s, text, sn: sn0 } = make(); const f = path.join(dir, "newer.sqlite"); fs.copyFileSync(path.join(dir, "pkg-snap.sqlite"), f); setUserVersion(f, store.SCHEMA_VERSION + 3);
+  const r = FB.create({ dataText: text, destDir: path.join(dir, "out2"), sqliteSnapshot: { file: f, rev: 1, schema: store.SCHEMA_VERSION + 3, records: sn0.records } }); assert.equal(r.ok, true); assert.equal(r.sqliteSnapshot, false); assert.match(r.warnings.join("|"), /schema/i);
   const m2 = manifestOf(r.file); assert.equal(m2.sqliteSnapshot, undefined); const z = Z.openZip(r.file); try { assert.equal(!!z.byName[SNAP], false); } finally { z.close(); } void s;
   const { pkg } = make(), fake = repack(pkg.file, (n, b) => { if (n === "manifest.json") { const m = JSON.parse(b); m.sqliteSnapshot.schema = store.SCHEMA_VERSION + 3; return Buffer.from(JSON.stringify(m)); } return b; });
   const rep = FB.inspect(fake); assert.equal(rep.ok, true, rep.problems.join(";")); assert.equal(rep.sqlite.ok, false); assert.match(rep.warnings.join("|"), /schema/i);
@@ -82,16 +83,16 @@ test("U-FBS-06 bản chụp LỆCH data.json: lúc tạo gói bị bỏ kèm c�
   const r = FB.create({ dataText: A.text, destDir: path.join(A.dir, "o2"), sqliteSnapshot: B.sn }); assert.equal(r.ok, true); assert.equal(r.sqliteSnapshot, false); assert.match(r.warnings.join("|"), /lệch|không khớp/i);
   const bytesB = fs.readFileSync(B.sn.file), forged = repack(A.pkg.file, (n, b) => { if (n === SNAP) return bytesB; if (n === "manifest.json") { const m = JSON.parse(b); m.sqliteSnapshot.sha256 = sha(bytesB); m.sqliteSnapshot.size = bytesB.length; return Buffer.from(JSON.stringify(m)); } return b; });
   const dir = tmp(), s = createSqliteStorage(dir, opts); assert.equal(s.save(A.text), true); const before = fs.readFileSync(path.join(dir, "data.sqlite"));
-  const forgedHealthy = PR.restoreFromPackage(s, forged, "x", { tmpDir: dir }); assert.equal(forgedHealthy.ok, false, "kho đang lành: từ chối"); s.close();
+  const forgedHealthy = s.restoreFromPackage(forged, "x", { tmpDir: dir }); assert.equal(forgedHealthy.ok, false, "kho đang lành: từ chối"); s.close();
   corrupt(dir); const hurt = fs.readFileSync(path.join(dir, "data.sqlite")); const s2 = createSqliteStorage(dir, opts); assert.equal(s2.load().ok, false);
-  const res = PR.restoreFromPackage(s2, forged, "x", { tmpDir: dir }); assert.equal(res.ok, false); assert.match(res.error, /lệch|không khớp/i); assert.deepEqual(fs.readFileSync(path.join(dir, "data.sqlite")), hurt, "data.sqlite hiện có không đổi"); void before; s2.close();
+  const res = s2.restoreFromPackage(forged, "x", { tmpDir: dir }); assert.equal(res.ok, false); assert.match(res.error, /lệch|không khớp/i); assert.deepEqual(fs.readFileSync(path.join(dir, "data.sqlite")), hurt, "data.sqlite hiện có không đổi"); void before; s2.close();
 });
 
 test("U-FBS-07 khôi phục từ bản chụp TRONG gói khi data.sqlite hỏng: dữ liệu = lúc tạo gói, bản cũ cất, nhật ký ghi 'gói …', ghi tiếp được; kho đang lành thì tự từ chối", () => {
-  const { dir, d, s, text, pkg } = make(); const healthy = PR.restoreFromPackage(s, pkg.file, "x", { tmpDir: dir }); assert.equal(healthy.ok, false); assert.match(healthy.error, /đang mở bình thường/);
+  const { dir, d, s, text, pkg } = make(); const healthy = s.restoreFromPackage(pkg.file, "x", { tmpDir: dir }); assert.equal(healthy.ok, false); assert.match(healthy.error, /đang mở bình thường/);
   d.nhanvien.push({ "Mã NV": "SAU-GOI", "Họ và tên": "Thêm sau khi tạo gói" }); assert.equal(s.save(JSON.stringify(d)), true); s.close(); corrupt(dir);
   const s2 = createSqliteStorage(dir, opts); assert.equal(s2.load().ok, false);
-  const r = PR.restoreFromPackage(s2, pkg.file, "Quản trị giả", { tmpDir: dir }); assert.equal(r.ok, true, JSON.stringify(r));
+  const r = s2.restoreFromPackage(pkg.file, "Quản trị giả", { tmpDir: dir }); assert.equal(r.ok, true, JSON.stringify(r));
   const after = JSON.parse(s2.load().text); assert.equal(after.nhanvien.some((x) => x["Mã NV"] === "SAU-GOI"), false); assert.equal(after.nhanvien.length, JSON.parse(text).nhanvien.length);
   const last = after.auditlog[after.auditlog.length - 1]; assert.equal(last.thaoTac, "Khôi phục từ bản chụp SQLite"); assert.match(last.chiTiet, /gói LuongHAK_FullBackup_/);
   assert.ok(fs.readdirSync(dir).some((f) => /^data\.sqlite\.truoc-khoi-phuc-/.test(f)), "bản cũ được cất"); assert.equal(fs.readdirSync(dir).filter((f) => /^restore-snapshot-.*\.sqlite$/.test(f)).length, 0, "tệp tạm đã dọn");
@@ -112,7 +113,7 @@ for (const at of ["sau-marker", "truoc-doi-ten", "sau-doi-ten"]) {
 
 test("U-FBS-09 lỗi tạo bản chụp KHÔNG làm hỏng gói: file bản chụp mất/hỏng → gói vẫn SUCCESS, không có mục sqlite, cảnh báo", () => {
   const dir = tmp(), text = JSON.stringify(fixture());
-  for (const sn of [{ file: path.join(dir, "khong-ton-tai.sqlite"), rev: 1 }, (() => { const f = path.join(dir, "rac.sqlite"); fs.writeFileSync(f, "không phải SQLite"); return { file: f, rev: 1 }; })()]) {
+  for (const sn of [{ file: path.join(dir, "khong-ton-tai.sqlite"), rev: 1, schema: 2, records: 1 }, (() => { const f = path.join(dir, "rac.sqlite"); fs.writeFileSync(f, "không phải SQLite"); return { file: f, rev: 1 }; })()]) {
     const r = FB.create({ dataText: text, destDir: path.join(dir, "o" + Math.random().toString(36).slice(2, 6)), sqliteSnapshot: sn });
     assert.equal(r.ok, true, JSON.stringify(r).slice(0, 200)); assert.equal(r.sqliteSnapshot, false); assert.match(r.warnings.join("|"), /bản chụp SQLite/i);
     const rep = FB.inspect(r.file); assert.equal(rep.ok, true); assert.equal(rep.sqlite, null);
