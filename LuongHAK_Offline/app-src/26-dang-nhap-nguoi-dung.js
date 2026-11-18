@@ -214,6 +214,13 @@
         else alert("Không khôi phục được: " + ((r && r.error) || "không rõ lý do"));
       }));
     }
+    if (store && store.restorePackageSnapshot) bar.appendChild(btn("⬆ Khôi phục từ gói Full Backup (bản chụp SQLite)…", "", function () {
+      if (!confirm("Chọn một gói Full Backup (.zip) có bản chụp SQLite (gói tạo từ bản 2.0.38 trở lên).\n\nDữ liệu thay đổi SAU thời điểm tạo gói sẽ không có. File dữ liệu hiện tại KHÔNG bị xóa: được cất cạnh với tên có 'truoc-khoi-phuc'. Tiếp tục?")) return;
+      var r = store.restorePackageSnapshot();
+      if (r && r.cancelled) return;
+      if (r && r.ok) { alert("Đã khôi phục từ gói: " + r.records + " dòng (trước đó: " + (r.before == null ? "không đọc được" : r.before) + "). File cũ được cất: " + (r.kept || []).join(", ")); window.location.reload(); }
+      else alert("Không khôi phục được: " + ((r && r.error) || "không rõ lý do"));
+    }));
     if (store) bar.appendChild(btn("📂 Mở thư mục dữ liệu", "", function () { store.openFolder(); }));
     bar.appendChild(btn("Bắt đầu với dữ liệu trống", "red", function () {
       if (!confirm("Cất file hỏng sang tên khác (KHÔNG xóa) và bắt đầu với dữ liệu trống?")) return;

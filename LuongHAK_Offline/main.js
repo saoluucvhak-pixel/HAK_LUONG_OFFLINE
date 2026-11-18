@@ -142,6 +142,17 @@ function registerIpc() {
       const r = storage.restoreFromSnapshot("(màn hình khôi phục, chưa đăng nhập)"); wpol = null; e.returnValue = r;
     } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
   });
+  // 002b: khôi phục từ bản chụp SQLite nằm TRONG gói Full Backup — cùng điều kiện như store-restore-snapshot (chỉ khi kho không mở được, màn hình khôi phục chưa đăng nhập). Gói mã hóa (.hakenc) chưa hỗ trợ ở đây.
+  ipcMain.on("store-restore-package-snapshot", (e) => {
+    try {
+      if (yearBusy || fbJob || (restorer && restorer.busy())) { e.returnValue = { ok: false, error: "Đang có thao tác dữ liệu khác; vui lòng chờ" }; return; }
+      if (!storage.restoreFromPackage || !storage.needsRecovery()) { e.returnValue = { ok: false, error: "Chỉ khôi phục từ bản chụp khi kho dữ liệu không mở được." }; return; }
+      let f = process.env.HAK_FB_PICK || "";
+      if (!f) { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói Full Backup có bản chụp SQLite (.zip)", filters: [{ name: "Gói sao lưu", extensions: ["zip"] }], properties: ["openFile"] }); if (!r || !r[0]) { e.returnValue = { ok: false, cancelled: true }; return; } f = r[0]; }
+      if (/\.hakenc$/i.test(f)) { e.returnValue = { ok: false, error: "Gói mã hóa chưa hỗ trợ ở màn hình khôi phục — giải mã trước hoặc dùng Khôi phục từ file." }; return; }
+      const r = storage.restoreFromPackage(f, "(màn hình khôi phục, chưa đăng nhập)", { tmpDir: app.getPath("userData") }); wpol = null; e.returnValue = r;
+    } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
+  });
   ipcMain.on("store-quarantine", (e) => { if(yearBusy){e.returnValue=null;return;} try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
   // Xuất PDF báo cáo: giao diện gửi HTML (đã escape) + TÊN file; đường dẫn lưu do tiến trình chính quyết (thư mục xuất, không ghi đè)
   ipcMain.handle("report-pdf", guarded("export", async (e, payload) => {
@@ -241,13 +252,18 @@ function registerIpc() {
     if (fbJob) return { ok: false, error: "Đang có một lần Full Backup khác chạy — chờ nó kết thúc hoặc bấm Hủy" };
     const bcrypt = require("./main/backup-crypt"), pwd = info && info.password ? String(info.password) : "";
     if (pwd) { const bad = bcrypt.checkPassword(pwd); if (bad) return { ok: false, error: bad }; }
+    let dropSnap = () => {};
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
       const sp = spCur(), sender = e.sender;
-      fbJob = require("./main/fullbackup-worker").run({ dataText: ld.text, yearArchiveDir:years.root, docsDir: sp.docs, ocrDir: sp.ocrLib, spoolDir: path.join(app.getPath("userData"), "ocr-spool"), destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
+      // 002b: bản chụp SQLite cùng nhịp đồng bộ với dataText (cùng revision) — lỗi chỉ thành cảnh báo, gói vẫn tạo bằng data.json
+      let sqliteSnapshot = null, sqliteSnapshotError = "", snapTmp = "";
+      if (storage.snapshotForPackage) { try { snapTmp = path.join(app.getPath("userData"), "fb-snapshot-" + Date.now() + ".sqlite"); const sn = storage.snapshotForPackage(snapTmp); if (sn.ok) sqliteSnapshot = { file: snapTmp, rev: sn.rev, records: sn.records, schema: sn.schema }; else sqliteSnapshotError = sn.error || "không rõ lý do"; } catch (err) { sqliteSnapshotError = String(err && err.message || err); } }
+      dropSnap = () => { if (snapTmp) for (const x of ["", "-wal", "-shm"]) { try { require("fs").rmSync(snapTmp + x, { force: true }); } catch (err) { /* bỏ qua */ } } };
+      fbJob = require("./main/fullbackup-worker").run({ dataText: ld.text, sqliteSnapshot, sqliteSnapshotError, yearArchiveDir:years.root, docsDir: sp.docs, ocrDir: sp.ocrLib, spoolDir: path.join(app.getPath("userData"), "ocr-spool"), destDir: fbDir(), appVersion: app.getVersion(), user: guard.userOf(e), allowPartial: !!(info && info.allowPartial === true),
         restoreConfig: { note: "đường dẫn thư mục là của máy gốc; khi khôi phục sang máy khác dùng thư mục mặc định hoặc chọn lại", customPaths: Object.keys(storage.readSettings()).filter((k) => /Dir$/.test(k)) } },
       (m) => { try { if (!sender.isDestroyed()) sender.send("fb-progress", m); } catch (x) { /* cửa sổ đã đóng */ } });
-      const r = await fbJob.promise; fbJob = null;
+      const r = await fbJob.promise; fbJob = null; dropSnap();
       if (!r.file) return r; // FAILED / CANCELLED: không có gói
       if (pwd) { // V10.1: bọc mã hóa AES-256-GCM; chỉ xóa bản rõ SAU KHI bản mã hóa giải mã thử khớp SHA-256 bản rõ
         const fsx = require("fs"), fsp0 = fsx.promises, plain = r.file, encF = plain + ".hakenc", chk = encF + ".verify";
@@ -269,7 +285,7 @@ function registerIpc() {
       let mirrored = "";
       try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"), fsp = require("fs").promises; await fsp.mkdir(t, { recursive: true }); await fsp.copyFile(r.file, path.join(t, r.name)); await fsp.copyFile(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
       return { ok: r.ok, status: r.status, partial: !!r.partial, missing: r.missing, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored, encrypted: !!r.encrypted };
-    } catch (err) { fbJob = null; return { ok: false, error: String(err && err.message || err) }; }
+    } catch (err) { fbJob = null; dropSnap(); return { ok: false, error: String(err && err.message || err) }; }
   }));
   ipcMain.handle("fb-cancel", guarded("backup.restore", async () => { if (!fbJob) return { ok: false, error: "Không có Full Backup đang chạy" }; fbJob.cancel(); return { ok: true }; }));
   ipcMain.handle("fb-list", guarded("backup.restore", async () => { try { return { ok: true, files: fbList().filter((f) => /^LuongHAK_FullBackup_.*\.zip(\.hakenc)?$/i.test(f.name)).map((f) => Object.assign({}, f, { encrypted: /\.hakenc$/i.test(f.name) })) }; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
