@@ -91,6 +91,14 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   const savedAgain = await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0102','Họ và tên':'Sau khôi phục'});");
   ok("Ghi tiếp sau khôi phục được; không lỗi JavaScript", savedAgain === true && sqliteNv(D).includes("0102") && errs.length === 0, String(savedAgain) + " " + errs.join("|"));
   await app.close(); void goodDb;
+  // 8. Hai phiên app cùng một thư mục dữ liệu (chỉ đạo 003, kịch bản 5): phiên sau bị chặn, phiên đầu không bị ảnh hưởng, không ai ghi chồng
+  ({ app, w, errs } = await launch(D)); await login(w);
+  const lockFile = path.join(D, "data.sqlite.lock"), firstPid = JSON.parse(fs.readFileSync(lockFile, "utf8")).pid;
+  const second = require("node:child_process").spawn(require("electron"), ["--no-sandbox", APP], { env: { ...process.env, HAK_USER_DATA: D, HAK_DOWNLOAD_DIR: path.join(D, "downloads"), HAK_NO_SHELL: "1", HAK_SQLITE_EXPORT_SYNC: "0", HAK_SQLITE_ADOPT_EXTERNAL: "0", HAK_STORAGE: "" }, stdio: "ignore" });
+  const secondExit = await new Promise((res) => { const t = setTimeout(() => { try { second.kill("SIGKILL"); } catch (e) { /* đã thoát */ } res("hết giờ"); }, 30000); second.on("exit", (c, sg) => { clearTimeout(t); res("thoát mã " + c + (sg ? " " + sg : "")); }); });
+  ok("Phiên thứ hai cùng thư mục dữ liệu bị chặn: tự thoát (không mở cửa sổ ghi chồng)", /^thoát/.test(secondExit), secondExit);
+  ok("Khóa phiên ghi vẫn của phiên đầu; phiên đầu vẫn lưu được; không lỗi JavaScript", JSON.parse(fs.readFileSync(lockFile, "utf8")).pid === firstPid && (await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0105','Họ và tên':'Sau khi phiên hai bị chặn'});")) === true && sqliteNv(D).includes("0105") && errs.length === 0, String(errs.join("|")));
+  await app.close();
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });
