@@ -3,6 +3,11 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.30] — 18/11/2026
+- **A01 (nghiêm trọng):** thao tác kho năm không còn chạy trên `data.json` cũ hay nhận lại dữ liệu cũ vào SQLite; `preview/table` không đổi dữ liệu; `archive/restore` có marker, kiểm revision, hoàn tác và phục hồi sau gián đoạn (`main/year-job.js`).
+- **A02:** sao lưu (tay, lịch, khi đóng, theo năm, thư mục thứ hai, bản bảo vệ) không còn "thành công giả" bằng dữ liệu cũ khi xuất `data.json` lỗi; bản vừa tạo được kiểm đúng revision.
+- Đính chính hướng dẫn xung đột: không dùng ngày giờ file làm căn cứ; nêu chênh lệch bảng/dòng. Khóa phiên ghi cấp dữ liệu (`data.sqlite.lock`).
+
 ## [2.0.29] — 18/11/2026
 - **Kho dữ liệu chính chuyển sang SQLite (`data.sqlite`)**, mặc định BẬT. Lần mở đầu: tự sao lưu `truoc-chuyen-sqlite`, chuyển `data.json` vào SQLite, đối chiếu từng ký tự rồi mới dùng; hỏng giữa chừng thì `data.json` giữ nguyên.
 - `data.json` thành bản xuất (ghi lại sau tối đa 3 giây, khi đóng app và ngay trước mỗi sao lưu/Full Backup) nên sao lưu, Full Backup, kho năm và công cụ cũ vẫn dùng như trước. `HAK_STORAGE=json` quay về kho `data.json`.

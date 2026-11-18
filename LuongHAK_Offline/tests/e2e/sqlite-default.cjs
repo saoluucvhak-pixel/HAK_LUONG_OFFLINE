@@ -59,7 +59,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   await app.close(); const before = fs.readFileSync(path.join(D, "data.json"), "utf8");
   fs.writeFileSync(path.join(D, "data.json"), JSON.stringify({ nhanvien: [{ "Mã NV": "LẠ" }] }));
   ({ app, w, errs } = await launch(D)); const conflict = await w.evaluate(() => window.hakStore.load());
-  ok("data.json bị thay ngoài app: app KHÔNG đoán, báo xung đột (ok:false) và không ghi đè", conflict.ok === false && /khác với dữ liệu trong data\.sqlite/.test(conflict.error) && JSON.parse(fs.readFileSync(path.join(D, "data.json"), "utf8")).nhanvien[0]["Mã NV"] === "LẠ");
+  ok("data.json bị thay ngoài app: app KHÔNG đoán, báo xung đột (ok:false) và không ghi đè", conflict.ok === false && /không phải bản xuất gần nhất của kho SQLite/.test(conflict.error) && JSON.parse(fs.readFileSync(path.join(D, "data.json"), "utf8")).nhanvien[0]["Mã NV"] === "LẠ");
   await app.close().catch(() => {}); fs.writeFileSync(path.join(D, "data.json"), before); // trả lại bản xuất đúng
   // 5. Quay lui: HAK_STORAGE=json đọc đúng bản xuất
   ({ app, w, errs } = await launch(D, { HAK_STORAGE: "json" })); const rb = await w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.map((r) => r["Mã NV"]));

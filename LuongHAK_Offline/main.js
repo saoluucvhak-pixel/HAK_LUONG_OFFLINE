@@ -89,11 +89,12 @@ function registerIpc() {
   // V9.2: main so với bản đang lưu, tìm bảng thay đổi và kiểm quyền THEO PHIÊN ĐĂNG NHẬP CỦA MAIN (không tin renderer); chốt kỳ được tính lại để chặn lỗi
   let wpol = null;
   const years = require("./main/year-archive").createYearArchive({storage,dir:app.getPath("userData")});
+  const yearJob = require('./main/year-job').createYearJob({storage,runWorker:(method,args)=>require('./main/year-archive-worker').run(app.getPath('userData'),method,args)});
   const yearWorker = async (method,args) => {
     if(yearBusy||fbJob||(restorer&&restorer.busy()))return {ok:false,error:"Đang có thao tác dữ liệu khác; vui lòng chờ"};
     yearBusy=true;
-    try{if(storage.syncJson)storage.syncJson();return await require('./main/year-archive-worker').run(app.getPath('userData'),method,args);}
-    finally{if(storage.adoptJson)storage.adoptJson();yearBusy=false;years.release();wpol=null;}
+    try{return await yearJob(method,args);}
+    finally{yearBusy=false;years.release();wpol=null;}
   };
   const yearCall = fn => { try{return fn();}catch(err){return {ok:false,error:String(err.message||err)};} };
   ipcMain.handle("year-list",guarded("backup.restore",async()=>yearCall(()=>({...years.list(),token:years.token()}))));

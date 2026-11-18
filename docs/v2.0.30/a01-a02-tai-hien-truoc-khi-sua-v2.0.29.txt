@@ -1,0 +1,2 @@
+A01: {"saveOk":true,"syncJsonResult":false,"previewOk":true,"adoptResult":true,"newRowStillInState":false}
+A02: {"backupReturned":"manual_20261118-010754-512_d046e4.json","backupReportedSuccess":true,"backupEqualsLatest":false,"sqliteEqualsLatest":true}

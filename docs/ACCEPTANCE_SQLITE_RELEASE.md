@@ -77,3 +77,24 @@ Thiết kế: `save()` kiểm hợp lệ (phân tích một lần) → bảo v�
 **Kết luận về hiệu năng: cách này CHẬM HƠN ghi `data.json`** (khoảng 1,5 lần ở p50 5.000 NV), vì phần tốn kém là tuần tự hóa và so sánh cả tài liệu, không phải việc ghi đĩa; ghi SQLite chỉ vài phần nghìn giây. Lợi ích có được: ghi bền vững theo giao dịch thay vì viết lại cả file, đọc lại không phụ thuộc kích thước file, nền cho bước tiếp theo. Lợi ích về tốc độ chỉ đến khi giao diện gửi delta (cần lớp theo dõi thay đổi theo bảng trong giao diện — chưa làm). Không nên đổi mặc định vì lý do hiệu năng.
 
 **Chưa làm cho cutover:** SQLite Backup API/`VACUUM INTO` cho Full Backup; kho năm trên SQLite; kiểm kill/crash ở mốc sau commit trước phản hồi bằng kill tiến trình thật; thử Setup Windows (cài mới và nâng cấp từ JSON); chặn hai phiên ghi vào cùng hồ sơ; hướng dẫn người dùng và quy trình quay lui trên Setup.
+
+
+## 6. Cập nhật v2.0.30 (sau nghiệm thu v2.0.29)
+
+**Kết luận: Chỉ đủ thử nghiệm có kiểm soát.** Hai lỗi nghiêm trọng của v2.0.29 đã sửa và có test; chưa thử Setup Windows thật, chưa hoàn thành delta từ giao diện và chuẩn hóa lược đồ.
+
+| Hạng mục (prompt sau v2.0.29) | Trạng thái | Bằng chứng |
+|---|---|---|
+| **A01** kho năm ghi lùi dữ liệu | **Đã sửa** | Tái hiện trên v2.0.29: `docs/v2.0.30/a01-a02-tai-hien-truoc-khi-sua-v2.0.29.txt` (kịch bản `tai-hien-a01-a02.cjs`). Sửa: `main/year-job.js`, `main/sqlite-storage.js` (marker, `snapshotExported`, `adoptJson({expectRev})`, phục hồi theo marker). Test: `tests/unit/year-job.test.js` (9: sync lỗi, preview/table không đổi dữ liệu và revision, worker chỉ-đọc ghi bậy, archive thật, worker lỗi/ngoại lệ, adopt bị từ chối/đổi giữa chừng, crash theo marker, xung đột) với worker kho năm thật |
+| **A02** sao lưu thành công giả | **Đã sửa** | Tái hiện cùng tệp trên. Sửa: `backupWrap/readWrap/mirrorWrap`, `verifyBackup`, bản bảo vệ trong `save()`. Test: `tests/unit/sqlite-backup-integrity.test.js` (EACCES, ENOSPC, hết lỗi thì đúng revision, bản bảo vệ chặn lưu, bản không khớp bị hủy). Chưa thử: sao lưu bị hủy giữa chừng (Full Backup `fb-cancel`), mirror mất kết nối thiết bị thật |
+| Full Backup ZIP nhất quán | **Đánh giá, chưa đổi** | Lấy `storage.load().text` = bản đang giữ trong bộ nhớ (cùng revision SQLite); các lệnh ghi bị chặn trong lúc chạy (`fbJob`). Chưa có bằng chứng lỗi stale JSON ở đường này; chưa có gói chứa snapshot SQLite |
+| `VACUUM INTO`/Backup API | **Đánh giá** | `VACUUM INTO` chạy được ở Node 22 và Node 24 (Electron 45), bản chụp nhất quán gồm cả WAL. Chưa tích hợp: các bản sao lưu/khôi phục hiện đọc `.json` |
+| Khóa phiên ghi | **Đã làm** | `data.sqlite.lock` (PID + thời điểm khởi động máy), test U-SS-13; Electron đã chặn mở hai bản app |
+| Hướng dẫn "file mới hơn đầy đủ hơn" | **Đã bỏ** | thông báo xung đột nêu chênh lệch bảng/dòng, không dùng ngày giờ (U-A01-09) |
+| Delta từ giao diện, read model, phân trang | **Chưa làm** | giao diện vẫn gửi cả tài liệu |
+| Khóa ngoại/CHECK, tách phiếu gốc/phân bổ, cấp phát/điều chỉnh | **Chưa làm** | lược đồ v1 lưu dòng nguyên vẹn + khóa nghiệp vụ |
+| Menu/bố cục, ảnh 1366×768 và 1920×1080 | **Chưa làm** | chưa có lỗi thao tác mới được chứng minh; ảnh sáng/tối do job `workspace-visual` của CI |
+| Thử Setup Windows (cài mới, nâng cấp, gỡ cài đặt, nút X, shortcut) | **Chưa làm** | môi trường không cài được Setup; CI chạy trên runner và win-unpacked |
+| Đo hiệu năng | **Đã đo lại** | 5.000 NV, ghi một lần sửa nhỏ: SQLite p50 378 / p95 2.494 ms; JSON p50 241 / p95 1.280 ms. Không có tăng tốc; chưa đo 10.000 NV và Electron đóng gói |
+
+Điều kiện còn thiếu để xác nhận bàn giao chính thức: thử Setup Windows (cài mới + nâng cấp từ JSON có kỳ chốt/chứng từ/kho năm), delta từ giao diện hoặc chấp nhận chi phí hiện tại, chuẩn hóa lược đồ, gói sao lưu có snapshot SQLite và thử restore sang hồ sơ mới trong cùng ca.
