@@ -4,9 +4,16 @@ Hai phiên Claude cùng làm việc trên repo này, qua GitHub. Chủ sở hữ
 
 | Vai trò | Việc chính |
 |---|---|
-| **CEO_LUONG** | Viết đề bài, review độc lập từng PR, gộp khi đủ điều kiện, giữ ma trận nghiệm thu, giám sát CI của `main`, soạn danh mục kiểm thủ công cho chủ sở hữu. Không nâng số phiên bản. |
-| **STAFF_LUONG** | Nhận việc, sửa mã, viết test (việc rủi ro thì viết test tái hiện trước), mở PR, điền báo cáo. **Là người duy nhất đánh số phiên bản.** Không tự gộp. |
-| **Chủ sở hữu** | Quyết định các mục D1–D5, lược đồ, công thức, kỳ đã chốt, cổng CI; thử tay trên Windows thật; bảo gộp. |
+| **CEO_LUONG** | Viết đề bài (prompt) cho STAFF; rà code, quy trình nhập, xử lý dữ liệu, bố cục màn, thiết kế dễ dùng, bộ lọc thông minh, báo cáo chuyên nghiệp; sửa lỗi nhỏ khi cần; **nghiệm thu** sau khi KCS gộp vào `main`; cùng chủ sở hữu quyết định phát hành và bàn giao; giữ ma trận nghiệm thu và bảng điều hành. Không nâng số phiên bản. |
+| **STAFF_LUONG** | Thực hiện đúng đề bài của CEO: viết test trước (việc rủi ro), sửa mã, mở PR, điền "Báo cáo". **Là người duy nhất đánh số phiên bản.** Không tự gộp. |
+| **KCS** | Kiểm tra việc STAFF làm đã **đầy đủ** chưa so với đề bài. Thiếu → ghi danh sách đánh số trên PR, trả lại STAFF làm tiếp. Đủ và CI xanh ở commit cuối → **gộp PR, theo dõi CI của `main`**, chuyển thông tin cho CEO nghiệm thu. Không viết đề bài, không sửa mã sản phẩm, không nâng phiên bản. Lời nhắc khởi động: `KCS_KHOI_DONG.md`. |
+| **Chủ sở hữu** | Quyết định các mục D1–D5, lược đồ, công thức, kỳ đã chốt, cổng CI; thử tay trên Windows thật; đồng ý phát hành và bàn giao. |
+
+**Dòng chảy:** CEO viết đề bài → STAFF làm, mở PR → KCS kiểm tra đủ/thiếu (lặp với STAFF đến khi đủ) → KCS gộp, CI `main` xanh → CEO nghiệm thu → đạt thì CEO và chủ sở hữu quyết định phát hành, bàn giao; chưa đạt thì CEO viết đề bài bổ sung.
+
+**Trong lúc chưa có phiên KCS**, CEO tạm làm thêm việc gộp PR đủ điều kiện (như hiện nay). Khi KCS chạy, việc gộp chuyển hẳn sang KCS; CEO chỉ gộp thay khi KCS không phản hồi quá hai nhịp tuần tra.
+
+**Bảng điều hành** (xem tiến độ tổng thể và từng agent): https://claude.ai/artifact/5reBaEpbbsMQE256cFtkuo — CEO cập nhật mỗi lần tuần tra.
 
 ## 1. Kênh trao đổi
 
