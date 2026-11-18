@@ -122,7 +122,7 @@
         var c = String(h0).trim();
         if (/^\d$/.test(c) && cols.indexOf("0" + c) >= 0) c = "0" + c;
         if (cols.indexOf(c) < 0) return;
-        var raw = src[h0]; if (raw === "" || raw == null) { r[c] = ""; return; }
+        var raw = src[h0]; if (raw === "" || raw == null || (typeof raw === "string" && raw.trim() === "")) { r[c] = ""; return; }
         var n = V.normCell(c, raw); r[c] = n.value; has = true;
         if (n.error) errs.push(c + ": " + n.error + " (\"" + raw + "\")");
       });
