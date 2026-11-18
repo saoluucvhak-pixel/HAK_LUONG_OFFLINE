@@ -29,6 +29,9 @@ Quy tắc:
 - Bản cũ trước 2.0.29 đọc `data.json`; `HAK_STORAGE=json` quay về kho JSON.
 - Chưa có: khóa ngoại và CHECK theo nghiệp vụ, tách phiếu gốc/dòng phân bổ thành bảng riêng, cột số thập phân có độ chính xác riêng. Không áp `UNIQUE` toàn cục lên số phiếu hay khóa có thể NULL.
 
+### Không xóa tệp `-wal` / `-shm` (dành cho người dùng cuối)
+Trong thư mục dữ liệu, ngoài `data.sqlite` còn có `data.sqlite-wal` và `data.sqlite-shm` khi app đang chạy. **Không xóa, không sửa, không chép riêng lẻ** các tệp này khi app đang chạy (và đừng để phần mềm diệt virus cách ly chúng). Nếu `data.sqlite-wal` bị mất/hỏng, các lần lưu trong khoảng vài giây cuối (chưa kịp xuất sang `data.json`) có thể mất mà app không báo; các lần lưu cũ hơn vẫn còn. Nếu nghi mất vài giây cuối: kiểm tra lại dữ liệu vừa nhập, rồi so với bản sao lưu JSON/Full Backup gần nhất hoặc bản chụp `backups/data-snapshot.sqlite` (khôi phục từ màn hình khôi phục nếu cần). Đã được chủ sở hữu chấp nhận là rủi ro đã biết (quyết định A, `docs/CRASH_DURABILITY_MATRIX.md`).
+
 ## 1. Hiện trạng (v1.4.0): 1 file JSON, `schemaVersion = 2`
 
 File `%APPDATA%\Tinh Luong HAK\data.json` là một object; mỗi khóa là một "bảng" (mảng bản ghi). Tên cột tiếng Việt.
