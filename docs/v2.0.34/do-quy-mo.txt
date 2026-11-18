@@ -1,0 +1,9 @@
+{"N":300,"docMB":0.5,"firstSaveMs":91,"loadMs":0,"mainChain":{"p50":15,"p95":17},"rendererStringify":{"p50":3,"p95":4},"rssPeakMB":141,"files":"data.json 1MB, data.sqlite 0MB, data.sqlite-shm 0MB, data.sqlite-wal 2MB, data.sqlite.lock 0MB"} COLD {"N":300,"coldLoadMs":19,"rssPeakMB":142}
+{"N":5000,"docMB":9.1,"firstSaveMs":1299,"loadMs":0,"mainChain":{"p50":272,"p95":378},"rendererStringify":{"p50":67,"p95":73},"rssPeakMB":853,"files":"data.json 10MB, data.sqlite 23MB, data.sqlite-shm 0MB, data.sqlite-wal 23MB, data.sqlite.lock 0MB"} COLD {"N":5000,"coldLoadMs":372,"rssPeakMB":872}
+{"N":10000,"docMB":18.2,"firstSaveMs":2827,"loadMs":0,"mainChain":{"p50":548,"p95":666},"rendererStringify":{"p50":144,"p95":178},"rssPeakMB":1644,"files":"data.json 20MB, data.sqlite 45MB, data.sqlite-shm 0MB, data.sqlite-wal 46MB, data.sqlite.lock 0MB"} COLD {"N":10000,"coldLoadMs":755,"rssPeakMB":1644}
+
+| NV | Tài liệu | Lưu lần đầu | Tải nguội | Chuỗi ghi main p50 / p95 | Giao diện stringify p50 | RSS đỉnh (gồm tải nguội) | File |
+|---|---|---|---|---|---|---|---|
+| 300 | 0.5 MB | 91 ms | 19 ms | 15 / 17 ms | 3 ms | 142 MB | data.json 1MB, data.sqlite 0MB, data.sqlite-shm 0MB, data.sqlite-wal 2MB, data.sqlite.lock 0MB |
+| 5000 | 9.1 MB | 1299 ms | 372 ms | 272 / 378 ms | 67 ms | 872 MB | data.json 10MB, data.sqlite 23MB, data.sqlite-shm 0MB, data.sqlite-wal 23MB, data.sqlite.lock 0MB |
+| 10000 | 18.2 MB | 2827 ms | 755 ms | 548 / 666 ms | 144 ms | 1644 MB | data.json 20MB, data.sqlite 45MB, data.sqlite-shm 0MB, data.sqlite-wal 46MB, data.sqlite.lock 0MB |

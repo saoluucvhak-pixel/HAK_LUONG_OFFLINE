@@ -1,0 +1,3 @@
+save true ngay sau lưu có 0099: true
+sau 1,5s còn 0099: true
+WAIT=0ms; sau đóng còn 0099: false

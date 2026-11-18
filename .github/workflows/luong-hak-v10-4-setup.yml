@@ -119,6 +119,24 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "SQLite selftest thất bại (exit $($p.ExitCode))" }
           $r = Get-Content sqlite-selftest.json -Raw | ConvertFrom-Json
           if (-not $r.packaged) { throw "SQLite selftest không chạy trong bản đóng gói" }
+      - name: Cài, chạy, nâng cấp đè và gỡ bằng BỘ CÀI THẬT (NSIS im lặng; dữ liệu giả)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npm install --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
+          $setup = (Get-ChildItem dist -Filter '*Setup*.exe' | Select-Object -First 1).FullName
+          $prevArgs = @()
+          $tag = (gh release list --repo $env:GITHUB_REPOSITORY --limit 1 --json tagName --jq '.[0].tagName' 2>$null)
+          if ($tag) {
+            New-Item -ItemType Directory -Force prev | Out-Null
+            gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern '*Setup*.exe' --dir prev 2>$null
+            $p = Get-ChildItem prev -Filter '*Setup*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($p -and ($p.Name -notlike "*$((Get-Content package.json | ConvertFrom-Json).version).exe")) { $prevArgs = @('--prev', $p.FullName) }
+          }
+          Write-Host "Setup: $setup; bản trước: $($prevArgs -join ' ')"
+          node tests/e2e/installed-setup.cjs --setup $setup @prevArgs
+          if ($LASTEXITCODE -ne 0) { throw "Kiểm bộ cài thật thất bại (exit $LASTEXITCODE)" }
       - name: Upload installer EXE
         uses: actions/upload-artifact@v7
         continue-on-error: true # evidence upload only; tests/build remain mandatory

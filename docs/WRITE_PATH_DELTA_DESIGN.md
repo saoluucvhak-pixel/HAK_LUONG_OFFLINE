@@ -78,3 +78,14 @@ Tắt bằng `HAK_SAVE=full` (không cần cài lại). Gỡ hẳn: bỏ IPC m�
 
 ## 6. Kiểm chứng giai đoạn 1 (đã chạy)
 Unit/integration 1.111 ca đạt (cả khi bật deep-freeze), lint sạch, `build:app --check` khớp, E2E Electron Linux (cờ CI) — xem `docs/releases/v2.0.33.md`. Setup Windows thật: **CHƯA KIỂM**.
+
+## 7. Phát hiện khi kiểm bộ cài thật (v2.0.34): giao diện cũ ghi đè thay đổi đến từ nơi khác
+
+**Hiện tượng (tái hiện được ở bản chưa đóng gói, `docs/v2.0.34/tai-hien-ghi-de-khi-dong.cjs`, kết quả `.txt`):** một bản ghi được ghi vào kho qua `store-save` mà KHÔNG đi qua trạng thái bộ nhớ của giao diện (SQLite thấy ngay, kể cả sau 1,5 giây) bị mất sau khi app đóng bình thường hoặc giao diện tải lại. Nguyên nhân: giao diện giữ bản `db` riêng, còn `dirty` bật; khi đóng (`hakFlushBeforeClose`) hoặc tải lại (`beforeunload`) nó ghi LẠI CẢ TÀI LIỆU bản cũ của nó. `store-save` không kiểm tra bản nền: không có `baseSig`/revision.
+
+**Ý nghĩa:**
+- Trong dùng bình thường chỉ giao diện ghi dữ liệu nghiệp vụ nên không thấy; kho năm/khôi phục có cơ chế riêng (tải lại giao diện). Chưa tìm thấy đường thực tế nào gây mất dữ liệu — nhưng bất kỳ đường GHI MỚI nào ở tiến trình chính (hoặc hai cửa sổ) sẽ bị ghi đè âm thầm. Đây là rủi ro cấu trúc, không phải sự cố đang xảy ra.
+- Đây chính là lý do thiết kế §5.1 đòi `baseSig`: ghi dựa trên bản nền cũ phải bị TỪ CHỐI (`stale`), giao diện tải lại bản mới thay vì ghi đè. Có thể làm trước, độc lập với delta: thêm `baseSig` vào `store-save` (giao diện gửi kèm `sig` của lần tải/lưu gần nhất; main so với `storage.sig()`; lệch → trả lỗi "dữ liệu đã đổi ở nơi khác", không ghi).
+- Tiêu chí nghiệm thu bổ sung: test tái hiện trên phải chuyển từ "mất 0099" sang "bị từ chối + giao diện nạp lại, 0099 còn".
+
+Bộ kiểm bộ cài thật (`tests/e2e/installed-setup.cjs`) vì vậy kiểm tính bền bằng dữ liệu do CHÍNH giao diện ghi (nhật ký đăng nhập), không dùng ghi ngoài giao diện.
