@@ -5,7 +5,7 @@ require("./harness-env.cjs");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path"), crypto = require("node:crypto");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const { fixture } = require("../fixtures/production-carry");
-const { createStorage } = require("../../main/storage.js");
+const { createStorage } = require("../../main/storage.js"), LA = require("./layout-audit.cjs");
 const APP = path.resolve(__dirname, "../.."), PASS = "LocPb2026e2e", SHOTS = process.env.E2E_SHOTS || "";
 const results = [];
 const ok = (name, cond, extra) => { results.push({ name, pass: !!cond, extra: extra || "" }); console.log((cond ? "PASS " : "FAIL ") + name + (!cond && extra ? " — " + String(extra).slice(0, 400) : "")); };
@@ -114,6 +114,34 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
     }
     ok("Smart Filter các màn: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
+  }
+  // ===== 005 (issue #97): kiểm BỐ CỤC bằng máy cho MỌI màn × 3 cỡ (1366×768, 1920×1080, 1024×768) + hộp thoại tiêu biểu; ảnh vào E2E_SHOTS =====
+  {
+    const D4 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-ui-")); fs.mkdirSync(path.join(D4, "downloads"));
+    const d4 = LA.syntheticData(fixture()); d4.nguoidung = [account("admin", "Quản trị giả", "admin")]; createStorage(D4).save(JSON.stringify(d4));
+    const ExcelJS = require("../../exceljs.min.js"), wb4 = new ExcelJS.Workbook(), ws4 = wb4.addWorksheet("Du lieu"), x4 = path.join(D4, "ui.xlsx"); ws4.getRow(1).values = ["Ngày", "Mã NV", "Số suất cơm"]; for (let i = 0; i < 15; i++) ws4.getRow(2 + i).values = ["2026-11-" + String(10 + i), "NV0" + (1 + (i % 9)), 1];
+    fs.writeFileSync(x4, new Uint8Array(await wb4.xlsx.writeBuffer()));
+    ({ app, w, errs } = await launch(D4)); await login(w, "admin");
+    const shotsDir = SHOTS ? SHOTS : "", res = await LA.auditAll({ app, w, shotsDir }), dl = await LA.auditDialogs({ app, w, shotsDir, xlsxPath: x4 });
+    if (SHOTS) fs.writeFileSync(path.join(SHOTS, "layout-audit.json"), JSON.stringify({ at: new Date().toISOString(), rows: res.rows, dialogs: dl }, null, 1));
+    const HARD = [["pageOverflow", "không tràn ngang trang"], ["clipped", "không có chữ bị cắt"], ["wideNoScroll", "bảng rộng có vùng cuộn riêng"], ["stickyHead", "bảng dài có tiêu đề cột cố định"], ["overlap", "control không chồng nhau"], ["noFocus", "control nhận Tab đều thấy focus"]];
+    ok("Bố cục: duyệt đủ mọi màn của menu ở 3 cỡ không lỗi thao tác", res.rows.length === res.keys.length * 3 && res.rows.every((r) => !r.error), JSON.stringify(res.rows.filter((r) => r.error).slice(0, 3)));
+    for (const [k, label] of HARD) { const bad = res.rows.filter((r) => (Array.isArray(r[k]) ? r[k].length : r[k]) > 0); ok("Bố cục mọi màn × 3 cỡ: " + label, bad.length === 0, bad.slice(0, 4).map((r) => r.screen + "@" + r.size + ": " + JSON.stringify(r[k]).slice(0, 160)).join(" | ")); }
+    const badD = dl.filter((r) => r.error || !r.fits || !r.primaryVisible); ok("Bố cục hộp thoại (Thêm nhân viên, Xem trước nhập Excel, Danh mục-Lịch sử) × 3 cỡ: vừa khung nhìn, nút chính thấy ngay", dl.length === 9 && badD.length === 0, JSON.stringify(badD));
+    const soft = {}; ["contrast", "topWrap", "fewRows"].forEach((k) => { soft[k] = res.rows.filter((r) => (r[k] || []).length).length; }); console.log("INFO bố cục (chỉ ghi nhận, xem docs/UI_ISSUES.md): " + JSON.stringify(soft) + " trên " + res.rows.length + " (màn × cỡ)");
+    { // ĐỐI CHỨNG: cố ý chèn lỗi bố cục vào trang → bộ kiểm PHẢI phát hiện (chứng minh các kiểm "Đạt" ở trên có khả năng bắt lỗi)
+      await w.click('#nav button[data-k="home"]'); await w.waitForTimeout(300);
+      const found = await w.evaluate(() => {
+        const box = document.createElement("div"); box.id = "ctl-box"; box.innerHTML = '<div class="bar"><button id="b1" style="position:relative;width:120px">Nút A dài dài</button><button id="b2" style="position:relative;margin-left:-60px;width:120px">Nút B chồng</button></div><span id="clip" style="display:inline-block;width:40px;overflow:hidden;white-space:nowrap;text-overflow:clip">Chữ rất dài bị cắt cụt không có dấu ba chấm</span><table id="wide"><tbody><tr>' + Array.from({ length: 60 }, (_, i) => "<td style='min-width:90px'>Cột " + i + "</td>").join("") + '</tr></tbody></table><span class="hint" id="lowc" style="color:#bbb;background:#fff">Chữ mờ khó đọc</span>';
+        document.querySelector("#main").appendChild(box); return null;
+      });
+      const r = await w.evaluate(LA.pageChecks); await w.evaluate(() => document.getElementById("ctl-box").remove());
+      ok("Đối chứng: chữ bị cắt được phát hiện", r.clipped.some((x) => /Chữ rất dài/.test(x)), JSON.stringify(r.clipped));
+      ok("Đối chứng: bảng rộng không có vùng cuộn riêng được phát hiện", r.wideNoScroll.length > 0, JSON.stringify(r.wideNoScroll));
+      ok("Đối chứng: hai nút chồng nhau được phát hiện", r.overlap.some((x) => /Nút A/.test(x) && /Nút B/.test(x)), JSON.stringify(r.overlap));
+      ok("Đối chiếu: chữ tương phản thấp (dưới AA) được phát hiện", r.contrast.some((x) => /Chữ mờ/.test(x)), JSON.stringify(r.contrast));
+    }
+    ok("Bố cục: không lỗi JavaScript", errs.length === 0, errs.join(" | ")); await app.close();
   }
   ({ app, w, errs } = await launch(D)); await login(w, "hr"); await w.click('#top button:has-text("Đăng xuất")').catch(() => {});
   const closed = await Promise.race([app.close().then(() => true), new Promise((r) => setTimeout(() => r(false), 20000))]);
