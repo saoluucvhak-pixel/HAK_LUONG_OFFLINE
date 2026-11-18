@@ -60,7 +60,9 @@ function evaluate(input) {
 }
 
 // ---------- PHẦN GỌI MẠNG (chỉ chạy khi chạy trực tiếp) ----------
-function gh(args, opt) { const r = cp.spawnSync("gh", ["api"].concat(args), { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }); if (r.status !== 0 && !(opt && opt.soft)) throw new Error("gh api " + args.join(" ") + " → " + String(r.stderr || "").split("\n")[0]); return r.status === 0 ? r.stdout : null; }
+// HAK_GH_JS: chỉ để TEST — chạy một tệp Node giả thay cho `gh` (đa nền tảng, không mạng). Bình thường không đặt.
+const runGh = (args, opt) => (process.env.HAK_GH_JS ? cp.spawnSync(process.execPath, [process.env.HAK_GH_JS].concat(args), opt) : cp.spawnSync("gh", args, opt));
+function gh(args, opt) { const r = runGh(["api"].concat(args), { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }); if (r.status !== 0 && !(opt && opt.soft)) throw new Error("gh api " + args.join(" ") + " → " + String(r.stderr || "").split("\n")[0]); return r.status === 0 ? r.stdout : null; }
 const ghJson = (args, opt) => { const s = gh(args, opt); return s == null ? null : JSON.parse(s); };
 const ghPages = (path) => { const pages = ghJson([path, "--paginate", "--slurp"]); return [].concat.apply([], pages.map((p) => (Array.isArray(p) ? p : p.check_runs || []))); };
 const fileAt = (path, ref) => { const j = ghJson(["repos/" + REPO + "/contents/" + path + "?ref=" + ref], { soft: true }); return j && j.content ? Buffer.from(j.content, "base64").toString("utf8") : null; };
@@ -93,7 +95,7 @@ function main(argv) {
   const done = (code) => { if (asJson) console.log(JSON.stringify(report)); return code; };
   if (!res.pass || !doMerge) { if (res.pass && !doMerge) say("(chưa gộp: thêm --merge để gộp squash bằng đúng SHA trên)"); return done(res.pass ? 0 : 1); }
   // gộp: nếu PUT lỗi (405/409/…) in NGUYÊN message và thoát 1 TRƯỚC khi đọc lại PR
-  const r = cp.spawnSync("gh", ["api", "-X", "PUT", "repos/" + REPO + "/pulls/" + num + "/merge", "-f", "merge_method=squash", "-f", "sha=" + sha], { encoding: "utf8" });
+  const r = runGh(["api", "-X", "PUT", "repos/" + REPO + "/pulls/" + num + "/merge", "-f", "merge_method=squash", "-f", "sha=" + sha], { encoding: "utf8" });
   if (r.status !== 0) { let msg = String(r.stdout || "").trim() || String(r.stderr || "").trim(); try { msg = JSON.parse(r.stdout).message || msg; } catch (e) { /* giữ nguyên chuỗi */ } report.error = msg; say("GỘP LỖI: " + msg); return done(1); }
   const after = ghJson(["repos/" + REPO + "/pulls/" + num]); report.merged = !!after.merged; report.mergeCommit = after.merge_commit_sha || null;
   say("merged:" + !!after.merged + (after.merge_commit_sha ? " commit main " + after.merge_commit_sha : "")); return done(after.merged ? 0 : 1);

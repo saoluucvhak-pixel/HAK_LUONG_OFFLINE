@@ -77,13 +77,26 @@ test("U-GATE-13 PR đã đóng/gộp → FAIL; head.sha không phải 40 ký t�
   assert.ok(failed(evaluate(base({ pr: Object.assign({}, base().pr, { state: "closed", merged: true }) }))).includes(0));
   assert.ok(failed(evaluate(base({ pr: Object.assign({}, base().pr, { head: { sha: "abc123" } }) }))).includes(1));
 });
-test("U-GATE-15 --merge: PUT lỗi (405) → in NGUYÊN message, thoát 1, KHÔNG đọc lại PR; --json in kết quả máy đọc được (dùng gh giả, không mạng)", () => {
-  const os = require("node:os"), dir = fs.mkdtempSync(path.join(os.tmpdir(), "hak-fakegh-")), log = path.join(dir, "calls.log"), fake = path.join(dir, "gh");
-  const pr = JSON.stringify({ number: 7, state: "open", merged: false, head: { sha: SHA }, base: { ref: "main" }, mergeable_state: "clean", labels: [] });
-  fs.writeFileSync(fake, "#!/bin/sh\necho \"$@\" >> " + JSON.stringify(log) + "\ncase \"$*\" in\n*-X\\ PUT*) echo '{\"message\":\"Pull Request is not mergeable\"}'; exit 1;;\n*/pulls/7/files*) echo '[[{\"filename\":\"docs/a.md\"}]]';;\n*/check-runs*) echo '[{\"check_runs\":" + JSON.stringify(green()).replace(/'/g, "") + "}]';;\n*/issues/7/comments*) echo '[[{\"body\":\"/da-kiem #7\",\"created_at\":\"" + AFTER + "\"}]]';;\n*/commits/*) echo '{\"commit\":{\"committer\":{\"date\":\"" + HEAD_DATE + "\"}}}';;\n*/tags*) echo '[[]]';;\n*/contents/*) echo '{}';;\n*/pulls/7) echo '" + pr + "';;\n*) echo '{}';;\nesac\n", { mode: 0o755 });
-  const r = cp.spawnSync(process.execPath, [path.resolve(__dirname, "../../../scripts/merge-gate.cjs"), "7", "--merge", "--json"], { encoding: "utf8", env: Object.assign({}, process.env, { PATH: dir + path.delimiter + process.env.PATH }) });
-  assert.equal(r.status, 1, r.stdout + r.stderr); const out = JSON.parse(r.stdout.trim().split("\n").pop()); assert.equal(out.pass, true); assert.equal(out.merged, false); assert.equal(out.error, "Pull Request is not mergeable");
-  const calls = fs.readFileSync(log, "utf8").split("\n"), iPut = calls.findIndex((l) => /-X PUT/.test(l)); assert.ok(iPut >= 0, "đã gọi PUT"); assert.equal(calls.slice(iPut + 1).filter((l) => /repos\/.*\/pulls\/7$/.test(l.trim().split(" ")[1] || "")).length, 0, "không đọc lại PR sau PUT lỗi");
+test("U-GATE-15 --merge: PUT lỗi (405) → in NGUYÊN message, thoát 1, KHÔNG đọc lại PR; --json in kết quả máy đọc được (gh giả bằng Node qua HAK_GH_JS — chạy được cả Windows, không mạng)", () => {
+  const os = require("node:os"), dir = fs.mkdtempSync(path.join(os.tmpdir(), "hak-fakegh-")), log = path.join(dir, "calls.log"), fake = path.join(dir, "gh-gia.js");
+  const pr = { number: 7, state: "open", merged: false, head: { sha: SHA }, base: { ref: "main" }, mergeable_state: "clean", labels: [] };
+  fs.writeFileSync(fake, [
+    "const fs = require('node:fs'), a = process.argv.slice(2).join(' '); fs.appendFileSync(" + JSON.stringify(log) + ", a + '\\n');",
+    "const out = (x) => console.log(JSON.stringify(x));",
+    "if (/-X PUT/.test(a)) { out({ message: 'Pull Request is not mergeable' }); process.exit(1); }",
+    "if (/pulls\\/7\\/files/.test(a)) out([[{ filename: 'docs/a.md' }]]);",
+    "else if (/check-runs/.test(a)) out([{ check_runs: " + JSON.stringify(green()) + " }]);",
+    "else if (/issues\\/7\\/comments/.test(a)) out([[{ body: '/da-kiem #7', created_at: " + JSON.stringify(AFTER) + " }]]);",
+    "else if (/\\/commits\\//.test(a)) out({ commit: { committer: { date: " + JSON.stringify(HEAD_DATE) + " } } });",
+    "else if (/\\/tags/.test(a)) out([[]]);",
+    "else if (/\\/contents\\//.test(a)) out({});",
+    "else if (/pulls\\/7$/.test(a.split(' ').pop())) out(" + JSON.stringify(pr) + ");",
+    "else out({});"
+  ].join("\n"));
+  const r = cp.spawnSync(process.execPath, [path.resolve(__dirname, "../../../scripts/merge-gate.cjs"), "7", "--merge", "--json"], { encoding: "utf8", env: Object.assign({}, process.env, { HAK_GH_JS: fake }) });
+  assert.equal(r.status, 1, r.stdout + r.stderr); const out = JSON.parse(r.stdout.trim().split("\n").pop()); assert.equal(out.pass, true, JSON.stringify(out.checks.filter((c) => !c.ok))); assert.equal(out.merged, false); assert.equal(out.error, "Pull Request is not mergeable");
+  const calls = fs.readFileSync(log, "utf8").split("\n").filter(Boolean), iPut = calls.findIndex((l) => /-X PUT/.test(l)); assert.ok(iPut >= 0, "đã gọi PUT");
+  assert.equal(calls.slice(iPut + 1).length, 0, "không có lệnh nào sau PUT lỗi (không đọc lại PR)");
 });
 test("U-GATE-14 script KHÔNG gọi mạng khi được require; chạy không đối số thoát 2 và không in token", () => {
   const r = cp.spawnSync(process.execPath, [path.resolve(__dirname, "../../../scripts/merge-gate.cjs")], { encoding: "utf8", env: Object.assign({}, process.env, { GH_TOKEN: "tok-bi-mat-123", GITHUB_TOKEN: "tok-bi-mat-123" }) });
