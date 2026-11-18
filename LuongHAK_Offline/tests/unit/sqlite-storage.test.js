@@ -54,8 +54,8 @@ test("U-SS-04 chuyển hỏng giữa chừng (file nguồn không hợp lệ) �
 test("U-SS-05 data.json bị thay ngoài app → KHÔNG đoán: báo xung đột, từ chối ghi; cất file lạ rồi dùng SQLite", () => {
   const dir = dirOf(), s = createSqliteStorage(dir, opts), d = doc(); s.save(JSON.stringify(d)); s.close();
   fs.writeFileSync(path.join(dir, "data.json"), JSON.stringify({ nhanvien: [{ "Mã NV": "LẠ" }] }));
-  const s2 = createSqliteStorage(dir, opts), r = s2.load(); assert.equal(r.ok, false); assert.match(r.error, /khác với dữ liệu trong data\.sqlite/); assert.match(r.error, /Sửa lần cuối: data\.json .* UTC, data\.sqlite .* UTC/);
-  assert.match(String(s2.save(JSON.stringify(d))), /khác với dữ liệu trong data\.sqlite/, "không ghi khi đang xung đột");
+  const s2 = createSqliteStorage(dir, opts), r = s2.load(); assert.equal(r.ok, false); assert.match(r.error, /không phải bản xuất gần nhất của kho SQLite/); assert.match(r.error, /Chênh lệch/); assert.doesNotMatch(r.error, /mới hơn|bản đầy đủ hơn|Sửa lần cuối/, "không dùng ngày giờ file làm căn cứ");
+  assert.match(String(s2.save(JSON.stringify(d))), /không phải bản xuất gần nhất/, "không ghi khi đang xung đột");
   const moved = s2.quarantineCorrupt(); assert.match(moved, /^data\.corrupt_.*\.json\.bak$/);
   assert.equal(s2.load().ok, true); assert.deepEqual(JSON.parse(s2.load().text), d); assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, "data.json"), "utf8")), d); s2.close();
 });
@@ -110,4 +110,16 @@ test("U-SS-11 lỗi ghi SQLite giữa chừng: save trả lỗi, KHÔNG báo th�
 test("U-SS-12 tự kiểm đóng gói: vòng lưu/sửa/đóng/mở/đọc đạt, dọn sạch thư mục tạm", () => {
   const st = require("../../main/sqlite-selftest.js"), dir = path.join(os.tmpdir(), "hak-selftest-" + process.pid), r = st.run(dir);
   assert.equal(r.ok, true, JSON.stringify(r)); assert.ok(/^\d+\.\d+/.test(r.sqliteVersion)); assert.ok(r.steps.length >= 6 && r.steps.every((x) => x.pass)); assert.ok(!fs.existsSync(dir));
+});
+
+test("U-SS-13 khóa phiên ghi: tiến trình khác còn sống giữ kho → từ chối mở, không ghi; khóa của tiến trình đã chết bị bỏ qua; đóng thì nhả khóa", () => {
+  const dir = dirOf(), s = createSqliteStorage(dir, opts); assert.equal(s.save(JSON.stringify(doc())), true);
+  const lock = path.join(dir, "data.sqlite.lock"); assert.equal(JSON.parse(fs.readFileSync(lock, "utf8")).pid, process.pid); s.close(); assert.ok(!fs.existsSync(lock), "đóng thì nhả khóa");
+  fs.writeFileSync(lock, JSON.stringify({ pid: process.ppid, boot: Math.round(Date.now() / 1000 - os.uptime()), at: new Date().toISOString() })); // tiến trình cha: còn sống, khác pid hiện tại
+  const t = createSqliteStorage(dir, opts), r = t.load(); assert.equal(r.ok, false); assert.match(r.error, /tiến trình khác \(PID \d+\)/);
+  assert.match(String(t.save(JSON.stringify(doc()))), /tiến trình khác/, "không ghi khi đang bị khóa");
+  fs.writeFileSync(lock, JSON.stringify({ pid: process.ppid, boot: 1000, at: "2020-01-01T00:00:00Z" })); // khóa của lần khởi động máy khác: PID có thể đã bị cấp lại → bỏ qua
+  { const u0 = createSqliteStorage(dir, opts); assert.equal(u0.load().ok, true); u0.close(); }
+  fs.writeFileSync(lock, JSON.stringify({ pid: 2147483646, boot: Math.round(Date.now() / 1000 - os.uptime()), at: "2020-01-01T00:00:00Z" })); // pid không tồn tại = khóa mồ côi
+  const u = createSqliteStorage(dir, opts); assert.equal(u.load().ok, true); u.close();
 });

@@ -6,7 +6,7 @@
 //  - data.json bị sửa ngoài app (khác cả lần xuất cuối lẫn nội dung SQLite) → KHÔNG đoán: báo lỗi để người dùng chọn (cất file lạ sang .bak rồi dùng SQLite, hoặc khôi phục).
 // Quay lui: data.json luôn là bản xuất đủ giao dịch (xuất khi đóng app và trước mỗi sao lưu), nên có thể dùng lại; cạnh đó có hak-storage.txt nêu rõ nguồn chính là data.sqlite.
 "use strict";
-const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto"), { setTimeout, clearTimeout } = require("node:timers");
+const os = require("node:os"), fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto"), { setTimeout, clearTimeout } = require("node:timers");
 const { createStorage, isValidDataText } = require("./storage.js");
 const store = require("./sqlite-store.js"), cset = require("./sqlite-changeset.js"), M = require("./sqlite-migrate.js");
 
@@ -43,11 +43,46 @@ function createSqliteStorage(dir, opts) {
       return true;
     } catch (e) { return false; }
   }
+  /** Chụp trạng thái nhất quán của nguồn chính (revision + nội dung + SHA-256) và bảo đảm data.json xuất ra ĐÚNG bản đó. Trả null nếu không bảo đảm được. */
+  function snapshotExported() {
+    if (!cur) { const r = load(); if (!r.ok || !cur) return null; }
+    if (!syncJson()) return null;
+    const exp = sha(cur.text);
+    return fileSha() === exp ? { rev, sha: exp, text: cur.text } : null;
+  }
+  function beginExternalOp(info) { try { openDb(); setMeta("pending_op", JSON.stringify(Object.assign({ at: new Date().toISOString() }, info))); return true; } catch (e) { return false; } }
+  function endExternalOp() { try { if (db) clearPendingOp(); return true; } catch (e) { return false; } }
+  /** Hủy mọi thay đổi data.json do tiến trình phụ: xuất lại đúng trạng thái SQLite. */
+  /** Sau thao tác chỉ đọc: nếu data.json khác bản đã chụp thì xuất lại từ SQLite. Trả true nếu phải xuất lại. */
+  function restoreJsonIfChanged(baseSha) { if (fileSha() === baseSha) return false; restoreJsonFromSqlite(); return true; }
+  function restoreJsonFromSqlite() { jsonStale = true; return syncJson(); }
   function writeNote() { try { if (!fs.existsSync(noteFile)) atomicWrite(noteFile, "Nguồn dữ liệu chính của hồ sơ này là data.sqlite. data.json là bản xuất (được ghi lại khi đóng app và trước mỗi sao lưu); không sửa tay.\n"); } catch (e) { /* ghi chú không bắt buộc */ } }
   const scheduleExport = () => { if (exportSync) { syncJson(); return; } clearTimeout(timer); timer = setTimeout(() => { syncJson(); }, delayMs); if (timer.unref) timer.unref(); };
 
+  const pendingOp = () => { try { const v = meta("pending_op"); return v ? JSON.parse(v) : null; } catch (e) { return null; } };
+  const clearPendingOp = () => { try { db.prepare("DELETE FROM meta WHERE key = 'pending_op'").run(); } catch (e) { /* bỏ qua */ } };
+  const journal = (state, detail) => { try { db.prepare("INSERT INTO migration_journal (state, source_sha256, detail, at) VALUES (?, ?, ?, ?)").run(state, "", JSON.stringify(detail || {}), new Date().toISOString()); } catch (e) { /* nhật ký phụ */ } };
+  /** Tóm tắt chênh lệch giữa data.json lạ và dữ liệu SQLite (bảng nào, bao nhiêu dòng) để người dùng xem TRƯỚC khi chọn. */
+  function describeDiff(sha256OfFile) {
+    try {
+      const doc = JSON.parse(fs.readFileSync(dataFile, "utf8")), cs = cset.diff(cur.doc, doc), lines = [];
+      Object.keys(cs.tables).forEach((k) => { const t = cs.tables[k]; lines.push(k + ": " + (t.kind === "update" ? t.updates.length + " dòng khác" : "+" + t.insert.length + " / −" + t.remove + " dòng")); });
+      cs.dropTables.forEach((k) => lines.push(k + ": chỉ có trong SQLite")); Object.keys(cs.top).forEach((k) => lines.push(k + ": giá trị khác"));
+      return "Chênh lệch (data.json so với SQLite): " + (lines.length ? lines.slice(0, 12).join("; ") + (lines.length > 12 ? "; …" : "") : "khác ở thứ tự/khóa cấp ngoài cùng") + ".";
+    } catch (e) { return "data.json không đọc được như JSON hợp lệ (" + String(sha256OfFile || "").slice(0, 8) + ")."; }
+  }
+  // Khóa phiên ghi cấp dữ liệu: một tiến trình còn sống đang giữ kho thì tiến trình khác KHÔNG được mở (Electron đã chặn mở hai bản app; khóa này chặn công cụ/tiến trình khác). Khóa của tiến trình đã chết bị bỏ qua.
+  const lockFile = path.join(dir, "data.sqlite.lock");
+  const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return !!e && e.code === "EPERM"; } };
+  const bootTime = () => Math.round(Date.now() / 1000 - os.uptime()); // đổi sau khi khởi động lại máy: PID cũ có thể đã được cấp cho tiến trình khác
+  function acquireLock() {
+    try { const o = JSON.parse(fs.readFileSync(lockFile, "utf8")); if (o && o.pid && o.pid !== process.pid && Math.abs((o.boot || 0) - bootTime()) < 30 && alive(o.pid)) throw new Error("Kho dữ liệu đang được tiến trình khác (PID " + o.pid + ") sử dụng. Đóng ứng dụng/công cụ đó rồi mở lại; không mở hai phiên ghi vào cùng một thư mục dữ liệu. Nếu chắc chắn không còn tiến trình nào dùng, xóa file data.sqlite.lock trong thư mục dữ liệu rồi mở lại."); } catch (e) { if (/PID/.test(String(e && e.message))) throw e; }
+    try { atomicWrite(lockFile, JSON.stringify({ pid: process.pid, boot: bootTime(), at: new Date().toISOString() })); } catch (e) { /* không ghi được khóa: vẫn chạy, SQLite tự khóa ghi */ }
+  }
+  function releaseLock() { try { const o = JSON.parse(fs.readFileSync(lockFile, "utf8")); if (o && o.pid === process.pid) fs.rmSync(lockFile, { force: true }); } catch (e) { /* bỏ qua */ } }
   function openDb() {
     if (db) return;
+    acquireLock();
     db = store.open(dbFile); store.migrate(db); opened = true;
   }
   /** Lần mở đầu của phiên: quyết định nguồn dữ liệu. Trả { ok:true, text|null } hoặc lỗi cho giao diện. */
@@ -60,12 +95,16 @@ function createSqliteStorage(dir, opts) {
         const doc = M.toData(db), text = JSON.stringify(doc); cur = { text, doc }; rev = Number(meta("rev") || 0);
         if (fs.existsSync(dataFile)) {
           const f = fileSha(), last = meta("exported_sha");
-          if (f !== last && f !== sha(text) && process.env.HAK_SQLITE_ADOPT_EXTERNAL === "1") { opened = true; if (adoptJson()) return { ok: true, text: cur.text }; } // CHỈ để nghiệm thu: bộ E2E tự ghi data.json giữa các lần mở
-          if (f !== last && f !== sha(text)) {
-            const t = (file) => { try { return fs.statSync(file).mtime.toISOString().replace("T", " ").slice(0, 16) + " UTC"; } catch (e) { return "?"; } };
-            conflict = "data.json khác với dữ liệu trong data.sqlite (có thể bị sửa/thay ngoài ứng dụng, hoặc đã dùng HAK_STORAGE=json sau khi chuyển sang SQLite). Sửa lần cuối: data.json " + t(dataFile) + ", data.sqlite " + t(dbFile) +
-              ". Ứng dụng không tự chọn. File nào mới hơn là bản đầy đủ hơn. Chọn giữ dữ liệu SQLite thì data.json lạ được CẤT sang file .bak (không xóa); nếu data.json mới hơn, hãy khôi phục từ nó (hoặc từ bản sao lưu) thay vì giữ SQLite.";
+          const pending = pendingOp();
+          if (pending && f !== pending.baseSha && f !== sha(text)) { // thao tác kho năm dở dang: data.json KHÁC trạng thái trước thao tác và khác SQLite → worker đã ghi xong kết quả (ghi nguyên tử, đã kiểm). Nhận theo căn cứ marker, KHÔNG theo ngày giờ.
+            opened = true; const adopted = adoptJson({ force: true });
+            if (adopted) { clearPendingOp(); journal("recovered-year-op", { method: pending.method, baseSha: pending.baseSha }); return { ok: true, text: cur.text }; }
+            conflict = "Thao tác kho năm (" + pending.method + ") bị gián đoạn và không nhận lại được kết quả. " + describeDiff(f);
+            return { ok: false, error: conflict, backups: json.list() };
           }
+          if (pending) { clearPendingOp(); journal("cleared-year-op", { method: pending.method, note: "data.json giữ trạng thái trước thao tác hoặc đã khớp SQLite" }); }
+          if (f !== last && f !== sha(text) && process.env.HAK_SQLITE_ADOPT_EXTERNAL === "1") { opened = true; if (adoptJson({ force: true })) return { ok: true, text: cur.text }; } // CHỈ để nghiệm thu: bộ E2E tự ghi data.json giữa các lần mở
+          if (f !== last && f !== sha(text)) conflict = "data.json không phải bản xuất gần nhất của kho SQLite (khác cả bản xuất lần cuối lẫn dữ liệu trong SQLite): có thể bị sửa/thay ngoài ứng dụng, hoặc đã dùng HAK_STORAGE=json / bản cũ sau khi chuyển sang SQLite. " + describeDiff(f) + " Ứng dụng không tự chọn và KHÔNG dựa vào ngày giờ sửa file. Chọn một cách: (1) giữ dữ liệu SQLite — data.json lạ được CẤT sang file .bak (không xóa); (2) khôi phục từ bản sao lưu/Full Backup đã kiểm. Nếu nghi data.json chứa giao dịch mà SQLite chưa có, xem danh sách chênh lệch ở trên TRƯỚC khi chọn.";
           else jsonStale = f !== sha(text); // JSON cũ hơn do chưa kịp xuất (mất điện/đóng đột ngột) → xuất lại
         } else jsonStale = true;
         if (conflict) return { ok: false, error: conflict, backups: json.list() };
@@ -120,12 +159,13 @@ function createSqliteStorage(dir, opts) {
       openDb();
       const nextBytes = Buffer.byteLength(text, "utf8");
       if (cur) { // các biện pháp bảo vệ cũ của storage.save, giữ nguyên ý nghĩa: bản sao lưu đầu ngày, năm, giảm đột ngột — đều chụp TRẠNG THÁI TRƯỚC thay đổi
+        const guardBackup = (tag, file) => { if (!exportReady()) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "): " + backupError + " Dữ liệu chưa bị thay đổi."); const f = verifyBackup(json.backup(tag, file)); if (!f) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "). " + backupError + " Dữ liệu chưa bị thay đổi."); };
         const daily = "daily_" + ymd(now()) + ".json";
-        if (!fs.existsSync(path.join(json.backupDir, daily))) { syncJson(); json.backup("daily", daily); }
+        if (!fs.existsSync(path.join(json.backupDir, daily))) guardBackup("daily", daily); // chặn lưu nếu không bảo vệ được: giống kho JSON khi ghi file lỗi
         const y = String(now().getFullYear());
-        if (yearChecked !== y) { try { if (json.yearBackups(y).length) yearChecked = y; else { syncJson(); if (json.backup("nam-" + y, "nam-" + y + "_" + ymd(now()) + ".json")) yearChecked = y; } } catch (e) { /* không chặn việc lưu */ } }
+        if (yearChecked !== y) { try { if (json.yearBackups(y).length) yearChecked = y; else if (exportReady()) { const f = verifyBackup(json.backup("nam-" + y, "nam-" + y + "_" + ymd(now()) + ".json")); if (f) yearChecked = y; } } catch (e) { /* không chặn việc lưu; thử lại ở lần lưu sau, không tạo bản từ file cũ */ } }
         const oldBytes = Buffer.byteLength(cur.text, "utf8");
-        if (oldBytes > 2048 && nextBytes < oldBytes * 0.5) { syncJson(); json.backup("truoc-giam-du-lieu"); }
+        if (oldBytes > 2048 && nextBytes < oldBytes * 0.5) guardBackup("truoc-giam-du-lieu");
       }
       const cache = { prev: cur ? cur.rows : null }, cs = cset.diff(cur ? cur.doc : {}, next, cache);
       if (cset.isEmpty(cs) && cur && cur.text === text) return true;
@@ -135,13 +175,28 @@ function createSqliteStorage(dir, opts) {
     } catch (e) { return String(e && e.message || e); }
   }
 
-  const wrapSync = (name) => (...args) => { syncJson(); return json[name](...args); };
+  /** Bản xuất data.json phải ĐÚNG revision hiện tại trước khi mã sao lưu cũ (đọc data.json) chạy; sai thì KHÔNG sao lưu (không dùng file cũ), trả lỗi thật. */
+  let backupError = "";
+  const exportReady = () => { if (!cur) return true; const ok = syncJson() && fileSha() === sha(cur.text); if (!ok) backupError = "Không xuất được dữ liệu hiện tại ra data.json (kiểm tra quyền ghi/ổ đĩa) nên KHÔNG tạo bản sao lưu từ file cũ. Các bản sao lưu tốt trước đó được giữ nguyên."; return ok; };
+  /** Bản sao lưu vừa tạo phải chứa đúng nội dung của revision đang giữ; sai thì xóa bản đó và báo thất bại. */
+  function verifyBackup(name) {
+    if (!name || !cur) return name;
+    let ok = false; try { const r = json.readBackup(name); ok = r.ok && r.text === cur.text; } catch (e) { ok = false; }
+    if (ok) return name;
+    for (const f of [name, name + ".sha256"]) { try { fs.rmSync(path.join(json.backupDir, f), { force: true }); } catch (e) { /* bỏ qua */ } }
+    backupError = "Bản sao lưu vừa tạo không khớp dữ liệu hiện tại nên đã bị hủy; bản sao lưu tốt trước đó được giữ nguyên."; return null;
+  }
+  const backupWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return null; const out = json[name](...args); return typeof out === "string" ? verifyBackup(out) : out; };
+  const readWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return name === "changedSinceBackup" ? true : null; return json[name](...args); };
+  const mirrorWrap = () => (...args) => { backupError = ""; if (!exportReady()) return { ok: false, error: backupError }; return json.syncMirror(...args); };
   function quarantineCorrupt() { // người dùng chọn "cất file lạ": cất data.json, rồi dùng dữ liệu SQLite
     const f = json.quarantineCorrupt(); conflict = ""; if (!cur) { const r = init(); if (!r.ok) return f; } jsonStale = true; syncJson(); return f;
   }
-  /** Tiến trình phụ (kho năm) đã ghi data.json trực tiếp bằng kho JSON: nhận nội dung đó làm trạng thái mới (đã được chính nó kiểm tra) và ghi delta vào SQLite. */
-  function adoptJson() {
+  /** Tiến trình phụ (kho năm) đã ghi data.json trực tiếp bằng kho JSON: nhận nội dung đó làm trạng thái mới (đã được chính nó kiểm tra) và ghi delta vào SQLite.
+   *  opts.expectRev: chỉ nhận khi SQLite chưa đổi kể từ lúc chụp. opts.force: dùng khi khôi phục sau gián đoạn (marker thao tác). */
+  function adoptJson(opts) {
     try {
+      if (!(opts && opts.force) && opts && opts.expectRev != null && opts.expectRev !== rev) return false; // dữ liệu đã đổi trong lúc worker chạy: không nhận kết quả cũ
       if (!fs.existsSync(dataFile)) return false;
       const text = fs.readFileSync(dataFile, "utf8"); if (!isValidDataText(text)) return false;
       if (!cur) { const r = init(); if (!r.ok) return false; }
@@ -152,11 +207,11 @@ function createSqliteStorage(dir, opts) {
     } catch (e) { return false; }
   }
   function hasDataFile() { return !!cur || fs.existsSync(dbFile) || json.hasDataFile(); }
-  function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } }
+  function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
 
   return Object.assign({}, json, {
-    load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson,
-    backup: wrapSync("backup"), backupYear: wrapSync("backupYear"), changedSinceBackup: wrapSync("changedSinceBackup"), tickSchedule: wrapSync("tickSchedule"), backupOnClose: wrapSync("backupOnClose"), syncMirror: wrapSync("syncMirror"),
+    load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
+    backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev, kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });
 }
