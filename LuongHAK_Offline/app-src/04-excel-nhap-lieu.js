@@ -139,7 +139,7 @@
       var raw = aoa ? IMP.rowsFromAoa(aoa, k, ALL[k].cols).rows : XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: true, defval: "" });
       if (!aoa) { var kept = raw.filter(function (r) { return !isSampleMarked(r); }); skipped = raw.length - kept.length; raw = kept; }
       if (k === "bandam" && pumpMode && raw.some(function (r) { return C.inputReview.mode(r) !== pumpMode; })) throw Error("File không đúng cách phân bổ đang mở. Theo tổ cần Mã phòng ban, để trống Mã NV; Trực tiếp cần Mã NV.");
-      var p = IMP.plan(db, k, ALL[k].cols, raw, { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
+      var p = IMP.plan(db, k, ALL[k].cols, C.inputBatch.blankRows(raw), { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
       if (k === "bandam" && pumpMode && p.items.some(function (it) { return it.target && C.inputReview.mode(it.target) !== pumpMode; })) throw Error("File cập nhật khác cách phân bổ. Mở đúng tab để sửa phiếu.");
       p.sheet = name; p.sampleSkipped = skipped; p.sampleLike = sampleLookalikes(k, raw);
       if (k === "nhanvien") p.items.forEach(function (it) { if (it.action === "add" || it.action === "update") extraEmp[it.row["Mã NV"]] = 1; });

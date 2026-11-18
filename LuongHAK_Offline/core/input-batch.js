@@ -7,6 +7,15 @@
     return /^(total|grand total|tong|tong cong)$/.test(label)&&
       ['Ngày cân','Biển số','Mã phòng ban','Mã NV','NV vắng'].every(empty);
   }
+  /** Ô chỉ có khoảng trắng là TRỐNG (không thành 0 âm thầm, dòng toàn khoảng trắng không thành dòng rác). Giữ số dòng gốc __line. */
+  function blankRows(rows){
+    return (rows||[]).map(function(r){
+      if(!r||typeof r!=='object')return r;
+      var o={};Object.keys(r).forEach(function(k){var v=r[k];o[k]=(typeof v==='string'&&v.trim()==='')?'':v;});
+      if(r.__line!=null)Object.defineProperty(o,'__line',{value:r.__line});
+      return o;
+    });
+  }
   function plan(db,key,period,cols,raw){
     if(!['chamcong','sanluong'].includes(key)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))throw Error('Bảng hoặc kỳ không hợp lệ');
     if((db.kyluong||[]).some(function(x){return x.ky===period;}))throw Error('Kỳ đã chốt — mở chốt trước khi thay/xóa');
@@ -29,7 +38,7 @@
         }
         candidates.push(row.__line?row:Object.defineProperty(Object.assign({},row),'__line',{value:i+2}));
       });
-      var p=I.plan(d,key,cols,candidates,{lockedPeriods:{},mode:'replace'});
+      var p=I.plan(d,key,cols,blankRows(candidates),{lockedPeriods:{},mode:'replace'});
       if(p.items.some(function(it){return !['add','merged'].includes(it.action);}))throw Error('File có dòng lỗi/trùng/xung đột. Chưa thay dữ liệu. '+p.items.filter(function(it){return !['add','merged'].includes(it.action);}).map(function(it){return it.reason||it.action;}).slice(0,3).join('; '));
       rows=p.items.filter(function(it){return it.action==='add';}).map(function(it){return it.row;});
       if(!rows.length||rows.some(function(r){return V.rowPeriod(key,r)!==period;}))throw Error('Mọi dòng trong file phải thuộc đúng kỳ '+period+'; không chấp nhận thiếu kỳ/ngày');
@@ -45,5 +54,5 @@
     });
     return out;
   }
-  var api={plan:plan,removeTotals:removeTotals};if(node)module.exports=api;else root.HAKCore.inputBatch=api;
+  var api={plan:plan,removeTotals:removeTotals,blankRows:blankRows};if(node)module.exports=api;else root.HAKCore.inputBatch=api;
 })(typeof window!=='undefined'?window:this);

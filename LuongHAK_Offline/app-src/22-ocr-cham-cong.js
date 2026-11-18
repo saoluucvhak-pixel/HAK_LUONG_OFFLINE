@@ -215,8 +215,8 @@
     if (rr.skip.length && !confirm("Các dòng sau CHƯA ghi được (sửa xong bấm lại):\n" + rr.skip.join("\n") + "\n\nVẫn ghi các dòng còn lại?")) return;
     importPreview(function (mode) {
       var pl = [];
-      if (rr.chamcong.length) { var p1 = IMP.plan(db, "chamcong", ALL.chamcong.cols, rr.chamcong, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p1.sheet = "Ảnh chấm công"; pl.push(p1); }
-      if (rr.tiencom.length) { var p2 = IMP.plan(db, "tiencom", ALL.tiencom.cols, rr.tiencom, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p2.sheet = "Ảnh chấm cơm"; pl.push(p2); }
+      if (rr.chamcong.length) { var p1 = IMP.plan(db, "chamcong", ALL.chamcong.cols, C.inputBatch.blankRows(rr.chamcong), { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p1.sheet = "Ảnh chấm công"; pl.push(p1); }
+      if (rr.tiencom.length) { var p2 = IMP.plan(db, "tiencom", ALL.tiencom.cols, C.inputBatch.blankRows(rr.tiencom), { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p2.sheet = "Ảnh chấm cơm"; pl.push(p2); }
       return pl;
     }, "OCR " + pages.map(function (p) { return p.name + (p.docId ? " [" + p.docId + "]" : ""); }).join(", "), function (ok, donePlans) { if (ok && window.hakOcrLib && window.hakOcrLib.layoutSave) pages.forEach(function (p) { if (p.layoutSig && p.layoutStatus !== "MISMATCH" && !p.layoutSuspect) window.hakOcrLib.layoutSave(p.layoutSig, "", session ? session.tenDangNhap : ""); }); var lr = ok && ocrLearn(); if (lr) { var nNames = recordNameLinks(donePlans, rr.meta); if (nNames) save(); var impCells = ocrImportedCells(donePlans, rr.meta), batchId = "IMP-" + Date.now().toString(36); if (recordCellLinks(impCells, batchId)) save(); lr.approveCells(impCells, batchId).then(function (r) { if (r && (r.verified || r.unsaved)) toast((r.verified ? "Thư viện mẫu OCR: " + r.verified + " mẫu của ô đã nhập được xác nhận" + (r.conflict ? " · " + r.conflict + " mẫu xung đột cần xem" : "") : "") + (r.unsaved ? " · ⚠ còn " + r.unsaved + " mẫu học CHƯA ghi được — bấm \"Thử lại\" ở màn OCR" : "")); }); } render(); });
   }

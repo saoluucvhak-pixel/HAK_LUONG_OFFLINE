@@ -429,7 +429,7 @@
       var raw = aoa ? IMP.rowsFromAoa(aoa, k, ALL[k].cols).rows : XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: true, defval: "" });
       if (!aoa) { var kept = raw.filter(function (r) { return !isSampleMarked(r); }); skipped = raw.length - kept.length; raw = kept; }
       if (k === "bandam" && pumpMode && raw.some(function (r) { return C.inputReview.mode(r) !== pumpMode; })) throw Error("File không đúng cách phân bổ đang mở. Theo tổ cần Mã phòng ban, để trống Mã NV; Trực tiếp cần Mã NV.");
-      var p = IMP.plan(db, k, ALL[k].cols, raw, { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
+      var p = IMP.plan(db, k, ALL[k].cols, C.inputBatch.blankRows(raw), { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
       if (k === "bandam" && pumpMode && p.items.some(function (it) { return it.target && C.inputReview.mode(it.target) !== pumpMode; })) throw Error("File cập nhật khác cách phân bổ. Mở đúng tab để sửa phiếu.");
       p.sheet = name; p.sampleSkipped = skipped; p.sampleLike = sampleLookalikes(k, raw);
       if (k === "nhanvien") p.items.forEach(function (it) { if (it.action === "add" || it.action === "update") extraEmp[it.row["Mã NV"]] = 1; });
@@ -5204,8 +5204,8 @@
     if (rr.skip.length && !confirm("Các dòng sau CHƯA ghi được (sửa xong bấm lại):\n" + rr.skip.join("\n") + "\n\nVẫn ghi các dòng còn lại?")) return;
     importPreview(function (mode) {
       var pl = [];
-      if (rr.chamcong.length) { var p1 = IMP.plan(db, "chamcong", ALL.chamcong.cols, rr.chamcong, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p1.sheet = "Ảnh chấm công"; pl.push(p1); }
-      if (rr.tiencom.length) { var p2 = IMP.plan(db, "tiencom", ALL.tiencom.cols, rr.tiencom, { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p2.sheet = "Ảnh chấm cơm"; pl.push(p2); }
+      if (rr.chamcong.length) { var p1 = IMP.plan(db, "chamcong", ALL.chamcong.cols, C.inputBatch.blankRows(rr.chamcong), { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p1.sheet = "Ảnh chấm công"; pl.push(p1); }
+      if (rr.tiencom.length) { var p2 = IMP.plan(db, "tiencom", ALL.tiencom.cols, C.inputBatch.blankRows(rr.tiencom), { lockedPeriods: lockedMap(), defaultKy: kyStr(), mode: mode }); p2.sheet = "Ảnh chấm cơm"; pl.push(p2); }
       return pl;
     }, "OCR " + pages.map(function (p) { return p.name + (p.docId ? " [" + p.docId + "]" : ""); }).join(", "), function (ok, donePlans) { if (ok && window.hakOcrLib && window.hakOcrLib.layoutSave) pages.forEach(function (p) { if (p.layoutSig && p.layoutStatus !== "MISMATCH" && !p.layoutSuspect) window.hakOcrLib.layoutSave(p.layoutSig, "", session ? session.tenDangNhap : ""); }); var lr = ok && ocrLearn(); if (lr) { var nNames = recordNameLinks(donePlans, rr.meta); if (nNames) save(); var impCells = ocrImportedCells(donePlans, rr.meta), batchId = "IMP-" + Date.now().toString(36); if (recordCellLinks(impCells, batchId)) save(); lr.approveCells(impCells, batchId).then(function (r) { if (r && (r.verified || r.unsaved)) toast((r.verified ? "Thư viện mẫu OCR: " + r.verified + " mẫu của ô đã nhập được xác nhận" + (r.conflict ? " · " + r.conflict + " mẫu xung đột cần xem" : "") : "") + (r.unsaved ? " · ⚠ còn " + r.unsaved + " mẫu học CHƯA ghi được — bấm \"Thử lại\" ở màn OCR" : "")); }); } render(); });
   }
