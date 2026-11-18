@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const RF = require("../../core/reporting/report-filter.js");
 const IPAY = require("../../core/reporting/internal-payroll.js");
-const RH = require("../../core/reporting/report-html.js");
+const RH = require("../../core/reporting/report-html.js"); const TMark = require("../../core/reporting/total-row.js").mark;
 const E = require("../../engine.js");
 const { baseDb, ccRow, staff } = require("../fixtures/build.js");
 
@@ -67,8 +67,8 @@ test("HTML in: escape dữ liệu, có CSP, không script, có dòng tổng và 
 });
 
 test("applyGeneric: chỉ áp tiêu chí mà bảng có cột; báo tiêu chí không áp; tách dòng tổng", () => {
-  const RFm = require("../../core/reporting/report-filter.js");
-  const rows = [{ "Mã NV": "A1", "Họ và tên": "Nguyễn Văn Á", "Số tiền": 10 }, { "Mã NV": "B2", "Họ và tên": "Lê Thị B", "Số tiền": 5 }, { "Mã NV": "TỔNG", "Họ và tên": "", "Số tiền": 15 }];
+  const RFm = require("../../core/reporting/report-filter.js"); const TMark = require("../../core/reporting/total-row.js").mark;
+  const rows = [{ "Mã NV": "A1", "Họ và tên": "Nguyễn Văn Á", "Số tiền": 10 }, { "Mã NV": "B2", "Họ và tên": "Lê Thị B", "Số tiền": 5 }, TMark({ "Mã NV": "TỔNG", "Họ và tên": "", "Số tiền": 15 })];
   const g = RFm.applyGeneric(rows, { tuKhoa: "nguyen", phongBan: ["X"], maLuong: ["CĐ"] });
   assert.deepEqual(g.rows.map((r) => r["Mã NV"]), ["A1"]); assert.equal(g.hadTotal, true);
   assert.deepEqual(g.applied, ["Từ khóa"]); assert.deepEqual(g.skipped.sort(), ["Mã lương", "Phòng ban"]);
@@ -84,7 +84,7 @@ test("applyGeneric: chỉ áp tiêu chí mà bảng có cột; báo tiêu chí k
 
 test("report-html sheets(): dựng HTML nhiều bảng, escape dữ liệu, không script, số căn phải, bỏ cột nội bộ '_…'", () => {
   const RH = require("../../core/reporting/report-html.js");
-  const html = RH.sheets({ title: "Báo cáo <b>", ky: "Kỳ 9/2026", loc: ["Từ khóa: “a”"], sheets: [{ name: "S1", rows: [{ "Mã NV": "<script>x</script>", "Tiền": 1234567, _ct: {} }, { "Mã NV": "TỔNG", "Tiền": 1234567, _ct: {} }] }, { name: "S2", rows: [] }] }, { chuKy: ["Người lập"] });
+  const html = RH.sheets({ title: "Báo cáo <b>", ky: "Kỳ 9/2026", loc: ["Từ khóa: “a”"], sheets: [{ name: "S1", rows: [{ "Mã NV": "<script>x</script>", "Tiền": 1234567, _ct: {} }, TMark({ "Mã NV": "TỔNG", "Tiền": 1234567, _ct: {} })] }, { name: "S2", rows: [] }] }, { chuKy: ["Người lập"] });
   assert.ok(!/<script/i.test(html) && /&lt;script&gt;/.test(html) && /1\.234\.567/.test(html) && /class="m"/.test(html) && !/_ct/.test(html) && /class="tot"/.test(html) && /Người lập/.test(html));
   assert.ok(/Không có dòng nào khớp/.test(RH.sheets({ title: "T", sheets: [{ name: "x", rows: [] }] })));
 });

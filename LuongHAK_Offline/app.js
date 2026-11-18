@@ -3132,7 +3132,7 @@
     });
     var production = ["sanluong", "bandam"].map(function (type) {
       var allocation = pbAlloc(nam, thang, type), report = bcSanLuong(nam, thang, type, allocation);
-      return { type: type, allocation: allocation, employees: report.nv.filter(function (r) { return r["Mã phòng ban"] !== "TỔNG"; }), audit: report.audit };
+      return { type: type, allocation: allocation, employees: report.nv.filter(function (r) { return !C.totalRow.is(r); }), audit: report.audit };
     });
     var ky = kyKey(nam, thang), codes = new Set();
     Object.values(OPS.closedTables).forEach(function (table) {

@@ -8,6 +8,7 @@
 (function (root) {
   "use strict";
   var isNode = typeof module !== "undefined" && module.exports;
+  var TR = isNode ? require("./total-row.js") : root.HAKCore.totalRow;
 
   var TYPES = {
     NHAN_SU: { title: "DANH SÁCH NHÂN SỰ", file: "DanhSachNhanSu", perm: "hr.view", donVi: "Người", theoKy: false, chuKy: ["Người lập", "Trưởng phòng nhân sự", "Giám đốc"] },
@@ -372,7 +373,7 @@
   /** Dòng phẳng + dòng tổng cho PDF (và đối chiếu). */
   function toRows(vm) {
     var out = vm.rows.map(function (r) { var o = {}; vm.cols.forEach(function (c) { o[c.label] = r[c.key]; }); return o; });
-    if (vm.rows.length) { var t = {}; vm.cols.forEach(function (c, i) { t[c.label] = i === 0 ? (vm.tongNhan || "TỔNG CỘNG") : (vm.tong[c.key] != null ? vm.tong[c.key] : ""); }); out.push(t); }
+    if (vm.rows.length) { var t = {}; vm.cols.forEach(function (c, i) { t[c.label] = i === 0 ? (vm.tongNhan || "TỔNG CỘNG") : (vm.tong[c.key] != null ? vm.tong[c.key] : ""); }); out.push(TR.mark(t)); }
     return out;
   }
   /** Các bảng (chính + tổng hợp phụ) dưới dạng vm đầy đủ đầu trang — để Excel mỗi bảng một sheet. */
@@ -387,7 +388,7 @@
     var sh = [{ name: vm.title, cols: vm.cols.map(function (c) { return c.label; }), rows: toRows(vm), groups: vm.groups || null }];
     (vm.extras || []).forEach(function (e) {
       var rows = e.rows.map(function (r) { var o = {}; e.cols.forEach(function (c) { o[c.label] = r[c.key]; }); return o; });
-      if (e.rows.length) { var t = {}; e.cols.forEach(function (c, i) { t[c.label] = i === 0 ? "TỔNG CỘNG" : (e.tong && e.tong[c.key] != null ? e.tong[c.key] : ""); }); rows.push(t); }
+      if (e.rows.length) { var t = {}; e.cols.forEach(function (c, i) { t[c.label] = i === 0 ? "TỔNG CỘNG" : (e.tong && e.tong[c.key] != null ? e.tong[c.key] : ""); }); rows.push(TR.mark(t)); }
       sh.push({ name: e.title, cols: e.cols.map(function (c) { return c.label; }), rows: rows, groups: null });
     });
     return sh;
@@ -400,7 +401,7 @@
   function fromRows(title, rows, opt) {
     opt = opt || {}; rows = (rows || []).filter(function (r) { return r; });
     var keys = rows.length ? Object.keys(rows[0]).filter(function (k) { return k.charAt(0) !== "_"; }) : [], tot = null;
-    if (rows.length > 1 && keys.length && /^(TỔNG|CẢ NĂM)/i.test(s(rows[rows.length - 1][keys[0]]))) { tot = rows[rows.length - 1]; rows = rows.slice(0, -1); }
+    if (rows.length > 1 && keys.length && TR.is(rows[rows.length - 1])) { tot = rows[rows.length - 1]; rows = rows.slice(0, -1); } // chỉ dòng đã đánh dấu là tổng
     var cols = keys.map(function (k) {
       var vals = rows.map(function (r) { return r[k]; }).filter(function (v) { return v !== "" && v != null; });
       var allNum = vals.length > 0 && vals.every(function (v) { return typeof v === "number" && isFinite(v); });

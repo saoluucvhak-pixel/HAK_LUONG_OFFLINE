@@ -1,0 +1,12 @@
+not ok 1 - U-C01-01 tái hiện: sổ chứng từ có NV 'TỔNG-02' ở dòng cuối; lọc phòng ban 'Tổ 1' phải giữ cả hai (tổng 300), không bỏ 'TỔNG-02'
+  error: |-
+  expected: 2
+  actual: 1
+not ok 2 - U-C01-02 applyGeneric: dòng có giá trị cột đầu bắt đầu bằng TỔNG/CẢ NĂM/TOTAL KHÔNG phải dòng tổng nếu chưa được đánh dấu; số 0 đầu giữ nguyên
+  error: |-
+  expected: false
+  actual: true
+not ok 3 - U-C01-03 dòng tổng THẬT (addTotal) vẫn được tách ra và tính lại sau lọc; thay thứ tự/cột không làm lọt dòng thật
+  error: |-
+  expected: 2
+  actual: 1

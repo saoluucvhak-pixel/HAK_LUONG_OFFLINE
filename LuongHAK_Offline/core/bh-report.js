@@ -3,6 +3,7 @@
 // Báo cáo NỘI BỘ để đối chiếu trước khi kê khai / nộp; KHÔNG thay mẫu chính thức của cơ quan BHXH (D02-LT, C12-TS…).
 (function (root) {
   "use strict";
+  var TR = (typeof module !== "undefined" && module.exports) ? require("./reporting/total-row.js") : root.HAKCore.totalRow;
   function n0(v) { return +v || 0; }
   var MONEY = ["Lương đóng BHXH", "CTY.BHXH", "CTY.BHYT", "CTY.BHTN", "CTY.KPCĐ", "Cộng BH công ty đóng", "NLĐ.BHXH", "NLĐ.BHYT", "NLĐ.BHTN", "NLĐ.KPCĐ", "Cộng BH NLĐ đóng", "Truy thu bảo hiểm"];
   var duNguong = function (r) { return !/^Chưa đủ ngưỡng/.test(String(r["Ghi chú"] || "")); };
@@ -13,7 +14,7 @@
     if (!rows.length) return rows;
     var t = { "STT": "", "Mã NV": "", "Họ và tên": "TỔNG CỘNG (" + rows.length + " người)", "Phòng ban": "" };
     MONEY.forEach(function (c) { t[c] = rows.reduce(function (a, r) { return a + n0(r[c]); }, 0); });
-    t["Ghi chú"] = ""; rows.push(t);
+    t["Ghi chú"] = ""; rows.push(TR.mark(t));
     return rows;
   }
   /** Theo phòng ban */
@@ -25,7 +26,7 @@
       var o = m[k]; o["Số người"]++; ["Lương đóng BHXH", "Cộng BH công ty đóng", "Cộng BH NLĐ đóng", "Truy thu bảo hiểm"].forEach(function (c) { o[c] += n0(r[c]); });
     });
     var rows = order.map(function (k) { var o = m[k]; o["Tổng BH (công ty + NLĐ)"] = o["Cộng BH công ty đóng"] + o["Cộng BH NLĐ đóng"]; return o; });
-    if (rows.length) { var t = { "Phòng ban": "TỔNG CỘNG" }; Object.keys(rows[0]).slice(1).forEach(function (c) { t[c] = rows.reduce(function (a, r) { return a + r[c]; }, 0); }); rows.push(t); }
+    if (rows.length) { var t = { "Phòng ban": "TỔNG CỘNG" }; Object.keys(rows[0]).slice(1).forEach(function (c) { t[c] = rows.reduce(function (a, r) { return a + r[c]; }, 0); }); rows.push(TR.mark(t)); }
     return rows;
   }
   /** Tổng hợp theo khoản (để đối chiếu số phải nộp) */
@@ -39,7 +40,7 @@
     rows.forEach(function (r) { r["Cộng"] = r["Công ty đóng"] + r["Người lao động đóng (trừ lương)"]; });
     var t = { "Khoản": "TỔNG", "Công ty đóng": 0, "Người lao động đóng (trừ lương)": 0, "Cộng": 0 };
     rows.forEach(function (r) { ["Công ty đóng", "Người lao động đóng (trừ lương)", "Cộng"].forEach(function (c) { t[c] += r[c]; }); });
-    rows.push(t);
+    rows.push(TR.mark(t));
     var chua = b.filter(function (r) { return !duNguong(r); });
     return { rows: rows, soNguoi: b.length, chuaDuNguong: chua.length, truyThu: s("Truy thu bảo hiểm"), lechNLD: s("Cộng BH NLĐ đóng") + s("NLĐ.KPCĐ") - t["Người lao động đóng (trừ lương)"] }; // "Cộng BH NLĐ đóng" = BHXH + BHYT + BHTN; KPCĐ NLĐ là cột riêng
   }

@@ -5,6 +5,7 @@
   var E = node ? require("../../engine.js") : root.LuongEngine;
   var ALLOC = node ? require("../allocation.js") : root.HAKCore.alloc;
   var PLG = node ? require("../payment-ledger.js") : root.HAKCore.payledger;
+  var TR = node ? require("./total-row.js") : root.HAKCore.totalRow;
 
   function n0(value) { return +value || 0; }
   function kyKey(year, month) { return year + "-" + ("0" + month).slice(-2); }
@@ -18,7 +19,7 @@
       var allNum = rows.every(function (r) { return typeof r[k] === "number" || r[k] === "" || r[k] == null; }) && rows.some(function (r) { return typeof r[k] === "number"; });
       t[k] = allNum && !/STT|Bậc|Số người phụ thuộc/.test(k) ? Math.round(rows.reduce(function (a, r) { return a + n0(r[k]); }, 0) * 1000) / 1000 : "";
     });
-    return rows.concat([t]);
+    return rows.concat([TR.mark(t)]);
   }
 
   function tkChiPhi(maPB, tenPB, catalog) {
