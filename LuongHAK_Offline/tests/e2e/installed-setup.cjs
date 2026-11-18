@@ -29,13 +29,14 @@ const uninstaller = (dir) => { const f = fs.existsSync(dir) ? fs.readdirSync(dir
 async function launch(exe, dir) {
   const app = await _electron.launch({ executablePath: exe, args: [],
     env: { ...process.env, HAK_USER_DATA: dir, HAK_DOWNLOAD_DIR: path.join(dir, "downloads"), HAK_NO_SHELL: "1", HAK_SQLITE_EXPORT_SYNC: "0", HAK_SQLITE_ADOPT_EXTERNAL: "0", HAK_STORAGE: "" } });
-  const w = await app.firstWindow(), errs = []; w.on("pageerror", (e) => errs.push(e.message)); w.on("dialog", (x) => x.accept());
-  await w.waitForSelector("#main > *"); return { app, w, errs };
+  const w = await app.firstWindow(), errs = [], dialogs = []; w.on("pageerror", (e) => errs.push(e.message)); w.on("dialog", (x) => { dialogs.push(x.message()); x.accept(); });
+  await w.waitForSelector("#main > *"); return { app, w, errs, dialogs };
 }
 async function launchRetry(exe, dir) { let last; for (let i = 0; i < 4; i++) { try { return await launch(exe, dir); } catch (e) { last = e; await sleep(3000); } } throw last; }
 const login = async (w) => { await w.waitForSelector("#main input[data-f=u]"); await w.fill("#main input[data-f=u]", "admin"); await w.fill("#main input[data-f=p]", PASS); await w.click("#main button.big"); await w.waitForSelector("#nav button[data-k=home]", { timeout: 60000 }); };
 const sqliteNv = (dir) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT json FROM records WHERE tbl='nhanvien'").all().map((r) => JSON.parse(r.json)["Mã NV"]); } finally { db.close(); } };
 const tblCount = (dir, tbl) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT COUNT(*) AS c FROM records WHERE tbl = ?").get(tbl).c; } finally { db.close(); } };
+const congTyAddr = (dir) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT json FROM records WHERE tbl = 'congty'").all().map((r) => JSON.parse(r.json)["Địa chỉ"]).join("|"); } finally { db.close(); } };
 const userVersion = (dir) => { const db = new DatabaseSync(path.join(dir, "data.sqlite"), { readOnly: true }); try { return db.prepare("PRAGMA user_version").get().user_version; } finally { db.close(); } };
 const freshData = () => { const D = fs.mkdtempSync(path.join(os.tmpdir(), "hak-inst-data-")); fs.mkdirSync(path.join(D, "downloads")); const base = seed(); createStorage(D).save(JSON.stringify(base)); return { D, n: base.nhanvien.length }; };
 const diag = (label, dir) => { try { console.log("DIAG " + label + ": " + fs.readdirSync(dir).filter((f) => /^data\./.test(f) || /^backups$/.test(f)).map((f) => f + "=" + (fs.statSync(path.join(dir, f)).isDirectory() ? "dir" : fs.statSync(path.join(dir, f)).size)).join(", ")); } catch (e) { console.log("DIAG " + label + " lỗi: " + e.message); } };
@@ -60,19 +61,28 @@ const closeAll = async (app) => { let closed = true; try { await Promise.race([a
   const ver = await s.app.evaluate(({ app }) => app.getVersion());
   ok("Bản đã cài đúng phiên bản của bản ứng viên", ver === VERSION, ver + " ≠ " + VERSION);
   ok("Nâng cấp JSON→SQLite trong bản đã cài: có data.sqlite, schema v2, đủ nhân viên", fs.existsSync(path.join(d1.D, "data.sqlite")) && userVersion(d1.D) === 2 && sqliteNv(d1.D).length === d1.n);
-  // Giao thức lưu thật trong bản đã cài: main nhận ghi có kèm bản nền ĐÚNG (từ chối bản nền sai). Dùng đúng văn bản đang lưu nên kho KHÔNG đổi phiên bản và giao diện không bị coi là bản cũ.
-  // (Không ghi nội dung mới "ngoài giao diện" ở đây: từ v2.0.35 bản ghi ngoài sẽ làm giao diện bị coi là bản cũ và lần ghi lúc đóng bị từ chối — đúng thiết kế, đã kiểm ở tests/e2e/stale-base.cjs.)
+  // Lưu bền qua thao tác giao diện THẬT (Công ty & Sao lưu → Hồ sơ công ty → Lưu): SQLite phải thấy bản ghi NGAY (chờ theo trạng thái, tối đa 8 s) — đường ghi bền của bản đã cài.
+  const uiSave = async (addr) => {
+    await s.w.click("#nav button[data-k=backup]"); await s.w.waitForSelector('.fld[data-k="Địa chỉ"] input');
+    await s.w.fill('.fld[data-k="Địa chỉ"] input', addr); await s.w.click('button:has-text("Lưu hồ sơ công ty")');
+    return waitFor(() => congTyAddr(d1.D) === addr, 8000, 200);
+  };
+  ok("Lưu qua GIAO DIỆN thật trong bản đã cài: SQLite thấy bản ghi ngay (không chờ đóng app)", !!(await uiSave("1 Đường Thử Nghiệm")), "sqlite: " + congTyAddr(d1.D));
+  // Lần lưu thứ hai qua giao diện: chứng minh giao diện KHÔNG bị coi là bản cũ sau lần ghi đầu (bản nền được làm mới), không hộp thoại 'nơi khác'.
+  ok("Lưu lần hai qua giao diện: vẫn được nhận (bản nền làm mới), không hộp thoại 'thay đổi ở nơi khác'", !!(await uiSave("2 Đường Thử Nghiệm")) && !s.dialogs.some((m) => /thay đổi ở nơi khác/.test(m)), "sqlite: " + congTyAddr(d1.D) + " | " + JSON.stringify(s.dialogs).slice(0, 100));
+  // Giao thức: bản nền ĐÚNG được nhận, bản nền SAI bị từ chối; dùng đúng văn bản đang lưu nên kho không đổi phiên bản.
   const sigNow = await s.w.evaluate(() => window.hakStore.sig());
   const same = await s.w.evaluate(() => window.hakStore.save(window.hakStore.load().text, window.hakStore.sig()));
-  ok("Lưu qua IPC thật trong bản đã cài (kèm bản nền đúng) trả true", same === true, String(same));
+  ok("IPC trong bản đã cài: bản nền đúng → true", same === true, String(same));
   const bad = await s.w.evaluate(() => window.hakStore.save(window.hakStore.load().text, "sqlite:999999"));
-  ok("Bản nền sai bị từ chối ('STALE_BASE') trong bản đã cài", typeof bad === "string" && /^STALE_BASE/.test(bad), String(bad));
-  ok("Phiên bản kho không đổi sau hai lệnh trên (giao diện vẫn đồng bộ)", (await s.w.evaluate(() => window.hakStore.sig())) === sigNow, sigNow);
+  ok("IPC trong bản đã cài: bản nền sai → 'STALE_BASE'", typeof bad === "string" && /^STALE_BASE/.test(bad), String(bad));
+  ok("Phiên bản kho không đổi sau hai lệnh IPC trên (giao diện vẫn đồng bộ)", (await s.w.evaluate(() => window.hakStore.sig())) === sigNow, sigNow);
   ok("Không lỗi JavaScript ở giao diện bản đã cài", s.errs.length === 0, s.errs.join(" | "));
   // Tính bền qua đóng/mở: dữ liệu do CHÍNH giao diện ghi (nhật ký đăng nhập) phải còn sau khi đóng bình thường, ở cả SQLite và data.json
   const closed1 = await closeAll(s.app); diag("sau đóng lần 1 (app.close " + (closed1 ? "ok" : "KHÔNG ok") + ")", d1.D);
   const audit1 = tblCount(d1.D, "auditlog");
   ok("Đóng bình thường: giao diện ghi nhật ký đăng nhập vào SQLite (ghi do giao diện)", audit1 >= 1, "auditlog=" + audit1);
+  ok("Đóng bình thường: bản ghi lưu qua giao diện CÒN NGUYÊN trong SQLite và giao diện không hỏi 'nơi khác' khi đóng", congTyAddr(d1.D) === "2 Đường Thử Nghiệm" && !s.dialogs.some((m) => /thay đổi ở nơi khác/.test(m)), congTyAddr(d1.D) + " | " + JSON.stringify(s.dialogs).slice(0, 100));
   ok("Đóng bình thường: data.json được xuất, khớp số nhật ký và đủ nhân viên", (() => { try { const j = JSON.parse(fs.readFileSync(path.join(d1.D, "data.json"), "utf8")); return j.auditlog.length === audit1 && j.nhanvien.length >= d1.n; } catch (e) { return false; } })());
   for (const f of fs.readdirSync(d1.D).filter((x) => /^Singleton/.test(x))) fs.rmSync(path.join(d1.D, f), { force: true });
   s = await launchRetry(exeA, d1.D); await login(s.w);
