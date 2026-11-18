@@ -188,6 +188,17 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       }
       await w.click('.dlg button:has-text("Hủy")').catch(() => {});
     }
+    { // 013-B (issue #114): "Nghi trùng" — Mã NV khác chữ hoa/khoảng trắng so với nhân viên đang có / dòng trước trong file → hiện "Nghi trùng", KHÔNG ghi
+      const wbn = new ExcelJS.Workbook(), wsn = wbn.addWorksheet("Nhân viên"), xfn = path.join(D9, "nghi-trung.xlsx");
+      wsn.getRow(1).values = ["Mã NV", "Họ và tên"]; wsn.getRow(2).values = ["NV-X1", "Người mới"]; wsn.getRow(3).values = ["a", "Trùng chữ thường với A đang có"]; wsn.getRow(4).values = ["nv x1", "Trùng NV-X1 cùng file"];
+      await w.click("#nav button[data-k=nhansu]");
+      const nv0 = await rowsOf("nhanvien"), [fn] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Nhập Excel")').first().click()]); await fn.setFiles((fs.writeFileSync(xfn, new Uint8Array(await wbn.xlsx.writeBuffer())), xfn)); await w.waitForSelector(".dlg", { timeout: 15000 });
+      const pvn = (await w.locator(".dlg").innerText()).replace(/\s+/g, " ");
+      ok("Nhập nhân sự: 'a' (giống 'A' đang có) và 'nv x1' (giống 'NV-X1' trong file) hiện 'Nghi trùng', chỉ 1 dòng được ghi", /Nghi trùng/.test(pvn) && /Ghi 1 dòng/.test(pvn) && /giống A đã có/.test(pvn) && /giống NV-X1 đã có/.test(pvn), pvn.slice(0, 700));
+      await w.click('.dlg button:has-text("Ghi 1 dòng")'); await w.waitForSelector(".dlg", { state: "detached", timeout: 15000 }).catch(() => {});
+      const nv1 = await rowsOf("nhanvien"), codes = nv1.map((r) => String(r["Mã NV"]));
+      ok("Sau ghi: thêm đúng 1 nhân viên (NV-X1); KHÔNG có 'a' và 'nv x1' trong dữ liệu", nv1.length === nv0.length + 1 && codes.includes("NV-X1") && !codes.includes("a") && !codes.includes("nv x1"), JSON.stringify(codes));
+    }
     ok("Nhập Excel nhiều kỳ: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
     await app.close();
   }

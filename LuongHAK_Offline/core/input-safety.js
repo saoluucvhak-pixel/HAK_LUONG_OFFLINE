@@ -8,14 +8,14 @@
       var p=V.rowPeriod(table,r),label=table+' dòng '+(i+1)+': ';
       if(!p){out.push(label+'ngày/kỳ không hợp lệ — sửa hoặc xóa dòng lỗi trước khi tính lương');return;}
       if(p!==period||table==='chamcong')return;
-      var id=String(r['Phiếu cân']||'').trim(),ma=String(r['Mã NV']||'').trim(),key=id+'|'+ma;
+      var id=String(r['Phiếu cân']||'').trim(),ma=String(r['Mã NV']||'').trim(),key=V.nearKey(id)+'|'+V.nearKey(ma),nid=V.nearKey(id);
       var quantity=String(r['KL hàng (Tấn)']==null?'':r['KL hàng (Tấn)']).trim();
       if(!/^\d+(?:[.,]\d+)?$/.test(quantity)||!(Number(quantity.replace(',','.'))>0)||!Number.isFinite(Number(quantity.replace(',','.'))))
         out.push(label+'phiếu '+(id||'(thiếu số)')+' có '+(table==='bandam'?'số xe':'khối lượng')+' không hợp lệ: '+(quantity||'(trống)'));
       if(!id)return;
       if(seen[key])out.push(label+'trùng khóa Phiếu cân + Mã NV ('+id+')');seen[key]=true;
-      if(table==='bandam'&&receipt[id]!==undefined&&receipt[id]!==!!ma)out.push(label+'phiếu '+id+' bị trộn phân bổ theo tổ và trực tiếp');
-      receipt[id]=!!ma;
+      if(table==='bandam'&&receipt[nid]!==undefined&&receipt[nid]!==!!ma)out.push(label+'phiếu '+id+' bị trộn phân bổ theo tổ và trực tiếp');
+      receipt[nid]=!!ma;
     });return out;
   }
   function problems(db,period){var periods=[period],out=[];(db.sl_chuyenky||[]).forEach(function(r){if(r.target===period)periods.push(r.source);});periods.forEach(function(p){tables.forEach(function(t){issues(db,t,p).forEach(function(m){if(out.indexOf(m)<0)out.push(m);});});});return out;}
@@ -26,7 +26,7 @@
     if(!V.normDate(after['Ngày cân']))return 'Ngày cân không được trống hoặc sai; dòng chưa bị thay đổi';
     if(table==='bandam'&&before&&!!before['Mã NV']!==!!after['Mã NV'])return 'Không đổi cách phân bổ bằng cách xóa/thêm Mã NV. Xóa phiếu rồi tạo lại ở đúng tab.';
     var id=String(after['Phiếu cân']||'').trim(),ma=String(after['Mã NV']||'').trim(),p=V.rowPeriod(table,after);
-    if(id&&(db[table]||[]).some(function(r){return r!==before&&V.rowPeriod(table,r)===p&&String(r['Phiếu cân']||'').trim()===id&&(String(r['Mã NV']||'').trim()===ma||(table==='bandam'&&(!r['Mã NV']||!ma)));}))return 'Phiếu trùng người nhận hoặc trộn hai cách phân bổ; sửa phiếu cũ thay vì nhập thêm';
+    if(id&&(db[table]||[]).some(function(r){return r!==before&&V.rowPeriod(table,r)===p&&V.nearKey(r['Phiếu cân'])===V.nearKey(id)&&(V.nearKey(r['Mã NV'])===V.nearKey(ma)||(table==='bandam'&&(!r['Mã NV']||!ma)));}))return 'Phiếu trùng người nhận hoặc trộn hai cách phân bổ; sửa phiếu cũ thay vì nhập thêm';
     return '';
   }
   var api={issues:issues,problems:problems,assertPeriod:assertPeriod,mutation:mutation};if(node)module.exports=api;else root.HAKCore.inputSafety=api;

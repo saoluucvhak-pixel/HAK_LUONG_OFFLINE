@@ -270,6 +270,7 @@
     var sch = SCH.validate(db, { tables: Object.keys(ALL), hrTables: Object.keys(HRT) });
     sch.errors.forEach(function (e) { issues.push({ level: "High", area: (ALL[e.table] ? ALL[e.table].ten : e.table) + " (cấu trúc)", msg: e.msg }); });
     sch.info.forEach(function (m) { issues.push({ level: "Low", area: "Cấu trúc", msg: m }); });
+    VAL.nearDuplicateGroups(db).forEach(function (g) { issues.push({ level: "High", area: (ALL[g.table] ? ALL[g.table].ten : g.table), msg: "NGHI TRÙNG (013-B): " + g.rows + " dòng có khóa giống nhau nhưng viết khác (" + g.keys.slice(0, 4).join(" ≈ ") + (g.keys.length > 4 ? " …" : "") + ") — kiểm tra rồi sửa/gộp theo quy trình có sẵn; app KHÔNG tự gộp." }); });
     var ord = { Critical: 0, High: 1, Medium: 2, Low: 3 }; issues.sort(function (a, b) { return ord[a.level] - ord[b.level]; });
     c.appendChild(h("h3", { text: "🩺 Kiểm tra dữ liệu" }));
     c.appendChild(h("div", { class: "hint", text: "Kiểm tra cấu trúc (phiên bản, bảng, kiểu ngày/tiền/kỳ, Mã NV, quan hệ hợp đồng–phụ lục, toàn vẹn kỳ đã chốt) và nghiệp vụ (trùng mã, trùng chấm công, lương nghi lỗi…). App KHÔNG tự xóa dữ liệu lỗi — bạn tự sửa theo danh sách." }));
