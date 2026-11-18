@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.45] — 19/11/2026
+- **Màn nhập liệu thấy ≥ 12 dòng ở 1366×768 (handoff 005B-UI002, issue #97):** hướng dẫn/chú giải/chi tiết tổng được gấp lại, thanh nút–bộ lọc–hàng bảng nén gọn; kiểm bố cục `fewRows` thành PASS/FAIL. Không đổi dữ liệu/công thức. Chi tiết: `docs/releases/v2.0.45.md`.
+
 ## [2.0.43] — 18/11/2026
 - **Nhập Excel (handoff 009-B, issue #98):** bản xem trước thêm cột **"Cách sửa"** cho mọi dòng không ghi/lỗi (nêu việc cần làm bằng tiếng Việt), bảng **"Đối chiếu với file nguồn"** (số dòng + tổng cột số của file = ghi + gộp + không ghi, theo từng bảng) và nút **"⬇ Tải file lỗi để sửa & nhập lại"** (đúng cột của bảng + Dòng Excel/Lỗi/Cách sửa; sửa xong nhập lại bằng chính chức năng Nhập Excel, cột thêm bị bỏ qua). Thông báo sau khi ghi kèm đối chiếu "file N dòng = ghi + gộp + không ghi". Chỉ đổi hiển thị/xuất file lỗi: không đổi quy tắc nhập, công thức, lược đồ, kỳ đã chốt. Đối chiếu tiền đủ ba số hạng `file = ghi + gộp + không ghi` (sửa theo review CEO).
 ## [2.0.42] — 18/11/2026

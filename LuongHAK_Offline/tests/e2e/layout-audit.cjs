@@ -4,6 +4,8 @@
 // Mỗi (màn × cỡ) chạy các kiểm: pageOverflow (trang tràn ngang), clipped (chữ bị cắt không có dấu …), wideNoScroll (bảng rộng không có vùng cuộn riêng),
 // stickyHead (bảng dài thiếu tiêu đề cột cố định), overlap (nút/ô chồng nhau), contrast (chip/nhãn trạng thái dưới AA), noFocus (control không hiện focus).
 const fs = require("node:fs"), path = require("node:path");
+/** Màn nhập liệu hằng ngày + số dòng tối thiểu phải thấy ngay khi mở màn ở 1366×768 (005B-UI002, issue #97). */
+const INPUT_SCREENS = ["chamcong", "sanluong", "bandam", "tiencom", "psluong", "ungluong"], MIN_ROWS = 12;
 const SIZES = [{ w: 1366, h: 768 }, { w: 1920, h: 1080 }, { w: 1024, h: 768 }];
 
 
@@ -67,7 +69,7 @@ function pageChecks() {
   // bảng dữ liệu dài nhưng màn đầu tiên chỉ thấy rất ít dòng (< 6) — thanh công cụ/chú thích chiếm hết chiều cao
   out.fewRows = [];
   const big = [...root.querySelectorAll("table")].filter((t) => vis(t) && t.tBodies[0] && t.tBodies[0].rows.length >= 8)[0];
-  if (big) { const rowsN = [...big.tBodies[0].rows].filter((r) => { const b = r.getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; }).length; if (rowsN < 6) out.fewRows.push(rowsN + " dòng nhìn thấy / cao " + innerHeight + "px"); }
+  if (big) { const rowsN = [...big.tBodies[0].rows].filter((r) => { const b = r.getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; }).length; out.visRows = rowsN; if (rowsN < 6) out.fewRows.push(rowsN + " dòng nhìn thấy / cao " + innerHeight + "px"); } else out.visRows = null; // visRows = số dòng dữ liệu nhìn thấy trọn vẹn ở màn đầu (005B-UI002: màn nhập ≥ MIN_ROWS ở 1366×768)
   Object.keys(out).forEach((k) => { if (Array.isArray(out[k])) out[k] = [...new Set(out[k])].slice(0, 12); });
   return out;
 }
@@ -135,4 +137,4 @@ async function auditDialogs(opt) {
   }
   return rows;
 }
-module.exports = { auditDialogs, syntheticData, auditAll, pageChecks, dialogChecks, focusCheck, SIZES };
+module.exports = { INPUT_SCREENS, MIN_ROWS, auditDialogs, syntheticData, auditAll, pageChecks, dialogChecks, focusCheck, SIZES };
