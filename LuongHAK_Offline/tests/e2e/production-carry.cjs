@@ -1,4 +1,5 @@
 'use strict';
+require("./harness-env.cjs");
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const {_electron}=require('playwright'),{fixture}=require('../fixtures/production-carry'),G=require('../../main/payroll-gate'),X=require('../../xlsx.full.min.js');
 (async()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'hak-carry-ui-')),shot=process.env.E2E_SHOTS||path.join(dir,'shots');fs.mkdirSync(shot,{recursive:true});const d=fixture(),password='CarryTest2026',salt=crypto.randomBytes(16).toString('hex'),iter=210000;d.nguoidung=[{id:'TEST',tenDangNhap:'admin',hoTen:'Synthetic Admin',vaiTro:'admin',khoa:false,salt,iter,hash:crypto.pbkdf2Sync(password,Buffer.from(salt,'hex'),iter,32,'sha256').toString('hex')}];d.auditlog=[];d.baomat=[];d.schemaVersion=2;fs.writeFileSync(path.join(dir,'data.json'),JSON.stringify(d));let app;try{

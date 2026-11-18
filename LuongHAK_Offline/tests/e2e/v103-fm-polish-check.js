@@ -1,5 +1,6 @@
 // V10.3 (đợt chỉnh theo góp ý) — kiểm trên Electron thật: dropdown Loại công thức, ô Kỳ xét, cột Tỷ lệ/Ngưỡng công, số tiền có dấu chấm nghìn. Dữ liệu GIẢ LẬP.
 "use strict";
+require("./harness-env.cjs");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ELECTRON = process.env.ELECTRON_PATH || require("electron");

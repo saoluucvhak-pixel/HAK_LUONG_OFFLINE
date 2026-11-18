@@ -1,4 +1,5 @@
 "use strict";
+require("./harness-env.cjs");
 const fs=require("node:fs"),os=require("node:os"),path=require("node:path"),crypto=require("node:crypto"),assert=require("node:assert/strict");
 const {_electron}=require("playwright"),APP=path.resolve(__dirname,"../.."),results=[];
 const password="RestoreTest2026",username="oldadmin";

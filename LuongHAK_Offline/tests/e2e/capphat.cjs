@@ -1,4 +1,5 @@
 "use strict";
+require("./harness-env.cjs");
 // Nghiệm thu trọn luồng phân hệ Cấp phát trên ứng dụng Electron thật, bằng dữ liệu giả:
 //  · hai chế độ (một người / phân quyền: chặn tự xác nhận ở giao diện VÀ tiến trình chính), lập tay, sửa nháp, nhập Excel (mã 0005, lỗi theo dòng, chặn trùng),
 //  · nhân viên chuyển tổ + thu hồi một phần (Tổ 1 = 10/2/8, Tổ 2 = 5/0/5), báo cáo Tổng hợp/Chi tiết khớp ở màn hình, Excel và PDF, mở phiếu gốc và quay lại giữ bộ lọc + trang,

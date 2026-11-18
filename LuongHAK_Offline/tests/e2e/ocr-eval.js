@@ -3,6 +3,7 @@
 // Đây là ảnh tổng hợp (chữ in / nét x vẽ bằng máy), KHÔNG đại diện cho chữ viết tay thật trên giấy chấm công thật — xem docs/V10_1_OCR_CHECK.md.
 /* global document */
 "use strict";
+require("./harness-env.cjs");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ELECTRON = process.env.ELECTRON_PATH || require("electron");

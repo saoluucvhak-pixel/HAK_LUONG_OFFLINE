@@ -4,6 +4,7 @@
 // Dữ liệu 100% GIẢ LẬP. Chạy: xvfb-run -a node tests/e2e/v102-overtime-shots.js   (ảnh: docs/v10_2_screens/<WxH>/ ; báo cáo: docs/V10_2_UI_CHECK.json)
 /* global document, performance, Event */
 "use strict";
+require("./harness-env.cjs");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ELECTRON = process.env.ELECTRON_PATH || require("electron");

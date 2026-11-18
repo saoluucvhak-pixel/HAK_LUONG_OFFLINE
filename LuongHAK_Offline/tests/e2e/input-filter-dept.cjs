@@ -1,4 +1,5 @@
 "use strict";
+require("./harness-env.cjs");
 // F01 trên Electron thật: bộ lọc Phòng ban của Tạm ứng / Thưởng-trừ theo tổ TẠI NGÀY chứng từ (không theo tổ hiện tại),
 // với vai trò Nhân sự (có input.view, KHÔNG có payroll.view). Dữ liệu giả. Chạy: node tests/e2e/input-filter-dept.cjs (Linux: xvfb-run -a …).
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path"), crypto = require("node:crypto");

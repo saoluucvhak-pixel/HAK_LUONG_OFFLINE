@@ -2,6 +2,7 @@
 // Chạy: xvfb-run -a node tests/e2e/v10-screens.js   (ảnh ra thư mục E2E_SHOTS hoặc ./v10-screens-out; báo cáo JSON: docs/V10_SCREEN_CHECK.json)
 /* global document */
 "use strict";
+require("./harness-env.cjs");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ELECTRON = process.env.ELECTRON_PATH || require("electron");

@@ -1,6 +1,7 @@
 // V10.3 — kiểu giao diện "Sang trọng" / "Cổ điển", sáng / tối: chụp màn hình + kiểm nút đổi kiểu hoạt động.
 /* global document */
 "use strict";
+require("./harness-env.cjs");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ELECTRON = process.env.ELECTRON_PATH || require("electron");

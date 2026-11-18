@@ -1,6 +1,7 @@
 // V10.3 (đợt chỉnh theo góp ý) — Báo cáo lương: Bảng tổng hợp lương (nhóm theo phòng ban), Phiếu lương 3 phần, Khấu trừ thuế TNCN, bảng tính lương giao diện tối, Từ–Đến mặc định theo kỳ. Dữ liệu GIẢ LẬP.
 /* global document, getComputedStyle */
 "use strict";
+require("./harness-env.cjs");
 const fs = require("fs"), os = require("os"), path = require("path");
 const { _electron } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ELECTRON = process.env.ELECTRON_PATH || require("electron");
