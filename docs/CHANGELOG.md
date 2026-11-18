@@ -3,6 +3,8 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.43] — 18/11/2026
+- **Nhập Excel (handoff 009-B, issue #98):** bản xem trước thêm cột **"Cách sửa"** cho mọi dòng không ghi/lỗi (nêu việc cần làm bằng tiếng Việt), bảng **"Đối chiếu với file nguồn"** (số dòng + tổng cột số của file = ghi + gộp + không ghi, theo từng bảng) và nút **"⬇ Tải file lỗi để sửa & nhập lại"** (đúng cột của bảng + Dòng Excel/Lỗi/Cách sửa; sửa xong nhập lại bằng chính chức năng Nhập Excel, cột thêm bị bỏ qua). Thông báo sau khi ghi kèm đối chiếu "file N dòng = ghi + gộp + không ghi". Chỉ đổi hiển thị/xuất file lỗi: không đổi quy tắc nhập, công thức, lược đồ, kỳ đã chốt. Đối chiếu tiền đủ ba số hạng `file = ghi + gộp + không ghi` (sửa theo review CEO).
 ## [2.0.42] — 18/11/2026
 - **Không mất việc đang làm (handoff 009-C, issue #98 mục 4):** đóng cửa sổ khi Danh mục đang có bản nháp CHƯA LƯU (danh mục không tự lưu khi nhập) nay **hỏi trước** (Hủy = giữ cửa sổ, OK = bỏ nháp) — trước đây đóng im lặng và mất nháp. Thêm E2E cho: gõ dở trong ô rồi đóng, dán nhiều dòng có ô sai, nháp danh mục (chuyển màn/đóng), đóng khi đang xem trước nhập Excel. Không đổi công thức, lược đồ, định dạng dữ liệu, kỳ đã chốt.
 ## [2.0.40] — 18/11/2026

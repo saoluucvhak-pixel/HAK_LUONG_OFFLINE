@@ -207,6 +207,12 @@
     body.appendChild(choice);
     var sumRows = plans.map(function (p) { var o = { "Bảng": ALL[p.table].ten, "Sheet": p.sheet }; Object.keys(IMP.LABEL).forEach(function (k) { o[IMP.LABEL[k]] = p.summary[k] || 0; }); return o; });
     body.appendChild(simpleTable(sumRows));
+    var recon = importTotals(plans, E.num), reconRows = [];
+    recon.forEach(function (t) {
+      var money = importMoneyEq(t, IMPORT_SUM_COLS[t.table] || [], fmt);
+      reconRows.push({ "Bảng": ALL[t.table].ten, "Dòng trong file": t.file.rows, "Sẽ ghi": t.ghi.rows, "Gộp vào dòng khác": t.gop.rows, "Không ghi": t.khong.rows, "Tổng (file = ghi + gộp + không ghi)": money || "—" });
+    });
+    body.appendChild(h("div", { class: "fh", text: "Đối chiếu với file nguồn" })); body.appendChild(h("div", { "data-imp-recon": "1" }, [simpleTable(reconRows)]));
     var skipTotal = 0, lookTotal = 0; plans.forEach(function (p) { skipTotal += p.sampleSkipped || 0; lookTotal += (p.sampleLike || []).length; });
     if (skipTotal) body.appendChild(h("div", { class: "hint", "data-imp-sample": "skipped", text: "Đã bỏ qua " + skipTotal + " dòng ví dụ của file mẫu (cột 'Dòng ví dụ' ghi VÍ DỤ) — không ghi vào dữ liệu." }));
     if (lookTotal) body.appendChild(h("div", { class: "warn", "data-imp-sample": "lookalike", text: "⚠ " + lookTotal + " dòng trùng hệt dòng ví dụ của file mẫu (" + plans.filter(function (p) { return (p.sampleLike || []).length; }).map(function (p) { return ALL[p.table].ten + ": " + p.sampleLike.slice(0, 3).map(function (r) { return r["Mã NV"] || r[ALL[p.table].cols[0]] || "?"; }).join(", "); }).join(" · ") + "). Vẫn được ghi nếu là dữ liệu thật — kiểm tra lại trước khi bấm Ghi, và xóa dòng ví dụ khỏi file." }));
@@ -221,7 +227,7 @@
     if (clears) body.appendChild(h("div", { class: "warn", text: "⚠ Chế độ ghi đè sẽ XÓA " + clears + " ô đang có dữ liệu (ô trống trong file). Kiểm tra cột 'Lý do' bên dưới." }));
     var rows = [];
     var nWarn = 0;
-    plans.forEach(function (p) { p.items.forEach(function (it) { if (it.warn && (it.action === "add" || it.action === "update")) nWarn++; if (it.action !== "add" || /HỒI TỐ/.test(it.reason) || it.warn) rows.push({ "Bảng": ALL[p.table].ten, "Dòng Excel": it.line, "Phân loại": IMP.LABEL[it.action], "Lý do": it.reason, "Cảnh báo": it.warn || "", "Mã NV": it.row["Mã NV"] || "" }); }); });
+    plans.forEach(function (p) { p.items.forEach(function (it) { if (it.warn && (it.action === "add" || it.action === "update")) nWarn++; if (it.action !== "add" || /HỒI TỐ/.test(it.reason) || it.warn) rows.push({ "Bảng": ALL[p.table].ten, "Dòng Excel": it.line, "Phân loại": IMP.LABEL[it.action], "Lý do": it.reason, "Cách sửa": importFixHint(it.action, it.reason), "Cảnh báo": it.warn || "", "Mã NV": it.row["Mã NV"] || "" }); }); });
     if (nWarn) body.appendChild(h("div", { class: "warn", text: "⚠ " + nWarn + " dòng sẽ ghi nhưng có ô bất thường (VD quá " + VAL.MAX_CONG_NGAY + " công/ngày, nhãn chưa có mã phụ cấp) — xem cột 'Cảnh báo'." }));
     var order = { conflict: 0, invalid: 1, refError: 2, locked: 3, update: 4, add: 4, merged: 5, duplicate: 6 }, byLabel = {};
     Object.keys(IMP.LABEL).forEach(function (k) { byLabel[IMP.LABEL[k]] = k; });
@@ -230,6 +236,7 @@
     var nWrite = tot.add + tot.update, previewRev = dbRev;
     modal("Xem trước nhập Excel", body, function (close) {
       return [
+        importErrorSheets(plans, function (t) { return ALL[t].cols; }, function (t) { return sheetName(ALL[t].ten); }).length ? btn("⬇ Tải file lỗi để sửa & nhập lại", "", function () { saveXlsx("LoiNhapExcel_CanSua.xlsx", importErrorSheets(plans, function (t) { return ALL[t].cols; }, function (t) { return sheetName(ALL[t].ten); })); }) : null,
         rows.length ? btn("⬇ Tải chi tiết", "", function () { saveXlsx("KiemTraNhapExcel.xlsx", [{ name: "ChiTiet", cols: Object.keys(rows[0]), rows: rows }]); }) : null,
         btn("Hủy", "", close),
         btn(nWrite ? "✔ Ghi " + nWrite + " dòng" : "Không có dòng nào để ghi", "pri", function () {
@@ -250,10 +257,61 @@
           }
           var n = result.value;
           close(); if (done) done(true, plans); else render();
-          toast("Đã ghi " + n + " dòng" + (plans.some(function (p) { return ["chamcong", "sanluong", "bandam"].indexOf(p.table) >= 0; }) ? " Nháp — cần Lưu để tính lương" : "") + " (" + tot.add + " mới, " + tot.update + " cập nhật" + (tot.merged ? ", gộp " + tot.merged : "") + ")" + (bkOk ? "" : " · ⚠ KHÔNG tạo được bản sao lưu trước khi nhập — kiểm tra dung lượng đĩa"));
+          toast("Đã ghi " + n + " dòng" + (plans.some(function (p) { return ["chamcong", "sanluong", "bandam"].indexOf(p.table) >= 0; }) ? " Nháp — cần Lưu để tính lương" : "") + " (" + tot.add + " mới, " + tot.update + " cập nhật" + (tot.merged ? ", gộp " + tot.merged : "") + ")" + " · Đối chiếu: file " + recon.reduce(function (n, t) { return n + t.file.rows; }, 0) + " dòng = ghi " + recon.reduce(function (n, t) { return n + t.ghi.rows; }, 0) + " + gộp " + recon.reduce(function (n, t) { return n + t.gop.rows; }, 0) + " + không ghi " + recon.reduce(function (n, t) { return n + t.khong.rows; }, 0) + (bkOk ? "" : " · ⚠ KHÔNG tạo được bản sao lưu trước khi nhập — kiểm tra dung lượng đĩa"));
         })];
     });
   }
+  // IMPORT-REPORT-BEGIN (009-B, issue #98): "sửa thế nào", file lỗi để sửa-rồi-nhập-lại, đối chiếu tổng với file nguồn. Hàm thuần (không phụ thuộc biến ngoài) — test lấy nguyên văn từ app.js.
+  var IMPORT_SUM_COLS = { sanluong: ["KL hàng (Tấn)"], bandam: ["KL hàng (Tấn)"], psluong: ["Thưởng", "Thu nhập khác", "Trừ khác"], ungluong: ["Tạm ứng"], tiencom: ["Số suất cơm"] };
+  var IMPORT_BAD = { invalid: 1, refError: 1, conflict: 1, locked: 1 };
+  function importFixHint(action, reason) {
+    var r = String(reason || ""), m;
+    if (action === "invalid") {
+      if ((m = r.match(/Thiếu ([^;]+)/))) return "Điền giá trị cho cột " + m[1].trim() + " rồi nhập lại file này";
+      if (/phải là số/.test(r)) return "Nhập số (ví dụ 2 hoặc 1,5), không nhập chữ";
+      if (/Số tiền không đọc được/.test(r)) return "Nhập số tiền như 500000 hoặc 500.000 (không chữ, không ký hiệu lạ)";
+      if (/Ngày không hợp lệ/.test(r)) return "Nhập ngày dạng 15/09/2026 hoặc 2026-09-15 (ngày phải có thật trong tháng)";
+      if (/Kỳ không hợp lệ/.test(r)) return "Nhập kỳ dạng 2026-09";
+      if (/Ngày \d\d/.test(r)) return "Ô ngày chấm công: nhập số công như 1, 0.5, 1,5 hoặc 1QC (không số âm/chữ lạ)";
+      return "Sửa ô nêu ở cột Lý do rồi nhập lại file này";
+    }
+    if (action === "refError") return "Thêm nhân viên này ở màn Nhân sự trước, hoặc sửa Mã NV cho đúng (giữ số 0 đầu, đúng chữ hoa/thường)";
+    if (action === "conflict") return "Giữ một dòng; xóa hoặc sửa dòng còn lại để khác khóa (hoặc cho cùng số liệu)";
+    if (action === "locked") return "Kỳ đã chốt lương: nếu cần sửa thì mở chốt (ghi lý do) trước, không thì bỏ dòng này";
+    if (action === "duplicate") return "Không cần làm gì (dòng đã có)";
+    return "";
+  }
+  /** Đối chiếu theo bảng: số dòng + tổng các cột số của FILE NGUỒN = ghi + gộp + không ghi. num: hàm đọc số (engine.num). */
+  function importTotals(plans, num) {
+    return plans.map(function (p) {
+      var cols = IMPORT_SUM_COLS[p.table] || [], z = function () { var o = { rows: 0, sums: {} }; cols.forEach(function (c) { o.sums[c] = 0; }); return o; };
+      var t = { table: p.table, file: z(), ghi: z(), khong: z(), gop: z() };
+      (p.items || []).forEach(function (it) {
+        var g = it.action === "add" || it.action === "update" ? t.ghi : it.action === "merged" ? t.gop : t.khong;
+        [t.file, g].forEach(function (b) { b.rows++; cols.forEach(function (c) { b.sums[c] += num(it.row && it.row[c]); }); });
+      });
+      return t;
+    });
+  }
+  /** Các sheet "lỗi để sửa": đúng cột của bảng (đọc lại được bằng chính chức năng Nhập Excel) + Dòng Excel / Lỗi / Cách sửa ở cuối (cột lạ bị bỏ qua khi nhập lại). */
+  function importErrorSheets(plans, colsOf, nameOf) {
+    var sheets = [];
+    plans.forEach(function (p) {
+      var bad = (p.items || []).filter(function (it) { return IMPORT_BAD[it.action]; });
+      if (!bad.length) return;
+      var cols = colsOf(p.table);
+      sheets.push({ name: nameOf(p.table), cols: cols.concat(["Dòng Excel", "Lỗi", "Cách sửa"]), rows: bad.map(function (it) {
+        var o = {}; cols.forEach(function (c) { o[c] = it.row && it.row[c] != null ? it.row[c] : ""; });
+        o["Dòng Excel"] = it.line; o["Lỗi"] = it.reason || ""; o["Cách sửa"] = importFixHint(it.action, it.reason); return o;
+      }) });
+    });
+    return sheets;
+  }
+  /** Chuỗi đối chiếu TIỀN của một bảng: "<cột>: file X = ghi Y + gộp Z + không ghi W" (đủ ba số hạng để phương trình luôn đúng, kể cả khi có dòng gộp). fmt: hàm định dạng số. */
+  function importMoneyEq(t, cols, fmt) {
+    return (cols || []).map(function (c) { return c + ": file " + fmt(t.file.sums[c]) + " = ghi " + fmt(t.ghi.sums[c]) + " + gộp " + fmt(t.gop.sums[c]) + " + không ghi " + fmt(t.khong.sums[c]); }).join(" · ");
+  }
+  // IMPORT-REPORT-END
   function importFile(key, done, pumpMode) { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, key, m, pumpMode); }, name, done); }); }
   function importAllFile() { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, null, m); }, name, render); }); }
 

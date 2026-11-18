@@ -165,6 +165,29 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       const after = await rowsOf("tiencom");
       ok("Suất cơm: ghi đúng 2 dòng, dòng 'hai' KHÔNG vào dữ liệu, dòng NV đã nghỉ vẫn được ghi sau xác nhận", after.length === before + 2 && !after.some((r) => String(r["Số suất cơm"]) === "hai") && after.some((r) => r["Mã NV"] === "NVNGHI"), JSON.stringify(after.map((r) => [r["Mã NV"], r["Số suất cơm"]])));
     }
+    { // 009-B (issue #98): cột "Cách sửa", đối chiếu với file nguồn, tải file lỗi để sửa rồi nhập lại
+      const wb2 = new ExcelJS.Workbook(), ws2 = wb2.addWorksheet("Du lieu"), xf2 = path.join(D9, "loi-doi-chieu.xlsx");
+      ws2.getRow(1).values = ["Ngày", "Mã NV", "Số suất cơm"]; ws2.getRow(2).values = ["2026-10-25", "A", 2]; ws2.getRow(3).values = ["2026-10-26", "B", "hai"]; ws2.getRow(4).values = ["2026-10-27", "KHONGCO", 1];
+      await w.click("#nav button[data-k=tiencom]");
+      const [f2] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Nhập Excel")').first().click()]); await f2.setFiles((fs.writeFileSync(xf2, new Uint8Array(await wb2.xlsx.writeBuffer())), xf2)); await w.waitForSelector(".dlg", { timeout: 15000 });
+      const pv2 = (await w.locator(".dlg").innerText()).replace(/\s+/g, " ");
+      ok("Xem trước: có cột 'Cách sửa' nêu việc cần làm cho dòng chữ ở Số suất cơm và mã NV lạ", /Cách sửa/.test(pv2) && /Nhập số \(ví dụ 2/.test(pv2) && /Thêm nhân viên này ở màn Nhân sự/.test(pv2), pv2.slice(0, 700));
+      ok("Xem trước: bảng 'Đối chiếu với file nguồn' — 3 dòng trong file, tổng suất cơm \"file 3 = ghi 2 + gộp 0 + không ghi 1\"", /Đối chiếu với file nguồn/.test(pv2) && /Dòng trong file/.test(pv2) && /Số suất cơm: file 3 = ghi 2 \+ gộp 0 \+ không ghi 1/.test(pv2), pv2.slice(0, 900));
+      const dl2 = path.join(D9, "downloads"), had2 = fs.existsSync(dl2) ? fs.readdirSync(dl2) : [];
+      await w.click('.dlg button:has-text("Tải file lỗi để sửa")'); let xl2 = null; for (let i = 0; i < 40 && !xl2; i++) { const f = fs.existsSync(dl2) ? fs.readdirSync(dl2).filter((x) => /LoiNhapExcel.*\.xlsx$/i.test(x) && !had2.includes(x)) : []; if (f.length) xl2 = path.join(dl2, f[0]); else await w.waitForTimeout(250); }
+      ok("Tải được file lỗi để sửa (.xlsx)", !!xl2);
+      if (xl2) {
+        const eb = new ExcelJS.Workbook(); await eb.xlsx.load(fs.readFileSync(xl2)); const es = eb.worksheets[0], hdr = []; es.getRow(1).eachCell((c) => hdr.push(String(c.value))); const body = []; es.eachRow((r, n) => { if (n > 1) { const o = {}; r.eachCell((c, i) => { o[hdr[i - 1]] = c.value; }); body.push(o); } });
+        ok("File lỗi: đúng cột của bảng + Dòng Excel/Lỗi/Cách sửa; chỉ 2 dòng lỗi (chữ 'hai', mã lạ), giữ giá trị sai để sửa", hdr.slice(-3).join("|") === "Dòng Excel|Lỗi|Cách sửa" && hdr.includes("Số suất cơm") && body.length === 2 && body.some((r) => String(r["Số suất cơm"]) === "hai" && r["Dòng Excel"] === 3 && /Nhập số/.test(String(r["Cách sửa"]))) && body.some((r) => r["Mã NV"] === "KHONGCO"), JSON.stringify(hdr) + JSON.stringify(body));
+        // sửa rồi nhập lại bằng chính chức năng Nhập Excel (cột thêm bị bỏ qua)
+        body.forEach((r) => { if (String(r["Số suất cơm"]) === "hai") r["Số suất cơm"] = 2; if (r["Mã NV"] === "KHONGCO") r["Mã NV"] = "B"; });
+        const wb3 = new ExcelJS.Workbook(), ws3 = wb3.addWorksheet("Du lieu"), xf3 = path.join(D9, "da-sua.xlsx"); ws3.getRow(1).values = hdr; body.forEach((r, i) => { ws3.getRow(2 + i).values = hdr.map((h) => r[h]); }); fs.writeFileSync(xf3, new Uint8Array(await wb3.xlsx.writeBuffer()));
+        await w.click('.dlg button:has-text("Hủy")'); await w.click("#nav button[data-k=tiencom]");
+        const [f3] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Nhập Excel")').first().click()]); await f3.setFiles(xf3); await w.waitForSelector(".dlg", { timeout: 15000 });
+        const pv3 = (await w.locator(".dlg").innerText()).replace(/\s+/g, " "); ok("File lỗi đã sửa nhập lại được ngay: 2 dòng ghi được, không còn dòng lỗi (không còn cột Cách sửa)", /Ghi 2 dòng/.test(pv3) && !/Cách sửa/.test(pv3), pv3.slice(0, 500));
+      }
+      await w.click('.dlg button:has-text("Hủy")').catch(() => {});
+    }
     ok("Nhập Excel nhiều kỳ: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
     await app.close();
   }
