@@ -80,6 +80,14 @@ test("U-SNAP-03 từ chối bản chụp không hợp lệ: hỏng, schema MỚI
   fs.rmSync(snap(dir)); const s = createSqliteStorage(dir, opts); assert.equal(s.restoreFromSnapshot("x").ok, false); s.close(); // không có bản chụp
 });
 
+test("U-SNAP-04b lớp lưu trữ TỰ từ chối khôi phục khi kho đang lành (không phụ thuộc IPC): dữ liệu và file không đổi, không cất/đổi gì", () => {
+  const { dir, v2 } = setup(); const s = createSqliteStorage(dir, opts); assert.equal(s.load().ok, true);
+  const before = fs.readdirSync(dir).sort().join(",");
+  const r = s.restoreFromSnapshot("x"); assert.equal(r.ok, false); assert.match(r.error, /đang mở bình thường/);
+  assert.equal(JSON.parse(s.load().text).nhanvien.length, v2.nhanvien.length, "dữ liệu mới nhất còn nguyên"); assert.equal(fs.readdirSync(dir).sort().join(","), before, "không tạo/cất file"); s.close();
+  assert.equal(kept(dir, /truoc-khoi-phuc|restore-pending|khoi-phuc-moi/).length, 0);
+});
+
 test("U-SNAP-04 kho đang mở bình thường: needsRecovery = false (giao diện/IPC không cho khôi phục đè dữ liệu tốt)", () => {
   const { dir } = setup(); const s = createSqliteStorage(dir, opts); assert.equal(s.load().ok, true); assert.equal(s.needsRecovery(), false); s.close();
 });
