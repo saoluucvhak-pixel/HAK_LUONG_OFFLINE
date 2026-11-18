@@ -64,3 +64,6 @@ Test: `tests/unit/import-bad-cases.test.js` (không còn `todo`), `tests/unit/su
 
 ## 6. Chưa kiểm
 Nhập tay/dán, nhân sự/danh mục/cấp phát, mất bản nháp khi đóng app/chuyển màn (009-C); giao diện thật (chỉ kiểm lớp `core` + `REPO` + `txn` thật của app); Windows thật; file Excel thật nhiều sheet/ô gộp/công thức (test dùng mảng đã đọc, không đọc `.xlsx`); "nhân viên đổi tổ giữa tháng" ở luồng nhập (chưa có ca riêng; bộ lọc phòng ban theo ngày đã có test ở F01).
+
+## 7. Chống trùng theo khóa chuẩn hóa (013-B, v2.0.44)
+Mọi đường ghi (nhập Excel, nhập tay, dán, `input-safety` khi tính lương) so khóa nghiệp vụ bằng `nearKey` (NFKC, bỏ khoảng trắng/gạch nối, HOA): `nv01`/`NV 01`/`ＮＶ01`/`NV-01` là cùng một Mã NV; `pc-001`/`PC - 001` cùng một phiếu. Nhập Excel hiện **"Nghi trùng (không ghi)"**; nhập tay bị chặn (`dup`). Dữ liệu cũ đã lỡ trùng được liệt kê ở "Kiểm tra dữ liệu" (chỉ báo). Ca kiểm: `tests/unit/dedupe-near-key.test.js` (20 ca) + E2E `sqlite-default` bước 9.
