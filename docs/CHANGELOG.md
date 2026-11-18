@@ -3,6 +3,12 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.32] — 18/11/2026
+- **Nhập Excel:** ô/dòng chỉ có khoảng trắng là trống (trước đây thành `0` hoặc dòng rác).
+- **SQLite lược đồ v2:** ràng buộc CHECK cho `records` (json hợp lệ, rev ≥ 1, id/tbl không rỗng); nâng từ v1 giữ nguyên dữ liệu. Bản ≤ 2.0.31 sẽ từ chối mở kho v2 (dùng `HAK_STORAGE=json` hoặc cài lại bản mới).
+- **Bản chụp SQLite xoay vòng** `backups/data-snapshot.sqlite` kèm mỗi bản sao lưu thành công (đã kiểm integrity_check).
+- Thêm test đối chiếu bảng ↔ dòng xuất ↔ HTML in sau lọc cho 9 loại báo cáo lương.
+
 ## [2.0.31] — 18/11/2026
 - **C01:** bộ lọc/tổng không còn loại nhầm dòng dữ liệu thật có tên bắt đầu bằng "TỔNG"; dòng tổng được đánh dấu bằng thuộc tính nội bộ.
 - Thêm `docs/SCREEN_ACCEPTANCE_MATRIX.md`, `docs/REPORT_CATALOG_AND_PARITY.md` (mục chưa kiểm ghi CHƯA KIỂM).
