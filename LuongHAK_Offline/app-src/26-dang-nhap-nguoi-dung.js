@@ -204,6 +204,16 @@
     c.appendChild(h("div", { class: "warn", html: esc(loadError.error) + "<br>App <b>chưa ghi đè</b> file này. Hãy khôi phục từ một bản sao lưu bên dưới, hoặc từ file sao lưu bạn đã cất (USB/Drive)." }));
     var bar = h("div", { class: "bar" });
     bar.appendChild(btn("⬆ Khôi phục từ file…", "pri", function () { var f = h("input", { type: "file", accept: ".json" }); f.addEventListener("change", function () { var fr = new FileReader(); fr.onload = function () { restoreFromText(fr.result, f.files[0].name, { quarantine: true }); }; fr.readAsText(f.files[0]); }); f.click(); }));
+    var sn = loadError.snapshot;
+    if (sn && sn.exists) {
+      c.appendChild(h("div", { class: sn.ok ? "hint" : "warn", "data-snapshot": sn.ok ? "ok" : "bad", text: sn.ok ? "Bản chụp SQLite gần nhất: " + fmtTime(sn.mtime) + ", " + sn.records + " dòng dữ liệu, " + Math.round(sn.size / 1024) + " KB. Đã kiểm hợp lệ." : "Có bản chụp SQLite nhưng KHÔNG dùng được: " + (sn.error || "") }));
+      if (sn.ok && store && store.restoreSnapshot) bar.appendChild(btn("⬆ Khôi phục từ bản chụp SQLite", "pri", function () {
+        if (!confirm("KHÔI PHỤC từ bản chụp SQLite (" + fmtTime(sn.mtime) + ", " + sn.records + " dòng).\n\nDữ liệu thay đổi SAU thời điểm này sẽ không có trong bản chụp. File dữ liệu hiện tại KHÔNG bị xóa: được cất cạnh với tên có 'truoc-khoi-phuc'. Tiếp tục?")) return;
+        var r = store.restoreSnapshot();
+        if (r && r.ok) { alert("Đã khôi phục từ bản chụp SQLite: " + r.records + " dòng (trước đó: " + (r.before == null ? "không đọc được" : r.before) + "). File cũ được cất: " + (r.kept || []).join(", ")); window.location.reload(); }
+        else alert("Không khôi phục được: " + ((r && r.error) || "không rõ lý do"));
+      }));
+    }
     if (store) bar.appendChild(btn("📂 Mở thư mục dữ liệu", "", function () { store.openFolder(); }));
     bar.appendChild(btn("Bắt đầu với dữ liệu trống", "red", function () {
       if (!confirm("Cất file hỏng sang tên khác (KHÔNG xóa) và bắt đầu với dữ liệu trống?")) return;

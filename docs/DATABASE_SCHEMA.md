@@ -10,7 +10,7 @@ Kết nối: `foreign_keys=ON`, `journal_mode=WAL`, `synchronous=FULL`, `busy_ti
 
 **Quay lui:** app ≤ v2.0.31 mở `data.sqlite` v2 sẽ báo "mới hơn app" và KHÔNG ghi đè; dùng `HAK_STORAGE=json` để chạy tiếp trên `data.json` đã xuất, hoặc cài lại bản mới.
 
-**Bản chụp SQLite xoay vòng:** mỗi lần sao lưu JSON thành công, app ghi thêm `backups/data-snapshot.sqlite` (`VACUUM INTO`, kiểm `integrity_check` và số dòng trước khi thay file cũ). Chỉ là bản bổ sung để hỗ trợ kỹ thuật; app CHƯA có nút khôi phục từ file này.
+**Bản chụp SQLite xoay vòng:** mỗi lần sao lưu JSON thành công, app ghi thêm `backups/data-snapshot.sqlite` (`VACUUM INTO`, kiểm `integrity_check` và số dòng trước khi thay file cũ). Từ v2.0.36 app **khôi phục được từ file này** khi `data.sqlite` hỏng/mất (màn hình khôi phục, nút "Khôi phục từ bản chụp SQLite"): bản chụp phải qua kiểm tra (kho HAK, schema ≤ app, `integrity_check`, `foreign_key_check`, số dòng khớp), dữ liệu hiện có được cất sang `data.sqlite.truoc-khoi-phuc-<ngày-giờ>`, thay nguyên tử qua marker `data.sqlite.restore-pending`. Không đổi lược đồ. Bản chụp chưa nằm trong gói Full Backup (thiết kế chờ duyệt: `docs/handoff/002b-snapshot-trong-goi-full-backup.md`).
 
 | Bảng SQLite | Cột | Vai trò |
 |---|---|---|

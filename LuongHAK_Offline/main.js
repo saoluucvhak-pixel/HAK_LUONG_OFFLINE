@@ -133,6 +133,15 @@ function registerIpc() {
   ipcMain.on("store-list", (e) => { try { e.returnValue = storage.list(); } catch (err) { e.returnValue = []; } });
   ipcMain.on("store-verify", (e) => { try { e.returnValue = storage.verifyAll(); } catch (err) { e.returnValue = []; } });
   ipcMain.on("store-read", (e, name) => { try { e.returnValue = storage.readBackup(name); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
+  // Khôi phục từ bản chụp SQLite: CHỈ khi kho không mở được (màn hình khôi phục, chưa đăng nhập — cùng quy ước với khôi phục từ file khi dữ liệu hỏng); kho đang mở bình thường thì từ chối
+  ipcMain.on("store-snapshot-info", (e) => { try { e.returnValue = storage.snapshotInfo ? storage.snapshotInfo() : { exists: false, ok: false, error: "Chế độ lưu này không có bản chụp SQLite." }; } catch (err) { e.returnValue = { exists: false, ok: false, error: String(err.message || err) }; } });
+  ipcMain.on("store-restore-snapshot", (e) => {
+    try {
+      if (yearBusy || fbJob || (restorer && restorer.busy())) { e.returnValue = { ok: false, error: "Đang có thao tác dữ liệu khác; vui lòng chờ" }; return; }
+      if (!storage.restoreFromSnapshot || !storage.needsRecovery()) { e.returnValue = { ok: false, error: "Chỉ khôi phục từ bản chụp khi kho dữ liệu không mở được." }; return; }
+      const r = storage.restoreFromSnapshot("(màn hình khôi phục, chưa đăng nhập)"); wpol = null; e.returnValue = r;
+    } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
+  });
   ipcMain.on("store-quarantine", (e) => { if(yearBusy){e.returnValue=null;return;} try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
   // Xuất PDF báo cáo: giao diện gửi HTML (đã escape) + TÊN file; đường dẫn lưu do tiến trình chính quyết (thư mục xuất, không ghi đè)
   ipcMain.handle("report-pdf", guarded("export", async (e, payload) => {

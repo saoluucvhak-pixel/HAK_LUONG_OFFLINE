@@ -65,6 +65,32 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   ({ app, w, errs } = await launch(D, { HAK_STORAGE: "json" })); const rb = await w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.map((r) => r["Mã NV"]));
   ok("Quay lui HAK_STORAGE=json: đọc được data.json đã xuất, đủ 0099 và 0100", rb.includes("0099") && rb.includes("0100"));
   await app.close();
+  // 6. data.sqlite bị hỏng → màn hình khôi phục → khôi phục TỪ BẢN CHỤP SQLite (chỉ đạo 002)
+  ({ app, w, errs } = await launch(D)); await login(w);
+  const bk = await w.evaluate(() => window.hakStore.backup("thu-ban-chup")); // sao lưu JSON thành công → app ghi backups/data-snapshot.sqlite
+  const snapFile = path.join(D, "backups", "data-snapshot.sqlite");
+  ok("Sao lưu thành công và có bản chụp SQLite", !!bk && fs.existsSync(snapFile));
+  const nvSnap = sqliteNv(D).length;
+  await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0101','Họ và tên':'Sau bản chụp'});");
+  ok("Có thêm 0101 SAU bản chụp (bản chụp không có)", sqliteNv(D).includes("0101") && sqliteNv(D).length === nvSnap + 1);
+  await app.close(); await sleep(500);
+  const goodDb = fs.readFileSync(path.join(D, "data.sqlite")); fs.truncateSync(path.join(D, "data.sqlite"), 200); for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(D, "data.sqlite" + x), { force: true });
+  ({ app, w, errs } = await launch(D));
+  const recBtn = 'button:has-text("Khôi phục từ bản chụp SQLite")';
+  await w.waitForSelector(recBtn, { timeout: 15000 });
+  ok("data.sqlite hỏng: màn hình khôi phục hiện nút khôi phục từ bản chụp (bản chụp đã kiểm hợp lệ)", (await w.locator("[data-snapshot=ok]").count()) === 1 && /Không mở được kho dữ liệu SQLite/.test(await w.locator("#main").innerText()));
+  const dlg = []; w.removeAllListeners("dialog"); w.on("dialog", (x) => { dlg.push(x.message().slice(0, 300)); x.accept().catch(() => {}); }); // ghi lại thông báo để chẩn đoán nếu khôi phục không thành
+  await w.click(recBtn);
+  try { await w.waitForSelector("#main input[data-f=u]", { timeout: 20000 }); } catch (e) { console.log("HỘP THOẠI: " + JSON.stringify(dlg) + " | thư mục: " + fs.readdirSync(D).join(",")); throw e; }
+  await login(w);
+  const nvAfter = sqliteNv(D);
+  ok("Khôi phục xong: dữ liệu = bản chụp (đủ 0099/0100, KHÔNG có 0101), số nhân viên đúng", nvAfter.length === nvSnap && nvAfter.includes("0100") && !nvAfter.includes("0101"), nvAfter.length + "/" + nvSnap);
+  ok("Bản data.sqlite hỏng được cất, data.json cũ cũng được cất", fs.readdirSync(D).some((f) => /^data\.sqlite\.truoc-khoi-phuc-/.test(f)) && fs.readdirSync(D).some((f) => /^data\.json\.truoc-khoi-phuc-/.test(f)) && !fs.existsSync(path.join(D, "data.sqlite.restore-pending")));
+  const aud = await w.evaluate(() => JSON.parse(window.hakStore.load().text).auditlog.filter((x) => x.thaoTac === "Khôi phục từ bản chụp SQLite").length);
+  ok("Nhật ký kiểm toán có đúng 1 dòng 'Khôi phục từ bản chụp SQLite'", aud === 1, String(aud));
+  const savedAgain = await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0102','Họ và tên':'Sau khôi phục'});");
+  ok("Ghi tiếp sau khôi phục được; không lỗi JavaScript", savedAgain === true && sqliteNv(D).includes("0102") && errs.length === 0, String(savedAgain) + " " + errs.join("|"));
+  await app.close(); void goodDb;
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });
