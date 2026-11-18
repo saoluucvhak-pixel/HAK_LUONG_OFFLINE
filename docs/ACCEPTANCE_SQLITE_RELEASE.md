@@ -100,7 +100,7 @@ Thiết kế: `save()` kiểm hợp lệ (phân tích một lần) → bảo v�
 | Nhóm | Trạng thái | Bằng chứng / còn thiếu |
 |---|---|---|
 | Lỗi đã biết | **Đạt** | C01 (6 ca, tái hiện trước khi sửa: `docs/v2.0.31/`), hồi quy F01/F02/A01/A02 còn trong bộ test; ô trống nhập Excel (`importer-blank-cells`) |
-| Import | Một phần | Lặp file, Total/phiếu thật, mã Text, ô trống: có test. Chưa có ca tự động đủ "nhiều kỳ + bổ sung/thay thế" cho mọi bảng |
+| Import | Một phần | Lặp file, Total/phiếu thật, mã Text, ô trống: có test. **Nhiều kỳ (kỳ chốt + kỳ mở) cho 6 bảng nhập liệu theo tháng: đạt ở tầng dữ liệu (35 ca) và giao diện thật (25 ca) — `docs/IMPORT_MULTI_PERIOD_MATRIX.md`.** Chưa: bảng nhân sự/danh mục theo ngày hiệu lực trong ma trận này, nhập qua OCR, file nhiều sheet nhiều kỳ, Windows thật |
 | Ghi dữ liệu | Một phần | Thành công chỉ sau commit, hoàn tác nhiều bảng (`txn`), tiêm lỗi đĩa/SQLite, kill sau lưu: có (E2E). Save nhanh/chuyển màn: `*-stability`. Delta từ giao diện: chưa (chỉ thiết kế) |
 | Hiệu lực | Một phần | Test hồi quy hiện có đạt; chưa rà lại từng ca ma trận trong đợt này |
 | Nghiệp vụ | Một phần | Như trên |
