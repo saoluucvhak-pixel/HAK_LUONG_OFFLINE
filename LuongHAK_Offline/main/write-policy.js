@@ -197,10 +197,24 @@ function createPolicy(opts) {
   const sigOf = opts.sigOf || (() => "");   // () → "mtime:size" của file dữ liệu
   const gate = opts.gate || null;           // { blockers(db, ky, o) }
   let st = null, pending = null;
+  // Bản CŨ (đang lưu) chỉ đọc + phân tích MỘT lần cho mỗi "sig" (trước đây mỗi lần kiểm ghi đọc/phân tích lại tới ~6 lần, 9,5 MB ở 5.000 NV).
+  // Các hàm kiểm tra CHỈ ĐỌC đối tượng này; test deep-freeze (opts.freezeOld) chứng minh điều đó.
+  let oldMemo = null;
+  function oldState() {
+    const sig = sigOf();
+    if (oldMemo && oldMemo.sig === sig) return oldMemo;
+    const text = readText(); let obj = null, err = null;
+    if (text) { try { obj = JSON.parse(text); if ((opts.freezeOld || process.env.HAK_POLICY_FREEZE_OLD === "1") && obj && typeof obj === "object") deepFreeze(obj); } catch (e) { err = e; } }
+    oldMemo = { sig, text, obj, err };
+    return oldMemo;
+  }
+  /** null nếu chưa có dữ liệu cũ; ném lỗi nếu bản cũ không phân tích được (giống JSON.parse trước đây). */
+  function oldObj() { const m = oldState(); if (m.err) throw m.err; return m.obj; }
+  function deepFreeze(o) { Object.freeze(o); for (const k of Object.keys(o)) { const v = o[k]; if (v && typeof v === "object" && !Object.isFrozen(v)) deepFreeze(v); } return o; }
 
   /** Số dòng danh mục giảm đi → các dòng bị mất mà mã (cột bắt đầu bằng "Mã") còn xuất hiện trong bản chốt kỳ lương thì không được xóa. */
   function dmRemoval(t, next) {
-    let prevObj = null; try { prevObj = JSON.parse(readText() || "null"); } catch (e) { prevObj = null; }
+    let prevObj = null; try { prevObj = oldObj(); } catch (e) { prevObj = null; }
     if (!prevObj) return "";
     const pr = Array.isArray(prevObj[t]) ? prevObj[t] : [], nx = Array.isArray(next[t]) ? next[t] : [];
     if (nx.length >= pr.length) return "";
@@ -224,8 +238,8 @@ function createPolicy(opts) {
   function ensurePrev() {
     const sig = sigOf();
     if (st && st.sig === sig) return st;
-    const t = readText(); st = null;
-    if (t) { try { st = Object.assign({ sig }, snapshot(JSON.parse(t))); } catch (e) { st = null; } }
+    st = null;
+    try { const o = oldObj(); if (o) st = Object.assign({ sig }, snapshot(o)); } catch (e) { st = null; }
     return st;
   }
   /**
@@ -236,11 +250,11 @@ function createPolicy(opts) {
    */
   function check(text, who, opts) {
     pending = null;
-    let next; try { next = JSON.parse(text); } catch (e) { return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" }; }
+    let next; try { next = opts && opts.parsed ? opts.parsed : JSON.parse(text); } catch (e) { return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" }; }
     if (!next || typeof next !== "object" || Array.isArray(next)) return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" };
     const prev = ensurePrev(), nx = snapshot(next);
-    try { const oldText = readText(); require("../core/production-carry.js").validate(next, opts && opts.restoring ? null : oldText ? JSON.parse(oldText) : null); } catch (e) { return {ok:false,error:String(e.message||e)}; }
-    try { require("../core/input-review.js").validate(next); var old = readText(); if (old && JSON.parse(old).schemaVersion >= 5 && !(next.schemaVersion >= 5) && !(opts && opts.restoring)) throw Error("Không được hạ cấu trúc dữ liệu lưu nhập liệu"); } catch (e) { return {ok:false,error:e.message}; }
+    try { require("../core/production-carry.js").validate(next, opts && opts.restoring ? null : oldObj()); } catch (e) { return {ok:false,error:String(e.message||e)}; }
+    try { require("../core/input-review.js").validate(next); var old = oldObj(); if (old && old.schemaVersion >= 5 && !(next.schemaVersion >= 5) && !(opts && opts.restoring)) throw Error("Không được hạ cấu trúc dữ liệu lưu nhập liệu"); } catch (e) { return {ok:false,error:e.message}; }
     pending = nx;
     if (!prev || !prev.hasUsers) return { ok: true, firstRun: true }; // chưa có dữ liệu / chưa có tài khoản: thiết lập ban đầu
     const changed = Object.keys(nx.tables).filter((k) => prev.tables[k] !== nx.tables[k]).concat(Object.keys(prev.tables).filter((k) => !(k in nx.tables)));
@@ -250,7 +264,7 @@ function createPolicy(opts) {
     // Khôi phục Full Backup đang chạy (main giữ khóa restore sau bước COMMIT tài sản): thay toàn bộ dữ liệu — chỉ Admin có quyền khôi phục + quản trị
     if (opts && opts.restoring && who && has("backup.restore") && has("system.admin")) return { ok: true, restoring: true };
     const deny = (m) => ({ ok: false, error: "Tiến trình chính từ chối ghi: " + m });
-    const saved = JSON.parse(readText() || "{}");
+    const saved = oldObj() || {};
     if (changed.includes("workflowSettings")) {
       const config = (next.workflowSettings || [])[0];
       if (!has("system.admin") || !Array.isArray(next.workflowSettings) || next.workflowSettings.length !== 1 ||
@@ -358,26 +372,26 @@ function createPolicy(opts) {
         const why = dmRemoval(t, next); if (why) return deny(why);
       }
       if (t === "ttluong") { // dòng chứng từ đã thanh toán là bất biến (chỉ được thêm chứng từ mới / chuyển trạng thái chưa thanh toán)
-        let pv = null; try { pv = JSON.parse(readText() || "null"); } catch (e) { pv = null; }
+        let pv = null; try { pv = oldObj(); } catch (e) { pv = null; }
         const pr = pv && Array.isArray(pv.ttluong) ? pv.ttluong : [], nxl = Array.isArray(next.ttluong) ? next.ttluong : [];
         const have = {}; nxl.forEach((r) => { const k = h(r); have[k] = (have[k] || 0) + 1; });
         const lost = pr.filter((r) => r && r["Trạng thái"] === "Đã thanh toán").filter((r) => { const k = h(r); if (have[k]) { have[k]--; return false; } return true; });
         if (lost.length) return deny("chứng từ đã thanh toán là bất biến (" + lost.length + " dòng bị sửa/xóa)");
       }
       if (t === "nghiepvu_nhansu" || t === "ttluong") {
-        let pv0 = null; try { pv0 = JSON.parse(readText() || "null"); } catch (e) { pv0 = null; }
+        let pv0 = null; try { pv0 = oldObj(); } catch (e) { pv0 = null; }
         const why = t === "ttluong" ? checkTtluong(pv0, next, who) : checkNghiepVuNS(pv0, next, who);
         if (why) return deny(why);
       }
       if (t === "dm_congthuc") {
-        let pv1 = null; try { pv1 = JSON.parse(readText() || "null"); } catch (e) { pv1 = null; }
+        let pv1 = null; try { pv1 = oldObj(); } catch (e) { pv1 = null; }
         const why = checkCongThuc(pv1, next, who); if (why) return deny(why);
       }
       const need = permsFor(t);
       if (!need.some(has)) return deny("vai trò hiện tại không có quyền sửa bảng '" + t + "' (cần " + need.join(" hoặc ") + ")");
     }
     if (changed.includes("chamcong")) {
-      const prior = JSON.parse(readText() || "{}").chamcong || [];
+      const prior = (oldObj() || {}).chamcong || [];
       const leave = require("../core/leave-reconciliation.js");
       const unchanged = new Map();
       const byId = new Map(prior.filter(row => row._id).map(row => [row._id, row]));
@@ -392,7 +406,7 @@ function createPolicy(opts) {
       }
     }
     if (changed.includes("nghiphep") || changed.includes("nghiepvu_nhansu")) {
-      const prior = JSON.parse(readText() || "{}");
+      const prior = oldObj() || {};
       const leave = require("../core/leave-reconciliation.js");
       for (const table of ["nghiphep", "nghiepvu_nhansu"].filter(t => changed.includes(t))) {
         const previous = new Map();
@@ -410,8 +424,8 @@ function createPolicy(opts) {
     return { ok: true };
   }
   /** Gọi sau khi storage.save thành công */
-  function commit() { if (pending) { st = Object.assign({ sig: sigOf() }, pending); } pending = null; }
-  function reset() { st = null; pending = null; }
+  function commit() { oldMemo = null; if (pending) { st = Object.assign({ sig: sigOf() }, pending); } pending = null; }
+  function reset() { st = null; pending = null; oldMemo = null; }
   return { check, commit, reset, permsFor };
 }
 function fileSig(file) { return () => { try { const s = fs.statSync(file); return s.mtimeMs + ":" + s.size; } catch (e) { return ""; } }; }

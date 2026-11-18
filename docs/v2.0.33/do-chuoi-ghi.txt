@@ -1,0 +1,6 @@
+N=5000 (đường cũ) ms: parse 0 policy 172 years 93 save 143 TỔNG 407
+N=5000 (đường mới) ms: parse 47 policy 110 years 46 save 86 TỔNG 290
+N=1000 (đường cũ) ms: parse 0 policy 32 years 17 save 27 TỔNG 77
+N=1000 (đường mới) ms: parse 7 policy 20 years 7 save 22 TỔNG 57
+
+Ghi chú: dòng "đường cũ" của script vẫn dùng bộ nhớ đệm bản cũ trong policy (đã sửa), nên thấp hơn v2.0.32 thực (≈420–450 ms đo trước khi sửa ở 5.000 NV). Linux 4 vCPU, Node 22, dữ liệu giả, trung vị 7 lần sửa 1 ô.

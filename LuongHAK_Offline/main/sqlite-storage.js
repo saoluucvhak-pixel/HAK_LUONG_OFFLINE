@@ -150,9 +150,9 @@ function createSqliteStorage(dir, opts) {
     return { ok: true, text: cur.text };
   }
 
-  function save(text) {
+  function save(text, parsed) {
     try {
-      let next = null; try { next = typeof text === "string" ? JSON.parse(text) : null; } catch (e) { next = null; } // phân tích MỘT lần: vừa kiểm hợp lệ vừa dùng để so sánh
+      let next = null; try { next = typeof text === "string" ? (parsed && typeof parsed === "object" ? parsed : JSON.parse(text)) : null; } catch (e) { next = null; } // phân tích MỘT lần: vừa kiểm hợp lệ vừa dùng để so sánh
       if (!next || typeof next !== "object" || Array.isArray(next)) return "Dữ liệu cần lưu không hợp lệ — đã hủy ghi để bảo vệ dữ liệu hiện tại";
       if (conflict) return conflict;
       if (!cur) { const r = init(); if (!r.ok) return r.error; }

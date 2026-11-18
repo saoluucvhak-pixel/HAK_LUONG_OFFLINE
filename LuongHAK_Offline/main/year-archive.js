@@ -102,7 +102,10 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
     next.auditlog=[...(db.auditlog||[]),{luc:now().toISOString(),nguoi:String(user||''),thaoTac:'Đưa hồ sơ năm về vùng đang làm',chiTiet:year+': '+String(reason).trim()}];
     saveChecked(next);cache=null;return {ok:true,backupName};
   }
-  function checkWrite(text,restoring=false){const next=JSON.parse(text),prev=current().db;
+  let prevMemo=null;
+  /** Bản đang lưu phân tích một lần cho mỗi sig của kho (checkWrite chạy ở MỌI lần lưu); không có sig thì đọc lại như cũ. */
+  function prevDb(){const sg=storage.sig?storage.sig():null;if(sg&&prevMemo&&prevMemo.sig===sg)return prevMemo.db;const db=current().db;prevMemo=sg?{sig:sg,db}:null;return db;}
+  function checkWrite(text,restoring=false,parsed=null){const next=parsed||JSON.parse(text),prev=prevDb();
     if(refs(next).length&&!(next.schemaVersion>=3))throw Error('Dữ liệu có kho năm không được hạ phiên bản cấu trúc');
     if(!restoring && JSON.stringify(next._yearArchives||[])!==JSON.stringify(prev._yearArchives||[]))throw Error('Không được sửa danh sách kho năm qua thao tác lưu thường');
     for(const ref of refs(next).filter(r=>r.active)){

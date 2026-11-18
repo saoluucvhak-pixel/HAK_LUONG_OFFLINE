@@ -3,6 +3,10 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.33] — 18/11/2026
+- **Đường ghi dữ liệu giai đoạn 1:** phân tích văn bản lưu MỘT lần và bản cũ MỘT lần cho mỗi lần lưu (trước đây ~6 lần phân tích 9,5 MB). Chuỗi ghi của tiến trình chính ở 5.000 NV: ≈420–450 ms → ≈290 ms. KHÔNG đổi quy tắc kiểm ghi, nội dung lỗi hay thứ tự kiểm; chứng minh bằng test tương đương và deep-freeze toàn bộ test.
+- Thêm `docs/WRITE_PATH_DELTA_DESIGN.md`: số đo, thiết kế delta (giai đoạn 2) và tiêu chí nghiệm thu. Giai đoạn 2 CHƯA làm.
+
 ## [2.0.32] — 18/11/2026
 - **Nhập Excel:** ô/dòng chỉ có khoảng trắng là trống (trước đây thành `0` hoặc dòng rác).
 - **SQLite lược đồ v2:** ràng buộc CHECK cho `records` (json hợp lệ, rev ≥ 1, id/tbl không rỗng); nâng từ v1 giữ nguyên dữ liệu. Bản ≤ 2.0.31 sẽ từ chối mở kho v2 (dùng `HAK_STORAGE=json` hoặc cài lại bản mới).
