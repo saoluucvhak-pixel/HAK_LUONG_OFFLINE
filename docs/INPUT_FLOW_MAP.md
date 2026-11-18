@@ -55,7 +55,7 @@ Chú thích đối chiếu với đề bài: **tăng ca** không phải bảng r
 - **009-3:** số tiền âm ở Tạm ứng/Thưởng/Thu nhập khác/Trừ khác: nay **cảnh báo** (không chặn).
 Test: `tests/unit/import-bad-cases.test.js` (không còn `todo`), `tests/unit/suat-com-liet-ke.test.js`, E2E `sqlite-default` bước 9.
 
-## 5. Mục 3 và 5 của đề bài — ĐÃ LÀM ở v2.0.41 (009-B)
+## 5. Mục 3 và 5 của đề bài — ĐÃ LÀM ở v2.0.43 (009-B)
 - Bản xem trước có cột **Cách sửa**, bảng **Đối chiếu với file nguồn** (dòng và tổng cột số: file = ghi + gộp + không ghi) và nút **⬇ Tải file lỗi để sửa & nhập lại** (xem `docs/releases/v2.0.41.md`).
 
 ### (trạng thái trước 009-B, giữ để đối chiếu)

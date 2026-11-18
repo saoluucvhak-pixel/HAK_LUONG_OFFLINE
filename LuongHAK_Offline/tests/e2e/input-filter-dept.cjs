@@ -115,6 +115,48 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
     ok("Smart Filter các màn: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
+  // ===== 009-C (issue #98 mục 4): KHÔNG MẤT việc đang làm khi đóng app / chuyển màn — nhập tay, dán, bản nháp danh mục, bản xem trước nhập Excel =====
+  {
+    const ExcelJS = require("../../exceljs.min.js"), D3 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-009c-")); fs.mkdirSync(path.join(D3, "downloads"));
+    const d3 = fixture(); d3.auditlog = []; d3.baomat = []; d3.schemaVersion = 2; d3.tiencom = []; d3.nguoidung = [account("admin", "Quản trị giả", "admin")];
+    createStorage(D3).save(JSON.stringify(d3));
+    let answer = true; const useDialogs = () => { w.removeAllListeners("dialog"); w.on("dialog", (x) => (answer ? x.accept() : x.dismiss())); };
+    const rowsOf = (t) => w.evaluate((tb) => (JSON.parse(window.hakStore.load().text)[tb] || []), t);
+    const reopen = async () => { await app.close(); ({ app, w, errs } = await launch(D3)); await login(w, "admin"); useDialogs(); };
+    ({ app, w, errs } = await launch(D3)); await login(w, "admin"); useDialogs();
+    // C1 gõ dở trong ô (chưa rời ô) rồi đóng cửa sổ: giá trị phải còn
+    await w.click('#nav button[data-k="tiencom"]'); await w.waitForTimeout(500);
+    await w.locator('#main button:has-text("Thêm dòng")').first().click(); await w.waitForTimeout(600);
+    await w.locator("#main table tbody tr").first().locator("input").nth(1).fill("A"); // Mã NV — KHÔNG blur
+    const flushed = await w.evaluate(() => window.hakFlushBeforeClose()); ok("Gõ dở trong ô rồi đóng cửa sổ: cho đóng và đã lưu", flushed === true);
+    await reopen(); let tc = await rowsOf("tiencom"); ok("Mở lại: dòng nhập dở còn, đúng Mã NV đã gõ", tc.length === 1 && tc[0]["Mã NV"] === "A", JSON.stringify(tc));
+    // C2 dán nhiều dòng có ô sai: ô sai KHÔNG vào dữ liệu và có thông báo; dòng đúng được giữ qua đóng/mở lại
+    await w.click('#nav button[data-k="tiencom"]'); await w.waitForTimeout(500);
+    const first = w.locator("#main table tbody tr").first().locator("input").first();
+    await first.evaluate((el) => { const dt = new DataTransfer(); dt.setData("text", "2026-11-05\tB\t2\n2026-11-06\tC\thai\n2026-11-07\tA\t1,5"); el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); });
+    await w.waitForTimeout(700); const body = (await w.locator("body").innerText()).replace(/\s+/g, " ");
+    ok("Dán có ô chữ ở 'Số suất cơm': thông báo nêu ô sai định dạng, KHÔNG dán ô đó", /ô sai định dạng/.test(body), body.slice(-300));
+    await reopen(); tc = await rowsOf("tiencom");
+    ok("Sau dán rồi đóng/mở lại: không có chữ 'hai' trong dữ liệu; các dòng đúng còn", !tc.some((r) => String(r["Số suất cơm"]) === "hai") && tc.some((r) => r["Mã NV"] === "B" && String(r["Số suất cơm"]) === "2"), JSON.stringify(tc.map((r) => [r["Ngày"], r["Mã NV"], r["Số suất cơm"]])));
+    // C3 bản nháp danh mục (không tự lưu): chuyển màn hỏi trước; HỦY thì nháp còn; đóng cửa sổ cũng phải hỏi
+    await w.click('#nav button[data-k="dm"]'); await w.waitForTimeout(500);
+    await w.locator('#main button:has-text("Thêm mới")').first().click(); await w.waitForTimeout(500);
+    const dIn = w.locator("#main tr.catedit input").nth(2); await dIn.fill("NHAPDO"); await dIn.press("Tab"); await w.waitForTimeout(300); // ô thứ 3 = "Mã lương" (hai ô đầu là ngày)
+    answer = false; await w.click('#nav button[data-k="home"]'); await w.waitForTimeout(400);
+    ok("Danh mục có nháp chưa lưu: bấm sang màn khác rồi chọn HỦY → ở lại, nháp còn nguyên", (await w.locator("#main tr.catedit").count()) === 1 && (await w.locator("#main tr.catedit input").nth(2).inputValue()) === "NHAPDO");
+    answer = false; const keep = await w.evaluate(() => window.hakFlushBeforeClose());
+    ok("Danh mục có nháp chưa lưu: đóng cửa sổ phải HỎI — chọn Hủy thì giữ cửa sổ (không mất nháp âm thầm)", keep === false, String(keep));
+    answer = true; const go = await w.evaluate(() => window.hakFlushBeforeClose()); ok("Chọn OK thì cho đóng (người dùng chủ động bỏ nháp)", go === true, String(go));
+    // C4 bản xem trước nhập Excel (chưa bấm Ghi) rồi đóng cửa sổ: KHÔNG ghi nửa chừng
+    await reopen(); const before = JSON.stringify(await rowsOf("tiencom"));
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Du lieu"), xf = path.join(D3, "xem-truoc.xlsx"); ws.getRow(1).values = ["Ngày", "Mã NV", "Số suất cơm"]; ws.getRow(2).values = ["2026-11-20", "A", 2]; ws.getRow(3).values = ["2026-11-21", "B", 1];
+    await w.click('#nav button[data-k="tiencom"]'); await w.waitForTimeout(500);
+    const [fc] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Nhập Excel")').first().click()]); await fc.setFiles((fs.writeFileSync(xf, new Uint8Array(await wb.xlsx.writeBuffer())), xf)); await w.waitForSelector(".dlg", { timeout: 15000 });
+    const out = await w.evaluate(() => window.hakFlushBeforeClose()); await reopen();
+    ok("Đóng khi đang xem trước nhập Excel (chưa bấm Ghi): không ghi dòng nào, dữ liệu như cũ", out === true && JSON.stringify(await rowsOf("tiencom")) === before);
+    ok("Nhập dở/dán/nháp: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   // ===== 005 (issue #97): kiểm BỐ CỤC bằng máy cho MỌI màn × 3 cỡ (1366×768, 1920×1080, 1024×768) + hộp thoại tiêu biểu; ảnh vào E2E_SHOTS =====
   {
     const D4 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-ui-")); fs.mkdirSync(path.join(D4, "downloads"));

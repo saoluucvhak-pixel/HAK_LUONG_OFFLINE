@@ -239,6 +239,9 @@
   }
   window.hakFlushBeforeClose = function () {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    // 009-C: danh mục đang có bản nháp CHƯA LƯU (danh mục không tự lưu khi nhập) — hỏi trước khi đóng cửa sổ, không để mất nháp âm thầm.
+    var catDraft = typeof catDirtyKeys === "function" ? catDirtyKeys() : [];
+    if (catDraft.length && !confirm("Có thay đổi CHƯA LƯU ở danh mục " + catDraft.map(function (k) { return (ALL[k] && ALL[k].ten) || k; }).join(", ") + ".\nBấm OK để ĐÓNG ứng dụng và bỏ thay đổi này; bấm Hủy để quay lại lưu.")) return false;
     closingNow = true; var okSave = !dirty || saveNow(); closingNow = false;
     if (okSave) return true;
     // Bản nền cũ (kho đã đổi ở nơi khác): KHÔNG ghi đè; cho đóng nếu người dùng đồng ý bỏ thay đổi chưa lưu của màn hình này, nếu không giữ cửa sổ.
