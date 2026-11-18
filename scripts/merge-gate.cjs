@@ -10,6 +10,9 @@ const REPO = process.env.HAK_REPO || "saoluucvhak-pixel/HAK_LUONG_OFFLINE";
 const SKIPPED_OK = { "publish-release": 1 };
 const FORBIDDEN = [/^\.github\/workflows\//, /^scripts\/check-consolidation\.cjs$/, /^shared-modules\.lock\.json$/, /^LuongHAK_Offline\/core\/importer\.js$/, /^LuongHAK_Offline\/engine\.js$/, /^LuongHAK_Offline\/hr\.js$/, /^LuongHAK_Offline\/core\/integrity\.js$/, /^LuongHAK_Offline\/core\/production-alloc\.js$/];
 const isDocOrTest = (f) => /^docs\//.test(f) || /\.md$/i.test(f) || /^(LuongHAK_Offline\/)?tests\//.test(f);
+/** Phân loại tệp: "docs" (docs/tests/*.md) | "product" (dưới LuongHAK_Offline/, trừ tests và *.md) | "tool" (scripts/, ci/, tệp gốc khác). */
+const kindOf = (f) => (isDocOrTest(f) ? "docs" : /^LuongHAK_Offline\//.test(f) ? "product" : "tool");
+const REQUIRED_JOBS = ["Cú pháp · Lint · Unit/Integration/Regression · Phụ thuộc", "inherited-quality", "consolidation", "workspace-visual", "electron-e2e", "E2E trên Electron thật", "Build bộ cài Windows", "publish-release"];
 const semver = (v) => { const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || "")); return m ? [+m[1], +m[2], +m[3]] : null; };
 const newer = (a, b) => { const x = semver(a), y = semver(b); if (!x || !y) return false; for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
 
@@ -22,23 +25,25 @@ function evaluate(input) {
   const out = [], add = (id, ok, msg) => out.push({ id, ok: !!ok, msg });
   const n = input.number, pr = input.pr || {}, sha = (pr.head && pr.head.sha) || "", files = input.files || [], comments = input.comments || [];
   if (pr.state && pr.state !== "open") add(0, false, "PR không ở trạng thái mở (" + pr.state + (pr.merged ? ", đã gộp" : "") + ")");
-  // 1. CI ở commit cuối
-  const runs = input.checkRuns || [], badRuns = runs.filter((r) => !(r.conclusion === "success" || (r.conclusion === "skipped" && SKIPPED_OK[r.name])));
-  add(1, /^[0-9a-f]{40}$/.test(sha) && runs.length > 0 && badRuns.length === 0, runs.length === 0 ? "chưa có check-run nào ở " + (sha || "(thiếu head.sha)") : badRuns.length ? "CI chưa xanh ở " + sha + ": " + badRuns.map((r) => r.name + "=" + (r.conclusion || r.status)).join(", ") : "CI " + runs.length + "/" + runs.length + " xanh ở " + sha + " (publish-release bị bỏ qua là đúng)");
+  // 1. CI ở commit cuối: ĐỦ job bắt buộc; cùng tên nhiều lần chạy thì lấy lần MỚI NHẤT (completed_at, rồi id)
+  const latest = {}; (input.checkRuns || []).forEach((r) => { const o = latest[r.name], t = Date.parse(r.completed_at || r.started_at || "") || 0, ot = o ? Date.parse(o.completed_at || o.started_at || "") || 0 : -1; if (!o || t > ot || (t === ot && (r.id || 0) > (o.id || 0))) latest[r.name] = r; });
+  const runs = Object.keys(latest).map((k) => latest[k]), missing = REQUIRED_JOBS.filter((n2) => !latest[n2]), badRuns = runs.filter((r) => !(r.conclusion === "success" || (r.conclusion === "skipped" && SKIPPED_OK[r.name])));
+  add(1, /^[0-9a-f]{40}$/.test(sha) && missing.length === 0 && badRuns.length === 0, !runs.length ? "chưa có check-run nào ở " + (sha || "(thiếu head.sha)") : missing.length ? "thiếu job bắt buộc (workflow không chạy đủ?): " + missing.join(", ") : badRuns.length ? "CI chưa xanh ở " + sha + ": " + badRuns.map((r) => r.name + "=" + (r.conclusion || r.status)).join(", ") : "CI đủ " + REQUIRED_JOBS.length + " job, xanh ở " + sha + " (lấy lần chạy mới nhất của từng job; publish-release bị bỏ qua là đúng)");
   // 2. mergeable
   add(2, pr.mergeable_state === "clean", "mergeable_state = " + pr.mergeable_state + (pr.mergeable_state === "clean" ? "" : " (cần gộp main vào nhánh / chờ CI)"));
-  // 3. PR đổi mã sản phẩm: cần /dong-y-gop #n <đúng SHA> do CEO (thay thế)
-  const product = files.filter((f) => !isDocOrTest(f)), productChange = product.length > 0;
-  if (productChange) {
-    const re = new RegExp("/dong-y-gop\\s+#?" + n + "\\s+" + sha, "i"), ok = comments.some((c) => /^\s*\[CEO_LUONG \(thay thế\)/.test(c.body || "") && re.test(c.body || ""));
-    add(3, ok, ok ? "có /dong-y-gop #" + n + " " + sha + " do CEO_LUONG (thay thế)" : "PR đổi mã sản phẩm (" + product.slice(0, 3).join(", ") + (product.length > 3 ? ", …" : "") + ") nhưng thiếu bình luận '[CEO_LUONG (thay thế)…' chứa /dong-y-gop #" + n + " " + sha + " (SHA cũ/khác hoặc không có nhãn \"(thay thế)\" đều FAIL)");
+  // 3. Nhóm (a) mã sản phẩm và (b) công cụ cần /dong-y-gop #n <đúng SHA> do CEO (thay thế); nhóm (c) docs/tests thì không
+  const kinds = {}; files.forEach((f) => { kinds[kindOf(f)] = (kinds[kindOf(f)] || 0) + 1; });
+  const productChange = !!kinds.product, toolChange = !!kinds.tool, needApproval = productChange || toolChange, kind = productChange ? "product" : toolChange ? "tool" : "docs";
+  if (needApproval) {
+    const re = new RegExp("/dong-y-gop\\s+#?" + n + "\\s+[`'\"]?" + sha + "[`'\"]?", "i"), ok = comments.some((c) => /^\s*\[CEO_LUONG \(thay thế\)/.test(c.body || "") && re.test(c.body || "")), ex = files.filter((f) => kindOf(f) !== "docs");
+    add(3, ok, ok ? "có /dong-y-gop #" + n + " " + sha + " do CEO_LUONG (thay thế) (nhóm " + (productChange ? "mã sản phẩm" : "công cụ") + ")" : "PR " + (productChange ? "đổi mã sản phẩm" : "đổi công cụ") + " (" + ex.slice(0, 3).join(", ") + (ex.length > 3 ? ", …" : "") + ") nhưng thiếu bình luận '[CEO_LUONG (thay thế)…' chứa /dong-y-gop #" + n + " " + sha + " (SHA cũ/khác hoặc không có nhãn \"(thay thế)\" đều FAIL; SHA được phép nằm trong dấu backtick)");
   } else add(3, true, "PR chỉ docs/tests — không cần /dong-y-gop");
   // 4. /da-kiem SAU commit cuối
   const hd = Date.parse(input.headCommitDate || ""), dk = comments.filter((c) => /(^|\n)\s*\/da-kiem\b/.test(c.body || "") && (!(hd > 0) || Date.parse(c.created_at) > hd));
   add(4, dk.length > 0 && hd > 0, hd > 0 ? (dk.length ? "có /da-kiem sau commit cuối (" + input.headCommitDate + ")" : "thiếu /da-kiem đăng SAU commit cuối (" + input.headCommitDate + ")") : "không đọc được ngày commit cuối");
   // 5. nhãn
   const lab = (pr.labels || []).map((l) => l.name); add(5, lab.indexOf("ceo-yeu-cau-sua") < 0, lab.indexOf("ceo-yeu-cau-sua") < 0 ? "không có nhãn ceo-yeu-cau-sua" : "đang có nhãn ceo-yeu-cau-sua (CEO yêu cầu sửa)");
-  // 6. phiên bản (chỉ khi đổi mã sản phẩm)
+  // 6. phiên bản (chỉ nhóm (a) mã sản phẩm; nhóm (b) công cụ và (c) docs/tests bỏ qua)
   if (productChange) {
     const h = input.head || {}, m = input.main || {}, ver = h.version, problems = [];
     if (!newer(ver, m.version)) problems.push("package.json " + ver + " không lớn hơn main " + m.version);
@@ -47,11 +52,11 @@ function evaluate(input) {
     if (!String(h.workspaceVersion || "").includes(String(ver))) problems.push("ui/workspace-v104.js VERSION = '" + h.workspaceVersion + "' không khớp " + ver);
     if (!h.hasReleaseDoc) problems.push("thiếu docs/releases/v" + ver + ".md");
     add(6, problems.length === 0, problems.length ? problems.join("; ") : "phiên bản " + ver + " > main " + m.version + "; chưa có tag; CHANGELOG, VERSION, docs/releases khớp");
-  } else add(6, true, "PR chỉ docs/tests — không bắt buộc tăng phiên bản");
+  } else add(6, true, toolChange ? "PR công cụ (scripts/ci/tệp gốc) — bỏ qua bước phiên bản" : "PR chỉ docs/tests — không bắt buộc tăng phiên bản");
   // 7. tệp bị cấm (CEO_BAN_GIAO.md mục 6)
   const locked = (input.lockedPaths || []).map((p) => p.replace(/\\/g, "/")), hit = files.filter((f) => FORBIDDEN.some((re) => re.test(f)) || locked.indexOf(f) >= 0);
   add(7, hit.length === 0, hit.length ? "sửa tệp thuộc mục 6 (cần /hoi-chu-so-huu): " + hit.join(", ") : "không sửa workflow CI / khóa băm / tệp dùng chung đã khóa / core/importer.js");
-  return { pass: out.every((c) => c.ok), checks: out, productChange };
+  return { pass: out.every((c) => c.ok), checks: out, productChange, toolChange, kind };
 }
 
 // ---------- PHẦN GỌI MẠNG (chỉ chạy khi chạy trực tiếp) ----------
@@ -77,17 +82,21 @@ function collect(number) {
 }
 
 function main(argv) {
-  const num = argv.find((a) => /^\d+$/.test(a)), doMerge = argv.includes("--merge");
-  if (!num) { console.error("Dùng: node scripts/merge-gate.cjs <số PR> [--merge]"); return 2; }
+  const num = argv.find((a) => /^\d+$/.test(a)), doMerge = argv.includes("--merge"), asJson = argv.includes("--json");
+  if (!num) { console.error("Dùng: node scripts/merge-gate.cjs <số PR> [--merge] [--json]"); return 2; }
   let input; try { input = collect(num); } catch (e) { console.error("LỖI đọc GitHub: " + e.message); return 2; }
-  const res = evaluate(input); console.log("CỔNG GỘP — " + REPO + " PR #" + num + " @ " + input.pr.head.sha);
-  res.checks.forEach((c) => console.log((c.ok ? "PASS " : "FAIL ") + c.id + " " + c.msg));
-  console.log(res.pass ? "KẾT QUẢ: PASS (đủ điều kiện gộp)" : "KẾT QUẢ: FAIL (KHÔNG gộp)");
-  if (!res.pass || !doMerge) { if (res.pass && !doMerge) console.log("(chưa gộp: thêm --merge để gộp squash bằng đúng SHA trên)"); return res.pass ? 0 : 1; }
-  const m = ghJson(["-X", "PUT", "repos/" + REPO + "/pulls/" + num + "/merge", "-f", "merge_method=squash", "-f", "sha=" + input.pr.head.sha], { soft: true });
-  const after = ghJson(["repos/" + REPO + "/pulls/" + num]);
-  console.log("merged:" + !!after.merged + (after.merge_commit_sha ? " commit main " + after.merge_commit_sha : "") + (m && m.message ? " — " + m.message : ""));
-  return after.merged ? 0 : 1;
+  const res = evaluate(input), sha = input.pr.head.sha, report = { repo: REPO, pr: Number(num), sha, pass: res.pass, kind: res.kind, checks: res.checks, merged: false };
+  const say = (t) => { if (!asJson) console.log(t); };
+  say("CỔNG GỘP — " + REPO + " PR #" + num + " @ " + sha + " (nhóm: " + res.kind + ")");
+  res.checks.forEach((c) => say((c.ok ? "PASS " : "FAIL ") + c.id + " " + c.msg));
+  say(res.pass ? "KẾT QUẢ: PASS (đủ điều kiện gộp)" : "KẾT QUẢ: FAIL (KHÔNG gộp)");
+  const done = (code) => { if (asJson) console.log(JSON.stringify(report)); return code; };
+  if (!res.pass || !doMerge) { if (res.pass && !doMerge) say("(chưa gộp: thêm --merge để gộp squash bằng đúng SHA trên)"); return done(res.pass ? 0 : 1); }
+  // gộp: nếu PUT lỗi (405/409/…) in NGUYÊN message và thoát 1 TRƯỚC khi đọc lại PR
+  const r = cp.spawnSync("gh", ["api", "-X", "PUT", "repos/" + REPO + "/pulls/" + num + "/merge", "-f", "merge_method=squash", "-f", "sha=" + sha], { encoding: "utf8" });
+  if (r.status !== 0) { let msg = String(r.stdout || "").trim() || String(r.stderr || "").trim(); try { msg = JSON.parse(r.stdout).message || msg; } catch (e) { /* giữ nguyên chuỗi */ } report.error = msg; say("GỘP LỖI: " + msg); return done(1); }
+  const after = ghJson(["repos/" + REPO + "/pulls/" + num]); report.merged = !!after.merged; report.mergeCommit = after.merge_commit_sha || null;
+  say("merged:" + !!after.merged + (after.merge_commit_sha ? " commit main " + after.merge_commit_sha : "")); return done(after.merged ? 0 : 1);
 }
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { evaluate, isDocOrTest, newer, FORBIDDEN };
+module.exports = { evaluate, isDocOrTest, kindOf, newer, FORBIDDEN, REQUIRED_JOBS };

@@ -3,7 +3,8 @@
 const test = require("node:test"), assert = require("node:assert/strict"), path = require("node:path"), cp = require("node:child_process"), fs = require("node:fs");
 const { evaluate } = require("../../../scripts/merge-gate.cjs"), { evaluateRelease } = require("../../../scripts/post-merge-check.cjs");
 const SHA = "a".repeat(40), OLD = "b".repeat(40), HEAD_DATE = "2026-11-19T00:30:00Z", AFTER = "2026-11-19T00:40:00Z", BEFORE = "2026-11-19T00:20:00Z";
-const green = () => [{ name: "build", status: "completed", conclusion: "success" }, { name: "electron-e2e", status: "completed", conclusion: "success" }, { name: "publish-release", status: "completed", conclusion: "skipped" }];
+const { REQUIRED_JOBS, kindOf } = require("../../../scripts/merge-gate.cjs");
+const green = () => REQUIRED_JOBS.map((name, i) => ({ id: 100 + i, name, status: "completed", conclusion: name === "publish-release" ? "skipped" : "success", completed_at: "2026-11-19T00:35:00Z" }));
 const base = (over) => Object.assign({
   number: 7, pr: { state: "open", merged: false, head: { sha: SHA }, mergeable_state: "clean", labels: [] },
   files: ["LuongHAK_Offline/app-src/04-excel-nhap-lieu.js", "LuongHAK_Offline/app.js", "LuongHAK_Offline/package.json", "docs/CHANGELOG.md"],
@@ -23,11 +24,20 @@ test("U-GATE-06 thiếu /da-kiem, hoặc /da-kiem đăng TRƯỚC commit cuối 
   assert.deepEqual(failed(evaluate(base({ comments: [ceo] }))), [4]);
   assert.deepEqual(failed(evaluate(base({ comments: [ceo, { body: "/da-kiem #7", created_at: BEFORE }] }))), [4]);
 });
-test("U-GATE-07 CI có job failure / đang chạy / chưa có check-run → FAIL ở mục 1", () => {
-  assert.deepEqual(failed(evaluate(base({ checkRuns: green().concat([{ name: "Build bộ cài Windows", status: "completed", conclusion: "failure" }]) }))), [1]);
-  assert.deepEqual(failed(evaluate(base({ checkRuns: green().concat([{ name: "x", status: "in_progress", conclusion: null }]) }))), [1]);
+test("U-GATE-07 CI có job failure / đang chạy / chưa có check-run / job khác bỏ qua → FAIL ở mục 1", () => {
+  assert.deepEqual(failed(evaluate(base({ checkRuns: green().concat([{ id: 900, name: "Build bộ cài Windows", status: "completed", conclusion: "failure", completed_at: "2026-11-19T00:36:00Z" }]) }))), [1]);
+  assert.deepEqual(failed(evaluate(base({ checkRuns: green().concat([{ id: 901, name: "x", status: "in_progress", conclusion: null }]) }))), [1]);
   assert.deepEqual(failed(evaluate(base({ checkRuns: [] }))), [1]);
-  assert.deepEqual(failed(evaluate(base({ checkRuns: green().concat([{ name: "khác", status: "completed", conclusion: "skipped" }]) }))), [1], "chỉ publish-release được bỏ qua");
+  assert.deepEqual(failed(evaluate(base({ checkRuns: green().concat([{ id: 902, name: "khác", status: "completed", conclusion: "skipped" }]) }))), [1], "chỉ publish-release được bỏ qua");
+});
+test("U-GATE-07b THIẾU job bắt buộc (workflow không kích hoạt đủ) → FAIL ở mục 1 và nêu tên job thiếu", () => {
+  for (const miss of REQUIRED_JOBS) { const r = evaluate(base({ checkRuns: green().filter((x) => x.name !== miss) })); assert.deepEqual(failed(r), [1], miss); assert.ok(r.checks[0].msg.includes(miss), r.checks[0].msg); }
+});
+test("U-GATE-07c cùng tên nhiều lần chạy: lấy lần MỚI NHẤT — chạy lại xanh không bị lần cũ đỏ che; lần mới đỏ thì FAIL dù lần cũ xanh", () => {
+  const old = { id: 50, name: "electron-e2e", status: "completed", conclusion: "failure", completed_at: "2026-11-19T00:10:00Z" };
+  assert.equal(evaluate(base({ checkRuns: green().concat([old]) })).pass, true, "lần cũ đỏ, lần mới xanh → PASS");
+  const bad = { id: 950, name: "electron-e2e", status: "completed", conclusion: "failure", completed_at: "2026-11-19T00:50:00Z" };
+  assert.deepEqual(failed(evaluate(base({ checkRuns: green().concat([bad]) }))), [1], "lần mới đỏ → FAIL");
 });
 test("U-GATE-08 mergeable_state ≠ clean (dirty/behind/unstable) → FAIL ở mục 2", () => { for (const s of ["dirty", "behind", "unstable", "blocked"]) assert.deepEqual(failed(evaluate(base({ pr: Object.assign({}, base().pr, { mergeable_state: s }) }))), [2], s); });
 test("U-GATE-09 nhãn ceo-yeu-cau-sua → FAIL ở mục 5", () => { assert.deepEqual(failed(evaluate(base({ pr: Object.assign({}, base().pr, { labels: [{ name: "ceo-yeu-cau-sua" }] }) }))), [5]); });
@@ -44,14 +54,36 @@ test("U-GATE-11 sửa tệp thuộc mục 6 (workflow, khóa băm, core/importer
     const r = evaluate(base({ files: base().files.concat([f]) })); assert.ok(failed(r).includes(7), f); assert.match(r.checks.find((c) => c.id === 7).msg, /hoi-chu-so-huu/);
   }
 });
-test("U-GATE-12 PR chỉ docs/tests: không cần /dong-y-gop và không bắt buộc tăng phiên bản; vẫn cần CI xanh, clean, /da-kiem", () => {
+test("U-GATE-12 nhóm (c) PR chỉ docs/tests: không cần /dong-y-gop và không bắt buộc tăng phiên bản; vẫn cần CI xanh, clean, /da-kiem", () => {
   const docs = { files: ["docs/INPUT_FLOW_MAP.md", "LuongHAK_Offline/tests/unit/x.test.js", "README.md"], comments: [{ body: "/da-kiem #7", created_at: AFTER }], head: { version: "2.0.42", changelog: "", workspaceVersion: "", hasReleaseDoc: false } };
-  const r = evaluate(base(docs)); assert.equal(r.pass, true, JSON.stringify(r.checks.filter((c) => !c.ok))); assert.equal(r.productChange, false);
+  const r = evaluate(base(docs)); assert.equal(r.pass, true, JSON.stringify(r.checks.filter((c) => !c.ok))); assert.equal(r.productChange, false); assert.equal(r.kind, "docs");
   assert.deepEqual(failed(evaluate(base(Object.assign({}, docs, { comments: [] })))), [4]);
+});
+test("U-GATE-12b nhóm (b) PR công cụ (chỉ scripts/x.cjs): cần /dong-y-gop nhưng BỎ QUA bước phiên bản (6 PASS dù không tăng version)", () => {
+  const tool = { files: ["scripts/x.cjs", "docs/handoff/CONG_GOP.md", "LuongHAK_Offline/tests/unit/x.test.js"], head: { version: "2.0.42", changelog: "", workspaceVersion: "", hasReleaseDoc: false }, main: { version: "2.0.42" }, tags: ["v2.0.42"] };
+  const ok = evaluate(base(tool)); assert.equal(ok.pass, true, JSON.stringify(ok.checks.filter((c) => !c.ok))); assert.equal(ok.kind, "tool"); assert.equal(ok.checks.find((c) => c.id === 6).ok, true);
+  const noCeo = evaluate(base(Object.assign({}, tool, { comments: [{ body: "/da-kiem #7", created_at: AFTER }] }))); assert.deepEqual(failed(noCeo), [3], "công cụ vẫn cần /dong-y-gop");
+});
+test("U-GATE-12c phân loại tệp: product = dưới LuongHAK_Offline/ (trừ tests, *.md); tool = scripts/, ci/, tệp gốc khác; docs = docs/, tests/, *.md", () => {
+  for (const [f, k] of [["LuongHAK_Offline/app.js", "product"], ["LuongHAK_Offline/core/validate.js", "product"], ["scripts/merge-gate.cjs", "tool"], ["ci/x.py", "tool"], ["package.json", "tool"], ["docs/A.md", "docs"], ["LuongHAK_Offline/tests/unit/a.test.js", "docs"], ["tests/x.cjs", "docs"], ["LuongHAK_Offline/README.md", "docs"]]) assert.equal(kindOf(f), k, f);
+});
+test("U-GATE-12d nhóm (a) mã sản phẩm vẫn cần CẢ /dong-y-gop và bước phiên bản", () => { const r = evaluate(base({ head: Object.assign({}, base().head, { version: "2.0.42" }) })); assert.deepEqual(failed(r), [6]); assert.equal(r.kind, "product"); });
+test("U-GATE-12e /dong-y-gop có SHA trong dấu backtick hoặc nháy → PASS; thiếu SHA → FAIL", () => {
+  const mk = (sha) => [{ body: "[CEO_LUONG (thay thế) → STAFF_LUONG]\n/dong-y-gop #7 " + sha, created_at: AFTER }, { body: "/da-kiem #7", created_at: AFTER }];
+  for (const w of ["`" + SHA + "`", "'" + SHA + "'", SHA]) assert.equal(evaluate(base({ comments: mk(w) })).pass, true, w);
+  assert.deepEqual(failed(evaluate(base({ comments: mk("`" + SHA.slice(0, 39) + "`") }))), [3], "SHA thiếu ký tự");
 });
 test("U-GATE-13 PR đã đóng/gộp → FAIL; head.sha không phải 40 ký tự → FAIL ở mục 1", () => {
   assert.ok(failed(evaluate(base({ pr: Object.assign({}, base().pr, { state: "closed", merged: true }) }))).includes(0));
   assert.ok(failed(evaluate(base({ pr: Object.assign({}, base().pr, { head: { sha: "abc123" } }) }))).includes(1));
+});
+test("U-GATE-15 --merge: PUT lỗi (405) → in NGUYÊN message, thoát 1, KHÔNG đọc lại PR; --json in kết quả máy đọc được (dùng gh giả, không mạng)", () => {
+  const os = require("node:os"), dir = fs.mkdtempSync(path.join(os.tmpdir(), "hak-fakegh-")), log = path.join(dir, "calls.log"), fake = path.join(dir, "gh");
+  const pr = JSON.stringify({ number: 7, state: "open", merged: false, head: { sha: SHA }, base: { ref: "main" }, mergeable_state: "clean", labels: [] });
+  fs.writeFileSync(fake, "#!/bin/sh\necho \"$@\" >> " + JSON.stringify(log) + "\ncase \"$*\" in\n*-X\\ PUT*) echo '{\"message\":\"Pull Request is not mergeable\"}'; exit 1;;\n*/pulls/7/files*) echo '[[{\"filename\":\"docs/a.md\"}]]';;\n*/check-runs*) echo '[{\"check_runs\":" + JSON.stringify(green()).replace(/'/g, "") + "}]';;\n*/issues/7/comments*) echo '[[{\"body\":\"/da-kiem #7\",\"created_at\":\"" + AFTER + "\"}]]';;\n*/commits/*) echo '{\"commit\":{\"committer\":{\"date\":\"" + HEAD_DATE + "\"}}}';;\n*/tags*) echo '[[]]';;\n*/contents/*) echo '{}';;\n*/pulls/7) echo '" + pr + "';;\n*) echo '{}';;\nesac\n", { mode: 0o755 });
+  const r = cp.spawnSync(process.execPath, [path.resolve(__dirname, "../../../scripts/merge-gate.cjs"), "7", "--merge", "--json"], { encoding: "utf8", env: Object.assign({}, process.env, { PATH: dir + path.delimiter + process.env.PATH }) });
+  assert.equal(r.status, 1, r.stdout + r.stderr); const out = JSON.parse(r.stdout.trim().split("\n").pop()); assert.equal(out.pass, true); assert.equal(out.merged, false); assert.equal(out.error, "Pull Request is not mergeable");
+  const calls = fs.readFileSync(log, "utf8").split("\n"), iPut = calls.findIndex((l) => /-X PUT/.test(l)); assert.ok(iPut >= 0, "đã gọi PUT"); assert.equal(calls.slice(iPut + 1).filter((l) => /repos\/.*\/pulls\/7$/.test(l.trim().split(" ")[1] || "")).length, 0, "không đọc lại PR sau PUT lỗi");
 });
 test("U-GATE-14 script KHÔNG gọi mạng khi được require; chạy không đối số thoát 2 và không in token", () => {
   const r = cp.spawnSync(process.execPath, [path.resolve(__dirname, "../../../scripts/merge-gate.cjs")], { encoding: "utf8", env: Object.assign({}, process.env, { GH_TOKEN: "tok-bi-mat-123", GITHUB_TOKEN: "tok-bi-mat-123" }) });
