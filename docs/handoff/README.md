@@ -93,3 +93,5 @@ Chủ sở hữu chỉ cần dán **một lần** cho mỗi phiên; sau đó hai
 | 006 | Delta giai đoạn 2 (< 150 ms ở 5.000 NV) | chưa viết | STAFF đề xuất thiết kế | Chờ chủ sở hữu duyệt thiết kế |
 | 007 | Khóa ngoại và chuẩn hóa lược đồ | — | — | Chờ chủ sở hữu quyết định có làm không |
 | 008 | Danh mục kiểm thủ công cho Windows thật | chưa viết | CEO soạn | Sau khi 003–005 xong |
+
+- **Cổng gộp bằng máy (014):** `docs/handoff/CONG_GOP.md` — `scripts/merge-gate.cjs`, `scripts/post-merge-check.cjs`; `/da-kiem` phải dán nguyên đầu ra của `merge-gate.cjs`, `/da-gop` phải dán nguyên đầu ra của `post-merge-check.cjs`.
