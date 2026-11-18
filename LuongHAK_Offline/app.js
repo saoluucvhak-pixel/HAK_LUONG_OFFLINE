@@ -467,10 +467,26 @@
   }
   // replan(mode) → danh sách kế hoạch theo chế độ cập nhật ("merge" | "replace")
   var impBusy = false;
+  // IMPORT-EXTRA-WARN-BEGIN (009-2/009-3, issue #98): cảnh báo (KHÔNG chặn) ở bản xem trước nhập Excel; chạy ngoài core/importer.js (tệp được CI bảo vệ). Hàm thuần, không phụ thuộc biến ngoài.
+  var IMPORT_MONEY_COLS = { psluong: ["Thưởng", "Thu nhập khác", "Trừ khác"], ungluong: ["Tạm ứng"] };
+  function importExtraWarn(database, table, row) {
+    var out = [], ma = String(row && row["Mã NV"] || "").trim();
+    if (["psluong", "ungluong", "tiencom"].indexOf(table) >= 0 && ma) {
+      var emp = (database.nhanvien || []).filter(function (n) { return String(n["Mã NV"] || "").trim() === ma; })[0];
+      if (emp && /nghỉ/i.test(String(emp["Trạng thái"] || ""))) out.push("NV đã nghỉ việc: kiểm lại (có thể là khoản quyết toán sau nghỉ việc)");
+    }
+    (IMPORT_MONEY_COLS[table] || []).forEach(function (c) {
+      var n = Number(String(row[c] == null ? "" : row[c]).replace(/\s/g, ""));
+      if (isFinite(n) && n < 0 && String(row[c]).trim() !== "") out.push("Số tiền âm ở " + c + " (" + row[c] + "): kiểm lại (có thể là điều chỉnh/hoàn ứng hợp lệ)");
+    });
+    return out.join("; ");
+  }
+  // IMPORT-EXTRA-WARN-END
   function importPreview(replan, fileName, done, mode) {
     impBusy = false;
     mode = mode || "merge";
     var plans; try { plans = replan(mode); } catch (e) { alert(e.message); return; }
+    plans.forEach(function (p) { p.items.forEach(function (it) { if (it.action !== "add" && it.action !== "update") return; var w = importExtraWarn(db, p.table, it.row); if (w) it.warn = (it.warn ? it.warn + "; " : "") + w; }); });
     // 1 người 1 Mã NV: dòng gán CCCD của người khác (đã có, hoặc dòng khác trong file) → Xung đột (không ghi) — core/identity.js
     plans.forEach(function (p) { ID.blockImportItems(db, p.table, p.items); });
     // Quyền theo từng bảng + chỉ Admin được ghi dữ liệu hồi tố (Q-14): dòng không đủ quyền → không ghi

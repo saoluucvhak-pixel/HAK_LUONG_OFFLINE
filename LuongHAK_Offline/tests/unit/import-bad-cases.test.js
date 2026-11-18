@@ -64,9 +64,17 @@ const clear = (it) => it.action === "invalid" || it.action === "refError" || it.
 for (const t of TABLES) {
   const col = VALCOL[t];
   if (t === "tiencom") {
-    test("U-IMPBAD-" + t + "-text KNOWN-GAP ô số chứa chữ ('hai' suất cơm) phải bị chặn có thông báo cột; HIỆN TẠI nhận âm thầm và động cơ tính 0 suất", { todo: "LỖI THẬT 009-1: 'Số suất cơm' = 'hai' được nhận (add, không cảnh báo); engine.num('hai') = 0 → mất tiền cơm âm thầm. Chờ quyết định sửa (validate/importer thuộc nhóm bảo vệ)" }, () => {
-      const { item } = one(t, { [col]: "hai" });
-      assert.ok(clear(item) || item.warn, "action=" + item.action + " warn=" + item.warn);
+    test("U-IMPBAD-" + t + "-text ô 'Số suất cơm' chứa chữ ('hai'): chặn, không ghi, thông báo nêu dòng/cột/giá trị/cách sửa (009-1)", () => {
+      for (const bad of ["hai", "2 suất", "abc", "1.5.2", "--1"]) {
+        const db = newDb(), p = planOf(db, t, [raw(t, OPEN, "A1"), Object.assign(raw(t, OPEN, "A2"), { [col]: bad })]);
+        assert.deepEqual(p.items.map((i) => i.action), ["add", "invalid"], bad);
+        assert.match(p.items[1].reason, /Số suất cơm/); assert.ok(p.items[1].reason.includes(bad), p.items[1].reason); assert.match(p.items[1].reason, /phải là số/); assert.equal(p.items[1].line, 3);
+        const res = repoFor(db).importWorkbook([p], "x", "merge", () => false); assert.equal(res.value, 1, "dòng đúng vẫn nhập"); assert.equal(db[t].length, 1, "dòng lỗi không vào dữ liệu");
+      }
+    });
+    test("U-IMPBAD-" + t + "-count số suất cơm hợp lệ vẫn nhận nguyên văn: 2, 1,5, 1.5, 1.234,5, ô trống, số kiểu Excel", () => {
+      for (const ok of ["2", "1,5", "1.5", "0", "", 3, 0.5]) { const { item } = one(t, { [col]: ok }); assert.equal(item.action, "add", JSON.stringify(ok)); }
+      assert.equal(one(t, { [col]: " 2 " }).item.row[col], "2");
     });
     continue;
   }
@@ -184,11 +192,29 @@ test("U-IMPBAD-big file 10.500 dòng (kỳ mở): kế hoạch + ghi một giao 
 });
 
 // ---- 9. Nhân viên đã nghỉ / giá trị âm / bằng 0 ----
-test("U-IMPBAD-nghi KNOWN-GAP dòng của nhân viên 'Đã nghỉ việc': phải được cảnh báo ở bước xem trước; HIỆN TẠI nhận im lặng", { todo: "LỖI THẬT 009-2: NV đã nghỉ việc nhận dòng tạm ứng/thưởng/cơm... không cảnh báo (có thể hợp lệ khi thanh toán cuối cùng, nhưng người dùng không được báo)" }, () => {
-  for (const t of MONEY.concat("tiencom")) { const { item } = one(t, { "Mã NV": "NVNGHI" }, (db) => db.nhanvien.push({ "Mã NV": "NVNGHI", "Họ và tên": "Đã nghỉ", "Trạng thái": "Đã nghỉ việc" })); assert.ok(clear(item) || /nghỉ/i.test(item.warn || ""), t + ": " + item.action + " " + item.warn); }
+// Hàm cảnh báo của bản xem trước (app-src/04, đã build vào app.js) — lấy NGUYÊN VĂN từ app.js bằng cặp dấu mốc, chạy trong vm.
+function previewWarn() {
+  const i = APP.indexOf("// IMPORT-EXTRA-WARN-BEGIN"), j = APP.indexOf("// IMPORT-EXTRA-WARN-END"); assert.ok(i > 0 && j > i, "thiếu dấu mốc IMPORT-EXTRA-WARN trong app.js");
+  const c = {}; vm.createContext(c); vm.runInContext(APP.slice(i, j) + "\nthis.fn = importExtraWarn;", c); return c.fn;
+}
+test("U-IMPBAD-nghi (009-2) dòng của NV 'Đã nghỉ việc' ở Tạm ứng/Thưởng/Suất cơm: vẫn NHẬN (không chặn) và có cảnh báo 'NV đã nghỉ việc: kiểm lại' ở bản xem trước; NV đang làm không bị cảnh báo", () => {
+  const warn = previewWarn(), db = newDb(); db.nhanvien.push({ "Mã NV": "NVNGHI", "Họ và tên": "Đã nghỉ", "Trạng thái": "Đã nghỉ việc" });
+  for (const t of MONEY.concat("tiencom")) {
+    const p = planOf(db, t, [Object.assign(raw(t, OPEN, "A1"), { "Mã NV": "NVNGHI" }), raw(t, OPEN, "A2")]);
+    assert.deepEqual(p.items.map((i) => i.action), ["add", "add"], t + ": không chặn");
+    assert.match(warn(db, t, p.items[0].row), /NV đã nghỉ việc: kiểm lại/); assert.equal(warn(db, t, p.items[1].row), "", t + ": NV đang làm không cảnh báo");
+    assert.equal(repoFor(db).importWorkbook([p], "x", "merge", () => false).value, 2, "vẫn ghi được sau khi người dùng xác nhận");
+    db[t].length = 0;
+  }
+  assert.equal(warn(db, "sanluong", { "Mã NV": "NVNGHI" }), "", "chỉ áp cho tạm ứng/thưởng/suất cơm");
 });
-test("U-IMPBAD-neg KNOWN-GAP số tiền ÂM ở Tạm ứng/Thưởng: nên có cảnh báo; HIỆN TẠI nhận im lặng", { todo: "LỖI THẬT 009-3 (mức thấp): -500000 ở Tạm ứng nhận không cảnh báo (có thể là hoàn ứng hợp lệ; cần chủ sở hữu quy định)" }, () => {
-  for (const t of MONEY) { const { item } = one(t, { [VALCOL[t]]: "-500000" }); assert.ok(clear(item) || item.warn, t + ": " + item.action); }
+test("U-IMPBAD-neg (009-3) số tiền ÂM ở Tạm ứng/Thưởng/Trừ khác: vẫn NHẬN và có cảnh báo 'Số tiền âm' ở bản xem trước; số dương/0/ô trống không cảnh báo", () => {
+  const warn = previewWarn(), db = newDb();
+  for (const t of MONEY) {
+    const col = VALCOL[t], p = planOf(db, t, [Object.assign(raw(t, OPEN, "A1"), { [col]: "-500.000" })]); assert.equal(p.items[0].action, "add");
+    assert.match(warn(db, t, p.items[0].row), new RegExp("Số tiền âm ở " + col)); assert.match(warn(db, t, p.items[0].row), /-500000/);
+    for (const ok of ["500000", "0", ""]) assert.equal(warn(db, t, { "Mã NV": "NVA1", [col]: ok }), "", t + " " + JSON.stringify(ok));
+  }
 });
 test("U-IMPBAD-zero giá trị 0 ở số tiền: nhận (không phải lỗi)", () => { for (const t of MONEY) assert.equal(one(t, { [VALCOL[t]]: "0" }).item.action, "add"); });
 
@@ -212,3 +238,10 @@ for (const t of TABLES) {
     const res = repoFor(db, () => false).importWorkbook([p], "x.xlsx", "merge", () => false); assert.equal(res.ok, false); assert.equal(snap(db), before);
   });
 }
+
+// ---- 009-1: mọi đường ghi chung một bộ kiểm (nhập Excel, nhập tay, dán dùng cùng normCell) ----
+test("U-IMPBAD-tiencom-normCell 'Số suất cơm' không phải số → normCell báo lỗi (đường nhập tay/dán/Excel dùng chung); số hợp lệ không đổi", () => {
+  const bad = V.normCell("Số suất cơm", "hai"); assert.ok(bad.error && /phải là số/.test(bad.error), JSON.stringify(bad)); assert.equal(bad.value, "hai");
+  for (const [x, v] of [["2", "2"], [" 2 ", "2"], ["1,5", "1,5"], ["", ""], [null, ""], [3, "3"]]) { const r = V.normCell("Số suất cơm", x); assert.equal(r.error, undefined, JSON.stringify(x)); assert.equal(r.value, v, JSON.stringify(x)); }
+  assert.equal(E.num(V.normCell("Số suất cơm", "1,5").value), 1.5, "động cơ vẫn đọc đúng, không đổi cách tính");
+});
