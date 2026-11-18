@@ -6,6 +6,9 @@
 ## [2.0.45] — 19/11/2026
 - **Màn nhập liệu thấy ≥ 12 dòng ở 1366×768 (handoff 005B-UI002, issue #97):** hướng dẫn/chú giải/chi tiết tổng được gấp lại, thanh nút–bộ lọc–hàng bảng nén gọn; kiểm bố cục `fewRows` thành PASS/FAIL. Không đổi dữ liệu/công thức. Chi tiết: `docs/releases/v2.0.45.md`.
 
+## [2.0.44] — 19/11/2026
+- **Chống trùng khi nhập (handoff 013, issue #114):** Mã NV / Phiếu cân / Số chứng từ / Số HĐLĐ khác **chữ hoa/thường, khoảng trắng, chữ toàn khổ, gạch nối** nay được coi là NGHI TRÙNG thay vì thành bản ghi mới (`nv01` = `NV 01` = `ＮＶ01`; `pc-001` = `PC - 001`). Nhập Excel: dòng "Nghi trùng" KHÔNG được ghi, có lý do + "Cách sửa", vào file lỗi để sửa (đối chiếu `file = ghi + gộp + không ghi` vẫn đúng). Nhập tay: chặn trùng theo khóa chuẩn hóa cho nhân sự, hợp đồng, sản lượng, ban dăm, tiền cơm, thưởng/trừ, tạm ứng (tiền cơm nhập tay trùng Ngày + Mã NV nay bị chặn như nhập Excel); `input-safety` so phiếu theo khóa chuẩn hóa (lọt cả lúc tính lương trước đây). Chữ nhập MỚI chuẩn hóa NFC (thưởng chép từ Mac/web hết bị tính 2 lần). "Kiểm tra dữ liệu" liệt kê nhóm nghi trùng đã lỡ có (chỉ báo, không tự gộp). Khóa so sánh chỉ để SO SÁNH — không sửa dữ liệu đã lưu; không đổi công thức, lược đồ, kỳ đã chốt, `core/importer.js`.
+
 ## [2.0.43] — 18/11/2026
 - **Nhập Excel (handoff 009-B, issue #98):** bản xem trước thêm cột **"Cách sửa"** cho mọi dòng không ghi/lỗi (nêu việc cần làm bằng tiếng Việt), bảng **"Đối chiếu với file nguồn"** (số dòng + tổng cột số của file = ghi + gộp + không ghi, theo từng bảng) và nút **"⬇ Tải file lỗi để sửa & nhập lại"** (đúng cột của bảng + Dòng Excel/Lỗi/Cách sửa; sửa xong nhập lại bằng chính chức năng Nhập Excel, cột thêm bị bỏ qua). Thông báo sau khi ghi kèm đối chiếu "file N dòng = ghi + gộp + không ghi". Chỉ đổi hiển thị/xuất file lỗi: không đổi quy tắc nhập, công thức, lược đồ, kỳ đã chốt. Đối chiếu tiền đủ ba số hạng `file = ghi + gộp + không ghi` (sửa theo review CEO).
 ## [2.0.42] — 18/11/2026

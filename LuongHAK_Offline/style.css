@@ -717,3 +717,4 @@ td.ot-note{background:var(--th);color:var(--mut)}
 .hak-in .sf-sum{padding:2px 10px;font-size:12.5px}
 #main .tw td:has(.hint),#main .tw td.cm,#main .tw td.ocr{padding-top:3px;padding-bottom:3px}
 #main .tw td.day.dis{padding:0}
+.hak-tabs{margin-bottom:4px}.hak-tabs button{min-height:30px;padding:3px 12px;font-size:13px}

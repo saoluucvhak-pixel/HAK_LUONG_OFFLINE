@@ -3,7 +3,7 @@
     var wrap = h("div"), card = h("div", { class: "card hak-in" }), bar = h("div", { class: "bar" }), body = h("div", { class: "tw" });
     var inputReview = ["chamcong", "sanluong", "bandam"].indexOf(key) >= 0, pumpMode = key === "bandam" ? (st.pumpMode || "team") : "", reviewState = h("div", { class: "hint", "data-input-review": key });
     if (key === "bandam") {
-      var tabs = h("div", { class: "bar", "aria-label": "Phân bổ Ban dăm xuất hàng" });
+      var tabs = h("div", { class: "bar hak-tabs", "aria-label": "Phân bổ Ban dăm xuất hàng" });
       [["team", "Phân bổ theo tổ"], ["direct", "Phân bổ trực tiếp nhân viên"]].forEach(function (m) { tabs.appendChild(btn(m[1], pumpMode === m[0] ? "pri" : "", function () { st.pumpMode = m[0]; render(); })); }); wrap.appendChild(tabs);
       def = Object.assign({}, def, { cols: def.cols.filter(function (c) { return pumpMode === "direct" ? ["Mã phòng ban", "NV vắng"].indexOf(c) < 0 : c !== "Mã NV"; }) });
     }

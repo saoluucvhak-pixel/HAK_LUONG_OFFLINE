@@ -18,7 +18,7 @@ function syntheticData(base, n) {
   d.chitiethd = d.nhanvien.map((r, i) => ({ "Mã NV": r["Mã NV"], "Số HĐLĐ": r["Mã NV"] + "/HĐ", "Hiệu lực từ": "2025-01-01", "Phòng ban": pb(i), "Lương thỏa thuận": String(8000000 + i * 100000) }));
   d.chamcong = d.nhanvien.map((r) => { const o = { "Kỳ": ky, "Mã NV": r["Mã NV"], "Hình thức công": "BT" }; for (let k = 1; k <= 26; k++) o[pad(k)] = k % 7 === 0 ? "" : 1; return o; });
   d.sanluong = d.nhanvien.map((r, i) => ({ "Phiếu cân": "PC-" + (1000 + i), "Ngày cân": day(i), "Biển số": "51C-" + (10000 + i), "KL hàng (Tấn)": String(10 + i), "Mã NV": r["Mã NV"], "Mã phòng ban": pb(i) }));
-  d.bandam = d.nhanvien.map((r, i) => ({ "Phiếu cân": "BD-" + (2000 + i), "Ngày cân": day(i), "Biển số": "51C-" + (20000 + i), "KL hàng (Tấn)": String(1 + (i % 3)), "Mã NV": r["Mã NV"] }));
+  d.bandam = d.nhanvien.map((r, i) => ({ "Phiếu cân": "BD-" + (2000 + i), "Ngày cân": day(i), "Biển số": "51C-" + (20000 + i), "KL hàng (Tấn)": String(1 + (i % 3)), "Mã phòng ban": pb(i) })); // chế độ mặc định của màn là "Phân bổ theo tổ" (dòng KHÔNG có Mã NV) — để bảng có dòng mà đo được (005B-UI002)
   d.psluong = d.nhanvien.map((r, i) => ({ "Ngày hạch toán": day(i), "Số chứng từ": "PS-" + (3000 + i), "Mã NV": r["Mã NV"], "Diễn giải": "Thưởng chuyên cần tháng " + (i + 1), "Thưởng": 100000 * (1 + (i % 4)) }));
   d.ungluong = d.nhanvien.map((r, i) => ({ "Ngày hạch toán": day(i), "Số chứng từ": "UL-" + (4000 + i), "Mã NV": r["Mã NV"], "Diễn giải": "Tạm ứng kỳ 1 tháng " + (i + 1), "Tạm ứng": 500000 }));
   d.tiencom = d.nhanvien.map((r, i) => ({ "Ngày": day(i), "Mã NV": r["Mã NV"], "Số suất cơm": 1 + (i % 2), "Ghi chú": "Cơm ca " + (1 + (i % 3)) }));

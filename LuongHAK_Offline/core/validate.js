@@ -122,7 +122,7 @@
     if (v == null) return { value: "" };
     if (typeof v === "number") return { value: String(Math.round(v * 1e9) / 1e9) };
     if (v instanceof Date) return { value: normDate(v) };
-    return { value: String(v).trim() };
+    return { value: String(v).trim().normalize("NFC") }; // 013-B: chữ nhập MỚI chuẩn hóa NFC (chép từ Mac/web có thể là NFD); dữ liệu đã lưu KHÔNG bị đổi
   }
 
   // ---------- Ô ngày chấm công ----------
@@ -187,9 +187,34 @@
     return !!(ma && mb && parseFloat(ma[1]) === parseFloat(mb[1]) && ma[2].trim() === mb[2].trim());
   }
 
+
+  // ---------- 013-B (issue #114): KHÓA SO SÁNH CHUẨN HÓA — CHỈ để phát hiện NGHI TRÙNG, không bao giờ ghi đè giá trị đã lưu ----------
+  /** NFKC (chữ toàn khổ → thường), bỏ mọi khoảng trắng (cả NBSP) và gạch nối/gạch dưới, chữ HOA: "nv01" = "NV 01" = "ＮＶ01" = "NV-01"; "pc-001" = "PC - 001". Số 0 đầu KHÔNG bị bỏ ("0012" ≠ "12"). */
+  function nearKey(v) { return String(v == null ? "" : v).normalize("NFKC").replace(/[\s\u00a0\u200b-\u200d\ufeff]+/g, "").replace(/[-\u2010-\u2015\u2212_]+/g, "").toUpperCase(); }
+  // Bảng có khóa nghiệp vụ để dò nghi trùng (cùng khóa chính xác của importer.KEYS, nhưng so bằng nearKey; cột ngày so theo ngày chuẩn hóa)
+  var NEAR_COLS = { nhanvien: ["Mã NV"], hopdong: ["Mã NV", "Số HĐLĐ"], sanluong: ["Phiếu cân", "Mã NV"], bandam: ["Phiếu cân", "Mã NV"], psluong: ["Số chứng từ", "Mã NV"], ungluong: ["Số chứng từ", "Mã NV"], tiencom: ["Ngày", "Mã NV"] };
+  /** Khóa chuẩn hóa của một dòng (chuỗi), hoặc "" nếu bảng không dò hoặc dòng chưa đủ khóa. */
+  function nearKeyOf(table, row) {
+    var cols = NEAR_COLS[table]; if (!cols || !row) return "";
+    var parts = cols.map(function (c) { var raw = row[c]; if (isDateCol(c)) { var d = normDate(raw); return d === null || d === "" ? nearKey(raw) : d; } return nearKey(raw); });
+    var optLast = table === "sanluong" || table === "bandam"; // phiếu giao theo tổ có thể chưa ghi Mã NV; mọi bảng khác: thiếu BẤT KỲ phần khóa nào → chưa đủ khóa (tránh coi các dòng nháp trống là trùng nhau)
+    if (parts.some(function (x, i) { return !x && !(optLast && i === parts.length - 1); })) return "";
+    return parts.join("\u0001");
+  }
+  /** Các nhóm dòng ĐÃ LƯU có khóa chuẩn hóa trùng nhau nhưng khóa chính xác khác nhau (ví dụ NV01/nv01). Chỉ BÁO, không tự gộp. → [{ table, keys:[khóa hiển thị…], rows:n }] */
+  function nearDuplicateGroups(db) {
+    var out = [];
+    Object.keys(NEAR_COLS).forEach(function (t) {
+      var by = {}; (db[t] || []).forEach(function (r) { var k = nearKeyOf(t, r); if (!k) return; var exact = NEAR_COLS[t].map(function (c) { return String(r[c] == null ? "" : r[c]).trim(); }).join(" / "); (by[k] = by[k] || {})[exact] = (by[k][exact] || 0) + 1; });
+      Object.keys(by).forEach(function (k) { var ex = Object.keys(by[k]); if (ex.length > 1) out.push({ table: t, keys: ex, rows: ex.reduce(function (n, e) { return n + by[k][e]; }, 0) }); });
+    });
+    return out;
+  }
+
   var api = { isNullText: isNullText, cleanNullCells: cleanNullCells, parseRate: parseRate, rateError: rateError, isRateCol: isRateCol, parseMoney: parseMoney, sameCell: sameCell, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
     dayCell: dayCell, daysInKy: daysInKy, MAX_CONG_NGAY: MAX_CONG_NGAY,
-    isMoneyCol: isMoneyCol, isDateCol: isDateCol, isIdCol: isIdCol, rowPeriod: rowPeriod, PERIOD_FIELD: PERIOD_FIELD };
+    isMoneyCol: isMoneyCol, isDateCol: isDateCol, isIdCol: isIdCol, rowPeriod: rowPeriod, PERIOD_FIELD: PERIOD_FIELD,
+    nearKey: nearKey, nearKeyOf: nearKeyOf, nearDuplicateGroups: nearDuplicateGroups, NEAR_COLS: NEAR_COLS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.validate = api; }
 })(typeof window !== "undefined" ? window : this);

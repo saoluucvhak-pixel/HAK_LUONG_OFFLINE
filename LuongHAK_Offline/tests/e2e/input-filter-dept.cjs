@@ -172,7 +172,7 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
     const badD = dl.filter((r) => r.error || !r.fits || !r.primaryVisible); ok("Bố cục hộp thoại (Thêm nhân viên, Xem trước nhập Excel, Danh mục-Lịch sử) × 3 cỡ: vừa khung nhìn, nút chính thấy ngay", dl.length === 9 && badD.length === 0, JSON.stringify(badD));
     { // 005B-UI002: màn nhập liệu phải thấy ≥ MIN_ROWS dòng ngay khi mở màn ở 1366×768 (PASS/FAIL, không còn INFO)
       const inRows = res.rows.filter((r) => r.size === "1366x768" && LA.INPUT_SCREENS.includes(r.screen) && r.visRows != null), few = inRows.filter((r) => r.visRows < LA.MIN_ROWS);
-      ok("Bố cục 1366×768: màn nhập liệu thấy ≥ " + LA.MIN_ROWS + " dòng dữ liệu khi mở màn (không cần cuộn)", inRows.length >= 5 && few.length === 0, "đo được " + inRows.length + " màn; thiếu: " + few.map((r) => r.screen + "=" + r.visRows).join(", ") + " | " + inRows.map((r) => r.screen + "=" + r.visRows).join(" "));
+      ok("Bố cục 1366×768: màn nhập liệu thấy ≥ " + LA.MIN_ROWS + " dòng dữ liệu khi mở màn (không cần cuộn)", inRows.length === LA.INPUT_SCREENS.length && few.length === 0, "đo được " + inRows.length + " màn; thiếu: " + few.map((r) => r.screen + "=" + r.visRows).join(", ") + " | " + inRows.map((r) => r.screen + "=" + r.visRows).join(" "));
     }
     const soft = {}; ["contrast", "topWrap", "fewRows"].forEach((k) => { soft[k] = res.rows.filter((r) => (r[k] || []).length).length; }); console.log("INFO bố cục (chỉ ghi nhận, xem docs/UI_ISSUES.md): " + JSON.stringify(soft) + " trên " + res.rows.length + " (màn × cỡ)");
     { // ĐỐI CHỨNG: cố ý chèn lỗi bố cục vào trang → bộ kiểm PHẢI phát hiện (chứng minh các kiểm "Đạt" ở trên có khả năng bắt lỗi)
