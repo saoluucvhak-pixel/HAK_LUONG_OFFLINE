@@ -112,7 +112,9 @@ function registerIpc() {
       if(yearBusy){e.returnValue="Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại";return;}
       // Kiểm bản nền: giao diện gửi kèm phiên bản kho nó đã nạp/lưu gần nhất. Lệch ⇒ kho đã đổi ở nơi khác (khôi phục, lưu trữ năm, ghi ngoài giao diện) và bản trong
       // bộ nhớ của giao diện là bản CŨ: từ chối ghi để KHÔNG ghi đè âm thầm. Không gửi baseSig (khách cũ, kịch bản kiểm thử) ⇒ giữ hành vi cũ.
-      if (typeof baseSig === "string" && baseSig !== String(sigNow())) { e.returnValue = "STALE_BASE: Dữ liệu đã được thay đổi ở nơi khác kể từ lần giao diện nạp hoặc lưu gần nhất; bản đang mở là bản cũ nên KHÔNG được ghi để tránh ghi đè."; return; }
+      const stale = typeof baseSig === "string" && baseSig !== String(sigNow());
+      if (process.env.HAK_DEBUG_SAVE) { try { require("fs").appendFileSync(process.env.HAK_DEBUG_SAVE, JSON.stringify({ t: Date.now(), base: baseSig === undefined ? null : baseSig, now: String(sigNow()), len: String(text).length, stale }) + "\n"); } catch (err) { /* chỉ chẩn đoán */ } } // chẩn đoán kiểm thử: ghi mỗi lần lưu (bản nền, phiên bản kho, kết luận)
+      if (stale) { e.returnValue = "STALE_BASE: Dữ liệu đã được thay đổi ở nơi khác kể từ lần giao diện nạp hoặc lưu gần nhất; bản đang mở là bản cũ nên KHÔNG được ghi để tránh ghi đè."; return; }
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
       const rcv = guard.recoveryFor(e);
       let parsed = null; try { parsed = JSON.parse(text); } catch (e2) { parsed = null; } // phân tích MỘT lần cho policy, kho năm và kho dữ liệu
