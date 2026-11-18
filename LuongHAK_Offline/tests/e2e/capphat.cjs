@@ -190,13 +190,13 @@ async function guarded(name, fn) { try { await fn(); } catch (e) { ok(name + " �
     const before = snapshot(); ({ app, w, errs } = await launch(D1)); await login(w, "admin");
     ok("Đóng app, mở lại: danh mục, phiếu và lịch sử thu hồi còn nguyên", snapshot() === before && readData(D1).benefitAdjustments.length === 1);
     await goCp(w, "Bảo hộ lao động", "Báo cáo cấp phát"); await w.waitForSelector("[data-cp-table]"); const sumA = (await rowsOf(w)).map((r) => r.join("|")).join("\n");
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]"); await w.click('[data-fullbackup] button:has-text("Tạo Full Backup")');
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]"); await w.selectOption('[data-backup-kind]', 'full'); await w.click('[data-backup-now]');
     await w.waitForSelector("#modal [data-pw]"); await w.click('#modal button:has-text("Tạo Full Backup")'); await w.waitForSelector('[data-fb-msg]:has-text("ĐẦY ĐỦ")', { timeout: 60000 });
     const zip = await waitFile(path.join(D1, "downloads"), /^LuongHAK_FullBackup_.*\.zip$/); await app.close();
     ok("Full Backup tạo được gói .zip", !!zip);
     const D2 = dirOf("restore"); const base = seed("single"); base.benefitStandards = []; base.benefitAssignments = []; base.benefitIssues = []; base.benefitPpeItems = []; base.benefitAdjustments = []; fs.writeFileSync(path.join(D2, "data.json"), JSON.stringify(base));
     ({ app, w, errs } = await launch(D2, { HAK_FB_PICK: zip })); await login(w, "admin");
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]"); await w.click('[data-fullbackup] button:has-text("Khôi phục từ gói")');
+    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]"); await w.selectOption('[data-restore-kind]', 'full'); await w.click('[data-restore-now]');
     for (let i = 0; i < 60; i++) { await w.waitForTimeout(500); if ((readData(D2).benefitIssues || []).length) break; }
     await w.waitForTimeout(800);
     const same = ["benefitStandards", "benefitAssignments", "benefitIssues", "benefitPpeItems", "benefitAdjustments"].every((k) => JSON.stringify(readData(D2)[k]) === JSON.stringify(readData(D1)[k]));

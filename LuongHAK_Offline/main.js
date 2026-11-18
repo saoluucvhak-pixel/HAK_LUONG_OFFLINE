@@ -223,15 +223,18 @@ function registerIpc() {
     return r && r[0] ? { ok: true, dir: r[0] } : { ok: false, cancelled: true };
   }));
   // Quản lý 5 thư mục: mở / dung lượng / kiểm tra toàn vẹn (chỉ đọc)
-  const spKinds = SP.KINDS.concat(["export"]);
-  ipcMain.handle("paths-info", guarded("backup.restore", async () => { const p = spCur(), out = {}; SP.KINDS.forEach((k) => { out[k] = p[k] ? SP.info(p[k]) : { exists: false, files: 0, bytes: 0, free: null }; }); out.export = SP.info(exportsDir.dir()); return { ok: true, info: out, exportDir: exportsDir.dir() }; }));
-  ipcMain.handle("paths-open", guarded("backup.restore", async (e, kind) => { const k = String(kind); if (spKinds.indexOf(k) < 0) return { ok: false, error: "loại thư mục không hợp lệ" }; const d = k === "export" ? exportsDir.dir() : spCur()[k]; if (!d || !require("fs").existsSync(d)) return { ok: false, error: "Thư mục chưa tồn tại" }; if (process.env.HAK_NO_SHELL) return { ok: true, dir: d }; const er = await shell.openPath(d); return er ? { ok: false, error: er } : { ok: true, dir: d }; }));
+  const spKinds = SP.KINDS.concat(["export", "json", "sqlite"]); // 012-A: json = thư mục sao lưu JSON (jsonDir) · sqlite = nơi ghi các bản tự động (chỉ xem/mở/kiểm)
+  const dirOfKind = (k) => (k === "export" ? exportsDir.dir() : k === "json" ? jsonDirOf() : k === "sqlite" ? storage.info().backupDir : spCur()[k]);
+  ipcMain.handle("paths-info", guarded("backup.restore", async () => { const p = spCur(), out = {}; SP.KINDS.forEach((k) => { out[k] = p[k] ? SP.info(p[k]) : { exists: false, files: 0, bytes: 0, free: null }; }); out.export = SP.info(exportsDir.dir()); out.json = SP.info(jsonDirOf()); out.sqlite = SP.info(storage.info().backupDir); return { ok: true, info: out, exportDir: exportsDir.dir() }; }));
+  ipcMain.handle("paths-open", guarded("backup.restore", async (e, kind) => { const k = String(kind); if (spKinds.indexOf(k) < 0) return { ok: false, error: "loại thư mục không hợp lệ" }; const d = dirOfKind(k); if (!d || !require("fs").existsSync(d)) return { ok: false, error: "Thư mục chưa tồn tại" }; if (process.env.HAK_NO_SHELL) return { ok: true, dir: d }; const er = await shell.openPath(d); return er ? { ok: false, error: er } : { ok: true, dir: d }; }));
   ipcMain.handle("paths-verify", guarded("backup.restore", async (e, kind) => {
     try {
       const k = String(kind), p = spCur();
       if (k === "docs") { const v = vault.verify(), bad = v.filter((x) => x.status !== "ok"); return { ok: true, good: bad.length === 0, total: v.length, bad: bad.slice(0, 20), text: v.length - bad.length + "/" + v.length + " chứng từ nguyên vẹn (SHA-256)" }; }
       if (k === "ocrLib") { const v = ocrLib.verify(); return { ok: true, good: v.ok, total: v.samples, bad: v.bad.slice(0, 20), text: (v.samples - v.bad.length) + "/" + v.samples + " mẫu có ảnh nguyên vẹn" + (v.corruptLines ? ", " + v.corruptLines + " dòng nhật ký hỏng" : "") }; }
       if (k === "backup" || k === "export") { const d = k === "export" ? exportsDir.dir() : p.backup, fs2 = require("fs"); const zips = fs2.existsSync(d) ? fs2.readdirSync(d).filter((n) => /^LuongHAK_(Full|Partial)Backup_.*\.zip$/i.test(n)) : []; return { ok: true, good: true, total: zips.length, text: zips.length + " gói sao lưu trong thư mục" }; }
+      if (k === "json") { const d = jsonDirOf(), fs2 = require("fs"), names = fs2.existsSync(d) ? fs2.readdirSync(d).filter((n) => JSON_NAME.test(n)) : []; const bad = names.filter((n) => { try { JSON.parse(fs2.readFileSync(path.join(d, n), "utf8")); return false; } catch (err) { return true; } }); return { ok: true, good: bad.length === 0, total: names.length, bad: bad.slice(0, 20), text: (names.length - bad.length) + "/" + names.length + " file JSON đọc được" + (bad.length ? " — HỎNG: " + bad.slice(0, 5).join(", ") : "") }; }
+      if (k === "sqlite") { const v = storage.verifyAll() || [], bad = v.filter((x) => x.status === "mismatch" || x.status === "invalid"); return { ok: true, good: bad.length === 0, total: v.length, bad: bad.slice(0, 20), text: (v.length - bad.length) + "/" + v.length + " bản sao lưu tự động đọc được" + (bad.length ? " — HỎNG: " + bad.slice(0, 5).map((x) => x.name).join(", ") : "") }; }
       if (k === "mirror") { if (!p.mirror) return { ok: true, good: true, total: 0, text: "Chưa chọn thư mục sao lưu dự phòng" }; const bad = require("./main/storage-paths").validate("mirror", p.mirror, Object.assign({}, p, { mirror: "" })); return { ok: true, good: !bad, total: 0, text: bad ? "Không dùng được: " + bad : "Ghi được, không lồng thư mục khác" }; }
       return { ok: false, error: "loại thư mục không hợp lệ" };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
@@ -245,6 +248,41 @@ function registerIpc() {
           return "";
         },
         onApplied: (n) => { if (kind === "docs") vault = createVault(n.docs); else if (kind === "ocrLib") ocrLib = require("./main/ocr-library").createStore(n.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") }); } });
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  }));
+  // 012-A (issue #113): thư mục sao lưu JSON — khóa cài đặt MỚI `jsonDir` (chỉ thêm; cấu hình cũ vẫn đọc được). KHÔNG sửa main/storage-paths.js (tệp kế thừa bị CI khóa): dùng lại validate/copy kiểm SHA-256 của nó.
+  const jsonDirOf = () => { const s0 = storage.readSettings() || {}; return s0.jsonDir ? String(s0.jsonDir) : path.join(app.getPath("userData"), "json_backups"); };
+  const JSON_NAME = /^LuongHAK_JSON_\d{8}_\d{6}(-\d+)?\.json$/;
+  ipcMain.handle("json-get", guarded("backup.restore", async () => { const d = jsonDirOf(); return { ok: true, dir: d, custom: !!(storage.readSettings() || {}).jsonDir, info: SP.info(d) }; }));
+  ipcMain.handle("json-list", guarded("backup.restore", async () => {
+    const fs2 = require("fs"), d = jsonDirOf(); let names = []; try { names = fs2.existsSync(d) ? fs2.readdirSync(d).filter((n) => JSON_NAME.test(n)) : []; } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+    return { ok: true, dir: d, items: names.map((n) => { const st2 = fs2.statSync(path.join(d, n)); return { name: n, size: st2.size, mtime: st2.mtimeMs }; }).sort((a, b) => b.mtime - a.mtime) };
+  }));
+  ipcMain.handle("json-set-dir", guardedW("backup.restore", async (e, dir) => {
+    try {
+      const fs2 = require("fs"), cur = spCur(), target = String(dir || ""), old = jsonDirOf();
+      if (!target || !path.isAbsolute(target)) return { ok: false, error: "cần đường dẫn đầy đủ" };
+      for (const k of SP.KINDS) if (cur[k] && (SP.inside(cur[k], target) || SP.inside(target, cur[k]))) return { ok: false, error: "trùng hoặc lồng với thư mục " + SP.LABEL[k] + " (" + cur[k] + ")" };
+      if (SP.inside(old, target) || SP.inside(target, old)) return { ok: false, error: SP.inside(old, target) && SP.inside(target, old) ? "Thư mục mới trùng thư mục hiện tại" : "Thư mục mới nằm trong / chứa thư mục JSON hiện tại — chép sẽ tự lồng vào chính nó" };
+      try { fs2.mkdirSync(target, { recursive: true }); const t = path.join(target, ".hak-write-test-" + process.pid); fs2.writeFileSync(t, "ok"); fs2.unlinkSync(t); } catch (err) { return { ok: false, error: "không ghi được vào thư mục: " + (err.message || err) }; }
+      const r = SP.copyVerified(old, target, (rel) => JSON_NAME.test(rel), { previouslyUsed: false });
+      if (!r.ok) return { ok: false, error: "Chép các bản JSON cũ không thành công — giữ nguyên thư mục cũ: " + r.problems.slice(0, 5).join("; ") };
+      storage.writeSettings(Object.assign({}, storage.readSettings() || {}, { jsonDir: target }));
+      return { ok: true, from: old, to: target, files: r.files, note: "Các bản JSON cũ vẫn còn nguyên ở " + old + " (app không tự xóa)." };
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  }));
+  ipcMain.handle("json-backup", guardedW("backup.restore", async () => {
+    try {
+      const fs2 = require("fs"), crypto2 = require("crypto"), ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có dữ liệu để sao lưu" };
+      JSON.parse(ld.text); // không ghi bản hỏng
+      const d = jsonDirOf(); fs2.mkdirSync(d, { recursive: true });
+      const n0 = new Date(), p2 = (x) => String(x).padStart(2, "0"), stamp = n0.getFullYear() + p2(n0.getMonth() + 1) + p2(n0.getDate()) + "_" + p2(n0.getHours()) + p2(n0.getMinutes()) + p2(n0.getSeconds());
+      let name = "LuongHAK_JSON_" + stamp + ".json", i = 2; while (fs2.existsSync(path.join(d, name))) name = "LuongHAK_JSON_" + stamp + "-" + (i++) + ".json";
+      const file = path.join(d, name), tmp = file + ".tmp" + process.pid; fs2.writeFileSync(tmp, ld.text, "utf8");
+      const sha = crypto2.createHash("sha256").update(fs2.readFileSync(tmp)).digest("hex"), want = crypto2.createHash("sha256").update(Buffer.from(ld.text, "utf8")).digest("hex");
+      if (sha !== want) { try { fs2.unlinkSync(tmp); } catch (err) { /* tệp tạm */ } return { ok: false, error: "Ghi file JSON không khớp SHA-256 — đã hủy, không để lại file" }; }
+      fs2.renameSync(tmp, file); try { if (storage.noteExternal) storage.noteExternal(); } catch (err) { /* chỉ ghi nhận mốc sao lưu */ }
+      return { ok: true, name, dir: d, size: Buffer.byteLength(ld.text, "utf8"), sha256: sha };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   // V9: Full Backup chạy trong worker_thread (không treo giao diện), có tiến độ + nút Hủy; trong lúc chạy các lệnh GHI chứng từ/thư viện OCR bị khóa → gói nhất quán

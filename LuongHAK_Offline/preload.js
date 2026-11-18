@@ -81,6 +81,9 @@ contextBridge.exposeInMainWorld("hakPaths", {
   get: () => ipcRenderer.invoke("paths-get"), pick: (kind) => ipcRenderer.invoke("paths-pick", kind), move: (kind, dir) => ipcRenderer.invoke("paths-move", kind, dir),
   info: () => ipcRenderer.invoke("paths-info"), open: (kind) => ipcRenderer.invoke("paths-open", kind), verify: (kind) => ipcRenderer.invoke("paths-verify", kind)
 });
+contextBridge.exposeInMainWorld("hakJson", { // 012-A: sao lưu JSON vào thư mục JSON đã đặt
+  get: () => ipcRenderer.invoke("json-get"), list: () => ipcRenderer.invoke("json-list"), setDir: (dir) => ipcRenderer.invoke("json-set-dir", dir), backup: () => ipcRenderer.invoke("json-backup")
+});
 contextBridge.exposeInMainWorld("hakDocs", {
   add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }
   list: () => ipcRenderer.invoke("doc-list"),
