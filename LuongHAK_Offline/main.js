@@ -105,9 +105,14 @@ function registerIpc() {
   ipcMain.handle("year-export",guarded("export",async(e,year,kind,period,format,page)=>{const denied=guard.deny(e,"backup.restore");if(denied)return {ok:false,error:denied};try{return await require('./main/year-archive-export').exportYear({years,exportsDir,year,kind,period,format,page,renderPdf:p=>pdfSvc.renderPdf({BrowserWindow},p)});}catch(err){return {ok:false,error:String(err.message||err)};}}));
   ipcMain.handle("year-restore",guardedW("system.admin",async(e,year,reason,token)=>yearWorker("restore",[year,reason,token,guard.userOf(e)])));
   const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, sigOf: storage.sig ? () => storage.sig() : fileSig(storage.dataFile), gate: payGate }));
-  ipcMain.on("store-save", (e, text) => {
+  const sigNow = () => (storage.sig ? storage.sig() : fileSig(storage.dataFile)());
+  ipcMain.on("store-sig", (e) => { try { e.returnValue = String(sigNow()); } catch (err) { e.returnValue = ""; } });
+  ipcMain.on("store-save", (e, text, baseSig) => {
     try {
       if(yearBusy){e.returnValue="Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại";return;}
+      // Kiểm bản nền: giao diện gửi kèm phiên bản kho nó đã nạp/lưu gần nhất. Lệch ⇒ kho đã đổi ở nơi khác (khôi phục, lưu trữ năm, ghi ngoài giao diện) và bản trong
+      // bộ nhớ của giao diện là bản CŨ: từ chối ghi để KHÔNG ghi đè âm thầm. Không gửi baseSig (khách cũ, kịch bản kiểm thử) ⇒ giữ hành vi cũ.
+      if (typeof baseSig === "string" && baseSig !== String(sigNow())) { e.returnValue = "STALE_BASE: Dữ liệu đã được thay đổi ở nơi khác kể từ lần giao diện nạp hoặc lưu gần nhất; bản đang mở là bản cũ nên KHÔNG được ghi để tránh ghi đè."; return; }
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
       const rcv = guard.recoveryFor(e);
       let parsed = null; try { parsed = JSON.parse(text); } catch (e2) { parsed = null; } // phân tích MỘT lần cho policy, kho năm và kho dữ liệu
