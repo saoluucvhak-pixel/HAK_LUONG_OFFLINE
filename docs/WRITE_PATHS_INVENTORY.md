@@ -3,7 +3,7 @@
 Kiểm kê bằng đọc mã (`grep` các lệnh ghi file và mọi `ipcMain`) rồi **kiểm chứng bằng chạy**: bật bản sao bóng SQLite ở chế độ `verify` và chạy toàn bộ E2E.
 
 ## 1. Kết quả chính
-**`data.json` chỉ được ghi qua MỘT hàm: `storage.save(text)` (`main/storage.js`).** Có đúng hai nơi gọi:
+**Hiện hành (v2.0.33): nguồn chính là `data.sqlite` (ghi qua `storage.save` của `main/sqlite-storage.js`); `data.json` là bản xuất, được ghi bằng `storage.save` của `main/storage.js` (kho JSON bên trong). Dưới đây là kiểm kê gốc trước cutover — vẫn đúng về việc mọi đường ghi dữ liệu đi qua MỘT hàm `save`.** Ghi chú gốc: `data.json` chỉ được ghi qua MỘT hàm: `storage.save(text)` (`main/storage.js`). Có đúng hai nơi gọi:
 1. IPC `store-save` (`main.js`): đường duy nhất của giao diện (`saveNow()` trong `app-src/01-luu-tru.js` → `JSON.stringify(db)` → `store.save`), qua `write-policy.check` (kiểm quyền, chốt kỳ, phiếu đã xác nhận) rồi `storage.save`.
 2. `saveChecked()` trong `main/year-archive.js`: lưu trữ/khôi phục kho năm chạy ở tiến trình chính, không đi qua `store-save` (nhưng có `years.checkWrite`).
 
@@ -23,7 +23,7 @@ Mọi nghiệp vụ (nhập tay/Excel, gộp công, thêm/xóa nhân viên, cấ
 | `localStorage` của trình duyệt | bản sao `KEY` khi không có `store` (chế độ không Electron) + tùy chọn giao diện | `app-src/01-luu-tru.js` |
 
 ## 3. Kiểm chứng bằng chạy (Linux, dữ liệu giả)
-Bản sao bóng `HAK_SQLITE_SHADOW=verify` bọc `storage.save`; mỗi lần lưu ghi **chỉ phần thay đổi** vào `shadow.sqlite`, rồi dựng lại TOÀN BỘ từ SQLite so với nội dung vừa lưu. Chạy cả bộ E2E thật:
+(Công cụ nghiệm thu, mặc định tắt; KHÔNG phải nguồn chính từ v2.0.29.) Bản sao bóng `HAK_SQLITE_SHADOW=verify` bọc `storage.save`; mỗi lần lưu ghi **chỉ phần thay đổi** vào `shadow.sqlite`, rồi dựng lại TOÀN BỘ từ SQLite so với nội dung vừa lưu. Chạy cả bộ E2E thật:
 
 | Bộ E2E | Kết quả bộ | Bản sao bóng |
 |---|---|---|

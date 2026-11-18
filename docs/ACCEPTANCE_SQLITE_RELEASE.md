@@ -2,7 +2,7 @@
 
 > **Cập nhật phát hành v2.0.29:** SQLite là nguồn dữ liệu chính MẶC ĐỊNH (theo yêu cầu của chủ sở hữu). Mục 5 và các bảng bên dưới mô tả trạng thái trước khi đổi mặc định; xem `docs/releases/v2.0.29.md` cho hướng dẫn nâng cấp/quay lui. Kết luận phát hành: **chỉ đủ thử nghiệm có kiểm soát** (chưa thử Setup Windows, chưa thử máy in, chưa dùng SQLite Backup API).
 
-**Kết luận: Chưa hoàn thành đợt SQLite — không phát hành "bản SQLite".** Đã làm xong phần nền (giai đoạn 0 và một phần giai đoạn 2). Chưa có cutover, nên app vẫn lưu `data.json`. Không dùng đợt này để tuyên bố đã chuyển sang SQLite.
+**Kết luận hiện hành (v2.0.33): Chỉ đủ thử nghiệm có kiểm soát.** SQLite là nguồn dữ liệu chính MẶC ĐỊNH từ v2.0.29 (`data.json` là bản xuất; quay lui bằng `HAK_STORAGE=json`). Đã có: cutover có journal, khóa phiên ghi, kho năm an toàn (A01), sao lưu không giả (A02), schema v2 có CHECK, bản chụp SQLite xoay vòng, phân tích một lần ở đường ghi. CHƯA có: Setup Windows thật cài mới/nâng cấp, thử in, delta từ giao diện (mới có thiết kế: `docs/WRITE_PATH_DELTA_DESIGN.md`), khóa ngoại/chuẩn hóa theo nghiệp vụ, khôi phục từ bản chụp SQLite, đo hiệu năng trên Electron/Windows. **Các mục 1–6 và bảng bên dưới là LỊCH SỬ của đợt nền (trước cutover), giữ để truy vết — không dùng làm trạng thái hiện hành.**
 
 ## 1. Trạng thái theo giai đoạn (prompt tổng thể, mục L)
 
@@ -41,18 +41,12 @@ Ngân sách đặt trước khi đo: ghi một dòng < 5 ms ở p95; chuyển 5.
 
 Kế hoạch truy vấn khóa nghiệp vụ dùng chỉ mục `records_bkey`. Chưa đo 10.000 NV, chưa đo trên Windows/Electron đóng gói, chưa đo thời gian mở app và RAM của app thật.
 
-## 4. Chưa kiểm chứng / còn thiếu
+## 4. Chưa kiểm chứng / còn thiếu (hiện hành, v2.0.33)
 
-1. Giao diện vẫn gửi cả tài liệu mỗi lần lưu; SQLite chỉ nhận delta ở chế độ bóng (mặc định TẮT, `HAK_SQLITE_SHADOW`). Chưa có thao tác nào ghi trực tiếp SQLite làm nguồn chính.
-2. Chưa có cutover (con trỏ nguồn hoạt động, journal phục hồi khi khởi động dở dang, chặn hai phiên ghi).
-3. Chưa có Full Backup/restore bằng SQLite Backup API hoặc `VACUUM INTO`; chưa có kho năm trên SQLite.
-4. Chưa chuẩn hóa lược đồ theo nghiệp vụ (bảng phiếu cân/dòng phân bổ, cấp phát, thanh toán…), chưa có khóa ngoại/CHECK nghiệp vụ.
-5. Chưa thử kill/crash ở mốc sau commit trước phản hồi, giữa import nhiều bảng, chốt, restore; chưa thử đĩa đầy, DB bị lock bởi tiến trình khác.
-6. Chưa thử Setup cài mới và nâng cấp từ JSON; chưa thử máy in.
-7. Tài liệu `DATABASE_SCHEMA.md` chưa được viết lại theo lược đồ thực tế; `DATA_FLOW_AND_RECONCILIATION.md`, `UI_WORKFLOW_GUIDE.md` chưa lập.
-
-Không nên cutover khi các mục 1–3 và 5–6 chưa đạt.
-
+1. Giao diện vẫn gửi cả tài liệu mỗi lần lưu; tiến trình chính đã phân tích một lần (v2.0.33). Delta từ giao diện: thiết kế ở `docs/WRITE_PATH_DELTA_DESIGN.md`, chưa làm. (Chế độ bóng `HAK_SQLITE_SHADOW` còn tồn tại chỉ như công cụ nghiệm thu, mặc định tắt; KHÔNG phải nguồn chính.)
+2. Cutover đã có từ v2.0.29 (journal chuyển, khóa phiên ghi `data.sqlite.lock`, quay lui `HAK_STORAGE=json`). Chưa thử qua Setup Windows thật.
+3. Kho năm chạy qua `main/year-job.js` (marker thao tác, phục hồi khi gián đoạn). Bản chụp `VACUUM INTO` xoay vòng đã có (`backups/data-snapshot.sqlite`) nhưng CHƯA có Full Backup/restore bằng bản chụp và CHƯA có nút khôi phục từ file này.
+4. Schema v2 có CHECK; chưa có khóa ngoại/chuẩn hóa theo nghiệp vụ (mọi bảng dùng chung `records`).
 
 ## 5. Cutover sớm có cờ (HAK_STORAGE=sqlite) — kết quả
 
@@ -98,3 +92,24 @@ Thiết kế: `save()` kiểm hợp lệ (phân tích một lần) → bảo v�
 | Đo hiệu năng | **Đã đo lại** | 5.000 NV, ghi một lần sửa nhỏ: SQLite p50 378 / p95 2.494 ms; JSON p50 241 / p95 1.280 ms. Không có tăng tốc; chưa đo 10.000 NV và Electron đóng gói |
 
 Điều kiện còn thiếu để xác nhận bàn giao chính thức: thử Setup Windows (cài mới + nâng cấp từ JSON có kỳ chốt/chứng từ/kho năm), delta từ giao diện hoặc chấp nhận chi phí hiện tại, chuẩn hóa lược đồ, gói sao lưu có snapshot SQLite và thử restore sang hồ sơ mới trong cùng ca.
+
+## 7. Ma trận nghiệm thu theo prompt (mục 12) — trạng thái v2.0.34
+
+Đạt = có bằng chứng tự động chạy trên commit; Một phần = có nhưng chưa đủ phạm vi ma trận; Chưa = chưa có bằng chứng.
+
+| Nhóm | Trạng thái | Bằng chứng / còn thiếu |
+|---|---|---|
+| Lỗi đã biết | **Đạt** | C01 (6 ca, tái hiện trước khi sửa: `docs/v2.0.31/`), hồi quy F01/F02/A01/A02 còn trong bộ test; ô trống nhập Excel (`importer-blank-cells`) |
+| Import | Một phần | Lặp file, Total/phiếu thật, mã Text, ô trống: có test. Chưa có ca tự động đủ "nhiều kỳ + bổ sung/thay thế" cho mọi bảng |
+| Ghi dữ liệu | Một phần | Thành công chỉ sau commit, hoàn tác nhiều bảng (`txn`), tiêm lỗi đĩa/SQLite, kill sau lưu: có (E2E). Save nhanh/chuyển màn: `*-stability`. Delta từ giao diện: chưa (chỉ thiết kế) |
+| Hiệu lực | Một phần | Test hồi quy hiện có đạt; chưa rà lại từng ca ma trận trong đợt này |
+| Nghiệp vụ | Một phần | Như trên |
+| Chốt/thanh toán | Một phần | Như trên; không có thay đổi công thức/bản chốt |
+| Báo cáo/lọc | **Một phần, nhiều hơn** | Bảng↔Excel↔HTML từng dòng/cột cho lương (9 loại), vận hành (6), bảo hiểm, cấp phát. Chưa: nội dung PDF thật cho mọi báo cáo; chưa chuẩn hóa Smart Filter mọi màn |
+| SQLite | Một phần | Migration, idempotency, crash, busy, schema v2 CHECK, kho năm, bản chụp: có. Chưa: khóa ngoại/chuẩn hóa, khôi phục từ bản chụp |
+| UI | **Chưa đủ** | CI `workspace-visual` (bố cục và các giao diện); chưa kiểm tay từng màn/modal ở 1366×768 và 1920×1080 |
+| Phân quyền | Đạt (phạm vi hiện có) | Hai chế độ, vai trò không có `payroll.view` (`input-filter-dept`), main guard |
+| Hiệu năng | Một phần | 300/5.000/10.000 NV: p50/p95 + RSS ở `docs/PERFORMANCE_REPORT.md`; **chưa đạt mục tiêu < 150 ms ở 5.000 NV**; chưa đo Electron/Windows |
+| Setup | Một phần → CI | v2.0.34 thêm bước CI cài/chạy/nâng cấp đè/gỡ bằng bộ cài THẬT trên runner Windows (`tests/e2e/installed-setup.cjs`). Máy/tài khoản Windows thật của chủ sở hữu: **chưa** |
+
+Kết luận không đổi: **Chỉ đủ thử nghiệm có kiểm soát.**

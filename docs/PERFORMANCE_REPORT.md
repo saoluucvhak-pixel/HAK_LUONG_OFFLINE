@@ -117,3 +117,21 @@ Test:
 
 - Gom các đường ghi còn lại vào repository + theo dõi dòng thay đổi → SQLite ghi theo dòng (mục tiêu lưu < 50 ms ở 5.000 NV). Cần chủ sở hữu duyệt (`MIGRATION_PLAN.md` §2).
 - **Cần chủ sở hữu duyệt ngưỡng:** thời gian lưu chấp nhận được và cỡ dữ liệu thực tế (số NV, số năm lưu).
+
+
+## Đo theo quy mô — chuỗi ghi của tiến trình chính, v2.0.33 (18/11/2026)
+
+Tái lập: `node docs/v2.0.34/perf-scale.cjs` (kết quả thô: `docs/v2.0.34/do-quy-mo.txt`). Linux 4 vCPU, Node 22, dữ liệu GIẢ (12 kỳ chấm công), 25 lần sửa 1 ô, bỏ 3 lần đầu; mỗi quy mô một tiến trình riêng. Chuỗi ghi = phân tích 1 lần → `write-policy.check` → `years.checkWrite` → `storage.save` (SQLite). **Chưa đo trên Electron/Windows; chưa tính IPC.**
+
+| NV | Tài liệu | Lưu lần đầu | Tải nguội | Chuỗi ghi main p50 / p95 | Giao diện `stringify` p50 | RSS đỉnh (main, một tiến trình) |
+|---|---|---|---|---|---|---|
+| 300 | 0,5 MB | 91 ms | 19 ms | 15 / 17 ms | 3 ms | 142 MB |
+| 5.000 | 9,1 MB | 1.299 ms | 372 ms | 272 / 378 ms | 67 ms | 872 MB |
+| 10.000 | 18,2 MB | 2.827 ms | 755 ms | 548 / 666 ms | 144 ms | 1.644 MB |
+
+Nhận định (trung thực):
+- **Mục tiêu "lưu < 150 ms ở 5.000 NV" CHƯA đạt** (272/378 ms chỉ riêng tiến trình chính; giao diện còn thêm ~67 ms dựng văn bản + truyền IPC). 300 NV: đạt (15 ms).
+- **Bộ nhớ là rủi ro riêng:** ở 10.000 NV, riêng tiến trình chính đạt ~1,6 GB RSS (tài liệu được giữ nhiều bản: bản đang lưu, bản đã phân tích, bộ nhớ đệm so dòng, kho năm, policy). Giao diện còn giữ thêm một bản. Cần giai đoạn 2 (làm việc theo phần đổi) và giảm số bản sao trước khi cam kết 10.000 NV.
+- Thời gian tăng gần tuyến tính theo kích thước tài liệu (5.000→10.000 NV: ×2,0) nên không có điểm gãy bất ngờ trong dải đo.
+- `data.sqlite-wal` bằng cỡ cơ sở dữ liệu sau lần lưu đầu (23/46 MB): bình thường với WAL, được checkpoint khi đóng.
+- Chưa đo: nhiều năm/chứng từ, nhiều bảng lớn đồng thời, RAM của giao diện, Windows.
