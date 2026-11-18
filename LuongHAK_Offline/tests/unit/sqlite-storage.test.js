@@ -123,3 +123,14 @@ test("U-SS-13 khóa phiên ghi: tiến trình khác còn sống giữ kho → t�
   fs.writeFileSync(lock, JSON.stringify({ pid: 2147483646, boot: Math.round(Date.now() / 1000 - os.uptime()), at: "2020-01-01T00:00:00Z" })); // pid không tồn tại = khóa mồ côi
   const u = createSqliteStorage(dir, opts); assert.equal(u.load().ok, true); u.close();
 });
+
+test("U-SS-14 sao lưu tạo thêm bản chụp SQLite xoay vòng đúng số dòng; lỗi chụp không làm hỏng sao lưu JSON", () => {
+  const dir = dirOf(), s = createSqliteStorage(dir, opts), d = doc(); s.save(JSON.stringify(d));
+  const name = s.backup("tay");
+  assert.ok(name, "sao lưu JSON vẫn thành công");
+  const snap = path.join(s.info().backupDir, "data-snapshot.sqlite");
+  assert.ok(fs.existsSync(snap), "có bản chụp SQLite");
+  const { DatabaseSync } = require("node:sqlite"), t = new DatabaseSync(snap, { readOnly: true });
+  assert.equal(t.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
+  assert.ok(t.prepare("SELECT COUNT(*) AS c FROM records").get().c > 0); t.close(); s.close();
+});

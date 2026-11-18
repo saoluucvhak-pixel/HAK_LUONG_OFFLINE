@@ -186,7 +186,10 @@ function createSqliteStorage(dir, opts) {
     for (const f of [name, name + ".sha256"]) { try { fs.rmSync(path.join(json.backupDir, f), { force: true }); } catch (e) { /* bỏ qua */ } }
     backupError = "Bản sao lưu vừa tạo không khớp dữ liệu hiện tại nên đã bị hủy; bản sao lưu tốt trước đó được giữ nguyên."; return null;
   }
-  const backupWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return null; const out = json[name](...args); return typeof out === "string" ? verifyBackup(out) : out; };
+  let snapshotError = "";
+  // Bản chụp SQLite xoay vòng (1 file, ghi đè sau khi bản mới đạt kiểm tra): bổ sung cho bản sao lưu JSON, KHÔNG thay thế; lỗi chỉ ghi lại, không chặn sao lưu.
+  function snapshotNow() { snapshotError = ""; if (!db) return null; const r = store.snapshot(db, path.join(json.backupDir, "data-snapshot.sqlite")); if (!r.ok) snapshotError = r.error; return r; }
+  const backupWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return null; const out = json[name](...args); const v = typeof out === "string" ? verifyBackup(out) : out; if (v && name === "backup") snapshotNow(); return v; };
   const readWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return name === "changedSinceBackup" ? true : null; return json[name](...args); };
   const mirrorWrap = () => (...args) => { backupError = ""; if (!exportReady()) return { ok: false, error: backupError }; return json.syncMirror(...args); };
   function quarantineCorrupt() { // người dùng chọn "cất file lạ": cất data.json, rồi dùng dữ liệu SQLite
@@ -211,7 +214,7 @@ function createSqliteStorage(dir, opts) {
 
   return Object.assign({}, json, {
     load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
-    backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
+    snapshotNow, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev, kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });
 }

@@ -1,10 +1,16 @@
 # DATABASE_SCHEMA — Cấu trúc dữ liệu
 
-## 0. Lưu trữ thực tế từ v2.0.29: SQLite (`data.sqlite`) — lược đồ v1
+## 0. Lưu trữ thực tế từ v2.0.29: SQLite (`data.sqlite`) — lược đồ v2 (từ v2.0.32)
 
 > Các mục 1 trở đi mô tả **cấu trúc nghiệp vụ** (bảng, trường, khóa) vẫn đúng: dữ liệu của app là các "bảng" mảng dòng như dưới đây. Mục 0 mô tả **nơi lưu vật lý**. Lược đồ SQLite v1 là "dòng nguyên vẹn + khóa nghiệp vụ", CHƯA chuẩn hóa thành bảng/cột/khóa ngoại theo từng nghiệp vụ (xem lộ trình ở `docs/MIGRATION_PLAN.md`). Mã nguồn: `main/sqlite-store.js` (schema, migrations), `main/sqlite-migrate.js` (chuyển/đối chiếu), `main/sqlite-changeset.js` (ghi delta), `main/sqlite-storage.js` (kho chính).
 
-Kết nối: `foreign_keys=ON`, `journal_mode=WAL`, `synchronous=FULL`, `busy_timeout=5000` (đọc lại sau khi đặt; không đúng thì không mở). `user_version` = 1; file có `user_version` mới hơn app bị từ chối.
+Kết nối: `foreign_keys=ON`, `journal_mode=WAL`, `synchronous=FULL`, `busy_timeout=5000` (đọc lại sau khi đặt; không đúng thì không mở). `user_version` = 2; file có `user_version` mới hơn app bị từ chối.
+
+**Lược đồ v2 (v2.0.32)** thêm ràng buộc CHECK cho `records`: `length(tbl) > 0`, `length(id) > 0`, `json_valid(json)`, `rev >= 1` (dựng lại bảng trong một giao dịch, giữ nguyên dòng/thứ tự/rev/chỉ mục; có test nâng v1→v2). **Không có khóa ngoại** vì mọi bảng nghiệp vụ dùng chung `records(tbl, id)`; ràng buộc tham chiếu nghiệp vụ nằm ở tầng ghi (`core/validate.js`, `write-policy`). Không đặt `CHECK(pos >= 0)` vì thao tác dịch đuôi dùng `pos` âm tạm thời trong giao dịch.
+
+**Quay lui:** app ≤ v2.0.31 mở `data.sqlite` v2 sẽ báo "mới hơn app" và KHÔNG ghi đè; dùng `HAK_STORAGE=json` để chạy tiếp trên `data.json` đã xuất, hoặc cài lại bản mới.
+
+**Bản chụp SQLite xoay vòng:** mỗi lần sao lưu JSON thành công, app ghi thêm `backups/data-snapshot.sqlite` (`VACUUM INTO`, kiểm `integrity_check` và số dòng trước khi thay file cũ). Chỉ là bản bổ sung để hỗ trợ kỹ thuật; app CHƯA có nút khôi phục từ file này.
 
 | Bảng SQLite | Cột | Vai trò |
 |---|---|---|

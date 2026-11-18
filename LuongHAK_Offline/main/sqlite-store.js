@@ -3,7 +3,7 @@
 // Phần này gồm: mở kết nối có PRAGMA kiểm chứng, migrations đánh số, giao dịch ghi một dòng có revision + idempotency key + audit cùng commit.
 "use strict";
 
-const SCHEMA_VERSION = 1;   // user_version tối đa app này hiểu; file mới hơn → từ chối mở
+const SCHEMA_VERSION = 2;   // user_version tối đa app này hiểu; file mới hơn → từ chối mở
 const MARK = "hak-luong-sqlite", BUSY_MS = 5000;
 
 function driver() {
@@ -27,6 +27,18 @@ const MIGRATIONS = [
     -- Thao tác ghi: idempotency key chống bấm đúp/retry; audit nằm CÙNG giao dịch với dữ liệu
     CREATE TABLE applied_requests (request_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL, revision INTEGER NOT NULL) WITHOUT ROWID;
     CREATE TABLE audit (seq INTEGER PRIMARY KEY, at TEXT NOT NULL, actor TEXT, action TEXT NOT NULL, tbl TEXT, id TEXT, detail TEXT);
+  ` },
+  // v2: ràng buộc CHECK ở tầng cơ sở dữ liệu (SQLite không thêm CHECK bằng ALTER nên dựng lại bảng records trong cùng giao dịch).
+  // KHÔNG đặt CHECK(pos >= 0): thao tác dịch đuôi dùng pos âm tạm thời trong giao dịch. Không có FK vì mọi bảng nghiệp vụ dùng chung records(tbl,id).
+  { version: 2, name: "check-records", sql: `
+    CREATE TABLE records_v2 (
+      tbl TEXT NOT NULL CHECK (length(tbl) > 0), id TEXT NOT NULL CHECK (length(id) > 0), pos INTEGER NOT NULL, bkey TEXT,
+      json TEXT NOT NULL CHECK (json_valid(json)), rev INTEGER NOT NULL DEFAULT 1 CHECK (rev >= 1), PRIMARY KEY (tbl, id)) WITHOUT ROWID;
+    INSERT INTO records_v2 (tbl, id, pos, bkey, json, rev) SELECT tbl, id, pos, bkey, json, rev FROM records;
+    DROP TABLE records;
+    ALTER TABLE records_v2 RENAME TO records;
+    CREATE UNIQUE INDEX records_pos ON records (tbl, pos);
+    CREATE INDEX records_bkey ON records (tbl, bkey);
   ` }
 ];
 
@@ -108,4 +120,19 @@ function applyChange(db, change) {
 /** Checkpoint WAL rồi đóng: file .sqlite đứng một mình, không còn -wal/-shm. */
 function close(db) { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch (e) { /* chỉ đọc */ } db.close(); }
 
-module.exports = { SCHEMA_VERSION, MARK, driver, open, migrate, tx, applyChange, close, isHakStore, pragma };
+/** Bản chụp nhất quán của kho (VACUUM INTO) ra file mới, kiểm integrity_check + số dòng rồi mới đổi tên. Trả { ok, records } hoặc { ok:false, error }. */
+function snapshot(db, destFile) {
+  const fs = require("node:fs"), tmp = destFile + ".tmp";
+  try {
+    try { fs.rmSync(tmp, { force: true }); } catch (e) { /* bỏ qua */ }
+    db.exec("VACUUM INTO '" + tmp.replace(/'/g, "''") + "'");
+    const { DatabaseSync } = driver(), t = new DatabaseSync(tmp, { readOnly: true });
+    let chk, n, want;
+    try { chk = t.prepare("PRAGMA integrity_check").get().integrity_check; n = t.prepare("SELECT COUNT(*) AS c FROM records").get().c; want = db.prepare("SELECT COUNT(*) AS c FROM records").get().c; } finally { t.close(); }
+    if (chk !== "ok" || n !== want) { fs.rmSync(tmp, { force: true }); return { ok: false, error: "Bản chụp SQLite không đạt kiểm tra (" + chk + ", " + n + "/" + want + " dòng)" }; }
+    fs.renameSync(tmp, destFile);
+    return { ok: true, records: n };
+  } catch (e) { try { fs.rmSync(tmp, { force: true }); } catch (e2) { /* bỏ qua */ } return { ok: false, error: String(e && e.message || e) }; }
+}
+
+module.exports = { snapshot, SCHEMA_VERSION, MIGRATIONS, MARK, driver, open, migrate, tx, applyChange, close, isHakStore, pragma };
