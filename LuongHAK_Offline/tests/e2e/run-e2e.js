@@ -17,6 +17,8 @@ function ok(name, cond, extra) { results.push({ name, pass: !!cond, extra: extra
 const ADMIN = { u: "admin", n: "Quản trị E2E", p: "Admin2026e2e" };
 const shotDir = process.env.E2E_SHOTS || "";
 const shotOf = async (pg, name) => { if (shotDir) { fs.mkdirSync(shotDir, { recursive: true }); await pg.screenshot({ path: path.join(shotDir, name + ".png") }).catch(() => {}); } };
+// Cờ nghiệm thu như CI (workflow đặt sẵn): xuất data.json ngay mỗi lần lưu và nhận dữ liệu giả ghi ngoài app. Không có thì data.json (bản xuất dẫn xuất của SQLite) trễ ~3 giây và bộ test đọc phải dữ liệu cũ. Biến đặt tay / của CI vẫn ưu tiên.
+const E2E_SQLITE_FLAGS = { HAK_SQLITE_EXPORT_SYNC: "1", HAK_SQLITE_ADOPT_EXTERNAL: "1" };
 let dialogs = [], dismissConfirm = false; // dismissConfirm: bấm "Hủy" ở hộp xác nhận tiếp theo
 // Use the real OCR input and change handler without opening a native dialog on CI.
 async function chooseOcrFiles(page, paths) {
@@ -69,7 +71,7 @@ async function crashApp(app) {
 }
 async function launch(dataDir, opt) {
   opt = opt || {};
-  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: dataDir || DATA, HAK_DOWNLOAD_DIR: DL, HAK_NO_SHELL: "1" }, opt.env || {}) });
+  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, E2E_SQLITE_FLAGS, process.env, { HAK_USER_DATA: dataDir || DATA, HAK_DOWNLOAD_DIR: DL, HAK_NO_SHELL: "1" }, opt.env || {}) });
   const w = await app.firstWindow(); const errs = [];
   w.on("pageerror", (e) => errs.push(e.message));
   w.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });

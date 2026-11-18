@@ -16,9 +16,11 @@ const PEOPLE = [["E2E Nhân Viên", Array(26).fill(1).concat([0.5, 1, 1, 0])], [
 const MARKS = { "Lê Văn An": [2, 3, 2, 2, 3, 3, 0, 1, 1, 3, 2, 3, 1, 0, 0, 2, 1, 1, 0, 3, 0, 0, 3, 2, 2, 3, 1, 0, 3, 0], "Trần Bình": [3, 0, 0, 0, 1, 1, 0, 3, 1, 2, 1, 2, 3, 0, 1, 3, 1, 1, 2, 0, 0, 0, 2, 1, 2, 3, 0, 0, 1, 1], "Ngô Cường": [1, 3, 1, 0, 0, 3, 0, 0, 2, 0, 1, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0, 2, 2, 2, 0, 3, 1, 0, 1, 1] };
 const fmt = (v) => (v === 0 ? "" : String(v).replace(".", ","));
 const norm = (s) => String(s == null ? "" : s).trim().replace(/\./g, ",").replace(/^0$/, "");
+// Cờ nghiệm thu như CI (workflow đặt sẵn): xuất data.json ngay mỗi lần lưu và nhận dữ liệu giả ghi ngoài app. Không có thì data.json (bản xuất dẫn xuất của SQLite) trễ ~3 giây và bộ test đọc phải dữ liệu cũ. Biến đặt tay / của CI vẫn ưu tiên.
+const E2E_SQLITE_FLAGS = { HAK_SQLITE_EXPORT_SYNC: "1", HAK_SQLITE_ADOPT_EXTERNAL: "1" };
 
 async function launch(dir) {
-  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: dir, HAK_DOWNLOAD_DIR: path.join(dir, 'downloads'), HAK_NO_SHELL: "1" }) });
+  const app = await _electron.launch({ executablePath: ELECTRON, args: ["--no-sandbox", APP], env: Object.assign({}, E2E_SQLITE_FLAGS, process.env, { HAK_USER_DATA: dir, HAK_DOWNLOAD_DIR: path.join(dir, 'downloads'), HAK_NO_SHELL: "1" }) });
   const w = await app.firstWindow(); const errs = [];
   w.on("pageerror", (e) => errs.push(e.message)); w.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
   w.on("dialog", (d) => d.accept(d.type() === "prompt" ? "" : undefined));

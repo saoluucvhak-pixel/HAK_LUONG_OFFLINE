@@ -3,6 +3,10 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.35] — 18/11/2026
+- **`npm run test:e2e` và `npm run test:ocr-eval` tự đặt hai cờ nghiệm thu SQLite** (`HAK_SQLITE_EXPORT_SYNC=1`, `HAK_SQLITE_ADOPT_EXTERNAL=1`) khi chạy tay, giống CI; trước đây thiếu chúng thì `data.json` xuất trễ làm ca "Thêm nhân viên… Quốc tịch" hỏng. Biến đặt tay vẫn ưu tiên. Chỉ đổi bộ test và tài liệu.
+- Thêm `docs/PROMPT_NANG_CAP_V2_2.md` (thay V2_1). Không đổi mã chạy, công thức lương, kỳ đã chốt hay quy tắc ghi.
+
 ## [2.0.34] — 18/11/2026
 - **Nghiệm thu:** thêm 20 test đối chiếu bảng ↔ Excel ↔ HTML (báo cáo vận hành 13 ca, bảo hiểm 4, cấp phát 3), kiểm từng dòng/cột và tổng = cộng dòng.
 - **CI:** bước mới trong job `windows-setup` cài im lặng bộ cài NSIS THẬT, chạy app đã cài (nâng cấp JSON→SQLite, lưu/đóng/mở), nâng cấp ĐÈ lên bản đã phát hành trước đó và gỡ cài (dữ liệu người dùng được giữ). Không thay thế thử trên máy Windows thật.
