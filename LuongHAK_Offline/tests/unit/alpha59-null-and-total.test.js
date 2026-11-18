@@ -51,3 +51,11 @@ test("tính lương: ô 'null' không còn thành nhãn công tác / xung đột
   assert.ok(!kq.canhbao.some((w) => /'null'/.test(w)));
   assert.equal(G.blockers(kq).length, 0);
 });
+
+test("removeTotals: phiếu THẬT có tên giống chữ 'tổng/total' (TOTAL-123, Tổng hợp 5, Total A) KHÔNG bị bỏ; chỉ nhãn đúng bằng Total/Tổng/Tổng cộng và không có định danh nào", () => {
+  const mk = (label, extra) => Object.assign({ "Phiếu cân": label, "Ngày cân": "", "Biển số": "", "Mã NV": "", "Mã phòng ban": "", "NV vắng": "", "KL hàng (Tấn)": 5 }, extra || {});
+  const db = { sanluong: [mk("TOTAL-123"), mk("Tổng hợp 5"), mk("Total A"), mk("Total", { "Biển số": "51C-12345" }), mk("Total", { "Mã NV": "0005" }), mk("TỔNG CỘNG")], bandam: [] };
+  const out = B.removeTotals(db);
+  assert.deepEqual(out.map((x) => x.row["Phiếu cân"]), ["TỔNG CỘNG"], "chỉ dòng tổng thuần bị loại");
+  assert.deepEqual(db.sanluong.map((r) => r["Phiếu cân"]), ["TOTAL-123", "Tổng hợp 5", "Total A", "Total", "Total"], "5 dòng thật còn nguyên (kể cả nhãn 'Total' nhưng có biển số / mã NV)");
+});

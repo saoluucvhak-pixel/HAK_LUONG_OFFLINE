@@ -1,5 +1,28 @@
 # DATABASE_SCHEMA — Cấu trúc dữ liệu
 
+## 0. Lưu trữ thực tế từ v2.0.29: SQLite (`data.sqlite`) — lược đồ v1
+
+> Các mục 1 trở đi mô tả **cấu trúc nghiệp vụ** (bảng, trường, khóa) vẫn đúng: dữ liệu của app là các "bảng" mảng dòng như dưới đây. Mục 0 mô tả **nơi lưu vật lý**. Lược đồ SQLite v1 là "dòng nguyên vẹn + khóa nghiệp vụ", CHƯA chuẩn hóa thành bảng/cột/khóa ngoại theo từng nghiệp vụ (xem lộ trình ở `docs/MIGRATION_PLAN.md`). Mã nguồn: `main/sqlite-store.js` (schema, migrations), `main/sqlite-migrate.js` (chuyển/đối chiếu), `main/sqlite-changeset.js` (ghi delta), `main/sqlite-storage.js` (kho chính).
+
+Kết nối: `foreign_keys=ON`, `journal_mode=WAL`, `synchronous=FULL`, `busy_timeout=5000` (đọc lại sau khi đặt; không đúng thì không mở). `user_version` = 1; file có `user_version` mới hơn app bị từ chối.
+
+| Bảng SQLite | Cột | Vai trò |
+|---|---|---|
+| `meta` | `key`, `value` | `mark` (nhận diện kho HAK), `primary` (=1 khi SQLite là nguồn chính), `rev` (số lần lưu, dùng làm chữ ký cho chính sách ghi), `exported_sha` (SHA-256 bản `data.json` xuất lần cuối) |
+| `schema_migrations` | `version`, `name`, `applied_at` | lịch sử nâng schema |
+| `migration_journal` | `id`, `state`, `source_sha256`, `detail`, `at` | `started → copied → ready` khi chuyển từ `data.json` |
+| `top_value` | `pos`, `key`, `kind`, `json` | khóa cấp ngoài cùng không phải bảng (ví dụ `schemaVersion`, `congty`), giữ thứ tự khóa và JSON gốc; bảng mảng có một dòng `kind='array'` giữ thứ tự |
+| `records` | `tbl`, `id`, `pos`, `bkey`, `json`, `rev` | **mỗi dòng nghiệp vụ một dòng**: `id` nội bộ ổn định (dùng `_id` nếu có, ngược lại băm nội dung + số lần xuất hiện nên dòng trùng y hệt vẫn có id riêng), `pos` giữ thứ tự gốc (duy nhất theo bảng), `bkey` là khóa nghiệp vụ chuẩn hóa theo `core/importer.js` KEYS — **không UNIQUE** (trùng được báo, không tự gộp), `json` là payload NGUYÊN VẸN (kể cả snapshot kỳ chốt: không chuẩn hóa lại nên checksum cũ không đổi), `rev` tăng mỗi lần sửa. Khóa chính `(tbl, id)`; chỉ mục `(tbl, pos)` UNIQUE và `(tbl, bkey)` |
+| `applied_requests` | `request_id`, `applied_at`, `revision` | idempotency key cho `applyChange` (chống bấm đúp/retry) |
+| `audit` | `seq`, `at`, `actor`, `action`, `tbl`, `id`, `detail` | nhật ký của `applyChange`, ghi CÙNG giao dịch với dữ liệu (nhật ký nghiệp vụ `auditlog` của app vẫn là một bảng trong `records`) |
+
+Quy tắc:
+- Số tiền, khối lượng, công, ngày **giữ nguyên dạng trong JSON** (không ép kiểu khi chuyển); số nguyên vượt ±2^53−1 làm việc chuyển dừng, không đổi âm thầm.
+- Dựng lại dữ liệu = đọc `top_value` theo `pos` rồi `records` theo `(tbl, pos)`; kết quả phải bằng nguồn từng ký tự (kiểm khi chuyển lần đầu và trong test).
+- `data.json` là **bản xuất** của dữ liệu này (không phải nguồn): ghi lại nguyên tử sau tối đa 3 giây, khi đóng app và trước mỗi sao lưu.
+- Bản cũ trước 2.0.29 đọc `data.json`; `HAK_STORAGE=json` quay về kho JSON.
+- Chưa có: khóa ngoại và CHECK theo nghiệp vụ, tách phiếu gốc/dòng phân bổ thành bảng riêng, cột số thập phân có độ chính xác riêng. Không áp `UNIQUE` toàn cục lên số phiếu hay khóa có thể NULL.
+
 ## 1. Hiện trạng (v1.4.0): 1 file JSON, `schemaVersion = 2`
 
 File `%APPDATA%\Tinh Luong HAK\data.json` là một object; mỗi khóa là một "bảng" (mảng bản ghi). Tên cột tiếng Việt.

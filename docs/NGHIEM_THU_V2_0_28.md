@@ -50,7 +50,7 @@ Trạng thái: **Đạt** = có test chạy đạt đối chiếu đúng ý; **L
 |---|---|---|---|
 | 1 | Nhập cùng file hai lần không nhân đôi | Đạt (chấm công, cấp phát) | `importer-chamcong` U-CC-01; `core.test` "nhập chấm công 2 lần"; `capphat.cjs` nhập lại phiếu Excel |
 | 2 | Bổ sung, thay thế kỳ, sửa, xóa | Đạt (chấm công) / Liên quan (các bảng khác) | U-CC-05..07; `input-review.test` |
-| 3 | Bỏ dòng tổng khi nhập; báo số dòng nhận/bỏ/lỗi | Liên quan | Logic `core/input-batch.js`, hiển thị "Bỏ qua dòng tổng" ở `app-src/06-danh-muc-sua.js`; chưa có test riêng cho trường hợp "trường chứa chữ tương tự" |
+| 3 | Bỏ dòng tổng khi nhập; báo số dòng nhận/bỏ/lỗi | **Đạt** | `core/input-batch.js` `isProductionTotal`: chỉ nhãn ĐÚNG BẰNG total/tổng/tổng cộng và không có ngày cân, biển số, mã tổ, mã NV, NV vắng; test `alpha59-null-and-total` (thêm ca phiếu thật `TOTAL-123`, `Tổng hợp 5`, `Total A`, `Total` có biển số/mã NV vẫn được giữ). Số dòng bỏ qua hiển thị ở `app-src/06-danh-muc-sua.js` |
 | 4 | Mã NV số 0 đầu; mã lạ/trùng tên báo đối chiếu | Đạt | `template-text-codes`, `reconcile-matching`, `capphat.cjs` (mã 0005) |
 | 5 | Hai tháng, 12/1: sửa/xóa một kỳ không tác động kỳ khác | Liên quan | `benefit-transaction-date` (qua năm), `year-backup`, `production-carry`; chưa có ca riêng cho khóa phiếu có ngày/kỳ |
 | 6 | Chuyển sản lượng T9 → T10 | Đạt | `production-reperiod`, `production-carry` (đơn giá/quy chế T10, không tính hai kỳ, dấu vết nguồn) |
