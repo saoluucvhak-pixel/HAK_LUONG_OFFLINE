@@ -54,12 +54,12 @@
   }
 
 
-  var TOTAL_RE = /^(TỔNG|CẢ NĂM)/i;
+  var TR = (typeof module !== "undefined" && module.exports) ? require("./total-row.js") : root.HAKCore.totalRow;
   /** Lọc cho bảng báo cáo BẤT KỲ (mảng đối tượng): chỉ áp tiêu chí mà bảng có cột tương ứng; tiêu chí không áp được thì báo lại để người đọc biết.
-   *  Dòng tổng (addTotal) bị tách ra — người gọi tính lại tổng sau lọc. @returns { rows, hadTotal, applied[], skipped[], filtered } */
+   *  Dòng tổng (đánh dấu bởi addTotal/total-row.js) bị tách ra — người gọi tính lại tổng sau lọc. @returns { rows, hadTotal, applied[], skipped[], filtered } */
   function applyGeneric(rows, spec) {
     var s = normalize(spec), src = (rows || []).slice(), hadTotal = false;
-    if (src.length > 1) { var last = src[src.length - 1], k0 = Object.keys(last)[0]; if (k0 && typeof last[k0] === "string" && TOTAL_RE.test(last[k0])) { hadTotal = true; src.pop(); } }
+    if (src.length > 1 && TR.is(src[src.length - 1])) { hadTotal = true; src.pop(); } // chỉ dòng ĐÃ ĐÁNH DẤU là tổng (addTotal); dữ liệu thật tên "TỔNG…" không bao giờ bị bỏ
     var keys = {}; src.forEach(function (r) { Object.keys(r).forEach(function (k) { keys[k] = 1; }); });
     var has = function () { for (var i = 0; i < arguments.length; i++) if (keys[arguments[i]]) return true; return false; };
     var can = { khoi: has("Phòng ban") && !!CTX.khoiOf, to: has("Phòng ban"), hinhThuc: has("Mã NV") && !!CTX.formsOf, phongBan: has("Phòng ban"), httt: has("HTTT", "Hình thức"), maNV: has("Mã NV"), tuKhoa: has("Mã NV", "Họ và tên"), chiCoThuNhap: has("Tổng thu nhập"), thuc: has("Thực lĩnh") };

@@ -6,6 +6,7 @@
 (function (root) {
   "use strict";
   var RF = (typeof module !== "undefined" && module.exports) ? require("./report-filter.js") : root.HAKCore.reportFilter;
+  var TR = (typeof module !== "undefined" && module.exports) ? require("./total-row.js") : root.HAKCore.totalRow;
 
   var INFO = ["Mã NV", "Họ và tên", "Phòng ban", "Công chuẩn", "Tổng công"];
   var MONEY = [
@@ -59,7 +60,7 @@
       g.rows.forEach(function (r) { var o = {}; vm.cols.forEach(function (c) { o[c.label] = r[c.key]; }); out.push(o); });
       var s = {}; vm.cols.forEach(function (c, i) { s[c.label] = i === 1 ? "Cộng " + g.ten : (g.tong[c.key] != null ? g.tong[c.key] : ""); }); out.push(s);
     });
-    var t = {}; vm.cols.forEach(function (c, i) { t[c.label] = i === 1 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? vm.tong[c.key] : ""); }); out.push(t);
+    var t = {}; vm.cols.forEach(function (c, i) { t[c.label] = i === 1 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? vm.tong[c.key] : ""); }); out.push(TR.mark(t));
     return out;
   }
 

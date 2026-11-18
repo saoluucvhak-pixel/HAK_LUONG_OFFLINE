@@ -3,6 +3,7 @@
 // Mọi chuỗi từ dữ liệu đều qua esc(). Tiến trình chính in HTML này ra PDF (printToPDF) trong cửa sổ ẩn đã khóa mạng/script.
 (function (root) {
   "use strict";
+  var TR = (typeof module !== "undefined" && module.exports) ? require("./total-row.js") : root.HAKCore.totalRow;
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function money(v) { var x = Math.round(+v || 0); return x === 0 ? "–" : x.toLocaleString("vi-VN"); }
   function qty(v) { var x = +v; if (!isFinite(x) || x === 0) return "–"; return (Math.round(x * 1000) / 1000).toLocaleString("vi-VN", { maximumFractionDigits: 3 }); }
@@ -71,7 +72,7 @@
         }
         h += "<tr>" + sc.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
         sh.rows.forEach(function (r, i) {
-          var tot = i === sh.rows.length - 1 && /^(TỔNG|CẢ NĂM)/i.test(String(r[cols[0]] == null ? "" : r[cols[0]]));
+          var tot = i === sh.rows.length - 1 && TR.is(r);
           h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + sc.map(function (c) { var v = r[c]; return "<td class=\"" + (num[c] ? "m" : "t") + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(v)) + "</td>"; }).join("") + "</tr>";
         });
         h += "</tbody></table>";

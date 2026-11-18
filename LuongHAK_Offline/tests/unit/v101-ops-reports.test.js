@@ -191,7 +191,7 @@ test("U-OPS-10 PDF: bảng rộng tách phần và lặp cột nhận diện; ch
 });
 
 test("U-OPS-11 báo cáo nhân sự có sẵn (hết hạn HĐ, biến động…) đi qua mẫu chung: STT, tổng, chữ ký, tên IN HOA", () => {
-  const rows = [{ "Mã NV": "NV001", "Họ và tên": "A", "Còn (ngày)": 5 }, { "Mã NV": "NV002", "Họ và tên": "B", "Còn (ngày)": 9 }, { "Mã NV": "TỔNG", "Họ và tên": "", "Còn (ngày)": 14 }];
+  const rows = [{ "Mã NV": "NV001", "Họ và tên": "A", "Còn (ngày)": 5 }, { "Mã NV": "NV002", "Họ và tên": "B", "Còn (ngày)": 9 }, require("../../core/reporting/total-row.js").mark({ "Mã NV": "TỔNG", "Họ và tên": "", "Còn (ngày)": 14 })];
   const vm = OPS.fromRows("HĐLĐ sắp hết hạn", rows, { tenCongTy: "CT", kyText: "x" });
   assert.equal(vm.title, "HĐLĐ SẮP HẾT HẠN"); assert.equal(vm.rows.length, 2); assert.equal(vm.cols[0].label, "STT"); assert.equal(vm.tong["Còn (ngày)"], 14);
   assert.equal(vm.rows[1].STT, 2); assert.equal(vm.cols.find((c) => c.label === "Mã NV").kind, "text");

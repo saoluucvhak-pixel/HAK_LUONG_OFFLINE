@@ -3,6 +3,11 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.20. Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.31] — 18/11/2026
+- **C01:** bộ lọc/tổng không còn loại nhầm dòng dữ liệu thật có tên bắt đầu bằng "TỔNG"; dòng tổng được đánh dấu bằng thuộc tính nội bộ.
+- Thêm `docs/SCREEN_ACCEPTANCE_MATRIX.md`, `docs/REPORT_CATALOG_AND_PARITY.md` (mục chưa kiểm ghi CHƯA KIỂM).
+- Phát hành: bản có dòng `Trạng thái: thử nghiệm có kiểm soát` trong ghi chú luôn được đánh dấu prerelease.
+
 ## [2.0.30] — 18/11/2026
 - **A01 (nghiêm trọng):** thao tác kho năm không còn chạy trên `data.json` cũ hay nhận lại dữ liệu cũ vào SQLite; `preview/table` không đổi dữ liệu; `archive/restore` có marker, kiểm revision, hoàn tác và phục hồi sau gián đoạn (`main/year-job.js`).
 - **A02:** sao lưu (tay, lịch, khi đóng, theo năm, thư mục thứ hai, bản bảo vệ) không còn "thành công giả" bằng dữ liệu cũ khi xuất `data.json` lỗi; bản vừa tạo được kiểm đúng revision.
