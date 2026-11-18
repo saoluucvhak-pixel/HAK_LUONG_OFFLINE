@@ -13,6 +13,8 @@ Hai phiên Claude cùng làm việc trên repo này, qua GitHub. Chủ sở hữ
 
 **Trong lúc chưa có phiên KCS**, CEO tạm làm thêm việc gộp PR đủ điều kiện (như hiện nay). Khi KCS chạy, việc gộp chuyển hẳn sang KCS; CEO chỉ gộp thay khi KCS không phản hồi quá hai nhịp tuần tra.
 
+**Tham chiếu ưu tiên:** mọi đề bài nâng cấp có mục "Tham chiếu ưu tiên" theo `THAM_CHIEU_UU_TIEN.md` (6 repo chủ sở hữu chỉ định: design system, smart filter, chuẩn báo cáo kế toán, OCR, AI skills, code quality).
+
 **Bảng điều hành** (xem tiến độ tổng thể và từng agent): https://claude.ai/artifact/5reBaEpbbsMQE256cFtkuo — CEO cập nhật mỗi lần tuần tra.
 
 ## 1. Kênh trao đổi
