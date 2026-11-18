@@ -409,6 +409,6 @@ jobs:
           Add-Content -LiteralPath release/RELEASE_NOTES.md -Value "`nCommit: $env:GITHUB_SHA`nBuild: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
           $releaseArgs = @('release', 'create', $releaseTag, $setupFiles[0].FullName, 'release/SHA256SUMS.txt', 'release/BUILD_INFO.json',
             '--repo', $env:GITHUB_REPOSITORY, '--target', $env:GITHUB_SHA, '--title', "HAK Luong V10.4 - $appVersion", '--notes-file', 'release/RELEASE_NOTES.md')
-          if ($appVersion -match '-') { $releaseArgs += '--prerelease' }
+          if ($appVersion -match '-' -or (Select-String -LiteralPath $notesPath -Pattern '^Trạng thái: thử nghiệm có kiểm soát' -Quiet)) { $releaseArgs += '--prerelease' }
           gh @releaseArgs
           if ($LASTEXITCODE -ne 0) { throw 'Could not publish Windows release' }
