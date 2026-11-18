@@ -272,6 +272,7 @@ function createSqliteStorage(dir, opts) {
   const sha256File = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
   /** Khôi phục data.sqlite từ bản chụp. Chỉ dùng khi kho không mở được (giao diện chặn ở main). Không hủy dữ liệu hiện có: cất data.sqlite(+wal/shm)/data.json sang tên 'truoc-khoi-phuc-<ts>'. */
   function restoreFromSnapshot(actor) {
+    if (!needsRecovery()) return { ok: false, error: "Kho dữ liệu đang mở bình thường — không khôi phục từ bản chụp để tránh ghi đè dữ liệu tốt. Chỉ dùng khi data.sqlite hỏng hoặc mất." }; // tự bảo vệ ở lớp lưu trữ, không chỉ ở IPC
     clearTimeout(timer); timer = null;
     let before = null; const ts = stamp(), kept = [];
     try {

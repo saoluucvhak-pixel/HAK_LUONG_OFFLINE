@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.37] — 18/11/2026
+- Lớp lưu trữ tự từ chối `restoreFromSnapshot` khi kho đang mở bình thường (trước đó chỉ lớp IPC chặn). Thêm test `U-SNAP-04b`. Không đổi công thức, lược đồ, định dạng sao lưu, kỳ đã chốt.
+
 ## [2.0.36] — 18/11/2026
 - **Khôi phục từ bản chụp SQLite** (`backups/data-snapshot.sqlite`) khi `data.sqlite` hỏng/mất: kiểm bản chụp (kho HAK, schema ≤ app, integrity/foreign key, số dòng), cất dữ liệu hiện có (`…truoc-khoi-phuc-<ngày-giờ>`), thay nguyên tử có marker (kill giữa chừng tự hoàn tất), ghi kiểm toán, nút ở màn hình khôi phục. Không đổi công thức, lược đồ, định dạng sao lưu, kỳ đã chốt. Unit 7 ca (3 ca kill -9 thật) + E2E +7 ca.
 
