@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.40] — 18/11/2026
+- **Nhập liệu (handoff 009, issue #98):** (1) `Số suất cơm` chứa chữ (ví dụ "hai") nay bị **chặn khi nhập** (Excel, nhập tay, dán dùng chung `normCell`) với thông báo nêu dòng/cột/giá trị/cách sửa — trước đây được nhận và `engine.num` đọc thành 0 suất (mất tiền cơm âm thầm); (2) NV "Đã nghỉ việc" nhận tạm ứng/thưởng/suất cơm và (3) số tiền âm ở Tạm ứng/Thưởng/Thu nhập khác/Trừ khác chỉ **CẢNH BÁO** ở bản xem trước (vẫn ghi được sau khi xác nhận). Thêm script chỉ đọc `docs/v2.0.40/liet-ke-suat-com-khong-phai-so.cjs`. Không đổi công thức (`engine.num` giữ nguyên), không sửa dữ liệu đã lưu, không đổi lược đồ/kỳ đã chốt.
+
 ## [2.0.39] — 18/11/2026
 - **Sửa lỗi khóa phiên ghi:** nếu đường dẫn thư mục dữ liệu có chứa chữ "PID" (ví dụ tên người dùng/thư mục) và chưa có tệp `data.sqlite.lock`, kho SQLite không mở được (lỗi "ENOENT … data.sqlite.lock"), vì `acquireLock` nhận diện "tiến trình khác đang dùng" bằng cách khớp chữ `/PID/` trên thông báo lỗi. Nay dùng cờ riêng. Test mới `U-LOCK-01/02` (đỏ trước khi sửa). Không đổi công thức, lược đồ, định dạng dữ liệu, kỳ đã chốt.
 
