@@ -87,10 +87,10 @@ test("U-DUR-05 (kịch bản 5) hai phiên cùng một thư mục dữ liệu: p
 });
 
 /** Dựng tình huống: v1 đã checkpoint (đóng sạch) → con mở lại, lưu v2 chỉ nằm trong -wal, (sync: xuất data.json), kill -9 → trả thư mục. */
-function walCrash(exportMode) {
+function walCrash(exportMode, env) {
   const dir = tmp(); seed(dir, base());
-  const r = run("wal-write", dir, exportMode); assert.ok(killed(r), r.stdout + r.stderr.slice(0, 200)); assert.match(r.stdout, /SAVED/);
-  assert.equal(fs.existsSync(path.join(dir, "data.sqlite-wal")), true, "v2 phải đang nằm trong -wal (chưa checkpoint)");
+  const r = env ? cp.spawnSync(process.execPath, ["--no-warnings", CHILD, "wal-write", dir, exportMode], { encoding: "utf8", timeout: 60000, env: Object.assign({}, process.env, env) }) : run("wal-write", dir, exportMode); assert.ok(killed(r), r.stdout + r.stderr.slice(0, 200)); assert.match(r.stdout, /SAVED/);
+  if (!env) assert.equal(fs.existsSync(path.join(dir, "data.sqlite-wal")) && fs.statSync(path.join(dir, "data.sqlite-wal")).size > 0, true, "v2 phải đang nằm trong -wal (chưa checkpoint)");
   return dir;
 }
 const wipeWal = (dir) => { for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(dir, "data.sqlite" + x), { force: true }); };
@@ -119,3 +119,13 @@ for (const damage of ["xóa", "cắt cụt", "rác"]) {
     assert.equal(silent, false, "đang mở bình thường và thiếu giao dịch cuối mà không báo gì");
   });
 }
+
+// Phương án C (MÔ PHỎNG, không phải sản phẩm): checkpoint(TRUNCATE) sau mỗi lần lưu → mất/hỏng -wal không còn làm mất giao dịch, kể cả khi data.json chưa xuất.
+test("U-DUR-06d (mô phỏng phương án C) -wal xóa/cắt cụt/rác khi data.json CHƯA xuất kịp: KHÔNG mất giao dịch vì -wal luôn rỗng sau mỗi lần lưu", () => {
+  for (const damage of ["xóa", "cắt cụt", "rác"]) {
+    const dir = walCrash("delay", { HAK_SIM_CKPT: "1" }), wal = path.join(dir, "data.sqlite-wal");
+    assert.ok(!fs.existsSync(wal) || fs.statSync(wal).size === 0, "-wal rỗng sau lần lưu cuối");
+    if (damage === "xóa") wipeWal(dir); else if (fs.existsSync(wal)) { fs.writeFileSync(wal, damage === "cắt cụt" ? Buffer.alloc(0) : Buffer.alloc(4096, 0xff)); fs.rmSync(wal.replace("-wal", "-shm"), { force: true }); }
+    const s = createSqliteStorage(dir, opts), ld = s.load(); assert.equal(ld.ok, true, damage); assert.equal(hasV2(ld.text), true, damage + ": giao dịch cuối còn"); s.close();
+  }
+});

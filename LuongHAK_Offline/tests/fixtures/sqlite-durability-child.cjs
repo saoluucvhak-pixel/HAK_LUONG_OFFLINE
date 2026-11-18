@@ -7,6 +7,10 @@
 const { createSqliteStorage } = require("../../main/sqlite-storage.js");
 const CLS = require("../../core/payroll-close.js");
 const [mode, dir, arg] = process.argv.slice(2);
+if (process.env.HAK_SIM_CKPT === "1") { // MÔ PHỎNG phương án C (issue #91, 6c): checkpoint(TRUNCATE) sau mỗi giao dịch ghi — không phải hành vi sản phẩm hiện tại
+  const store = require("../../main/sqlite-store.js"), realTx = store.tx;
+  store.tx = (db, fn) => { const r = realTx(db, fn); db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); return r; };
+}
 const s = createSqliteStorage(dir, { exportDelayMs: 60000, exportSync: false });
 const ld = s.load(); if (!ld.ok) { console.log("ERROR " + ld.error); process.exit(3); }
 const d = ld.text ? JSON.parse(ld.text) : {};

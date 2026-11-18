@@ -12,7 +12,7 @@ Hai phiên Claude cùng làm việc trên repo này, qua GitHub. Chủ sở hữ
 
 1. **Bình luận trên PR hoặc issue** cho việc đang diễn ra (review, câu hỏi, báo cáo).
 2. **File `docs/handoff/NNN-ten-viec.md`** cho đề bài mới: mục tiêu, đường dẫn được đụng, ràng buộc, lệnh nghiệm thu, mục chờ chủ sở hữu duyệt, trạng thái, mục "Báo cáo". Đi qua PR như tài liệu khác.
-3. **Theo dõi PR:** mỗi PR chỉ **một phiên** theo dõi được sự kiện (bình luận, CI) cùng lúc. Phiên không theo dõi được thì hẹn lịch tự kiểm tra (30 phút một lần khi đang chờ).
+3. **Theo dõi PR:** mỗi PR chỉ **một phiên** theo dõi được sự kiện cùng lúc, nên cả hai phiên **tự hẹn lịch kiểm tra mỗi giờ** (xem mục 6). Chỉ đạo đăng trên **issue/PR đang MỞ** (bình luận trên PR đã gộp thì phiên kia không nhận được thông báo).
 
 Cả hai phiên đăng dưới cùng một tài khoản GitHub, nên **mỗi bình luận mở đầu bằng nhãn**:
 - `[CEO_LUONG → STAFF_LUONG]` — chỉ đạo, review, yêu cầu sửa.
@@ -57,15 +57,30 @@ Dừng khi mọi hàng của ma trận nghiệm thu (mục 7 của `docs/ACCEPTA
 
 Dừng sớm và báo chủ sở hữu khi: cần quyết định ở mục 3; hai vòng liên tiếp không tiến triển; CI đỏ mà chưa rõ nguyên nhân.
 
-## 6. Hàng đợi hiện tại
+## 6. Thỏa thuận làm việc v2 (giảm chuyển lời qua chủ sở hữu)
 
-| # | Việc | Bên làm | Trạng thái |
-|---|---|---|---|
-| 001 | PR #83 (D1 `baseSig`): tìm nguyên nhân lần hỏng Windows `legacy-upgrade`, 10/10 vòng, bổ sung kiểm tra bền vững ở `installed-setup.cjs` | STAFF; CEO review | Đang làm; CEO đã review `51577b8`, còn 3 việc (xem bình luận trên PR). Gộp chờ CI xanh **và** chủ sở hữu duyệt D1 |
-| 002 | Khôi phục từ bản chụp SQLite; gói sao lưu có snapshot (`VACUUM INTO`) | STAFF | Chờ chỉ đạo |
-| 003 | Test crash còn thiếu: sau commit trước phản hồi, giữa chốt kỳ, giữa khôi phục, đĩa đầy, hai phiên | STAFF | Chờ chỉ đạo |
-| 004 | Import nhiều kỳ cho mọi bảng; nội dung PDF thật; Smart Filter mọi màn | STAFF | Chờ chỉ đạo |
-| 005 | Ảnh chụp từng màn ở 1366×768 và 1920×1080 | STAFF chụp, CEO duyệt | Chờ chỉ đạo |
-| 006 | Delta giai đoạn 2 (mục tiêu < 150 ms ở 5.000 nhân viên) | STAFF đề xuất thiết kế | Chờ chủ sở hữu duyệt thiết kế |
-| 007 | Khóa ngoại và chuẩn hóa lược đồ | — | Chờ chủ sở hữu quyết định có làm không |
-| 008 | Danh mục kiểm thủ công cho Windows thật | CEO soạn | Sau khi 002–005 xong |
+Chủ sở hữu chỉ cần dán **một lần** cho mỗi phiên; sau đó hai bên tự chạy bằng GitHub.
+
+1. **Cả hai phiên tự tuần tra**, không chờ chủ sở hữu nhắc: CEO mỗi giờ (lịch tự động); STAFF cũng tự hẹn kiểm tra `docs/handoff/` và issue/PR mở **mỗi giờ** (hoặc ngay khi xong một PR), nhận việc kế tiếp theo hàng đợi dưới đây.
+2. **Hàng đợi là nguồn sự thật:** việc kế tiếp = dòng đầu tiên có trạng thái "Chờ STAFF" ở bảng dưới. Mỗi dòng trỏ tới một **issue mở** chứa đề bài. STAFF xong một PR thì **nhận việc kế tiếp luôn**, không chờ CEO bảo.
+3. **Chỉ đạo thường trực của chủ sở hữu** (áp dụng đến khi chủ sở hữu rút): CEO được gộp PR của STAFF khi đủ điều kiện ở mục 2 (CI xanh ở commit cuối, review đạt, đúng phạm vi, không thuộc mục 3). STAFF được tự nhận việc trong hàng đợi và tự mở PR. Việc thuộc mục 3 vẫn phải hỏi chủ sở hữu.
+4. **Một PR một việc, dựng từ `main` mới nhất.** Không xếp chồng PR lên nhánh của PR khác (đã gây xung đột ở #89→#90). Việc phụ thuộc nhau thì chờ PR trước được gộp rồi mới mở PR sau; nếu buộc phải chồng, ghi rõ trong mô tả.
+5. **Trước khi báo "xong":** gộp `main` mới nhất vào nhánh, chạy lại kiểm tra, cập nhật mô tả PR theo **commit cuối** (không để mô tả lỗi thời), ghi số liệu thật.
+6. **Nhịp phản hồi:** CEO review trong một nhịp tuần tra (≤ 1 giờ) sau khi CI ở commit cuối xanh. Yêu cầu sửa của CEO viết thành danh sách đánh số, mỗi mục kiểm được bằng lệnh. STAFF trả lời theo số mục.
+7. **CI đỏ:** bên mở PR chịu trách nhiệm tìm nguyên nhân có bằng chứng (đọc log) rồi sửa; báo trên PR bằng một bình luận ngắn. Không thử lại cho qua.
+8. **Chỉ báo chủ sở hữu khi:** cần quyết định mục 3, hai vòng liên tiếp không tiến triển, CI đỏ không rõ nguyên nhân, hoặc có việc phải thử trên Windows thật. Còn lại tự xử lý, không hỏi lặt vặt.
+9. **Báo cáo ngắn gọn cho chủ sở hữu:** CEO tóm tắt một đoạn mỗi khi có PR được gộp hoặc bị chặn (đã làm gì, còn gì, chưa nghiệm thu gì).
+
+## 7. Hàng đợi hiện tại
+
+| # | Việc | Đề bài | Bên làm | Trạng thái |
+|---|---|---|---|---|
+| 001 | `baseSig` (D1), kiểm bền vững installed-setup | PR #83/#85 | STAFF | Xong (v2.0.35) |
+| 002 | Khôi phục từ bản chụp SQLite | #86 | STAFF | Xong (v2.0.36, PR #87) |
+| 002b | Bản chụp trong gói Full Backup | #88 | STAFF | Mã xong ở PR #90 (chờ giải xung đột, gộp); 2.0.37 đã gộp (#89) |
+| 003 | Test crash còn thiếu | #91 | STAFF | Chờ STAFF (sau #90) |
+| 004 | Import nhiều kỳ; PDF thật; Smart Filter mọi màn | #92 | STAFF | Chờ STAFF (sau #91) |
+| 005 | Ảnh chụp từng màn ở 1366×768 và 1920×1080 | chưa viết | STAFF chụp, CEO duyệt | CEO viết đề bài sau khi 003 mở |
+| 006 | Delta giai đoạn 2 (< 150 ms ở 5.000 NV) | chưa viết | STAFF đề xuất thiết kế | Chờ chủ sở hữu duyệt thiết kế |
+| 007 | Khóa ngoại và chuẩn hóa lược đồ | — | — | Chờ chủ sở hữu quyết định có làm không |
+| 008 | Danh mục kiểm thủ công cho Windows thật | chưa viết | CEO soạn | Sau khi 003–005 xong |

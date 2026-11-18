@@ -1,6 +1,6 @@
 # 002b — Đưa bản chụp SQLite vào gói Full Backup (CHỈ THIẾT KẾ — chưa có mã, cần chủ sở hữu duyệt)
 
-Trạng thái: **đề xuất, chờ chủ sở hữu duyệt** (đổi định dạng gói sao lưu thuộc nhóm phải hỏi). Người viết: STAFF_LUONG, theo chỉ đạo 002 (issue #86).
+Trạng thái: **đã duyệt và đã làm ở v2.0.38** (issue #88). Quyết định chốt: giữ `manifest.version` như hiện có (thực tế là 1, hoặc 2 khi có hồ sơ năm — không phải luôn 2 như §2 viết), khối `sqliteSnapshot` tùy chọn; kết quả kiểm tương thích và dung lượng: `docs/releases/v2.0.38.md`. Người viết: STAFF_LUONG, theo chỉ đạo 002 (issue #86).
 
 ## 1. Hiện trạng (đã đọc `main/fullbackup.js`)
 Gói ZIP: `manifest.json` (`format: "HAK-FULLBACKUP"`, `version` 1, hoặc 2 khi có `year_archives/`), `data.json` (+SHA-256 và size trong `manifest.data`), chứng từ, thư viện OCR, hồ sơ năm. App cũ từ chối gói có `version` lớn hơn `VERSION` của nó ("gói do phiên bản MỚI HƠN tạo"). Khôi phục đọc `data.json` trong gói.
