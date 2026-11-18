@@ -110,10 +110,11 @@ function registerIpc() {
       if(yearBusy){e.returnValue="Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại";return;}
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
       const rcv = guard.recoveryFor(e);
-      const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv });
+      let parsed = null; try { parsed = JSON.parse(text); } catch (e2) { parsed = null; } // phân tích MỘT lần cho policy, kho năm và kho dữ liệu
+      const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv, parsed });
       if (!v.ok) { if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n"); e.returnValue = v.error; return; }
-      if(storage.hasDataFile()) years.checkWrite(text,!!(restorer&&restorer.busy()));
-      const r = storage.save(text);
+      if(storage.hasDataFile()) years.checkWrite(text,!!(restorer&&restorer.busy()),parsed);
+      const r = storage.save(text, parsed);
       if (r === true) { policy().commit(); if (rcv && !who) guard.recoveryDone(e); }
       if (c && c.touch) c.touch();
       e.returnValue = r;
