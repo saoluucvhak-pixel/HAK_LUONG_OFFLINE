@@ -129,7 +129,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     for (const c of RPC.cases()) {
       const r = await w.evaluate((x) => window.hakReport.pdf({ html: x.html, name: x.name, landscape: true, footer: "Chân trang kiểm thử" }), { html: c.html, name: "baocao-" + (++n) + ".pdf" });
       let miss = [], head = false, why = "";
-      if (r && r.ok) { const buf = fs.readFileSync(path.join(r.dir, r.name)), L = PDFT.lines(buf); miss = PDFT.missingRows(L, c); head = PDFT.hasRow(L, [String(c.title || "").toLocaleUpperCase("vi-VN")]) || PDFT.hasRow(L, [c.title]); why = "PDF " + buf.length + " B, " + r.pages + " trang"; } else why = JSON.stringify(r);
+      if (r && r.ok) { const buf = fs.readFileSync(path.join(r.dir, r.name)), L = PDFT.lines(buf); miss = PDFT.missingRows(L, c); head = PDFT.hasText(L, String(c.title || "").toLocaleUpperCase("vi-VN")) || PDFT.hasText(L, c.title); why = "PDF " + buf.length + " B, " + r.pages + " trang"; } else why = JSON.stringify(r);
       const tl = miss.tally || {}; console.log("   · " + c.name + ": mức khớp dòng — nguyên dòng " + (tl.strict || 0) + ", theo khối (ô ngắt dòng/bảng tách cột) " + (tl.block || 0) + ", yếu (không có khóa duy nhất) " + (tl.weak || 0));
       ok("PDF " + c.name + ": %PDF hợp lệ, có tiêu đề, MỌI dòng dữ liệu (" + c.expect.length + ") khớp văn bản trích từ PDF", !!(r && r.ok) && head && miss.length === 0, why + " | tiêu đề " + head + " | thiếu " + JSON.stringify(miss.slice(0, 3)).slice(0, 400));
     }
@@ -142,7 +142,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     const VN = ["Nguyễn Thị Đào", "Phạm Quốc Việt", "Lưu Hoàng Ỷ", "Đỗ Thị Hương Ngân", "Trịnh Xuân Quỳnh", "Ông Ích Khiêm", "Cộng hòa xã hội chủ nghĩa"];
     const htmlVn = require("../../core/reporting/report-html.js").sheets({ title: "Kiểm tra tiếng Việt", ky: "Kỳ 2026-09", congTy: "CÔNG TY TNHH ĐẶNG VĂN ƯƠM", sheets: [{ name: "S", rows: VN.map((t, i) => ({ "STT": i + 1, "Họ và tên": t, "Ghi chú": "Ơ ơ Ư ư Ă ă Â â Ê ê Ô ô" })) }] }, {});
     const rv = await w.evaluate((h) => window.hakReport.pdf({ html: h, name: "tieng-viet.pdf", landscape: true, footer: "" }), htmlVn), Lv = PDFT.lines(fs.readFileSync(path.join(rv.dir, rv.name)));
-    ok("PDF tiếng Việt có dấu: mọi tên/ghi chú đúng từng ký tự sau khi trích từ PDF", VN.every((t) => PDFT.hasRow(Lv, [t, "Ơ ơ Ư ư Ă ă Â â Ê ê Ô ô"])) && PDFT.hasRow(Lv, ["CÔNG TY TNHH ĐẶNG VĂN ƯƠM"]), JSON.stringify(Lv.slice(0, 4)).slice(0, 400));
+    ok("PDF tiếng Việt có dấu: mọi tên/ghi chú đúng từng ký tự sau khi trích từ PDF", VN.every((t) => PDFT.hasText(Lv, t)) && PDFT.hasText(Lv, "Ơ ơ Ư ư Ă ă Â â Ê ê Ô ô") && PDFT.hasText(Lv, "CÔNG TY TNHH ĐẶNG VĂN ƯƠM") && PDFT.hasText(Lv, "KIỂM TRA TIẾNG VIỆT"), JSON.stringify(Lv.slice(0, 4)).slice(0, 400));
     ok("PDF: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
     await app.close();
   }

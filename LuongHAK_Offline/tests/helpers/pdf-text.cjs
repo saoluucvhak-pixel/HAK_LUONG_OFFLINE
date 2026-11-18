@@ -53,6 +53,27 @@ function tokensOf(src) { // token hóa luồng nội dung: số, tên, chuỗi h
 function extract(buf) {
   const objs = parseObjects(buf), fonts = {}, pages = [];
   const refOf = (dict, key) => { const m = new RegExp("/" + key + "\\s+(\\d+)\\s+\\d+\\s+R").exec(dict); return m ? Number(m[1]) : null; };
+  const numsIn = (str) => (str.match(/-?\d*\.?\d+/g) || []).map(Number);
+  const widthsCache = {};
+  /** Hàm bề rộng (đơn vị em) của một mã: Type3/đơn giản qua /Widths (+ /FontMatrix), Type0 qua /W + /DW của CIDFont. null nếu không biết. */
+  const widthFn = (n) => {
+    if (widthsCache[n] !== undefined) return widthsCache[n];
+    const o = objs[n]; let fn = null;
+    if (o) {
+      const d = o.dict;
+      if (/\/Subtype\s*\/Type0/.test(d)) {
+        const dm = /\/DescendantFonts\s*\[\s*(\d+)\s+\d+\s+R/.exec(d), cid = dm && objs[Number(dm[1])] ? objs[Number(dm[1])].dict : d;
+        const dw = /\/DW\s+(-?\d*\.?\d+)/.exec(cid), DW = dw ? Number(dw[1]) : 1000, W = new Map();
+        const wm = /\/W\s*\[([\s\S]*?)\]\s*(?:\/|>>)/.exec(cid.replace(/\[([^\[\]]*)\]/g, (x) => x.replace(/\]/g, " ]")));
+        if (wm) { const arr = wm[1], re = /(\d+)\s*\[([^\]]*)\]|(\d+)\s+(\d+)\s+(-?\d*\.?\d+)/g; let m; while ((m = re.exec(arr + " "))) { if (m[2] !== undefined) numsIn(m[2]).forEach((w, i) => W.set(Number(m[1]) + i, w)); else for (let c = Number(m[3]); c <= Number(m[4]); c++) W.set(c, Number(m[5])); } }
+        fn = (code) => (W.has(code) ? W.get(code) : DW) / 1000;
+      } else {
+        const wl = /\/Widths\s*\[([^\]]*)\]/.exec(d), fc = /\/FirstChar\s+(\d+)/.exec(d), fm = /\/FontMatrix\s*\[\s*(-?[\d.eE+-]+)/.exec(d);
+        if (wl && fc) { const arr = numsIn(wl[1]), first = Number(fc[1]), scale = fm ? Math.abs(Number(fm[1])) : 0.001; fn = (code) => { const w = arr[code - first]; return w == null ? 0 : w * scale; }; }
+      }
+    }
+    return (widthsCache[n] = fn);
+  };
   const cmaps = {}; // số đối tượng font → Map
   const fontMap = (n) => { if (cmaps[n] !== undefined) return cmaps[n]; const o = objs[n]; let r = null; if (o) { const tu = refOf(o.dict, "ToUnicode"); if (tu && objs[tu] && objs[tu].stream) r = cmapOf(objs[tu].stream.toString("latin1")); } return (cmaps[n] = r); };
   // trang: đối tượng /Type /Page → /Contents (1 hoặc mảng) + /Resources /Font << /F1 n 0 R >> (trực tiếp hoặc gián tiếp)
@@ -65,11 +86,13 @@ function extract(buf) {
     const cs = cm[1] ? (cm[1].match(/\d+(?=\s+\d+\s+R)/g) || []).map(Number) : [Number(cm[2])];
     const src = cs.map((c) => (objs[c] && objs[c].stream ? objs[c].stream.toString("latin1") : "")).join("\n");
     const runs = []; let ctm = [1, 0, 0, 1, 0, 0], stack = [], tm = [1, 0, 0, 1, 0, 0], tlm = tm, font = null, fsz = 1, leading = 0;
-    let cur = "";
-    const flush = () => { if (cur) { const m = mul(tm, ctm); runs.push({ x: m[4], y: m[5], size: Math.abs(fsz * m[3] || fsz), text: cur }); } cur = ""; };
+    let cur = "", curEm = 0, curStart = null;
+    const flush = () => { if (cur && curStart) { const m = curStart; runs.push({ x: m[4], y: m[5], size: Math.abs(fsz * Math.hypot(m[2], m[3]) || fsz), text: cur, w: curEm * fsz * Math.hypot(m[0], m[1]) }); } cur = ""; curEm = 0; curStart = null; };
     const show = (bytes2) => {
       const cmap = font ? fontMap(font) : null, wide = font && objs[font] && /\/Subtype\s*\/Type0/.test(objs[font].dict), step = wide ? 2 : 1; let out = ""; // Type0 (Identity-H): mã 2 byte; Type3/Type1/TrueType đơn giản: 1 byte
       for (let i = 0; i + step - 1 < bytes2.length; i += step) { const c = step === 2 ? bytes2.readUInt16BE(i) : bytes2[i]; out += cmap && cmap.has(c) ? cmap.get(c) : ""; }
+      if (!curStart) curStart = mul(tm, ctm);
+      const wf = font ? widthFn(font) : null; if (wf) for (let i = 0; i + step - 1 < bytes2.length; i += step) curEm += wf(step === 2 ? bytes2.readUInt16BE(i) : bytes2[i]);
       cur += out;
     };
     const toks = tokensOf(src); let args = [];
@@ -86,7 +109,7 @@ function extract(buf) {
         case "Td": case "TD": if (nums.length >= 2) { if (t.v === "TD") leading = -nums[1]; tlm = mul([1, 0, 0, 1, nums[nums.length - 2], nums[nums.length - 1]], tlm); tm = tlm; } break;
         case "T*": tlm = mul([1, 0, 0, 1, 0, -leading], tlm); tm = tlm; break;
         case "Tj": { const s = args.find((a) => a.k === "hex"); if (s) show(hex(s.v)); flush(); break; } // mỗi lệnh hiện chữ = MỘT đoạn (ô) tại vị trí hiện tại
-        case "TJ": args.forEach((a) => { if (a.k === "hex") show(hex(a.v)); }); flush(); break;
+        case "TJ": args.forEach((a) => { if (a.k === "hex") show(hex(a.v)); else if (a.k === "num" && curStart) curEm -= a.v / 1000; }); flush(); break; // số trong mảng TJ = điều chỉnh khoảng cách (nghìn em)
         default: break;
       }
       args = [];
@@ -98,8 +121,9 @@ function extract(buf) {
     const flipped = runs.length > 3 && runs[runs.length - 1].y > runs[0].y; // luồng xuôi đi từ trên xuống: y tăng ⇒ trục lật
     const sorted = runs.slice().sort((a, b) => (flipped ? a.y - b.y : b.y - a.y) || a.x - b.x);
     const lines = []; sorted.forEach((r) => { const ln = lines.find((l) => Math.abs(l.y - r.y) <= Math.max(1.5, r.size * 0.45)); if (ln) ln.runs.push(r); else lines.push({ y: r.y, runs: [r] }); });
-    // Skia/Type3 hiện TỪNG KÝ TỰ riêng: ghép các ký tự liền kề (khoảng cách đầu-đầu ≤ 1,3 lần cỡ chữ) thành một ô; khoảng cách lớn hơn = sang ô khác
-    return { lines: lines.map((l) => { const rs = l.runs.sort((a, b) => a.x - b.x), cells = []; rs.forEach((r) => { const c = cells[cells.length - 1]; if (c && r.x - c.lastX <= Math.max(c.size, r.size) * 1.3) { c.text += r.text; c.lastX = r.x; } else cells.push({ x: r.x, lastX: r.x, size: r.size, text: r.text }); }); return { y: l.y, cells: cells.map((c) => ({ x: c.x, text: c.text })) }; }) };
+    // Ghép đoạn liền kề thành một ô: dùng ĐIỂM CUỐI ước lượng (đầu + bề rộng theo /Widths hoặc /W) — gồm cả Skia/Type3 hiện từng ký tự riêng lẫn phông Type0 hiện cả cụm (phông dự phòng cho ký tự đặc biệt tách một từ thành nhiều đoạn).
+    // Không biết bề rộng thì quay về khoảng cách đầu-đầu ≤ 1,3 lần cỡ chữ.
+    return { lines: lines.map((l) => { const rs = l.runs.sort((a, b) => a.x - b.x), cells = []; rs.forEach((r) => { const c = cells[cells.length - 1], size = Math.max(c ? c.size : 0, r.size); const near = c && (c.endKnown ? r.x - c.endX <= size * 0.35 : r.x - c.lastX <= size * 1.3); if (near) { c.text += r.text; c.lastX = r.x; c.endX = r.w ? r.x + r.w : c.endX; c.endKnown = !!r.w; } else cells.push({ x: r.x, lastX: r.x, size: r.size, endX: r.w ? r.x + r.w : r.x, endKnown: !!r.w, text: r.text }); }); return { y: l.y, cells: cells.map((c) => ({ x: c.x, text: c.text })) }; }) };
   });
   const text = outPages.map((p) => p.lines.map((l) => l.cells.map((c) => c.text).join(" ")).join("\n")).join("\n\f");
   void fonts;
@@ -141,4 +165,6 @@ function missingRows(pdfLines, c) {
   });
   miss.tally = tally; return miss;
 }
-module.exports = { extract, lines, hasRow, canon, missingRows };
+/** Chuỗi `str` có xuất hiện liền mạch ở đâu đó trong PDF không (ghép các ô của MỘT dòng, không phụ thuộc cách phông tách đoạn)? */
+const hasText = (pdfLines, str) => { const w = canon(str); return pdfLines.some((cells) => cells.join("").includes(w)); };
+module.exports = { extract, lines, hasRow, hasText, canon, missingRows };

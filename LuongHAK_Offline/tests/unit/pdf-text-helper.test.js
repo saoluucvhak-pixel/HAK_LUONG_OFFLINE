@@ -12,8 +12,9 @@ function pdf(opts) { // opts: { font: "type0"|"type3", content, cmap, flate }
   add("<< /Type /Catalog /Pages 2 0 R >>"); add("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
   add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>");
   add("<<", opts.content);
-  add(opts.font === "type3" ? "<< /Type /Font /Subtype /Type3 /FirstChar 0 /LastChar 255 /ToUnicode 6 0 R >>" : "<< /Type /Font /Subtype /Type0 /BaseFont /X /Encoding /Identity-H /ToUnicode 6 0 R >>");
+  add(opts.font === "type3" ? "<< /Type /Font /Subtype /Type3 /FirstChar 0 /LastChar 255 /ToUnicode 6 0 R >>" : "<< /Type /Font /Subtype /Type0 /BaseFont /X /Encoding /Identity-H /ToUnicode 6 0 R" + (opts.cid ? " /DescendantFonts [7 0 R]" : "") + " >>");
   add("<<", opts.cmap);
+  if (opts.cid) add(opts.cid);
   let out = "%PDF-1.7\n"; const parts = [Buffer.from(out, "latin1")];
   objs.forEach((o, i) => {
     let data = o.stream != null ? Buffer.from(o.stream, "latin1") : null, dict = o.body;
@@ -49,4 +50,14 @@ test("U-PDFT-03 hasRow/missingRows: đúng thứ tự trong một dòng; sai s�
   const c = { expect: [["1", "NV001", "Nguyễn Văn Ánh", "1.500.000"], ["2", "NV002", "Lê", "2.000.000"]] };
   const m = P.missingRows(L, c); assert.equal(m.length, 0, JSON.stringify(m)); assert.equal(m.tally.block >= 1, true, "dòng có ô ngắt dòng khớp theo khối");
   const bad = { expect: [["1", "NV001", "Nguyễn Văn Ánh", "1.500.001"]] }; assert.equal(P.missingRows(L, bad).length, 1);
+});
+
+test("U-PDFT-04 Type0 hiện CẢ CỤM (phông dự phòng tách một từ thành nhiều đoạn): ghép theo ĐIỂM CUỐI ước lượng từ /W + /DW; đoạn cách xa vẫn là ô khác; kerning trong TJ được tính", () => {
+  // mỗi mã rộng 1 em (DW 1000) × cỡ 10 → "AB" dài 20: đoạn kế tiếp bắt đầu ở x=120 là LIỀN KỀ (cùng ô) dù cách đầu-đầu 20 > 13; đoạn ở x=160 là ô khác
+  const cid = "<< /Type /Font /Subtype /CIDFontType2 /DW 1000 /W [1 3 1000] >>";
+  const content = "BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj 1 0 0 1 120 700 Tm <0003> Tj 1 0 0 1 160 700 Tm <0001> Tj 1 0 0 1 100 680 Tm [<0001> -500 <0002>] TJ 1 0 0 1 125 680 Tm <0003> Tj ET";
+  const L = P.lines(pdf({ font: "type0", content, cmap: CMAP2, cid, flate: false }));
+  assert.deepEqual(L[0], ["ABC", "A"], JSON.stringify(L)); // dòng 1: "AB"+"C" liền kề = một ô; "A" ở x=160 = ô khác
+  // dòng 2: TJ [A -500 B] rộng 10 + 5 (kerning âm 500 = lùi... +5) + 10 → kết thúc ≈ 125: "C" ở x=125 liền kề → một ô
+  assert.deepEqual(L[1], ["ABC"], JSON.stringify(L));
 });
