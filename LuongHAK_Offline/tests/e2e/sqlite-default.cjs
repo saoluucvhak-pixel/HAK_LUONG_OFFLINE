@@ -120,6 +120,41 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   ok("Phiên thứ hai cùng thư mục dữ liệu bị chặn: tự thoát (không mở cửa sổ ghi chồng)", /^thoát/.test(secondExit), secondExit);
   ok("Khóa phiên ghi vẫn của phiên đầu; phiên đầu vẫn lưu được; không lỗi JavaScript", JSON.parse(fs.readFileSync(lockFile, "utf8")).pid === firstPid && (await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0105','Họ và tên':'Sau khi phiên hai bị chặn'});")) === true && sqliteNv(D).includes("0105") && errs.length === 0, String(errs.join("|")));
   await app.close();
+  // 9. Nhập Excel NHIỀU KỲ trên giao diện thật, mọi bảng nhập liệu theo tháng (chỉ đạo 004, mục 1): kỳ mở nhận, kỳ đã chốt bị chặn có thông báo, nhập lại không nhân đôi
+  {
+    const CLS = require("../../core/payroll-close.js"), ExcelJS = require(path.join(APP, "exceljs.min.js")), V = require("../../core/validate.js");
+    const D9 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-impk-")); fs.mkdirSync(path.join(D9, "downloads"));
+    const d9 = seed(); CLS.close(d9, CLS.buildSnapshot(d9, "2026-08", { bangluong: [{ "Mã NV": "A", "Họ và tên": "A", "Thực lĩnh": 1, "Tổng thu nhập": 1 }], bhxh: [], tncn: [], canhbao: [] }, []));
+    createStorage(D9).save(JSON.stringify(d9));
+    const SPEC = { // bảng → { cột của file, hàm tạo dòng theo kỳ + tag }
+      chamcong: { cols: ["Kỳ", "Mã NV", "Hình thức công", "01", "02"], row: (ky, tag) => [ky, tag, "BT", 1, 1] },
+      sanluong: { cols: ["Phiếu cân", "Ngày cân", "Biển số", "KL hàng (Tấn)", "Mã NV"], row: (ky, tag) => ["PC" + ky + tag, ky + "-12", "51C-1", 10, tag] },
+      bandam: { cols: ["Phiếu cân", "Ngày cân", "Biển số", "KL hàng (Tấn)", "Mã NV"], row: (ky, tag) => ["BD" + ky + tag, ky + "-12", "51C-2", 8, tag] },
+      psluong: { cols: ["Ngày hạch toán", "Số chứng từ", "Mã NV", "Thưởng"], row: (ky, tag) => [ky + "-12", "PS" + ky + tag, tag, 100000] },
+      ungluong: { cols: ["Ngày hạch toán", "Số chứng từ", "Mã NV", "Tạm ứng"], row: (ky, tag) => [ky + "-12", "UL" + ky + tag, tag, 500000] },
+      tiencom: { cols: ["Ngày", "Mã NV", "Số suất cơm"], row: (ky, tag) => [ky + "-12", tag, 1] }
+    };
+    ({ app, w, errs } = await launch(D9)); await login(w);
+    const rowsOf = async (t) => w.evaluate((tb) => (JSON.parse(window.hakStore.load().text)[tb] || []), t);
+    for (const t of Object.keys(SPEC)) {
+      const sp = SPEC[t], wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Du lieu"), xf = path.join(D9, "nhieu-ky-" + t + ".xlsx");
+      ws.getRow(1).values = sp.cols; [["2026-08", "A"], ["2026-10", "A"], ["2026-10", "B"]].forEach(([ky, tag], i) => { ws.getRow(2 + i).values = sp.row(ky, tag); });
+      fs.writeFileSync(xf, new Uint8Array(await wb.xlsx.writeBuffer()));
+      const importOnce = async () => { await w.click("#nav button[data-k=" + t + "]"); if (t === "bandam") { const direct = w.getByRole("button", { name: "Phân bổ trực tiếp nhân viên", exact: true }); if (await direct.count()) await direct.click(); } // Ban dăm: chọn cách phân bổ TRỰC TIẾP (file có Mã NV)
+       const [fc] = await Promise.all([w.waitForEvent("filechooser"), w.locator('#main button:has-text("Nhập Excel")').first().click()]); await fc.setFiles(xf); await w.waitForSelector(".dlg", { timeout: 15000 }); return w.locator(".dlg").innerText(); };
+      const prev = await importOnce();
+      ok(t + ": xem trước nhận 2 dòng kỳ mở và CHẶN 1 dòng kỳ đã chốt (có thông báo)", /Ghi 2 dòng/.test(prev) && /đã chốt/i.test(prev), prev.slice(0, 500));
+      await w.click('.dlg button:has-text("Ghi 2 dòng")'); await w.waitForSelector(".dlg", { state: "detached", timeout: 15000 }).catch(() => {});
+      let got = await rowsOf(t), per = got.map((r) => V.rowPeriod(t, r));
+      ok(t + ": ghi đúng 2 dòng kỳ mở (2026-10), KHÔNG có dòng nào của kỳ đã chốt 2026-08", got.length === 2 && per.every((k) => k === "2026-10"), JSON.stringify(per));
+      const prev2 = await importOnce();
+      ok(t + ": nhập lại cùng file — không còn dòng để ghi, không nhân đôi", /Không có dòng nào để ghi/.test(prev2), prev2.slice(0, 300));
+      await w.click('.dlg button:has-text("Hủy")'); got = await rowsOf(t);
+      ok(t + ": sau nhập lại vẫn đúng 2 dòng; bản chốt 2026-08 còn nguyên", got.length === 2 && (await w.evaluate(() => JSON.parse(window.hakStore.load().text).kyluong.map((k) => k.ky))).join() === "2026-08");
+    }
+    ok("Nhập Excel nhiều kỳ: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   // 10. PDF có NỘI DUNG THẬT (chỉ đạo 004, mục 2): xuất bằng đường thật hakReport.pdf (IPC → printToPDF) rồi TRÍCH VĂN BẢN từ PDF và đối chiếu từng dòng/từng ô với dữ liệu báo cáo; tiếng Việt có dấu đúng
   {
     const PDFT = require("../helpers/pdf-text.cjs"), RPC = require("../fixtures/report-pdf-cases.js"), D10 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-pdf-")); fs.mkdirSync(path.join(D10, "downloads"));
