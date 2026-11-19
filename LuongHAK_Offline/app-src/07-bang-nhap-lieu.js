@@ -1,9 +1,9 @@
   // ---------- Bảng nhập liệu ----------
   function grid(key, def) {
-    var wrap = h("div"), card = h("div", { class: "card" }), bar = h("div", { class: "bar" }), body = h("div", { class: "tw" });
+    var wrap = h("div"), card = h("div", { class: "card hak-in" }), bar = h("div", { class: "bar" }), body = h("div", { class: "tw" });
     var inputReview = ["chamcong", "sanluong", "bandam"].indexOf(key) >= 0, pumpMode = key === "bandam" ? (st.pumpMode || "team") : "", reviewState = h("div", { class: "hint", "data-input-review": key });
     if (key === "bandam") {
-      var tabs = h("div", { class: "bar", "aria-label": "Phân bổ Ban dăm xuất hàng" });
+      var tabs = h("div", { class: "bar hak-tabs", "aria-label": "Phân bổ Ban dăm xuất hàng" });
       [["team", "Phân bổ theo tổ"], ["direct", "Phân bổ trực tiếp nhân viên"]].forEach(function (m) { tabs.appendChild(btn(m[1], pumpMode === m[0] ? "pri" : "", function () { st.pumpMode = m[0]; render(); })); }); wrap.appendChild(tabs);
       def = Object.assign({}, def, { cols: def.cols.filter(function (c) { return pumpMode === "direct" ? ["Mã phòng ban", "NV vắng"].indexOf(c) < 0 : c !== "Mã NV"; }) });
     }
@@ -38,7 +38,7 @@
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
     if (key === "bandam" && pumpMode === "direct") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", bandamDirectExcelTemplate));
     if (key === "sanluong") { bar.appendChild(btn("Chuyển thành SL kỳ mới…", "", function () { productionReperiodScreen(draw); })); bar.appendChild(btn("Chỉ đổi kỳ chi trả SL…", "", function () { productionCarryScreen(draw); })); }
-    if (key === "tiencom") card.appendChild(h("p", { class: "hint", text: "Khi cùng nhân viên và ngày đã có công CC, chỉ điền Có ở cột Suất bổ sung nếu thực sự có thêm suất. Dòng trùng chưa xác nhận sẽ được báo khi kiểm tra trước chốt." }));
+    var tiencomHint = key === "tiencom" ? h("p", { class: "hint", text: "Khi cùng nhân viên và ngày đã có công CC, chỉ điền Có ở cột Suất bổ sung nếu thực sự có thêm suất. Dòng trùng chưa xác nhận sẽ được báo khi kiểm tra trước chốt." }) : null;
     if (key === "chamcong") bar.appendChild(btn("Đối chiếu đơn nghỉ", "", function () { leaveReviewModal(locked, draw); }));
     if (inputReview) {
       bar.appendChild(btn("Lưu để tính lương", "pri", function () {
@@ -151,8 +151,10 @@
     }
     if (noRight) card.appendChild(h("div", { class: "locked", html: "👁 Chế độ <b>chỉ xem</b> — vai trò của bạn không có quyền sửa bảng này." }));
     else if (locked) card.appendChild(h("div", { class: "locked", html: "🔒 <b>" + kyLabel(kyStr()) + " đã chốt lương</b> — dữ liệu kỳ này chỉ xem, không sửa được. Muốn sửa: vào <b>Kỳ lương đã chốt</b> → Mở chốt." }));
-    card.appendChild(h("div", { class: "hint", text: (def.hint ? def.hint + " " : "") + "Nhập hàng loạt: bấm '📄 Tải file mẫu' → điền Excel → '⬆ Nhập Excel'. Hoặc copy nhiều dòng từ Excel rồi Ctrl+V vào một ô." }));
-    if (key === "chamcong") card.appendChild(h("div", { class: "legend", html: "<b>Màu ô:</b> <span><i class='c1'>1</i>đủ công</span><span><i class='cH'>0,5</i>nửa công</span><span><i class='cX'>1QC</i>có nhãn / dòng tăng ca</span><span><i class='cP'>1</i>dòng phép (PN)</span><span><i class='cO'>1</i>dòng lễ (CL)</span><span><i class='cE'>?</i>không đọc được số công</span><span><i class='we'>&nbsp;</i>Chủ nhật</span>" }));
+    var guideBox = h("details", { class: "hak-fold" }, [h("summary", { text: "ⓘ Hướng dẫn nhập liệu" })]); card.insertBefore(guideBox, card.firstChild && card.firstChild.className === "hint" ? card.firstChild.nextSibling : card.firstChild); // 005B-UI002: gấp hướng dẫn/chú giải để bảng có chỗ (mở bằng bấm)
+    if (tiencomHint) guideBox.appendChild(tiencomHint);
+    guideBox.appendChild(h("div", { class: "hint", text: (def.hint ? def.hint + " " : "") + "Nhập hàng loạt: bấm '📄 Tải file mẫu' → điền Excel → '⬆ Nhập Excel'. Hoặc copy nhiều dòng từ Excel rồi Ctrl+V vào một ô." }));
+    if (key === "chamcong") guideBox.appendChild(h("div", { class: "legend", html: "<b>Màu ô:</b> <span><i class='c1'>1</i>đủ công</span><span><i class='cH'>0,5</i>nửa công</span><span><i class='cX'>1QC</i>có nhãn / dòng tăng ca</span><span><i class='cP'>1</i>dòng phép (PN)</span><span><i class='cO'>1</i>dòng lễ (CL)</span><span><i class='cE'>?</i>không đọc được số công</span><span><i class='we'>&nbsp;</i>Chủ nhật</span>" }));
     card.appendChild(body); wrap.appendChild(card);
     var vis = def.cols.filter(function (c) { return (def.hide || []).indexOf(c) < 0; });
     // Tô màu ô chấm công theo số công + loại dòng (Hình thức công) — chỉ hiển thị, không đổi dữ liệu
@@ -231,8 +233,7 @@
         pcTot.innerHTML = "";
         pcTot.appendChild(h("div", { html: "<b>Tổng theo bộ lọc (" + esc(pcScopeText(key)) + "):</b> " + T.soPhieu + " phiếu · <b>" + fmt(T.tongKL) + unit + "</b> · đã phân bổ " + fmt(T.daPhanBo) + " · chờ phân bổ " + fmt(T.choPhanBo) + (T.trung.length ? " · <span style='color:#b00'>⚠ " + T.trung.length + " phiếu trùng khóa (chỉ tính 1 lần): " + esc(T.trung.slice(0, 5).join(", ")) + "</span>" : "") }));
         var fl = function (o) { return Object.keys(o).sort().map(function (k2) { return k2 + ": " + fmt(o[k2]); }).join(" · "); };
-        pcTot.appendChild(h("div", { class: "hint", text: "Theo ngày — " + (fl(T.theoNgay) || "—") }));
-        pcTot.appendChild(h("div", { class: "hint", text: "Theo phòng ban — " + (fl(T.theoPhongBan) || "—") }));
+        pcTot.appendChild(h("details", { class: "hak-fold" }, [h("summary", { text: "Chi tiết theo ngày / phòng ban" }), h("div", { class: "hint", text: "Theo ngày — " + (fl(T.theoNgay) || "—") }), h("div", { class: "hint", text: "Theo phòng ban — " + (fl(T.theoPhongBan) || "—") })])); // 005B-UI002: gấp để bảng có chỗ
       }
       if (inMode) {
         pcTot.innerHTML = ""; var sums = INPUT_SUM[key].map(function (c) { var t = 0; idx.forEach(function (i2) { t += E.money(db[key][i2][c]); }); return "<b>" + esc(c) + ":</b> " + fmt(t); });

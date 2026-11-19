@@ -697,3 +697,24 @@ td.ot-note{background:var(--th);color:var(--mut)}
 [data-pay-report="TONG_HOP_NV"] tr > th:last-child{z-index:4}
 [data-pay-report="TONG_HOP_NV"] tr > td:last-child:not([colspan]){background:var(--card);z-index:1}
 [data-pay-report="TONG_HOP_NV"] .tr-sum > td:last-child{background:var(--th)}
+
+/* 005B-UI002 (issue #97): màn nhập liệu thấy ≥ 12 dòng ở 1366×768 — hướng dẫn gấp lại, hàng bảng gọn; không đổi dữ liệu */
+.hak-fold{margin:0 0 6px}.hak-fold>summary{cursor:pointer;color:var(--mut);font-size:12.5px;list-style:none;display:inline-block;padding:2px 0}.hak-fold>summary::-webkit-details-marker{display:none}.hak-fold[open]>summary{margin-bottom:4px}
+#main .tw td input{padding:4px 8px}#main .tw td.t,#main .tw td.r{padding:4px 9px}#main .tw th{padding:6px 10px}
+#main .tw td button{padding:3px 9px;min-height:0}
+#main .tw td{line-height:1.3}#main .tw td:not(:has(input,button)){padding-top:3px;padding-bottom:3px}
+.card.hak-in{padding:10px 14px}.hak-in>.hint{margin:0 0 4px}
+.hak-in>.bar{gap:6px;margin-bottom:6px}.hak-in>.bar button,.hak-in>.bar .b{min-height:32px;padding:4px 10px;font-size:13px}
+.hak-in .sf{margin:0 0 4px}.hak-in .sf .sf-bar{gap:6px;margin:0 0 4px}
+.hak-in .sf .sf-bar .i,.hak-in .sf .sf-bar select,.hak-in .sf .sf-bar .b,.hak-in .sf .sf-bar .fbtn,.hak-in .sf .sf-bar .dateinp{min-height:32px;padding-top:3px;padding-bottom:3px;font-size:13px}
+.hak-in .sf .sf-bar .i.search{min-width:140px;flex:1 1 150px;max-width:220px}.hak-in .sf-sum{padding:4px 10px}
+.hak-in>.card[data-pc-totals],.hak-in>.card[data-in-totals]{margin:4px 0!important;padding:4px 8px!important}
+.hak-in .sf .chip{padding:0 6px 0 9px;font-size:12.5px;border-radius:8px}.hak-in .sf .chip .dateinp{width:100px;min-height:28px}
+.hak-in .sf .sf-bar .i.search{min-width:120px;flex:1 1 130px;max-width:180px}.hak-in .sf .sf-bar select{max-width:150px}
+.hak-in>.hak-fold{float:right;margin:0}.hak-in>.hak-fold[open]{float:none;margin:0 0 6px}
+.hak-in>.hint:first-child{display:inline-block}
+.hak-in>.card[data-pc-totals]>div{display:inline}.hak-in>.card[data-pc-totals]>.hak-fold{display:inline-block;margin:0 0 0 12px}
+.hak-in .sf-sum{padding:2px 10px;font-size:12.5px}
+#main .tw td:has(.hint),#main .tw td.cm,#main .tw td.ocr{padding-top:3px;padding-bottom:3px}
+#main .tw td.day.dis{padding:0}
+.hak-tabs{margin-bottom:4px}.hak-tabs button{min-height:30px;padding:3px 12px;font-size:13px}
