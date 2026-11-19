@@ -104,6 +104,28 @@ test("U-GATE-14 script KHÔNG gọi mạng khi được require; chạy không �
   const src = fs.readFileSync(path.resolve(__dirname, "../../../scripts/merge-gate.cjs"), "utf8"); assert.doesNotMatch(src, /--force|graphql/i, "không dùng --force / GraphQL");
 });
 
+// ---- 014-B: bước 8 "đổi xuống dòng" (issue #116, CEO /giao 014-B) ----
+const stat = (o) => Object.assign({ filename: "LuongHAK_Offline/package-lock.json", status: "modified", additions: 2, deletions: 2 }, o);
+test("U-GATE-16 viết lại CẢ tệp (additions = deletions = tổng số dòng tệp) → FAIL ở mục 8 kèm gợi ý bump-version/khôi phục kiểu xuống dòng", () => {
+  const r = evaluate(base({ fileStats: [stat({ additions: 4948, deletions: 4948, headLines: 4948 }), stat({ filename: "LuongHAK_Offline/ui/workspace-v104.js", additions: 133, deletions: 133, headLines: 133 })] }));
+  assert.deepEqual(failed(r), [8]); const m = r.checks.find((c) => c.id === 8).msg;
+  assert.match(m, /package-lock\.json/); assert.match(m, /workspace-v104\.js/); assert.match(m, /bump-version\.cjs/); assert.match(m, /xuống dòng/);
+});
+test("U-GATE-17 đổi 2 dòng thật (kể cả tệp lớn) → PASS mục 8; không có fileStats → PASS (không thể kiểm)", () => {
+  assert.equal(failed(evaluate(base({ fileStats: [stat({ additions: 2, deletions: 2, headLines: 4948 })] }))).includes(8), false);
+  assert.equal(failed(evaluate(base())).includes(8), false);
+  assert.equal(failed(evaluate(base({ fileStats: [stat({ additions: 30, deletions: 30, headLines: 4948 })] }))).includes(8), false, "đổi 30 dòng trong tệp 4948 dòng là thay đổi thật");
+});
+test("U-GATE-18 có patch: các dòng chỉ khác CR (CRLF→LF) chiếm gần hết → FAIL mục 8; patch đổi thật → PASS", () => {
+  const crOnly = []; for (let i = 0; i < 40; i++) crOnly.push("-dòng " + i + "\r", "+dòng " + i); crOnly.push("-version 2.0.43\r", "+version 2.0.44");
+  assert.deepEqual(failed(evaluate(base({ fileStats: [stat({ additions: 41, deletions: 41, patch: "@@ -1,41 +1,41 @@\n" + crOnly.join("\n") })] }))), [8]);
+  const real = []; for (let i = 0; i < 40; i++) real.push("-dòng " + i, "+dòng mới " + i);
+  assert.equal(failed(evaluate(base({ fileStats: [stat({ additions: 40, deletions: 40, patch: "@@ -1,40 +1,40 @@\n" + real.join("\n") })] }))).includes(8), false);
+});
+test("U-GATE-19 tệp mới thêm / xóa cả tệp không bị coi là 'viết lại'; tệp nhỏ (< 20 dòng) bỏ qua", () => {
+  assert.equal(failed(evaluate(base({ fileStats: [stat({ status: "added", additions: 300, deletions: 0, headLines: 300 }), stat({ filename: "a.js", status: "modified", additions: 10, deletions: 10, headLines: 10 })] }))).includes(8), false);
+});
+
 // ---- post-merge-check ----
 const REL = (over) => Object.assign({ version: "2.0.43", tagCommit: SHA, mainCommit: SHA, checkRuns: green(), release: { prerelease: true, draft: false, assets: [{ name: "TinhLuongHAK-V10.4-Setup-2.0.43.exe" }, { name: "SHA256SUMS.txt" }, { name: "BUILD_INFO.json" }] },
   sumsText: "c0ffee" + "0".repeat(58) + "  TinhLuongHAK-V10.4-Setup-2.0.43.exe\n", exeSha256: "c0ffee" + "0".repeat(58), buildInfo: { commit: SHA } }, over || {});
