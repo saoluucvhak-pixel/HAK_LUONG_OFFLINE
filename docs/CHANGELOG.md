@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.49] — 19/11/2026
+- **Quy trình sao lưu khi nơi lưu chính là SQLite (CEO rà, issue #113):** mọi lần sao lưu (tay, định kỳ, khi đóng app, đầu ngày, đầu năm) đều tạo bản chụp `.sqlite` đã kiểm; có lịch sử 10 bản chụp (bản sau chốt kỳ / theo năm giữ vĩnh viễn); chép bản chụp sang thư mục dự phòng; lỗi bản chụp báo lên giao diện. Chi tiết: `docs/releases/v2.0.49.md`.
+
 ## [2.0.47] — 19/11/2026
 - **Sao lưu/khôi phục theo KỲ LƯƠNG — lõi + IPC (handoff 012-B1, issue #113):** gói `LuongHAK_Ky_YYYY-MM_<ngày-giờ>.zip` (hoặc `.hakenc` có mật khẩu) gồm phát sinh của kỳ + toàn bộ nhân sự/danh mục; khôi phục kỳ không đổi kỳ khác, chặn kỳ đã chốt, xóa mặc định tắt và không xóa hàng đang được dùng. Chưa có giao diện (012-B2). Chi tiết: `docs/releases/v2.0.47.md`.
 

@@ -312,7 +312,7 @@
   function canonShort(r) { var keys = Object.keys(r || {}).slice(0, 3); return keys.map(function (k) { return shortV(r[k]); }).join(" / "); }
   function shortV(v) { var s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v); return s.length > 40 ? s.slice(0, 39) + "…" : s; }
   var BK_HINT = {
-    sqlite: "Bản chụp SQLite đã kiểm (nhanh nhất, khôi phục nguyên trạng) ghi vào thư mục sao lưu SQLite ở mục 4. Chỉ có DỮ LIỆU LƯƠNG; chứng từ gốc và thư viện OCR nằm trong Full Backup.",
+    sqlite: "Tạo bản chụp .sqlite đã kiểm (toàn vẹn + khớp số dòng) kèm bản JSON đối chứng, ghi vào thư mục sao lưu SQLite ở mục 4. Mọi lần sao lưu tự động (định kỳ, khi đóng app, đầu ngày) cũng tạo bản chụp. Giữ 10 bản chụp gần nhất; bản sau chốt kỳ / theo năm giữ vĩnh viễn; tự chép sang thư mục dự phòng nếu đã đặt. Chỉ có DỮ LIỆU; chứng từ gốc và thư viện OCR nằm trong Full Backup.",
     full: "Một file .zip gồm TOÀN BỘ dữ liệu + chứng từ gốc + thư viện mẫu OCR + bảng kê SHA-256, có thể mã hóa (.hakenc). Dùng khi đổi máy / cài lại Windows. Gói được kiểm tra lại ngay sau khi tạo.",
     json: "File .json chỉ có DỮ LIỆU (nhân sự, hợp đồng, danh mục, công thức, cài đặt, người dùng, nhật ký) — KHÔNG có chứng từ gốc và thư viện OCR. Ghi vào thư mục sao lưu JSON ở mục 4."
   };
@@ -321,7 +321,7 @@
     var c = h("div", { class: "card", "data-zone": "now", "data-fullbackup": "1" });
     c.appendChild(h("h3", { text: "1 · 💾 Sao lưu ngay — toàn bộ dữ liệu" }));
     var kinds = [];
-    if (store && store.listBackups) kinds.push(["sqlite", "SQLite (bản chụp đã kiểm) — mặc định"]);
+    if (store && store.listBackups) kinds.push(["sqlite", "SQLite — bản chụp .sqlite đã kiểm + JSON đối chứng (mặc định)"]);
     if (window.hakFull) kinds.push(["full", "Full Backup .zip (có chứng từ gốc + thư viện OCR)"]);
     kinds.push(["json", "JSON (chỉ dữ liệu)"]);
     var cur = kinds.some(function (k) { return k[0] === st.bkKind; }) ? st.bkKind : kinds[0][0];
@@ -331,9 +331,11 @@
       if (sel.value === "full") return fullCreate();
       if (sel.value === "json") return jsonBackup(false);
       if (!need("backup.restore", "tạo bản sao lưu")) return;
-      var n = backupNow("thu-cong");
+      var n = backupNow("thu-cong"), ss = n && store.snapshotStatus ? store.snapshotStatus() : null;
       // P1: backupNow() trả null cho cả "chưa có file dữ liệu" và "ghi thất bại" — phân biệt rõ bằng store.hasDataFile()
       toast(n ? "Đã tạo " + n : ((store && store.hasDataFile && store.hasDataFile()) ? "⚠ KHÔNG tạo được bản sao lưu — kiểm tra dung lượng đĩa / quyền ghi" : "Chưa có dữ liệu để sao lưu"));
+      // Nơi lưu chính là SQLite: báo rõ có bản chụp .sqlite hay không (lỗi bản chụp không được im lặng)
+      if (ss) st.fbMsg = ss.lastError ? { bad: true, text: "⚠ Đã tạo bản JSON " + n + " nhưng: " + ss.lastError } : ss.latest ? { text: "✓ Đã sao lưu: bản chụp " + ss.latest.name + " (" + ss.latest.records + " dòng, đã kiểm) + bản JSON " + n } : null;
       render();
     }, "Sao lưu theo loại đã chọn, ghi vào thư mục ở mục 4");
     go.setAttribute("data-backup-now", "1");
@@ -342,6 +344,11 @@
     if (cur === "json" && window.hakJson) bar.appendChild(btn("Lưu vào chỗ khác…", "ghost", function () { jsonBackup(true); }, "Mở hộp thoại tải về thay vì ghi vào thư mục JSON"));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: BK_HINT[cur] }));
+    if (store && store.snapshotStatus) { // trạng thái bản chụp SQLite (nơi lưu chính) — gồm cả lỗi của lần sao lưu TỰ ĐỘNG chạy ngầm
+      var ss0 = store.snapshotStatus() || {};
+      c.appendChild(h("div", { class: "hint", "data-snap-status": String((ss0.history || []).length), text: ss0.latest ? "Bản chụp SQLite mới nhất: " + (ss0.latest.at ? fmtTime(ss0.latest.at) : "?") + " · " + ss0.latest.records + " dòng · " + (ss0.history || []).length + " bản trong lịch sử (giữ " + (ss0.keep || 10) + " bản gần nhất; bản sau chốt kỳ / theo năm giữ vĩnh viễn)." : "Chưa có bản chụp SQLite — bấm Sao lưu toàn bộ để tạo." }));
+      if (ss0.lastError) c.appendChild(h("div", { class: "warn", "data-snap-error": "1", text: "⚠ " + ss0.lastError }));
+    }
     if (window.hakPeriod) { // 012-B2: sao lưu THEO KỲ — phát sinh của kỳ đang chọn + toàn bộ nhân sự / danh mục / công thức
       var cbP = h("input", { type: "checkbox", "data-ky-pw": "1" }); cbP.checked = !!st.kyPw; cbP.addEventListener("change", function () { st.kyPw = cbP.checked; });
       var kb = btn("🗓 Sao lưu kỳ " + kyStr(), "", periodBackup, "Gói .zip gồm dữ liệu phát sinh của kỳ đang chọn + toàn bộ nhân sự, danh mục, công thức"); kb.setAttribute("data-ky-backup", "1");

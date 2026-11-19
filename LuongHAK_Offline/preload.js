@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("hakStore", {
   verifyBackups: () => ipcRenderer.sendSync("store-verify"),  // [{ name, tag, created, status: ok|unverified|mismatch|invalid }]
   readBackup: (name) => ipcRenderer.sendSync("store-read", name),
   quarantine: () => ipcRenderer.sendSync("store-quarantine"),
+  snapshotStatus: () => ipcRenderer.sendSync("store-snapshot-status"),     // { latest:{name,at,records}, history:[{name,tag,size,mtime,permanent}], keep, lastError }
   snapshotInfo: () => ipcRenderer.sendSync("store-snapshot-info"),         // { exists, ok, mtime, size, records, error }
   restoreSnapshot: () => ipcRenderer.sendSync("store-restore-snapshot"),   // { ok, records, before, kept } | { ok:false, error }
   restorePackageSnapshot: () => ipcRenderer.sendSync("store-restore-package-snapshot"), // { ok, records, before, kept } | { ok:false, cancelled?, error }
