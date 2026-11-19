@@ -178,6 +178,10 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
       const tops = res.rows.filter((r) => r.topH != null), lim = (r) => (r.size === "1024x768" ? LA.TOP_TWO_ROWS : LA.TOP_ONE_ROW), badT = tops.filter((r) => r.topH > lim(r));
       ok("Bố cục: thanh trên 1 hàng ở 1366×768 và 1920×1080, tối đa 2 hàng ở 1024×768 (mọi màn)", tops.length === res.rows.length && badT.length === 0, "đo " + tops.length + "/" + res.rows.length + "; vượt: " + badT.slice(0, 8).map((r) => r.screen + "@" + r.size + "=" + r.topH + "px").join(", ") + (badT.length > 8 ? " … (" + badT.length + ")" : ""));
     }
+    { // 005B-UI003: chữ gợi ý (lớp .hint) đạt tương phản AA ≥ 4,5 : 1 ở mọi màn × 3 cỡ (PASS/FAIL; chip/nhãn trạng thái khác vẫn ghi nhận ở INFO)
+      const badH = res.rows.filter((r) => (r.contrast || []).some((x) => /\.hint\b/.test(x)));
+      ok("Bố cục: chữ gợi ý (.hint) đạt tương phản AA ≥ 4,5:1 ở mọi màn × 3 cỡ", badH.length === 0, badH.length + " (màn × cỡ); ví dụ: " + badH.slice(0, 3).map((r) => r.screen + "@" + r.size + ": " + (r.contrast || []).filter((x) => /\.hint\b/.test(x)).slice(0, 2).join(" ; ")).join(" | "));
+    }
     { // 005B-UI004: không có hai thanh cuộn dọc lồng nhau (khung trang + bảng) ở mọi màn × 3 cỡ
       const badN = res.rows.filter((r) => (r.nestedScroll || []).length);
       ok("Bố cục: không có hai thanh cuộn dọc lồng nhau (khung trang + bảng) ở mọi màn × 3 cỡ", badN.length === 0, badN.length + " (màn × cỡ): " + badN.slice(0, 6).map((r) => r.screen + "@" + r.size + " " + r.nestedScroll[0]).join(" | "));
