@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.51] — 19/11/2026
+- **Chống trùng cho danh mục + sửa dòng danh mục không đổi ô không chạm tới (handoff 013-C, issue #114).** Chi tiết: `docs/releases/v2.0.51.md`.
+
 ## [2.0.50] — 19/11/2026
 - **Danh sách bản sao lưu có cột Định dạng / Phạm vi và lọc theo định dạng, gồm cả lịch sử bản chụp SQLite (handoff 012-C, issue #113).** Chi tiết: `docs/releases/v2.0.50.md`.
 

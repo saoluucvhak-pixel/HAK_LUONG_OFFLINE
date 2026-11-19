@@ -192,7 +192,11 @@
   /** NFKC (chữ toàn khổ → thường), bỏ mọi khoảng trắng (cả NBSP) và gạch nối/gạch dưới, chữ HOA: "nv01" = "NV 01" = "ＮＶ01" = "NV-01"; "pc-001" = "PC - 001". Số 0 đầu KHÔNG bị bỏ ("0012" ≠ "12"). */
   function nearKey(v) { return String(v == null ? "" : v).normalize("NFKC").replace(/[\s\u00a0\u200b-\u200d\ufeff]+/g, "").replace(/[-\u2010-\u2015\u2212_]+/g, "").toUpperCase(); }
   // Bảng có khóa nghiệp vụ để dò nghi trùng (cùng khóa chính xác của importer.KEYS, nhưng so bằng nearKey; cột ngày so theo ngày chuẩn hóa)
-  var NEAR_COLS = { nhanvien: ["Mã NV"], hopdong: ["Mã NV", "Số HĐLĐ"], sanluong: ["Phiếu cân", "Mã NV"], bandam: ["Phiếu cân", "Mã NV"], psluong: ["Số chứng từ", "Mã NV"], ungluong: ["Số chứng từ", "Mã NV"], tiencom: ["Ngày", "Mã NV"] };
+  var NEAR_COLS = { nhanvien: ["Mã NV"], hopdong: ["Mã NV", "Số HĐLĐ"], sanluong: ["Phiếu cân", "Mã NV"], bandam: ["Phiếu cân", "Mã NV"], psluong: ["Số chứng từ", "Mã NV"], ungluong: ["Số chứng từ", "Mã NV"], tiencom: ["Ngày", "Mã NV"],
+    // 013-C: danh mục — cùng khóa nghiệp vụ với core/importer.js KEYS (so bằng nearKey): "p 01" = "P01", "l-1" = "L1"; số 0 đầu vẫn giữ ("01" ≠ "1")
+    dm_luong: ["Mã lương", "Hiệu lực từ"], dm_phucap: ["Mã phụ cấp", "Hiệu lực từ"], dm_tangca: ["Mã tăng ca", "Hiệu lực từ"], dm_hotro: ["Mã hỗ trợ", "Hiệu lực từ"],
+    dm_baohiem: ["Mã bảo hiểm", "Hiệu lực từ"], dm_tncn: ["Mã thuế TNCN", "Hiệu lực từ"], dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"], dm_giamtru: ["Mã giảm trừ", "Hiệu lực từ"],
+    dm_phongban: ["Mã phòng ban"], dm_chucvu: ["Mã chức vụ"], dm_cc: ["Mã CC", "Hình thức công"] };
   /** Khóa chuẩn hóa của một dòng (chuỗi), hoặc "" nếu bảng không dò hoặc dòng chưa đủ khóa. */
   function nearKeyOf(table, row) {
     var cols = NEAR_COLS[table]; if (!cols || !row) return "";
