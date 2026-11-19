@@ -332,6 +332,13 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     const m14 = await w.locator("[data-fb-msg]").innerText(), bdir = await w.evaluate(() => window.hakStore.info().backupDir), snapsOnDisk = fs.readdirSync(bdir).filter((x) => /^snap_.*\.sqlite$/.test(x));
     ok("Bấm Sao lưu toàn bộ (SQLite): có bản chụp snap_*.sqlite trên đĩa và thông báo nêu tên bản chụp + số dòng", snapsOnDisk.length >= 1 && /bản chụp snap_.*\.sqlite \(\d+ dòng, đã kiểm\)/.test(m14), m14 + " | " + snapsOnDisk.join(","));
     ok("Màn Sao lưu hiện trạng thái bản chụp SQLite mới nhất, không có cảnh báo lỗi bản chụp", (await w.locator("[data-snap-status]").count()) === 1 && /Bản chụp SQLite mới nhất/.test(await w.locator("[data-snap-status]").innerText()) && (await w.locator("[data-snap-error]").count()) === 0);
+    { // 012-C: danh sách bản sao lưu có cột Định dạng / Phạm vi, gồm cả lịch sử bản chụp .sqlite; lọc theo định dạng
+      const nSql = await w.locator('[data-bk-row="sqlite"]').count(), nJson = await w.locator('[data-bk-row="json"]').count(), head = await w.locator('[data-bk-row]').first().locator("xpath=ancestor::table").locator("thead").innerText();
+      await w.selectOption("[data-bk-kind-filter]", "sqlite"); await w.waitForTimeout(300);
+      const onlySql = (await w.locator('[data-bk-row="json"]').count()) === 0 && (await w.locator('[data-bk-row="sqlite"]').count()) === nSql;
+      await w.selectOption("[data-bk-kind-filter]", "all"); await w.waitForTimeout(200);
+      ok("Danh sách bản sao lưu: có cả bản chụp SQLite và bản JSON, cột Định dạng + Phạm vi; lọc 'SQLite' chỉ còn bản .sqlite", nSql >= 1 && nJson >= 1 && /Định dạng/.test(head) && /Phạm vi/.test(head) && onlySql, "sqlite=" + nSql + " json=" + nJson + " | " + head.replace(/\s+/g, " "));
+    }
     ok("Quy trình sao lưu SQLite: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
