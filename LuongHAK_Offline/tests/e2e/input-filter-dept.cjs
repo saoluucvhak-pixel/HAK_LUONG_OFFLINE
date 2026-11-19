@@ -166,6 +166,7 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
     ({ app, w, errs } = await launch(D4)); await login(w, "admin");
     const shotsDir = SHOTS ? SHOTS : "", res = await LA.auditAll({ app, w, shotsDir }), dl = await LA.auditDialogs({ app, w, shotsDir, xlsxPath: x4 });
     if (SHOTS) fs.writeFileSync(path.join(SHOTS, "layout-audit.json"), JSON.stringify({ at: new Date().toISOString(), rows: res.rows, dialogs: dl }, null, 1));
+    if (process.env.HAK_INV_OUT) fs.writeFileSync(process.env.HAK_INV_OUT, JSON.stringify(res.rows.filter((r) => r.size === "1366x768").map((r) => Object.assign({ screen: r.screen }, r.inv || {})), null, 1)); // 010: kiểm kê màn → docs/REPORT_CATALOG.md
     const HARD = [["pageOverflow", "không tràn ngang trang"], ["clipped", "không có chữ bị cắt"], ["wideNoScroll", "bảng rộng có vùng cuộn riêng"], ["stickyHead", "bảng dài có tiêu đề cột cố định"], ["overlap", "control không chồng nhau"], ["noFocus", "control nhận Tab đều thấy focus"]];
     ok("Bố cục: duyệt đủ mọi màn của menu ở 3 cỡ không lỗi thao tác", res.rows.length === res.keys.length * 3 && res.rows.every((r) => !r.error), JSON.stringify(res.rows.filter((r) => r.error).slice(0, 3)));
     for (const [k, label] of HARD) { const bad = res.rows.filter((r) => (Array.isArray(r[k]) ? r[k].length : r[k]) > 0); ok("Bố cục mọi màn × 3 cỡ: " + label, bad.length === 0, bad.slice(0, 4).map((r) => r.screen + "@" + r.size + ": " + JSON.stringify(r[k]).slice(0, 160)).join(" | ")); }

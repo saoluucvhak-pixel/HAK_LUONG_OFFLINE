@@ -110,6 +110,11 @@
           ? "⛔ Không xóa được: phụ lục của hợp đồng này đã dùng tính lương kỳ ĐÃ CHỐT " + labels(fzH) + " (quy tắc Q-15)."
           : "⛔ Không đổi được Số HĐLĐ: phụ lục của hợp đồng này đã dùng tính lương kỳ đã chốt " + labels(fzH) + " (Q-15).", { periods: fzH });
       }
+      // 4a. R-27 (+ R-44: kiểm ở tầng nghiệp vụ): không đổi Mã NV đã có trong bảng lương ĐÃ CHỐT — kể cả Admin (bản chốt không bao giờ bị sửa)
+      if (table === "nhanvien" && op === "update" && before && after && String(before["Mã NV"] || "") !== String(after["Mã NV"] || "")) {
+        var refs27 = GRD.references(db, before["Mã NV"]);
+        if (refs27.kyluong || refs27.kyluong_lichsu) return deny("frozen", "⛔ Không đổi được Mã NV " + before["Mã NV"] + ": mã này đã có trong bảng lương ĐÃ CHỐT (R-27).");
+      }
       // 4b. duyệt & phiên bản công thức tiền lương (Master V5 GĐ2) — kiểm tra ở tầng ghi, không đi vòng được
       var fpatch = null, FA = faMod();
       if (table === FA.TABLE) {
@@ -187,7 +192,7 @@
         return p.items.some(function (item) { return item.action === "add" || item.action === "update"; });
       });
       if (affected.some(function (p) { return !ctx.can(permFor(p.table)); })) return deny("perm", "Không có quyền ghi dữ liệu nhập.");
-      var db = ctx.db(), keys = new Map();
+      var db = ctx.db(), keys = new Map(), retroKy = {};
       for (var p of affected) {
         var rows = db[p.table] || [], tableKeys = keys.get(p.table);
         if (!tableKeys) { tableKeys = new Set(rows.map(function (row) { return IMP.keyOf(p.table, row); })); keys.set(p.table, tableKeys); }
@@ -203,6 +208,7 @@
           var impact = GRD.impactChange(db, p.table, before, after), key = IMP.keyOf(p.table, after);
           if (impact.kind === "locked" || (impact.kind === "retro" && !ctx.can("retro.edit")) ||
               (p.table === "chitiethd" && before && GRD.frozenAppendix(db, before).length)) return deny("locked", "Dữ liệu thuộc kỳ đã chốt. Mở lại bản xem trước nhập Excel.");
+          if (impact.kind === "retro") impact.periods.forEach(function (k) { retroKy[k] = 1; }); // 004.1b: nhật ký nhập ghi rõ hồi tố như khi sửa tay
           if ((item.action === "update" && rows.indexOf(before) < 0) ||
               (key && tableKeys.has(key) && (!before || IMP.keyOf(p.table, before) !== key))) return deny("stale", "Dữ liệu đã đổi hoặc trùng khóa. Mở lại bản xem trước nhập Excel.");
           if (key) tableKeys.add(key);
@@ -213,7 +219,8 @@
           return total + IMP.apply(db, p, ctx.uid, isHr(p.table));
         }, 0);
         ctx.audit("Nhập Excel", fileName + " (" + (mode === "replace" ? "ghi đè cả dòng" : "bổ sung") + "): " +
-          plans.map(function (p) { return p.table + " +" + p.summary.add + "/~" + p.summary.update + (p.summary.merged ? "/gộp " + p.summary.merged : ""); }).join(", "));
+          plans.map(function (p) { return p.table + " +" + p.summary.add + "/~" + p.summary.update + (p.summary.merged ? "/gộp " + p.summary.merged : ""); }).join(", ") +
+          (Object.keys(retroKy).length ? " · [HỒI TỐ kỳ đã chốt " + labels(Object.keys(retroKy).sort()) + "]" : ""));
         return count;
       });
       if (result.ok) affected.forEach(function (p) { appliedImports.add(p); });

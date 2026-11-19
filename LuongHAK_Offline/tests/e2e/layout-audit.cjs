@@ -80,6 +80,12 @@ function pageChecks() {
   const big = [...root.querySelectorAll("table")].filter((t) => vis(t) && t.tBodies[0] && t.tBodies[0].rows.length >= 8)[0];
   if (big) { const rowsN = [...big.tBodies[0].rows].filter((r) => { const b = r.getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; }).length; out.visRows = rowsN; if (rowsN < 6) out.fewRows.push(rowsN + " dòng nhìn thấy / cao " + innerHeight + "px"); } else out.visRows = null; // visRows = số dòng dữ liệu nhìn thấy trọn vẹn ở màn đầu (005B-UI002: màn nhập ≥ MIN_ROWS ở 1366×768)
   Object.keys(out).forEach((k) => { if (Array.isArray(out[k])) out[k] = [...new Set(out[k])].slice(0, 12); });
+  { // 010 (issue #99): kiểm kê từng màn — có Bộ lọc thông minh, nút xuất Excel/PDF/in, số bảng — để lập docs/REPORT_CATALOG.md bằng máy (chỉ ghi nhận)
+    const btns = [...root.querySelectorAll("button")].filter(vis).map((b) => (b.innerText || b.title || "").replace(/\s+/g, " ").trim());
+    const h2 = document.querySelector("#top h2");
+    out.inv = { title: h2 ? h2.innerText.trim() : "", sf: !!root.querySelector("[data-sf-q]"), excel: btns.some((t) => /Excel/i.test(t) && !/Nhập/i.test(t)), pdf: btns.some((t) => /PDF|\bIn\b|In báo cáo|In phiếu/i.test(t)),
+      tables: [...root.querySelectorAll("table")].filter(vis).length };
+  }
   return out;
 }
 

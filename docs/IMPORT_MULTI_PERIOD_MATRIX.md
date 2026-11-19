@@ -15,8 +15,23 @@ Số ca: unit 35 (6 bảng × 5 ca + 4 ca đổi kỳ chứng từ + 1 ca bảng
 
 **Lỗi thật tìm được:** không — cả hai lớp (kế hoạch và repository) đã chặn kỳ đã chốt, không nhân đôi và hoàn tác đúng cho cả 6 bảng; test này bổ sung bằng chứng tự động cho hàng "Import" của ma trận nghiệm thu §7 (trước đó chỉ có ca lẻ).
 
+## 004.1b — bảng nhân sự / danh mục theo NGÀY HIỆU LỰC, file nhiều sheet, OCR (v2.0.54)
+`tests/unit/import-multi-period-hr.test.js` (16 ca). File có 2 dòng: hiệu lực 01/09/2026 (kỳ 9/2026 ĐÃ CHỐT) và 01/10/2026 (kỳ mở).
+
+| Bảng | Không phải Admin: dòng hồi tố bị chặn, cả lần ghi không đổi | Admin: ghi được, bản chốt không đổi, nhật ký ghi "HỒI TỐ kỳ đã chốt" | Nhập lại cùng file không thêm dòng |
+|---|---|---|---|
+| Tài khoản nhận lương (`thanhtoan`) | Đạt | Đạt (sửa v2.0.54) | Đạt |
+| Phụ lục HĐ (`chitiethd`) | Đạt | Đạt (sửa v2.0.54) | Đạt |
+| Danh mục lương (`dm_luong`) | Đạt | Đạt (sửa v2.0.54) | Đạt |
+| Danh mục phụ cấp (`dm_phucap`) | Đạt | Đạt (sửa v2.0.54) | Đạt |
+| Thông tin cá nhân (`canhan`) | — (không dùng tính lương → không phải hồi tố, ghi được) | — (nhật ký không ghi hồi tố) | Đạt |
+
+- **File nhiều sheet** (`nhanvien` + `canhan` + `thanhtoan` trong một lần `importWorkbook`): ghi trong MỘT giao dịch; lưu thất bại → hoàn tác cả ba bảng (Đạt).
+- **OCR chấm công** (`app-src/22-ocr-cham-cong.js` `ocrApply`): lập kế hoạch bằng chính `IMP.plan` với `lockedPeriods` rồi ghi qua cùng `importPreview` → `REPO.importWorkbook`; mỗi dòng mang Kỳ riêng nên ca nhiều kỳ của `chamcong`/`tiencom` ở bảng trên áp dụng nguyên vẹn.
+- **Lỗi thật tìm được:** nhập Excel dòng có hiệu lực hồi tố vào kỳ đã chốt (Admin) — nhật ký chỉ ghi "Nhập Excel … +2/~0", **không ghi hồi tố** (sửa tay thì có). Đã sửa: `core/repository.js` `importWorkbook` thêm " · [HỒI TỐ kỳ đã chốt 9/2026]".
+
 ## Phạm vi và chưa kiểm
 - "Mọi bảng nhập liệu" ở đây = 6 bảng nhập theo tháng của `core/importer.js` (`MONTHLY`). Bảng nhân sự/danh mục (hiệu lực theo ngày, không theo kỳ lương) dùng cùng bộ lập kế hoạch nhưng không có khái niệm "kỳ chốt" như trên; việc chặn hồi tố của chúng nằm ở `GRD.impactChange` (đã có test ở `tests/unit/guard-schema.test.js`, `repository.test.js`) — **chưa gom vào ma trận này**.
-- Nhập Excel bằng OCR chấm công (`22-ocr-cham-cong.js`) dùng cùng `IMP.plan` nhưng luồng riêng — chưa có ca nhiều kỳ riêng.
-- Nhập một file nhiều SHEET (nhiều bảng cùng lúc, `importAllFile`) chưa có ca nhiều kỳ riêng (mỗi bảng đã đạt riêng).
+- OCR chấm công: xem mục 004.1b ở trên (cùng đường kế hoạch + ghi). Chưa có E2E OCR ảnh thật nhiều kỳ.
+- File nhiều sheet: xem mục 004.1b ở trên (tầng ghi); chưa có E2E chọn file nhiều sheet qua giao diện.
 - Chưa kiểm bằng mắt bố cục hộp "Xem trước nhập Excel"; chưa chạy trên Windows thật (CI Windows có chạy bước E2E này).
