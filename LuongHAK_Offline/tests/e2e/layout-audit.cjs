@@ -68,6 +68,13 @@ function pageChecks() {
   // thanh trên bị xuống dòng (các control nằm ở ≥ 2 hàng khác nhau)
   const top = document.querySelector("#top"); out.topWrap = []; out.topH = top ? Math.round(top.getBoundingClientRect().height) : null;
   if (top && top.getBoundingClientRect().height > 80) out.topWrap.push("thanh trên cao " + Math.round(top.getBoundingClientRect().height) + "px (1 hàng ≈ 57px) — control bị đẩy xuống hàng 2+");
+  // 005B-UI004: hai thanh cuộn dọc lồng nhau DO CHÍNH BẢNG TRÀN — khung trang (#main) cuộn được, bảng (.tw) cũng cuộn dọc, và bảng là khối cuối của trang
+  // (dưới bảng < 40px nội dung) VÀ ép bảng vừa màn được (bảng còn ≥ 200px) — tức là sửa được mà chưa sửa. Trang báo cáo nhiều phần (nội dung phía trên/dưới bảng quá cao) không ép được: khung trang cuộn + bảng cuộn riêng là giới hạn thiết kế (bảng rộng cần vùng cuộn ngang và tiêu đề cột cố định), ghi ở docs/UI_ISSUES.md.
+  out.nestedScroll = [];
+  { const m = document.querySelector("#main"); if (m && m.scrollHeight > m.clientHeight + 2) {
+      const inner = [...m.querySelectorAll(".tw")].filter((e) => vis(e) && /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 2).sort((a, b) => b.clientHeight - a.clientHeight)[0];
+      if (inner) { const mb = m.getBoundingClientRect(), contentBottom = mb.top + m.scrollHeight - m.scrollTop, below = contentBottom - inner.getBoundingClientRect().bottom - parseFloat(getComputedStyle(m).paddingBottom || 0);
+        if (below < 40 && inner.clientHeight - (m.scrollHeight - m.clientHeight) >= 200) out.nestedScroll.push("#main thừa " + (m.scrollHeight - m.clientHeight) + "px + bảng cuộn riêng " + inner.clientHeight + "/" + inner.scrollHeight + "px (dưới bảng " + Math.round(below) + "px)"); } } }
   // bảng dữ liệu dài nhưng màn đầu tiên chỉ thấy rất ít dòng (< 6) — thanh công cụ/chú thích chiếm hết chiều cao
   out.fewRows = [];
   const big = [...root.querySelectorAll("table")].filter((t) => vis(t) && t.tBodies[0] && t.tBodies[0].rows.length >= 8)[0];

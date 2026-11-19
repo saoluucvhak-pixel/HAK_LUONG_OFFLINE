@@ -6,6 +6,9 @@
 ## [2.0.54] — 20/11/2026
 - **Nhập Excel nhiều kỳ cho nhân sự / danh mục, file nhiều sheet (handoff 004.1b, issue #92):** nhật ký nhập ghi rõ hồi tố kỳ đã chốt; chặn đổi Mã NV đã chốt ở tầng nghiệp vụ (R-27); bảng truy vết quy tắc → test `docs/RULES_TEST_MATRIX.md`. Chi tiết: `docs/releases/v2.0.54.md`.
 
+## [2.0.53] — 19/11/2026
+- **Bỏ hai thanh cuộn dọc lồng nhau ở màn nhập liệu / danh sách (handoff 005B-UI004, issue #97).** Chi tiết: `docs/releases/v2.0.53.md`.
+
 ## [2.0.52] — 19/11/2026
 - **Chữ gợi ý đạt tương phản AA ≥ 4,5:1 ở mọi màn (handoff 005B-UI003, issue #97).** Chi tiết: `docs/releases/v2.0.52.md`.
 
