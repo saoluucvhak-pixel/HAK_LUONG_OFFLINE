@@ -93,23 +93,24 @@ Thiết kế: `save()` kiểm hợp lệ (phân tích một lần) → bảo v�
 
 Điều kiện còn thiếu để xác nhận bàn giao chính thức: thử Setup Windows (cài mới + nâng cấp từ JSON có kỳ chốt/chứng từ/kho năm), delta từ giao diện hoặc chấp nhận chi phí hiện tại, chuẩn hóa lược đồ, gói sao lưu có snapshot SQLite và thử restore sang hồ sơ mới trong cùng ca.
 
-## 7. Ma trận nghiệm thu theo prompt (mục 12) — trạng thái v2.0.34
+## 7. Ma trận nghiệm thu theo prompt (mục 12) — trạng thái v2.0.49 (CEO_LUONG thay thế cập nhật 19/11/2026)
 
-Đạt = có bằng chứng tự động chạy trên commit; Một phần = có nhưng chưa đủ phạm vi ma trận; Chưa = chưa có bằng chứng.
+Đạt = có bằng chứng tự động chạy trên commit; Một phần = có nhưng chưa đủ phạm vi ma trận; Chưa = chưa có bằng chứng. **Mọi nhóm: chưa nghiệm thu trên Windows thật** — danh mục kiểm tay của chủ sở hữu: issue #115.
 
 | Nhóm | Trạng thái | Bằng chứng / còn thiếu |
 |---|---|---|
-| Lỗi đã biết | **Đạt** | C01 (6 ca, tái hiện trước khi sửa: `docs/v2.0.31/`), hồi quy F01/F02/A01/A02 còn trong bộ test; ô trống nhập Excel (`importer-blank-cells`) |
-| Import | Một phần | Lặp file, Total/phiếu thật, mã Text, ô trống: có test. **Nhiều kỳ (kỳ chốt + kỳ mở) cho 6 bảng nhập liệu theo tháng: đạt ở tầng dữ liệu (35 ca) và giao diện thật (25 ca) — `docs/IMPORT_MULTI_PERIOD_MATRIX.md`.** Chưa: bảng nhân sự/danh mục theo ngày hiệu lực trong ma trận này, nhập qua OCR, file nhiều sheet nhiều kỳ, Windows thật |
-| Ghi dữ liệu | Một phần | Thành công chỉ sau commit, hoàn tác nhiều bảng (`txn`), tiêm lỗi đĩa/SQLite, kill sau lưu: có (E2E). Save nhanh/chuyển màn: `*-stability`. Delta từ giao diện: chưa (chỉ thiết kế) |
-| Hiệu lực | Một phần | Test hồi quy hiện có đạt; chưa rà lại từng ca ma trận trong đợt này |
+| Lỗi đã biết | **Đạt** | C01 (6 ca, `docs/v2.0.31/`), hồi quy F01/F02/A01/A02; ô trống nhập Excel (`importer-blank-cells`); **chống trùng theo khóa chuẩn hóa** `nv01`/`NV 01`/`ＮＶ01`, `pc-001`, chữ NFD (`dedupe-near-key` T1–T8, v2.0.44) |
+| Import | Một phần | Lặp file, Total/phiếu thật, mã Text, ô trống, nhiều kỳ cho 6 bảng nhập liệu (`docs/IMPORT_MULTI_PERIOD_MATRIX.md`), ca xấu (009-A), cột "Cách sửa" + đối chiếu `file = ghi + gộp + không ghi` + file lỗi (009-B, v2.0.43), **nghi trùng** khi nhập Excel và nhập tay (013-B, v2.0.44). Chưa: 004.1b (nhân sự/danh mục theo ngày hiệu lực nhiều kỳ, file nhiều sheet, OCR chấm công); `dm_*` chưa dò nghi trùng; NFC theo ô (013-C) |
+| Ghi dữ liệu | Một phần | Thành công chỉ sau commit, hoàn tác nhiều bảng (`txn`), tiêm lỗi đĩa/SQLite, kill sau lưu (E2E); hỏi trước khi đóng khi còn nháp (009-C). Chưa: ghi delta từ giao diện (006, chờ chủ sở hữu) |
+| Hiệu lực | Một phần | Test hồi quy đạt; chưa rà lại từng ca ma trận trong đợt này |
 | Nghiệp vụ | Một phần | Như trên |
-| Chốt/thanh toán | Một phần | Như trên; không có thay đổi công thức/bản chốt |
-| Báo cáo/lọc | **Một phần, nhiều hơn** | Bảng↔Excel↔HTML từng dòng/cột cho lương (9 loại), vận hành (6), bảo hiểm, cấp phát. **Nội dung PDF thật: 36 báo cáo/sheet vận hành, bảo hiểm, cấp phát, bảng lương nội bộ đã kiểm bằng trích văn bản từ PDF thật (`docs/PDF_CONTENT_MATRIX.md`).** Chưa: PDF của các báo cáo còn lại (xem ma trận); chưa chuẩn hóa Smart Filter mọi màn |
-| SQLite | Một phần | Migration, idempotency, crash, busy, schema v2 CHECK, kho năm, bản chụp, **khôi phục từ bản chụp (v2.0.36: unit 7 ca gồm 3 ca kill -9 thật + E2E 7 ca; chưa thử Windows thật/đĩa đầy)**: có. Chưa: khóa ngoại/chuẩn hóa, bản chụp trong Full Backup trên Windows thật/đĩa đầy Crash/độ bền: ma trận 6 kịch bản ở `docs/CRASH_DURABILITY_MATRIX.md` (5 đạt, 1 rủi ro chấp nhận; **kịch bản 6c `-wal` mất khi data.json chưa xuất kịp = mất giao dịch âm thầm: RỦI RO ĐÃ BIẾT, CHỦ SỞ HỮU CHẤP NHẬN (quyết định A) — chỉ khi tệp `-wal` bị xóa/hỏng VÀ data.json chưa xuất kịp (≤ 3 s); crash thường không mất dữ liệu; 3 test `todo` giữ làm tài liệu sống**). |
-| UI | **Chưa đủ** | CI `workspace-visual` (bố cục và các giao diện); chưa kiểm tay từng màn/modal ở 1366×768 và 1920×1080 |
-| Phân quyền | Đạt (phạm vi hiện có) | Hai chế độ, vai trò không có `payroll.view` (`input-filter-dept`), main guard |
-| Hiệu năng | Một phần | 300/5.000/10.000 NV: p50/p95 + RSS ở `docs/PERFORMANCE_REPORT.md`; **chưa đạt mục tiêu < 150 ms ở 5.000 NV**; chưa đo Electron/Windows |
-| Setup | Một phần → CI | v2.0.34 thêm bước CI cài/chạy/nâng cấp đè/gỡ bằng bộ cài THẬT trên runner Windows (`tests/e2e/installed-setup.cjs`). Máy/tài khoản Windows thật của chủ sở hữu: **chưa** |
+| Chốt/thanh toán | Một phần | Như trên; không đổi công thức/bản chốt. Bản chốt bị làm giả trong file khôi phục bị tiến trình chính từ chối ghi (E2E khối 15) |
+| Báo cáo/lọc | Một phần | Bảng↔Excel↔HTML từng dòng/cột (lương 9 loại, vận hành 6, bảo hiểm, cấp phát); PDF nội dung thật 36 báo cáo (`docs/PDF_CONTENT_MATRIX.md`); Smart Filter dùng chung khớp repo gốc (`check:shared`). Chưa: 010 (#99) báo cáo chuyên nghiệp + bộ lọc thống nhất mọi màn |
+| SQLite | **Đạt bằng máy** | Migration, idempotency, crash, busy, schema v2, kho năm, bản chụp + khôi phục từ bản chụp / từ gói Full Backup. **v2.0.49: mọi lần sao lưu (tay, định kỳ, khi đóng, đầu ngày, đầu năm) tạo bản chụp `.sqlite` đã kiểm; lịch sử 10 bản + bản sau chốt kỳ vĩnh viễn; chép sang thư mục dự phòng; lỗi báo lên giao diện** (`sqlite-backup-snapshot-all` 7 ca, E2E khối 14). Rủi ro đã biết, chủ sở hữu chấp nhận: kịch bản 6c `-wal` (`docs/CRASH_DURABILITY_MATRIX.md`, 3 test `todo`). Chưa: Windows thật, đĩa đầy thật, mất điện thật |
+| Sao lưu / khôi phục / chuyển máy | **Đạt bằng máy** | Màn 5 khu, mỗi chức năng một chỗ, thư mục JSON (012-A, v2.0.46); sao lưu/khôi phục **theo kỳ lương** `.zip`/`.hakenc`, xem trước, xác nhận riêng, sao lưu toàn bộ trước khi ghi, không nhân đôi, chặn kỳ đã chốt, cảnh báo chốt lại kỳ (012-B, v2.0.47; `period-restore*` 29 ca, E2E khối 12–13); **chuyển máy qua giao diện**: JSON sang hồ sơ mới băm từng bảng trùng, khôi phục 2 lần không nhân đôi, gói kỳ sai mật khẩu không đổi dữ liệu, đúng mật khẩu khôi phục đúng kỳ (E2E khối 15); Full Backup sang hồ sơ riêng (`capphat.cjs`). Chưa: USB/ổ mạng/đường dẫn có dấu trên Windows thật (#115 mục 5–6) |
+| UI | Một phần | `workspace-visual`; kiểm bố cục bằng máy mọi màn × 3 cỡ (`layout-audit`): không tràn, không cắt chữ, cuộn riêng, tiêu đề cố định, không chồng, có focus; **màn nhập ≥ 12 dòng ở 1366×768** (UI-002, v2.0.45); **thanh trên 1 hàng ở 1366×768/1920×1080, ≤ 2 hàng ở 1024×768** (UI-001, v2.0.48). Chưa: UI-003 tương phản chữ `hint` (60/117 màn × cỡ), UI-004 hai thanh cuộn lồng ở Bảng chấm công; kiểm tay Windows 125%/150% |
+| Phân quyền | Đạt (phạm vi hiện có) | Hai chế độ, vai trò không có `payroll.view` (`input-filter-dept`), main guard; mọi IPC sao lưu/khôi phục mới qua `guarded("backup.restore")` |
+| Hiệu năng | Một phần | 300/5.000/10.000 NV ở `docs/PERFORMANCE_REPORT.md`; **chưa đạt < 150 ms ở 5.000 NV** (~130 ms p50; quyết định 006 chờ chủ sở hữu); chưa đo Electron/Windows |
+| Setup | Một phần → CI | CI cài/chạy/nâng cấp đè/gỡ bằng bộ cài thật trên runner Windows (`installed-setup.cjs`); mỗi bản có `.exe` + `SHA256SUMS.txt` + `BUILD_INFO.json`, CEO tự tải và băm (`post-merge-check.cjs`). Chưa: máy Windows thật của chủ sở hữu; bộ cài chưa ký số (tạm dừng) |
 
-Kết luận không đổi: **Chỉ đủ thử nghiệm có kiểm soát.**
+**Kết luận v2.0.49:** đủ làm **bộ cài ứng viên** để chủ sở hữu kiểm tay trên Windows thật (#115). Chưa phải bản chính thức cho đến khi: (1) chủ sở hữu đánh dấu đạt #115; (2) chủ sở hữu ghi chấp nhận các nhóm còn "Một phần" (Import 004.1b, Ghi dữ liệu delta, Hiệu lực/Nghiệp vụ/Chốt chưa rà lại ma trận, Báo cáo 010, UI-003/004, Hiệu năng 006) hoặc yêu cầu làm tiếp trước khi phát hành.
