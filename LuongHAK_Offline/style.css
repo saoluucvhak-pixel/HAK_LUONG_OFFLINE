@@ -729,3 +729,5 @@ td.ot-note{background:var(--th);color:var(--mut)}
 #content #top .topbtn[data-files],#content #top .topbtn[data-logout]{min-width:0;width:40px;padding:0;justify-content:center}
 #content #top .hak-skin-select{width:112px;max-width:112px}
 }
+/* 005B-UI003 (issue #97): chữ gợi ý (.hint) đạt tương phản AA ≥ 4,5:1 — trộn màu phụ với màu chữ chính: đậm hơn ở giao diện sáng, sáng hơn ở giao diện tối. Không đổi bố cục. */
+.hint{color:color-mix(in srgb,var(--mut) 70%,var(--ink))}
