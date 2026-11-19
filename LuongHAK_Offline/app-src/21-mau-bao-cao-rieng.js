@@ -1,9 +1,13 @@
   // ---------- V10.1: MẪU BÁO CÁO RIÊNG — nhân sự · sản lượng · bơm dăm · thưởng/trừ · tạm ứng · suất cơm ----------
   var OPS_SCREENS = { rp_ns: "NHAN_SU", rp_sl: "SAN_LUONG", rp_bd: "BOM_DAM", rp_th: "THUONG", rp_tu: "TAM_UNG", rp_com: "SUAT_COM" };
   var OPS_KPI = { SAN_LUONG: ["KL hàng (Tấn)"], BOM_DAM: ["Số xe"], THUONG: ["Thưởng", "Thu nhập khác", "Trừ khác", "Thực nhận"], TAM_UNG: ["Tạm ứng"], SUAT_COM: ["Tổng suất"] };
+  /** 010 (issue #99): bộ lọc của từng báo cáo nghiệp vụ — RIÊNG từng báo cáo (không còn dùng chung một ô từ khóa cho cả 6). */
+  function opsF(type) { st.opsF = st.opsF || {}; return st.opsF[type] = st.opsF[type] || { q: "", pb: [], tt: "dang" }; }
+  function opsFReset(type) { st.opsF = st.opsF || {}; st.opsF[type] = { q: "", pb: [], tt: "dang" }; }
   function opsVm(type) {
+    var of = opsF(type);
     var opt = { nam: st.nam, thang: st.thang, tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", chot: !!kyChot(kyKey(st.nam, st.thang)),
-      hr: HRM, num: E.num, money: E.money, phongBan: st.opsPB || "", tuKhoa: st.opsKw || "", trangThaiNV: st.opsTT || "dang", homNay: HRM.today() };
+      hr: HRM, num: E.num, money: E.money, phongBan: of.pb.slice(), tuKhoa: of.q || "", trangThaiNV: of.tt || "dang", homNay: HRM.today() };
     var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
     if ((type === "THUONG" || type === "TAM_UNG") && can("payroll.view")) {
       if (snapshot) opt.bangluong = snapshot.kq.bangluong;

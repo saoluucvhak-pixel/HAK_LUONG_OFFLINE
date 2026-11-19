@@ -65,7 +65,7 @@
         if (!row["Phiếu"] || !row["Ngày"]) return row;
         return Object.assign({}, row, { "Phiếu": btn(row["Phiếu"], "ghost", function () {
           st.opsReceipt = { type: originType, number: String(row["Phiếu"]).trim(), date: String(row["Ngày"]).slice(0, 10), ky: kyKey(nam, thang) };
-          st.opsKw = ""; st.opsPB = ""; st.tab = origin; saveUi(); render();
+          opsFReset(originType); st.tab = origin; saveUi(); render();
         }, "Xem phiếu gốc " + row["Phiếu"]) });
       }) : r3.audit;
       card.appendChild(simpleTable(linkedAudit));
@@ -120,7 +120,7 @@
           var actions = [];
           if (tabAllowed(origin)) actions.push(btn("Mở phiếu cân", "ghost", function () {
             st.opsReceipt = { type: originType, number: String(row["Phiếu cân"]).trim(), date: row["Ngày cân"], ky: kyKey(nam, thang) };
-            st.opsKw = ""; st.opsPB = ""; st.tab = origin; saveUi(); render();
+            opsFReset(originType); st.tab = origin; saveUi(); render();
           }));
           if (!snapshot && entry && tabAllowed("chamcong")) entry.employees.forEach(function (employee) {
             actions.push(btn("Mở công " + employee.ma, "ghost", function () {

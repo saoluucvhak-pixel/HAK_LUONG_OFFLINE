@@ -13,8 +13,8 @@ Lập **bằng máy** 20/11/2026 (v2.0.54) từ bộ kiểm bố cục `tests/e2
 | Chấm công | OCR & Chứng từ — Thư viện mẫu (`ocrlib`) | — | — | — |
 | Sản lượng | Sản lượng (`sanluong`) | **Có** | Có | Có |
 | Sản lượng | Ban dăm xuất hàng (`bandam`) | **Có** | Có | Có |
-| Sản lượng | BẢNG KÊ PHIẾU CÂN SẢN LƯỢNG (`rp_sl`) | Riêng: bộ lọc riêng của mẫu báo cáo nghiệp vụ (Phòng ban, Từ khóa) | Có | Có |
-| Sản lượng | BẢNG KÊ BAN DĂM XUẤT HÀNG (`rp_bd`) | Riêng: bộ lọc riêng của mẫu báo cáo nghiệp vụ (Phòng ban, Từ khóa) | Có | Có |
+| Sản lượng | BẢNG KÊ PHIẾU CÂN SẢN LƯỢNG (`rp_sl`) | **Có** (v2.0.55) | Có | Có |
+| Sản lượng | BẢNG KÊ BAN DĂM XUẤT HÀNG (`rp_bd`) | **Có** (v2.0.55) | Có | Có |
 | Nghiệp vụ tiền lương | Thưởng / Trừ (`psluong`) | **Có** | Có | Có |
 | Nghiệp vụ tiền lương | Tạm ứng (`ungluong`) | **Có** | Có | Có |
 | Nghiệp vụ tiền lương | Suất cơm (`tiencom`) | **Có** | Có | Có |
@@ -35,10 +35,10 @@ Lập **bằng máy** 20/11/2026 (v2.0.54) từ bộ kiểm bố cục `tests/e2
 | Báo cáo khác | BẢNG TỔNG HỢP LƯƠNG THEO PHÒNG BAN (`rp_pb`) | **Có** | Có | Có |
 | Báo cáo khác | BÁO CÁO LƯƠNG (`baocaoluong`) | **Có** | Có | Có |
 | Báo cáo khác | Báo cáo nhân sự (`baocao`) | Riêng: 9 báo cáo nhân sự, chọn loại; lọc theo loại | Có | Có |
-| Báo cáo nghiệp vụ | DANH SÁCH NHÂN SỰ (`rp_ns`) | Riêng: bộ lọc riêng của mẫu báo cáo nghiệp vụ (Phòng ban, Từ khóa, Trạng thái NV) | Có | Có |
-| Báo cáo nghiệp vụ | BẢNG KÊ THƯỞNG / TRỪ (`rp_th`) | Riêng: bộ lọc riêng của mẫu báo cáo nghiệp vụ (Phòng ban, Từ khóa) | Có | Có |
-| Báo cáo nghiệp vụ | BẢNG KÊ TẠM ỨNG LƯƠNG (`rp_tu`) | Riêng: bộ lọc riêng của mẫu báo cáo nghiệp vụ (Phòng ban, Từ khóa) | Có | Có |
-| Báo cáo nghiệp vụ | TỔNG HỢP SUẤT CƠM (`rp_com`) | Riêng: bộ lọc riêng của mẫu báo cáo nghiệp vụ (Phòng ban, Từ khóa) | Có | Có |
+| Báo cáo nghiệp vụ | DANH SÁCH NHÂN SỰ (`rp_ns`) | **Có** (v2.0.55) | Có | Có |
+| Báo cáo nghiệp vụ | BẢNG KÊ THƯỞNG / TRỪ (`rp_th`) | **Có** (v2.0.55) | Có | Có |
+| Báo cáo nghiệp vụ | BẢNG KÊ TẠM ỨNG LƯƠNG (`rp_tu`) | **Có** (v2.0.55) | Có | Có |
+| Báo cáo nghiệp vụ | TỔNG HỢP SUẤT CƠM (`rp_com`) | **Có** (v2.0.55) | Có | Có |
 | Danh mục | Danh mục (`dm`) | **Có** | Có | — |
 | Cài đặt | Cài đặt — Công thức & phương pháp tính lương (`caidat`) | — | — | — |
 | Cài đặt | Công ty & Sao lưu (`backup`) | — | Có | — |
@@ -50,11 +50,10 @@ Lập **bằng máy** 20/11/2026 (v2.0.54) từ bộ kiểm bố cục `tests/e2
 - **Bảng ↔ Excel ↔ PDF khớp từng dòng/cột**: `docs/PDF_CONTENT_MATRIX.md` (36 báo cáo, 101 dòng, có đối chứng); xuất Excel theo bộ lọc khớp màn hình: `input-filter-dept` (7 màn Smart Filter).
 
 ## Kết luận kiểm kê
-- 20/39 màn có Smart Filter dùng chung; mọi báo cáo **lương, thanh toán, thuế** đều có.
-- **6 báo cáo nghiệp vụ** (`rp_ns`, `rp_sl`, `rp_bd`, `rp_th`, `rp_tu`, `rp_com`) dùng **bộ lọc riêng** của mẫu (Phòng ban + Từ khóa, nhân sự thêm Trạng thái). Lọc đúng, phạm vi lọc in trên báo cáo, nhưng khác kiểu với Smart Filter, và từ khóa **dùng chung một ô nhớ cho cả 6 báo cáo** (lọc ở Thưởng/Trừ rồi mở Suất cơm vẫn giữ từ khóa — ô tìm hiện rõ từ khóa nên không ẩn dữ liệu âm thầm).
+- **v2.0.55: 26/39 màn có Smart Filter dùng chung — mọi báo cáo** (lương, thanh toán, thuế, nghiệp vụ) và mọi màn nhập liệu / danh sách. 13 màn còn lại không phải danh sách để lọc (Tổng quan, Tính lương, Cài đặt, Hướng dẫn, OCR…) hoặc có cách chọn riêng phù hợp (Phiếu lương: chọn nhân viên; Báo cáo nhân sự: chọn loại).
+- **6 báo cáo nghiệp vụ** (`rp_ns`, `rp_sl`, `rp_bd`, `rp_th`, `rp_tu`, `rp_com`) chuyển sang Smart Filter chung ở v2.0.55: ô tìm, Phòng ban **chọn nhiều**, Trạng thái NV (danh sách nhân sự); bộ lọc **giữ riêng từng báo cáo** (trước dùng chung một ô từ khóa cho cả 6). Kiểm `input-filter-dept`: mỗi báo cáo 9 ca (lọc từ khóa 1/3, Excel theo bộ lọc, Phòng ban chọn nhiều, Đặt lại, giữ bộ lọc khi đổi màn, không ghi đổi dữ liệu).
 - Màn không phải danh sách (Tổng quan, Tính lương, Cài đặt, Hướng dẫn, OCR) không cần bộ lọc.
 
-## Đề xuất (mục 5 — chưa làm, cần chủ sở hữu duyệt vì đổi giao diện các báo cáo đang dùng)
-1. Thay bộ lọc riêng của 6 báo cáo nghiệp vụ bằng Smart Filter dùng chung, giữ bộ lọc **riêng từng báo cáo**; thêm kiểm `input-filter-dept` cho 6 màn này.
-2. Ghim báo cáo hay dùng lên Tổng quan; lưu mẫu lọc đặt tên.
-3. Chưa kiểm: in trên máy in thật, Windows thật, số trang / tiêu đề lặp khi in nhiều trang so với bản mẫu.
+## Đề xuất còn lại (chưa làm)
+1. Ghim báo cáo hay dùng lên Tổng quan; lưu mẫu lọc đặt tên.
+2. Chưa kiểm: in trên máy in thật, Windows thật, số trang / tiêu đề lặp khi in nhiều trang so với bản mẫu.

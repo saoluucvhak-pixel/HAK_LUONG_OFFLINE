@@ -22,16 +22,22 @@
     var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
     var departments = snapshot ? snapshot.input?.danhmuc?.dm_phongban : db.dm_phongban;
     (departments || []).forEach(function (p) { if (p && p["Tên phòng ban"]) pbs[p["Tên phòng ban"]] = 1; });
-    var pbSel = h("select", { "aria-label": "Phòng ban", "data-ops-key": "phongBan" }); pbSel.appendChild(h("option", { value: "", text: "— Tất cả phòng ban —" }));
-    Object.keys(pbs).sort().forEach(function (n) { pbSel.appendChild(h("option", { value: n, text: n })); });
-    pbSel.value = st.opsPB || ""; pbSel.addEventListener("change", function () { st.opsPB = pbSel.value; render(); }); bar.appendChild(pbSel);
-    if (type === "NHAN_SU") {
-      var ttSel = h("select", { "aria-label": "Trạng thái", "data-ops-key": "trangThaiNV" });
-      [["dang", "Đang làm việc"], ["nghi", "Đã nghỉ việc"], ["tatca", "Tất cả"]].forEach(function (o) { ttSel.appendChild(h("option", { value: o[0], text: o[1] })); });
-      ttSel.value = st.opsTT || "dang"; ttSel.addEventListener("change", function () { st.opsTT = ttSel.value; render(); }); bar.appendChild(ttSel);
-    }
-    var q = h("input", { class: "i", placeholder: "Tìm mã / tên / số chứng từ…", value: st.opsKw || "", "data-ops-key": "tuKhoa" });
-    q.addEventListener("change", function () { st.opsKw = q.value; render(); }); bar.appendChild(q);
+    // 010 (issue #99): Bộ lọc thông minh dùng chung (như báo cáo lương / màn nhập liệu): ô tìm, Phòng ban chọn nhiều, Trạng thái NV; giữ riêng từng báo cáo
+    var of = opsF(type), fields = [{ key: "pb", label: "Phòng ban", type: "multi", options: function () { return Object.keys(pbs).sort(); } }];
+    if (type === "NHAN_SU") fields.push({ key: "tt", label: "Trạng thái", type: "enum", options: [{ value: "dang", label: "Đang làm việc" }, { value: "nghi", label: "Đã nghỉ việc" }] });
+    var keys = fields.map(function (f) { return f.key; });
+    var sfCfg = {
+      screenId: "ops:" + type, searchPlaceholder: "🔍 Tìm mã / tên / số chứng từ…", qAttrs: { "data-ops-key": "tuKhoa" }, qCommit: true,
+      fields: fields, quickFields: ["q"].concat(keys), advancedFields: ["q"].concat(keys),
+      scopeFallback: function () { return "tất cả"; },
+      state: {
+        get: function () { var s = SFC.empty(); s.q = of.q || ""; if (of.pb.length) s.sel.pb = of.pb.slice(); if (type === "NHAN_SU" && of.tt !== "tatca") s.one.tt = of.tt || "dang"; return s; },
+        set: function (s) { of.q = s.q || ""; of.pb = (s.sel.pb || []).slice(); if (type === "NHAN_SU") of.tt = s.one.tt || "tatca"; }
+      },
+      dataSource: function () { return { kept: vm.soDong, total: vm.soDongGoc, unsupported: [] }; },
+      onApply: function () { render(); }
+    };
+    var sfm = sfUi.mount(sfCfg); sfm.cfg = sfCfg; card.appendChild(sfm.el);
     bar.appendChild(h("span", { class: "sp" }));
     bar.appendChild(btn("⬇ Xuất Excel", "pri", function () { opsXlsx(vm); }));
     bar.appendChild(btn("⬇ Xuất PDF", "", function () { opsPdf(vm); }));

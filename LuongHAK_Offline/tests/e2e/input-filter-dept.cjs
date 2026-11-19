@@ -76,7 +76,10 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
     createStorage(D2).save(JSON.stringify(d2)); // cùng đường nạp dữ liệu giả với sqlite-default.cjs (chạy ổn trên CI Windows)
     const SCR = [ // k: màn · t1/t2: chuỗi chỉ có ở dòng của NV01 / NV02 (không dấu, chữ thường cũng khớp) · pb: nhãn phòng ban có đúng 1 dòng NV01 · n: số dòng của NV01
       { k: "chamcong", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", x1: "NV01", x2: "NV02", ten: "Chấm công" }, { k: "sanluong", t1: "PC-ANH", t2: "PC-BINH", ten: "Sản lượng" }, { k: "bandam", t1: "BD-ANH", t2: "BD-BINH", ten: "Ban dăm", pre: "Phân bổ trực tiếp nhân viên" },
-      { k: "psluong", t1: "PS-ANH", t2: "PS-BINH", ten: "Thưởng/Trừ" }, { k: "ungluong", t1: "UL-ANH", t2: "UL-BINH", ten: "Tạm ứng" }, { k: "tiencom", t1: "com-ANH", t2: "com-BINH", ten: "Suất cơm" }, { k: "nhansu", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", ten: "Danh sách nhân viên", ex: "Excel danh sách đang lọc" }
+      { k: "psluong", t1: "PS-ANH", t2: "PS-BINH", ten: "Thưởng/Trừ" }, { k: "ungluong", t1: "UL-ANH", t2: "UL-BINH", ten: "Tạm ứng" }, { k: "tiencom", t1: "com-ANH", t2: "com-BINH", ten: "Suất cơm" }, { k: "nhansu", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", ten: "Danh sách nhân viên", ex: "Excel danh sách đang lọc" },
+      // 010 (issue #99): 6 báo cáo nghiệp vụ dùng Smart Filter chung, giữ bộ lọc riêng từng báo cáo
+      { k: "rp_ns", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", ten: "BC Danh sách nhân sự" }, { k: "rp_sl", t1: "PC-ANH", t2: "PC-BINH", ten: "BC Phiếu gốc sản lượng" }, { k: "rp_bd", t1: "BD-ANH", t2: "BD-BINH", ten: "BC Phiếu gốc ban dăm" },
+      { k: "rp_th", t1: "PS-ANH", t2: "PS-BINH", ten: "BC Bảng kê thưởng/trừ" }, { k: "rp_tu", t1: "UL-ANH", t2: "UL-BINH", ten: "BC Bảng kê tạm ứng" }, { k: "rp_com", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", ten: "BC Tổng hợp suất cơm" }
     ];
     ({ app, w, errs } = await launch(D2)); await login(w, "admin");
     const shown = async () => { const t = (await w.locator("#main .sf").first().innerText()).replace(/\s+/g, " "), m = /Hiển thị (\d+) \/ (\d+) dòng/.exec(t); return m ? [Number(m[1]), Number(m[2])] : null; };
