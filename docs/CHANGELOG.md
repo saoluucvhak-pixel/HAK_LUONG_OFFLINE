@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.48] — 19/11/2026
+- **Thanh trên 1 hàng ở 1366×768 (handoff 005B-UI001, issue #97):** tiêu đề dài cắt bằng "…" (có title), khi cửa sổ ≤ 1500px nút Tìm kiếm / File đã tải / Đăng xuất chỉ còn biểu tượng (tên vẫn ở aria-label/title); kiểm `topWrap` thành PASS/FAIL. Chi tiết: `docs/releases/v2.0.48.md`.
+
 ## [2.0.47] — 19/11/2026
 - **Sao lưu/khôi phục theo KỲ LƯƠNG — lõi + IPC (handoff 012-B1, issue #113):** gói `LuongHAK_Ky_YYYY-MM_<ngày-giờ>.zip` (hoặc `.hakenc` có mật khẩu) gồm phát sinh của kỳ + toàn bộ nhân sự/danh mục; khôi phục kỳ không đổi kỳ khác, chặn kỳ đã chốt, xóa mặc định tắt và không xóa hàng đang được dùng. Chưa có giao diện (012-B2). Chi tiết: `docs/releases/v2.0.47.md`.
 

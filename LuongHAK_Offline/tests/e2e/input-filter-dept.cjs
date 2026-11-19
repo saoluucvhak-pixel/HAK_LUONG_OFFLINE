@@ -174,6 +174,10 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
       const inRows = res.rows.filter((r) => r.size === "1366x768" && LA.INPUT_SCREENS.includes(r.screen) && r.visRows != null), few = inRows.filter((r) => r.visRows < LA.MIN_ROWS);
       ok("Bố cục 1366×768: màn nhập liệu thấy ≥ " + LA.MIN_ROWS + " dòng dữ liệu khi mở màn (không cần cuộn)", inRows.length === LA.INPUT_SCREENS.length && few.length === 0, "đo được " + inRows.length + " màn; thiếu: " + few.map((r) => r.screen + "=" + r.visRows).join(", ") + " | " + inRows.map((r) => r.screen + "=" + r.visRows).join(" "));
     }
+    { // 005B-UI001: thanh trên KHÔNG xuống dòng ở 1366×768 / 1920×1080 (≤ 1 hàng), tối đa 2 hàng ở 1024×768 (PASS/FAIL, không còn INFO)
+      const tops = res.rows.filter((r) => r.topH != null), lim = (r) => (r.size === "1024x768" ? LA.TOP_TWO_ROWS : LA.TOP_ONE_ROW), badT = tops.filter((r) => r.topH > lim(r));
+      ok("Bố cục: thanh trên 1 hàng ở 1366×768 và 1920×1080, tối đa 2 hàng ở 1024×768 (mọi màn)", tops.length === res.rows.length && badT.length === 0, "đo " + tops.length + "/" + res.rows.length + "; vượt: " + badT.slice(0, 8).map((r) => r.screen + "@" + r.size + "=" + r.topH + "px").join(", ") + (badT.length > 8 ? " … (" + badT.length + ")" : ""));
+    }
     const soft = {}; ["contrast", "topWrap", "fewRows"].forEach((k) => { soft[k] = res.rows.filter((r) => (r[k] || []).length).length; }); console.log("INFO bố cục (chỉ ghi nhận, xem docs/UI_ISSUES.md): " + JSON.stringify(soft) + " trên " + res.rows.length + " (màn × cỡ)");
     { // ĐỐI CHỨNG: cố ý chèn lỗi bố cục vào trang → bộ kiểm PHẢI phát hiện (chứng minh các kiểm "Đạt" ở trên có khả năng bắt lỗi)
       await w.click('#nav button[data-k="home"]'); await w.waitForTimeout(300);
