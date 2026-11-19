@@ -6,6 +6,9 @@
 ## [2.0.49] — 19/11/2026
 - **Quy trình sao lưu khi nơi lưu chính là SQLite (CEO rà, issue #113):** mọi lần sao lưu (tay, định kỳ, khi đóng app, đầu ngày, đầu năm) đều tạo bản chụp `.sqlite` đã kiểm; có lịch sử 10 bản chụp (bản sau chốt kỳ / theo năm giữ vĩnh viễn); chép bản chụp sang thư mục dự phòng; lỗi bản chụp báo lên giao diện. Chi tiết: `docs/releases/v2.0.49.md`.
 
+## [2.0.48] — 19/11/2026
+- **Thanh trên 1 hàng ở 1366×768 (handoff 005B-UI001, issue #97):** tiêu đề dài cắt bằng "…" (có title), khi cửa sổ ≤ 1500px nút Tìm kiếm / File đã tải / Đăng xuất chỉ còn biểu tượng (tên vẫn ở aria-label/title); kiểm `topWrap` thành PASS/FAIL. Chi tiết: `docs/releases/v2.0.48.md`.
+
 ## [2.0.47] — 19/11/2026
 - **Sao lưu/khôi phục theo KỲ LƯƠNG — lõi + IPC (handoff 012-B1, issue #113):** gói `LuongHAK_Ky_YYYY-MM_<ngày-giờ>.zip` (hoặc `.hakenc` có mật khẩu) gồm phát sinh của kỳ + toàn bộ nhân sự/danh mục; khôi phục kỳ không đổi kỳ khác, chặn kỳ đã chốt, xóa mặc định tắt và không xóa hàng đang được dùng. Chưa có giao diện (012-B2). Chi tiết: `docs/releases/v2.0.47.md`.
 
