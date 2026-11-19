@@ -342,6 +342,64 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Quy trình sao lưu SQLite: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
+  // 15. CHUYỂN SANG MÁY KHÁC (handoff 011, issue #112) qua GIAO DIỆN THẬT: máy A sao lưu JSON + gói kỳ có mật khẩu → máy B (hồ sơ khác, SQLite mặc định) khôi phục;
+  //     băm từng bảng A = B; khôi phục lần 2 không nhân đôi; gói kỳ sai mật khẩu → dữ liệu B không đổi, đúng mật khẩu → kỳ về như máy A. (Full Backup sang hồ sơ khác: capphat.cjs.)
+  {
+    const DG = require("../../main/data-digest"), DA = fs.mkdtempSync(path.join(os.tmpdir(), "hak-mayA-")), DB = fs.mkdtempSync(path.join(os.tmpdir(), "hak-mayB-"));
+    [DA, DB].forEach((d) => fs.mkdirSync(path.join(d, "downloads")));
+    const dA = seed(); dA.chamcong = [{ "Kỳ": "2026-09", "Mã NV": "A", "Hình thức công": "BT", "01": 1, "02": 1 }, { "Kỳ": "2026-10", "Mã NV": "B", "Hình thức công": "BT", "01": 0.5 }];
+    dA.psluong = [{ "Ngày hạch toán": "2026-09-10", "Số chứng từ": "T-9", "Mã NV": "A", "Diễn giải": "Thưởng chuyển máy", "Thưởng": 300000 }];
+    createStorage(DA).save(JSON.stringify(dA));
+    const dB = seed(); dB.nhanvien = dB.nhanvien.slice(0, 1); createStorage(DB).save(JSON.stringify(dB)); // máy B: cài mới, chỉ có tài khoản quản trị và 1 nhân viên
+    const PKPW = "ChuyenMay#2026";
+    // --- máy A ---
+    ({ app, w, errs } = await launch(DA)); await login(w);
+    await w.selectOption("#top select", "9"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-backup-kind]", { timeout: 15000 });
+    await w.selectOption("[data-backup-kind]", "json"); await w.waitForTimeout(300);
+    ok("Máy A: mô tả loại JSON nói rõ KHÔNG có chứng từ gốc và thư viện OCR (chuyển máy đầy đủ dùng Full Backup)", /KHÔNG có chứng từ gốc và thư viện OCR/.test(await w.locator('[data-zone="now"]').innerText()));
+    await w.click("[data-backup-now]"); await w.waitForTimeout(1500);
+    await w.check("[data-ky-pw]"); await w.click("[data-ky-backup]"); await w.waitForSelector("#modal input[type=password]", { timeout: 10000 });
+    await w.fill("#modal input[type=password]", PKPW); await w.click("#modal button.pri"); await w.waitForSelector("[data-fb-msg]", { timeout: 20000 }); await w.waitForTimeout(500);
+    const dataA = await w.evaluate(() => JSON.parse(window.hakStore.load().text)); await app.close();
+    const walk = (dir, re) => { const out = []; const go = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => { const q = path.join(d, e.name); if (e.isDirectory()) go(q); else if (re.test(e.name)) out.push(q); }); go(dir); return out; };
+    const jsonA = walk(DA, /^LuongHAK_JSON_.*\.json$/), pkA = walk(DA, /^LuongHAK_Ky_2026-09_.*\.hakenc$/);
+    ok("Máy A: có đúng 1 file JSON (thư mục JSON) và 1 gói kỳ .hakenc có mật khẩu", jsonA.length === 1 && pkA.length === 1, jsonA.concat(pkA).join(" | "));
+    // --- máy B: khôi phục JSON qua nút Khôi phục toàn bộ ---
+    ({ app, w, errs } = await launch(DB, { HAK_KY_PICK: pkA[0] || "" })); await login(w);
+    const restoreJson = async () => { await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-restore-kind]", { timeout: 15000 }); await w.selectOption("[data-restore-kind]", "json");
+      const [fc] = await Promise.all([w.waitForEvent("filechooser"), w.click("[data-restore-now]")]); await fc.setFiles(jsonA[0]); await w.waitForTimeout(2500);
+      if (await w.locator("#main input[data-f=u]").count()) await login(w); };
+    await restoreJson();
+    const b1 = await w.evaluate(() => JSON.parse(window.hakStore.load().text)), diff1 = DG.compare(DG.digest(dataA), DG.digest(b1));
+    ok("Máy B sau khôi phục JSON: mã băm TỪNG BẢNG trùng máy A (nhân sự, chấm công, phát sinh…)", diff1.length === 0 && b1.nhanvien.length === dataA.nhanvien.length && b1.chamcong.length === dataA.chamcong.length, JSON.stringify(diff1).slice(0, 300));
+    await restoreJson();
+    const b2 = await w.evaluate(() => JSON.parse(window.hakStore.load().text));
+    ok("Khôi phục cùng file JSON LẦN 2: không nhân đôi (băm từng bảng không đổi)", DG.compare(DG.digest(b1), DG.digest(b2)).length === 0 && b2.chamcong.length === dataA.chamcong.length);
+    // --- file JSON có BẢN CHỐT BỊ LÀM GIẢ (không khớp tính lại) → tiến trình chính từ chối ghi, dữ liệu máy B không đổi ---
+    { const forged = JSON.parse(fs.readFileSync(jsonA[0], "utf8")); forged.kyluong = [{ ky: "2026-08", version: 1, kq: { bangluong: [{ "Mã NV": "A", "Thực lĩnh": 999999999, "Tổng thu nhập": 999999999 }] } }];
+      const ff = path.join(DB, "downloads", "LuongHAK_JSON_gia-mao.json"); fs.writeFileSync(ff, JSON.stringify(forged)); const keep = await w.evaluate(() => window.hakStore.load().text);
+      await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-restore-kind]", { timeout: 15000 }); await w.selectOption("[data-restore-kind]", "json");
+      const [fc2] = await Promise.all([w.waitForEvent("filechooser"), w.click("[data-restore-now]")]); await fc2.setFiles(ff); await w.waitForTimeout(2500);
+      if (await w.locator("#main input[data-f=u]").count()) await login(w);
+      ok("JSON có bản chốt kỳ bị LÀM GIẢ: tiến trình chính TỪ CHỐI ghi, dữ liệu máy B không đổi một byte", (await w.evaluate(() => window.hakStore.load().text)) === keep); }
+    // --- máy B: sửa kỳ 09 rồi khôi phục gói kỳ .hakenc (sai mật khẩu trước) ---
+    await saveViaIpc(w, "d.chamcong.find(function(r){return r['Kỳ']==='2026-09'})['01']=0; d.psluong=[];");
+    await app.close(); ({ app, w, errs } = await launch(DB, { HAK_KY_PICK: pkA[0] || "" })); await login(w); // ghi qua IPC sau lưng giao diện → mở lại để giao diện nạp dữ liệu mới (như khối 13)
+    const beforeKy = await w.evaluate(() => window.hakStore.load().text);
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-restore]", { timeout: 15000 });
+    await w.click("[data-ky-restore]"); await w.waitForSelector("#modal input[type=password]", { timeout: 15000 });
+    await w.fill("#modal input[type=password]", "SaiMatKhau#1"); await w.click("#modal button.pri"); await w.waitForTimeout(1500);
+    const wrongMsg = (await w.locator("#modal").innerText().catch(() => "")) || "", afterWrong = await w.evaluate(() => window.hakStore.load().text);
+    ok("Gói kỳ SAI mật khẩu: báo 'chưa đúng', dữ liệu máy B KHÔNG đổi một byte", /chưa đúng/i.test(wrongMsg) && afterWrong === beforeKy, wrongMsg.slice(0, 160));
+    await w.fill("#modal input[type=password]", PKPW); await w.click("#modal button.pri"); await w.waitForSelector("[data-ky-preview]", { timeout: 45000 }); // giải mã scrypt chậm trên runner bận
+    if (await w.locator("[data-ky-ack-global]").count()) await w.check("[data-ky-ack-global]");
+    await w.click("[data-ky-apply]"); await w.waitForSelector("[data-fb-msg]", { timeout: 45000 }); await w.waitForTimeout(500);
+    const b3 = await w.evaluate(() => JSON.parse(window.hakStore.load().text)), k09 = (d) => DG.canon(d.chamcong.filter((r) => r["Kỳ"] === "2026-09")) + DG.canon(d.psluong);
+    ok("Gói kỳ ĐÚNG mật khẩu: kỳ 09 (chấm công + phát sinh) về đúng như máy A; kỳ 10 không đổi", k09(b3) === k09(dataA) && DG.canon(b3.chamcong.filter((r) => r["Kỳ"] === "2026-10")) === DG.canon(dataA.chamcong.filter((r) => r["Kỳ"] === "2026-10")));
+    ok("Chuyển máy qua giao diện: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });
