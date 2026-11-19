@@ -182,6 +182,10 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
       const badH = res.rows.filter((r) => (r.contrast || []).some((x) => /\.hint\b/.test(x)));
       ok("Bố cục: chữ gợi ý (.hint) đạt tương phản AA ≥ 4,5:1 ở mọi màn × 3 cỡ", badH.length === 0, badH.length + " (màn × cỡ); ví dụ: " + badH.slice(0, 3).map((r) => r.screen + "@" + r.size + ": " + (r.contrast || []).filter((x) => /\.hint\b/.test(x)).slice(0, 2).join(" ; ")).join(" | "));
     }
+    { // 005B-UI004: không có hai thanh cuộn dọc lồng nhau (khung trang + bảng) ở mọi màn × 3 cỡ
+      const badN = res.rows.filter((r) => (r.nestedScroll || []).length);
+      ok("Bố cục: không có hai thanh cuộn dọc lồng nhau (khung trang + bảng) ở mọi màn × 3 cỡ", badN.length === 0, badN.length + " (màn × cỡ): " + badN.slice(0, 6).map((r) => r.screen + "@" + r.size + " " + r.nestedScroll[0]).join(" | "));
+    }
     const soft = {}; ["contrast", "topWrap", "fewRows"].forEach((k) => { soft[k] = res.rows.filter((r) => (r[k] || []).length).length; }); console.log("INFO bố cục (chỉ ghi nhận, xem docs/UI_ISSUES.md): " + JSON.stringify(soft) + " trên " + res.rows.length + " (màn × cỡ)");
     { // ĐỐI CHỨNG: cố ý chèn lỗi bố cục vào trang → bộ kiểm PHẢI phát hiện (chứng minh các kiểm "Đạt" ở trên có khả năng bắt lỗi)
       await w.click('#nav button[data-k="home"]'); await w.waitForTimeout(300);
