@@ -287,6 +287,40 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Màn Sao lưu & Khôi phục: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
+  // 13. GIAO DIỆN sao lưu / khôi phục THEO KỲ (012-B2, issue #113): bấm nút thật → gói .zip; sửa dữ liệu; khôi phục qua màn xem trước (xác nhận riêng, xóa tắt sẵn), tự SAO LƯU TOÀN BỘ trước khi ghi, ghi nhật ký
+  {
+    const D13 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-kyui-")); fs.mkdirSync(path.join(D13, "downloads"));
+    const d0 = seed(); d0.chamcong = [{ "Kỳ": "2026-09", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }, { "Kỳ": "2026-10", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }]; createStorage(D13).save(JSON.stringify(d0));
+    ({ app, w, errs } = await launch(D13)); await login(w);
+    await w.selectOption("#top select", "9"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-backup]", { timeout: 15000 });
+    ok("Khu Sao lưu ngay có nút 'Sao lưu kỳ 2026-09' theo kỳ đang chọn", /2026-09/.test(await w.locator("[data-ky-backup]").innerText()));
+    await w.click("[data-ky-backup]"); await w.waitForSelector("[data-fb-msg]", { timeout: 20000 });
+    const msg = await w.locator("[data-fb-msg]").innerText();
+    const findPk = (dir) => { const out = []; const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/^LuongHAK_Ky_2026-09_.*\.zip$/.test(e.name)) out.push(p); }); walk(dir); return out; };
+    const pk = findPk(D13);
+    ok("Bấm nút: tạo đúng 1 gói LuongHAK_Ky_2026-09_*.zip và báo thành công", pk.length === 1 && /Đã tạo gói kỳ 2026-09/.test(msg), msg + " | " + pk.join(","));
+    const nameA = await w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.find((n) => n["Mã NV"] === "A")["Họ và tên"]);
+    await saveViaIpc(w, "d.chamcong.find(function(r){return r['Kỳ']==='2026-09'&&r['Mã NV']==='A'})['01']=0.5; d.chamcong.push({'Kỳ':'2026-09','Mã NV':'B','Hình thức công':'BT','01':1}); d.nhanvien.find(function(n){return n['Mã NV']==='A'})['Họ và tên']='Tên bị sửa';");
+    await app.close();
+    ({ app, w, errs } = await launch(D13, { HAK_KY_PICK: pk[0] || "" })); await login(w);
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-restore]", { timeout: 15000 });
+    await w.click("[data-ky-restore]"); await w.waitForSelector("[data-ky-preview]", { timeout: 15000 });
+    const pv = await w.locator("[data-ky-preview]").innerText();
+    ok("Xem trước: liệt kê thay đổi nhân sự cũ → mới, có ô xác nhận ghi đè riêng, ô 'cho phép xóa' KHÔNG bật sẵn", /Tên bị sửa → /.test(pv) && (await w.locator("[data-ky-ack-global]").count()) === 1 && (await w.locator("[data-ky-allow-delete]:checked").count()) === 0, pv.slice(0, 400));
+    const bkBefore = await w.evaluate(() => window.hakStore.listBackups().length);
+    await w.click("[data-ky-apply]"); await w.waitForTimeout(400);
+    const still = (await w.locator("[data-ky-preview]").count()) === 1, unchanged = await w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.find((n) => n["Mã NV"] === "A")["Họ và tên"]);
+    ok("Chưa tích xác nhận: KHÔNG ghi, vẫn ở màn xem trước", still && unchanged === "Tên bị sửa", "còn xem trước=" + still + ", tên=" + unchanged);
+    await w.check("[data-ky-ack-global]"); await w.click("[data-ky-apply]"); await w.waitForSelector("[data-fb-msg]", { timeout: 15000 });
+    const after = await w.evaluate(() => JSON.parse(window.hakStore.load().text));
+    const c09 = after.chamcong.filter((r) => r["Kỳ"] === "2026-09"), c10 = after.chamcong.filter((r) => r["Kỳ"] === "2026-10");
+    ok("Sau khôi phục: kỳ 09 về đúng lúc sao lưu (A = 1, không còn B), kỳ 10 giữ nguyên, tên NV về như cũ", c09.length === 1 && String(c09[0]["01"]) === "1" && c10.length === 1 && after.nhanvien.find((n) => n["Mã NV"] === "A")["Họ và tên"] === nameA, JSON.stringify(c09));
+    const bkAfter = await w.evaluate(() => window.hakStore.listBackups());
+    ok("Tự SAO LƯU TOÀN BỘ trước khi khôi phục (có bản 'truoc-khoi-phuc-ky') và nhật ký kiểm toán có 'Khôi phục kỳ lương'", bkAfter.length > bkBefore && JSON.stringify(bkAfter).includes("truoc-khoi-phuc-ky") && after.auditlog.some((a) => a.thaoTac === "Khôi phục kỳ lương"), JSON.stringify(bkAfter).slice(0, 200));
+    ok("Giao diện sao lưu/khôi phục kỳ: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });

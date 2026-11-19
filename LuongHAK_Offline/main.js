@@ -358,12 +358,15 @@ function registerIpc() {
       return await fullBackup.createPeriodPackage({ dir: spCur().backup, ky: String(info.ky || ""), data, appVersion: app.getVersion(), user: String(info.user || ""), password: info.password ? String(info.password) : "" });
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
+  let lastKyPick = "";
   ipcMain.handle("ky-inspect", guarded("backup.restore", async (e, name, password) => {
     try {
       let f = "";
-      if (name) { const cand = path.join(spCur().backup, path.basename(String(name))); f = /^LuongHAK_Ky_\d{4}-\d{2}_.*\.(zip|hakenc)$/i.test(path.basename(cand)) && require("fs").existsSync(cand) ? cand : ""; if (!f) return { ok: false, error: "Không tìm thấy gói kỳ lương trong thư mục sao lưu" }; }
+      if (name === ":last") { f = lastKyPick; if (!f) return { ok: false, error: "Chưa chọn gói kỳ lương" }; } // 012-B2: nhập mật khẩu xong không phải chọn lại file
+      else if (name) { const cand = path.join(spCur().backup, path.basename(String(name))); f = /^LuongHAK_Ky_\d{4}-\d{2}_.*\.(zip|hakenc)$/i.test(path.basename(cand)) && require("fs").existsSync(cand) ? cand : ""; if (!f) return { ok: false, error: "Không tìm thấy gói kỳ lương trong thư mục sao lưu" }; }
       else if (process.env.HAK_KY_PICK) f = process.env.HAK_KY_PICK;
       else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói kỳ lương (.zip / .hakenc)", filters: [{ name: "Gói kỳ lương", extensions: ["zip", "hakenc"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
+      lastKyPick = f;
       const rep = await fullBackup.inspectPeriodPackage(f, password ? String(password) : "");
       return rep.ok ? { ok: true, label: path.basename(f), manifest: rep.manifest, payload: rep.payload, encrypted: rep.encrypted } : { ok: false, error: rep.error, needPassword: !!rep.needPassword, wrongPassword: !!rep.wrongPassword };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }

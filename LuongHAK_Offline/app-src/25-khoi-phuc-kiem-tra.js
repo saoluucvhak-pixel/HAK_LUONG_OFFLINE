@@ -233,6 +233,84 @@
     f.addEventListener("change", function () { var fr = new FileReader(); fr.onload = function () { restoreFromText(fr.result, f.files[0].name); }; fr.readAsText(f.files[0]); });
     f.click();
   }
+  // ===== 012-B2 (issue #113): SAO LƯU / KHÔI PHỤC THEO KỲ LƯƠNG — giao diện trên lõi HAKCore.repo.period (012-B1) =====
+  function periodBackup() {
+    if (!need("backup.restore", "sao lưu kỳ lương")) return;
+    if (!window.hakPeriod) { alert("Sao lưu kỳ lương chỉ có trong bản cài (.exe)."); return; }
+    var ky = kyStr();
+    var go = function (pw) {
+      if (dirty && !saveNow()) { alert("⚠ Chưa lưu được dữ liệu đang sửa — chưa tạo gói kỳ " + ky + "."); return; }
+      window.hakPeriod.create({ ky: ky, user: session ? session.tenDangNhap : "", password: pw || "" }).then(function (r) {
+        if (r && r.ok) { audit("Sao lưu kỳ lương", ky + " → " + r.name + (r.encrypted ? " (có mật khẩu)" : "")); save(); st.fbMsg = { text: "✓ Đã tạo gói kỳ " + ky + ": " + r.name + " (" + Math.max(1, Math.round((r.size || 0) / 1024)) + " KB) trong thư mục Full Backup ở mục 4." }; }
+        else st.fbMsg = { bad: true, text: "⚠ Không tạo được gói kỳ " + ky + ": " + ((r && r.error) || "không rõ lý do") };
+        render();
+      }, function (e) { st.fbMsg = { bad: true, text: "⚠ Không tạo được gói kỳ: " + String(e && e.message || e) }; render(); });
+    };
+    if (st.kyPw) askText("Mật khẩu cho gói kỳ " + ky, "Mất mật khẩu = không mở được gói (không có cửa hậu). Tối thiểu 10 ký tự, kết hợp ít nhất 2 loại: chữ thường, chữ hoa, số, ký tự đặc biệt.", { type: "password", required: true, label: "Mật khẩu" }, go);
+    else go("");
+  }
+  function periodRestore(name, pw) {
+    if (!need("backup.restore")) return;
+    if (!window.hakPeriod) { alert("Khôi phục kỳ lương chỉ có trong bản cài (.exe)."); return; }
+    window.hakPeriod.inspect(name || "", pw || "").then(function (r) {
+      if (!r || r.cancelled) return;
+      if (r.needPassword || r.wrongPassword) return askText("Gói kỳ có mật khẩu", r.wrongPassword ? "Mật khẩu chưa đúng. Nhập lại:" : "Gói được mã hóa. Nhập mật khẩu đã đặt khi sao lưu:", { type: "password", required: true, label: "Mật khẩu" }, function (p) { periodRestore(":last", p); });
+      if (!r.ok) { alert("⛔ Không dùng được gói kỳ: " + (r.error || "không rõ lý do") + "\n\nDữ liệu hiện tại KHÔNG bị thay đổi."); return; }
+      periodPreview(r, { allowDelete: false, confirmReclose: false, ackGlobal: false });
+    }, function (e) { alert("⛔ Không đọc được gói kỳ: " + String(e && e.message || e)); });
+  }
+  /** Màn xem trước: mọi thay đổi cũ → mới, ô "cho phép xóa" TẮT sẵn, hàng bị chặn xóa (đỏ), cảnh báo chốt lại kỳ và ảnh hưởng kỳ khác — mỗi cảnh báo có ô xác nhận riêng. */
+  function periodPreview(r, opt) {
+    var P = window.HAKCore.repo.period, ky = r.manifest && r.manifest.ky, plan = P.plan(db, r.payload, ky, { allowDelete: opt.allowDelete });
+    var body = h("div", { "data-ky-preview": "1" }), redraw = function () { periodPreview(r, opt); };
+    body.appendChild(h("div", { class: "hint", text: "Gói: " + (r.label || "") + " · kỳ " + ky + " · tạo lúc " + ((r.manifest && r.manifest.tao) || "?") + " · bản app " + ((r.manifest && r.manifest.phienBanApp) || "?") + (r.encrypted ? " · có mật khẩu" : "") }));
+    if (!plan.ok) {
+      body.appendChild(h("div", { class: "warn", "data-ky-blocked": "1", text: "⛔ " + (plan.blocked || plan.errors.join(" ")) }));
+      modal("Khôi phục kỳ " + ky + " — không thực hiện được", body, function (close) { return [btn("Đóng", "pri", close)]; }, { wide: true });
+      return;
+    }
+    var rows = Object.keys(plan.period).map(function (t) { var x = plan.period[t]; return { "Bảng (phát sinh của kỳ)": (ALL[t] && ALL[t].ten) || t, "Ở máy (sẽ thay)": x.before, "Trong gói": x.after }; });
+    body.appendChild(h("div", { class: "fh", text: "1. Dữ liệu phát sinh của kỳ " + ky + " — thay toàn bộ; các kỳ khác KHÔNG đổi" }));
+    body.appendChild(rows.length ? simpleTable(rows) : h("div", { class: "hint", text: "Gói và máy đều không có dữ liệu phát sinh của kỳ này." }));
+    var chg = [];
+    Object.keys(plan.global).forEach(function (t) {
+      var g = plan.global[t], ten = (HRT && HRT[t] && HRT[t].ten) || (ALL[t] && ALL[t].ten) || t;
+      g.add.forEach(function (x) { chg.push({ "Bảng": ten, "Thay đổi": "Thêm", "Dòng": canonShort(x), "Cũ → mới": "" }); });
+      g.change.forEach(function (c) { chg.push({ "Bảng": ten, "Thay đổi": "Sửa", "Dòng": String(c.key), "Cũ → mới": c.fields.map(function (f) { return f + ": " + shortV(c.before[f]) + " → " + shortV(c.after[f]); }).join("; ") }); });
+    });
+    body.appendChild(h("div", { class: "fh", text: "2. Nhân sự, danh mục, công thức — GHI ĐÈ theo gói: thêm " + plan.counts.add + ", sửa " + plan.counts.change }));
+    body.appendChild(chg.length ? h("div", { "data-ky-changes": String(chg.length) }, [simpleTable(chg.slice(0, 200))]) : h("div", { class: "hint", text: "Không có thay đổi." }));
+    if (chg.length > 200) body.appendChild(h("div", { class: "hint", text: "… còn " + (chg.length - 200) + " thay đổi nữa." }));
+    var nDel = plan.deletes.rows.length + plan.deletes.blocked.length;
+    if (nDel) {
+      body.appendChild(h("div", { class: "fh", text: "3. Có ở máy nhưng KHÔNG có trong gói: " + nDel + " hàng" }));
+      var cbD = h("input", { type: "checkbox", "data-ky-allow-delete": "1" }); cbD.checked = !!opt.allowDelete; cbD.addEventListener("change", function () { opt.allowDelete = cbD.checked; redraw(); });
+      body.appendChild(h("label", { class: "schk" }, [cbD, h("span", { text: "Cho phép XÓA " + plan.deletes.rows.length + " hàng không còn được dùng (mặc định: giữ lại)" })]));
+      if (plan.deletes.blocked.length) body.appendChild(h("div", { class: "warn", "data-ky-del-blocked": String(plan.deletes.blocked.length), text: "Không bao giờ xóa (đang được dùng): " + plan.deletes.blocked.slice(0, 20).map(function (b) { return ((HRT && HRT[b.table] && HRT[b.table].ten) || b.table) + " " + canonShort(b.row) + " — " + b.reason; }).join(" · ") + (plan.deletes.blocked.length > 20 ? " …" : "") }));
+    }
+    if (plan.slOther.length) body.appendChild(h("div", { class: "hint", "data-ky-sl-other": String(plan.slOther.length), text: "Chuyển sản lượng TỪ kỳ " + ky + " sang kỳ khác (giữ nguyên ở máy): " + plan.slOther.map(function (s) { return s.id + " (" + s.status + ") — " + s.note; }).join(" · ") }));
+    var cbR = null, cbG = null, needG = plan.counts.add + plan.counts.change + (opt.allowDelete ? plan.deletes.rows.length : 0) > 0;
+    if (plan.reclose) { cbR = h("input", { type: "checkbox", "data-ky-confirm-reclose": "1" }); cbR.checked = !!opt.confirmReclose; cbR.addEventListener("change", function () { opt.confirmReclose = cbR.checked; }); body.appendChild(h("div", { class: "warn", "data-ky-reclose": "1" }, [h("div", { text: "⚠ Gói chứa BẢN CHỐT của kỳ " + ky + " (lúc sao lưu kỳ đã chốt). Ở máy kỳ đang MỞ." }), h("label", { class: "schk" }, [cbR, h("span", { text: "CHỐT LẠI kỳ bằng số liệu trong gói (bỏ trống = chỉ khôi phục dữ liệu, kỳ vẫn mở)" })])])); }
+    if (needG) { cbG = h("input", { type: "checkbox", "data-ky-ack-global": "1" }); cbG.checked = !!opt.ackGlobal; cbG.addEventListener("change", function () { opt.ackGlobal = cbG.checked; }); body.appendChild(h("div", { class: "warn", "data-ky-warn-global": "1" }, [h("div", { text: "⚠ Nhân sự, danh mục, công thức được ghi đè theo gói" + (plan.otherOpenPeriods.length ? ": sẽ ảnh hưởng cả các kỳ khác CHƯA chốt (" + plan.otherOpenPeriods.join(", ") + ")" : "") + ". Kỳ đã chốt không đổi." }), h("label", { class: "schk" }, [cbG, h("span", { text: "Tôi đã xem các thay đổi ở mục 2" + (opt.allowDelete ? "–3" : "") + " và đồng ý ghi đè" })])])); }
+    body.appendChild(h("div", { class: "hint", text: "Trước khi ghi, app tự SAO LƯU TOÀN BỘ dữ liệu hiện tại; nếu không sao lưu được thì dừng, không ghi gì." }));
+    modal("Xem trước khôi phục kỳ " + ky, body, function (close) {
+      var goBtn = btn("📥 Khôi phục kỳ " + ky, "pri", function () {
+        if (cbG && !cbG.checked) { toast("Hãy tích ô xác nhận ghi đè nhân sự / danh mục / công thức"); return; }
+        if (!backupOrBlock("truoc-khoi-phuc-ky", "khôi phục kỳ " + ky)) return;
+        var fresh = P.plan(db, r.payload, ky, { allowDelete: opt.allowDelete }), res = null;
+        var tables = P.PERIOD_TABLES.concat(Object.keys(fresh.global || {}));
+        var ok = txn(tables, function () { res = P.apply(db, fresh, r.payload, { confirmReclose: !!(cbR && cbR.checked) }); if (!res.ok) throw new Error(res.error); audit("Khôi phục kỳ lương", res.audit + " · từ " + (r.label || "gói")); });
+        close();
+        if (ok) { st.fbMsg = { text: "✓ " + res.audit + ". Đã sao lưu toàn bộ trước khi khôi phục." }; toast("Đã khôi phục kỳ " + ky); }
+        else st.fbMsg = { bad: true, text: "⛔ KHÔNG khôi phục được kỳ " + ky + ": " + (lastTxnError || "không rõ lý do") + ". Dữ liệu đã trả về như trước." };
+        render();
+      }, "Sao lưu toàn bộ rồi ghi theo gói");
+      goBtn.setAttribute("data-ky-apply", "1");
+      return [btn("Hủy", "", close), goBtn];
+    }, { wide: true });
+  }
+  function canonShort(r) { var keys = Object.keys(r || {}).slice(0, 3); return keys.map(function (k) { return shortV(r[k]); }).join(" / "); }
+  function shortV(v) { var s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v); return s.length > 40 ? s.slice(0, 39) + "…" : s; }
   var BK_HINT = {
     sqlite: "Bản chụp SQLite đã kiểm (nhanh nhất, khôi phục nguyên trạng) ghi vào thư mục sao lưu SQLite ở mục 4. Chỉ có DỮ LIỆU LƯƠNG; chứng từ gốc và thư viện OCR nằm trong Full Backup.",
     full: "Một file .zip gồm TOÀN BỘ dữ liệu + chứng từ gốc + thư viện mẫu OCR + bảng kê SHA-256, có thể mã hóa (.hakenc). Dùng khi đổi máy / cài lại Windows. Gói được kiểm tra lại ngay sau khi tạo.",
@@ -264,6 +342,12 @@
     if (cur === "json" && window.hakJson) bar.appendChild(btn("Lưu vào chỗ khác…", "ghost", function () { jsonBackup(true); }, "Mở hộp thoại tải về thay vì ghi vào thư mục JSON"));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: BK_HINT[cur] }));
+    if (window.hakPeriod) { // 012-B2: sao lưu THEO KỲ — phát sinh của kỳ đang chọn + toàn bộ nhân sự / danh mục / công thức
+      var cbP = h("input", { type: "checkbox", "data-ky-pw": "1" }); cbP.checked = !!st.kyPw; cbP.addEventListener("change", function () { st.kyPw = cbP.checked; });
+      var kb = btn("🗓 Sao lưu kỳ " + kyStr(), "", periodBackup, "Gói .zip gồm dữ liệu phát sinh của kỳ đang chọn + toàn bộ nhân sự, danh mục, công thức"); kb.setAttribute("data-ky-backup", "1");
+      c.appendChild(h("div", { class: "bar" }, [kb, h("label", { class: "schk" }, [cbP, h("span", { text: "Đặt mật khẩu (.hakenc)" })])]));
+      c.appendChild(h("div", { class: "hint", text: "Gói kỳ (.zip): chấm công, sản lượng, bán dăm, phát sinh, tạm ứng, tiền cơm, kết quả và bản chốt của kỳ + TOÀN BỘ nhân sự, danh mục, công thức lúc sao lưu. Đổi kỳ ở thanh trên." }));
+    }
     c.appendChild(h("div", { class: "hint", text: "Trước khi cài lại Windows / đổi máy: sao lưu rồi cất file sang USB/Drive (thư mục dự phòng ở mục 4 tự chép giúp). Sang máy mới: cài app rồi Khôi phục ở mục 2. Sao lưu theo KỲ LƯƠNG: chưa có (làm ở bước 012-B)." }));
     return c;
   }
@@ -278,6 +362,7 @@
     var go = btn("📥 Khôi phục toàn bộ…", "", function () { return sel.value === "full" ? fullRestore() : jsonRestore(); }, "Chọn file → kiểm tra toàn vẹn → xác nhận → ghi (tự sao lưu bản hiện tại trước)");
     go.setAttribute("data-restore-now", "1");
     c.appendChild(h("div", { class: "bar" }, [sel, go]));
+    if (window.hakPeriod) { var kr = btn("🗓 Khôi phục kỳ lương…", "", function () { periodRestore("", ""); }, "Chọn gói kỳ (.zip / .hakenc) → kiểm tra → xem trước từng thay đổi → xác nhận"); kr.setAttribute("data-ky-restore", "1"); c.appendChild(h("div", { class: "bar" }, [kr])); }
     c.appendChild(h("div", { class: "hint", text: "Muốn khôi phục từ một bản SQLite hoặc JSON đã có trên máy: bấm \"Khôi phục\" ở dòng đó trong danh sách (mục 5). Luôn có bước kiểm tra và xác nhận; app sao lưu bản hiện tại trước khi ghi. Khôi phục theo KỲ LƯƠNG: chưa có (012-B)." }));
     return c;
   }
