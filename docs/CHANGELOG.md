@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.54] — 20/11/2026
+- **Nhập Excel nhiều kỳ cho nhân sự / danh mục, file nhiều sheet (handoff 004.1b, issue #92):** nhật ký nhập ghi rõ hồi tố kỳ đã chốt. Chi tiết: `docs/releases/v2.0.54.md`.
+
 ## [2.0.52] — 19/11/2026
 - **Chữ gợi ý đạt tương phản AA ≥ 4,5:1 ở mọi màn (handoff 005B-UI003, issue #97).** Chi tiết: `docs/releases/v2.0.52.md`.
 
