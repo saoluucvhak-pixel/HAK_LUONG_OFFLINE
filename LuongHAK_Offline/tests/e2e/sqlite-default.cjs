@@ -252,6 +252,41 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Gói kỳ lương: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
     await app.close();
   }
+  // 11. Màn "Sao lưu & Khôi phục" (012-A, issue #113): mỗi chức năng MỘT chỗ; chữ "giữ N ngày" theo cài đặt thật; thư mục JSON; sao lưu JSON ghi vào thư mục đó và khôi phục lại được (băm từng bảng bằng nhau)
+  {
+    const DG = require("../../main/data-digest"), D11 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-bk-")), JD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-bkjson-")); fs.mkdirSync(path.join(D11, "downloads"));
+    createStorage(D11).save(JSON.stringify(seed()));
+    ({ app, w, errs } = await launch(D11, { HAK_PICK_DIR: JD })); await login(w);
+    await w.evaluate(() => window.hakStore.scheduleSet({ keepDaily: 180 }));
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector('[data-stg="mirror"]', { timeout: 15000 });
+    const txt = await w.locator("#main").innerText();
+    ok("Chữ 'giữ N ngày' theo cài đặt thật (keepDaily = 180), không ghi cứng 60 ngày", /giữ 180 ngày/.test(txt) && !/giữ 60 ngày/.test(txt), (txt.match(/giữ \d+ ngày/g) || []).join(","));
+    const pickers = await w.locator("#main button").evaluateAll((bs) => bs.filter((b) => /Chọn thư mục sao lưu thứ hai|Đổi thư mục/.test(b.innerText) || (/Chọn \/ Chuyển/.test(b.innerText) && b.closest('[data-stg="mirror"]'))).length);
+    ok("Thư mục sao lưu dự phòng (mirrorDir) chỉ chọn được ở MỘT chỗ", pickers === 1, "số nút chọn = " + pickers);
+    const one = async (sel) => (await w.locator(sel).count()) === 1;
+    ok("Khu 'Sao lưu ngay': đúng 1 nút Sao lưu toàn bộ + 1 ô chọn loại (SQLite mặc định / Full Backup / JSON)", (await one("[data-backup-now]")) && (await one("[data-backup-kind]")) && (await w.locator("[data-backup-kind] option").evaluateAll((o) => o.map((x) => x.value).join())) === "sqlite,full,json");
+    ok("Khu 'Khôi phục': đúng 1 nút Khôi phục toàn bộ + 1 ô chọn loại", (await one("[data-restore-now]")) && (await one("[data-restore-kind]")));
+    ok("Bảng thư mục có đủ dòng: SQLite (tự động), JSON, Full Backup, dự phòng, chứng từ, OCR", (await w.locator("[data-stg]").evaluateAll((r) => r.map((x) => x.getAttribute("data-stg")).sort().join())) === "backup,docs,export,json,mirror,ocrLib,sqlite");
+    ok("Dòng thư mục SQLite có ghi chú cố định (CEO chọn (a)): 'Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng'", (await w.locator('[data-stg-note="sqlite"]').count()) === 1 && (await w.locator('[data-stg-note="sqlite"]').innerText()).trim() === "Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng" && (await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').count()) === 0);
+    ok("Không còn các nút sao lưu trùng chức năng (Tạo bản sao lưu ngay / Tạo Full Backup / Sao lưu ra file)", (await w.locator('#main button:has-text("Tạo bản sao lưu ngay"), #main button:has-text("Tạo Full Backup"), #main button:has-text("Sao lưu ra file")').count()) === 0);
+    if (await one('[data-stg="json"]')) {
+      await w.locator('[data-stg="json"] button:has-text("Chọn")').click(); await w.waitForTimeout(800);
+      await w.click('#nav button[data-k="home"]'); await w.click('#nav button[data-k="backup"]'); await w.waitForSelector('[data-stg="json"]');
+      ok("Đặt thư mục sao lưu JSON → hiện đúng đường dẫn đã chọn", (await w.locator('[data-stg="json"]').innerText()).includes(JD));
+    }
+    if ((await one("[data-backup-kind]")) && (await one("[data-backup-now]"))) {
+      await w.selectOption("[data-backup-kind]", "json"); await w.click("[data-backup-now]"); await w.waitForTimeout(1500);
+    }
+    const jf = fs.readdirSync(JD).filter((f) => /^LuongHAK_JSON_\d{8}_\d{6}.*\.json$/.test(f));
+    ok("Sao lưu JSON ghi VÀO thư mục JSON đã đặt (tên có ngày giờ), không qua hộp thoại tải về", jf.length === 1 && !fs.readdirSync(path.join(D11, "downloads")).some((f) => /\.json$/.test(f)), JSON.stringify(jf));
+    if (jf.length) {
+      const fileObj = JSON.parse(fs.readFileSync(path.join(JD, jf[0]), "utf8")), cur = await w.evaluate(() => JSON.parse(window.hakStore.load().text));
+      ok("File JSON khôi phục lại được: mã băm từng bảng bằng dữ liệu đang chạy (main/data-digest.js)", DG.compare(DG.digest(cur), DG.digest(fileObj)).length === 0, DG.compare(DG.digest(cur), DG.digest(fileObj)).join("; "));
+    }
+    if (await one("[data-backup-now]")) { const b = await w.locator("[data-backup-now]").boundingBox(), vp = w.viewportSize() || { width: 1366, height: 768 }; ok("Nút Sao lưu toàn bộ thấy ngay khi mở màn (không cần cuộn)", !!b && b.y >= 0 && b.y + b.height <= vp.height, JSON.stringify(b) + " / " + JSON.stringify(vp)); } else ok("Nút Sao lưu toàn bộ thấy ngay khi mở màn (không cần cuộn)", false, "không có nút");
+    ok("Màn Sao lưu & Khôi phục: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });

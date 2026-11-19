@@ -170,4 +170,6 @@ function createRestorer(o) {
   }
   return { stage, commitAssets, rollback: (rid) => rollback(rid), postcheck, finish, recover, discard: (rid) => { releaseStage(rid); return { ok: true }; }, busy: () => lock.busy, journalFile };
 }
-module.exports = { createRestorer };
+/** 012-A: ghi văn bản BỀN — ghi + fsync trước khi đóng tệp. Gọi cho tệp tạm TRƯỚC khi rename để mất điện không để lại tệp rỗng/cụt mang tên hợp lệ. */
+function writeTextDurable(file, text) { const fd = fs.openSync(file, "w"); try { fs.writeFileSync(fd, text, "utf8"); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
+module.exports = { createRestorer, writeTextDurable };

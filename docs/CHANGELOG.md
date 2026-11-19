@@ -6,6 +6,9 @@
 ## [2.0.47] — 19/11/2026
 - **Sao lưu/khôi phục theo KỲ LƯƠNG — lõi + IPC (handoff 012-B1, issue #113):** gói `LuongHAK_Ky_YYYY-MM_<ngày-giờ>.zip` (hoặc `.hakenc` có mật khẩu) gồm phát sinh của kỳ + toàn bộ nhân sự/danh mục; khôi phục kỳ không đổi kỳ khác, chặn kỳ đã chốt, xóa mặc định tắt và không xóa hàng đang được dùng. Chưa có giao diện (012-B2). Chi tiết: `docs/releases/v2.0.47.md`.
 
+## [2.0.46] — 19/11/2026
+- **Màn Sao lưu & Khôi phục gọn 5 khu (handoff 012-A, issue #113):** một nút Sao lưu toàn bộ (SQLite / Full Backup / JSON) + một nút Khôi phục; một bảng thư mục (thêm thư mục sao lưu JSON); bỏ chọn thư mục dự phòng trùng; chữ "giữ N ngày" theo cài đặt. Chưa có sao lưu theo kỳ (012-B). Chi tiết: `docs/releases/v2.0.46.md`.
+
 ## [2.0.45] — 19/11/2026
 - **Màn nhập liệu thấy ≥ 12 dòng ở 1366×768 (handoff 005B-UI002, issue #97):** hướng dẫn/chú giải/chi tiết tổng được gấp lại, thanh nút–bộ lọc–hàng bảng nén gọn; kiểm bố cục `fewRows` thành PASS/FAIL. Không đổi dữ liệu/công thức. Chi tiết: `docs/releases/v2.0.45.md`.
 

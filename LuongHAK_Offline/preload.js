@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld("hakPeriod", { // 012-B1: gói kỳ lương (lõ
   create: (info) => ipcRenderer.invoke("ky-create", info),             // { ky, user, password? } → { ok, name, dir, size, sha256, encrypted, soDong } | { ok:false, error }
   inspect: (name, password) => ipcRenderer.invoke("ky-inspect", name, password) // name tùy chọn; bỏ trống = hộp thoại chọn file → { ok, manifest, payload } | { ok:false, error, needPassword?, wrongPassword?, cancelled? }
 });
+contextBridge.exposeInMainWorld("hakJson", { // 012-A: sao lưu JSON vào thư mục JSON đã đặt
+  get: () => ipcRenderer.invoke("json-get"), list: () => ipcRenderer.invoke("json-list"), setDir: (dir) => ipcRenderer.invoke("json-set-dir", dir), backup: () => ipcRenderer.invoke("json-backup")
+});
 contextBridge.exposeInMainWorld("hakDocs", {
   add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }
   list: () => ipcRenderer.invoke("doc-list"),
