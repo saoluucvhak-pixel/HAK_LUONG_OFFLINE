@@ -110,6 +110,11 @@
           ? "⛔ Không xóa được: phụ lục của hợp đồng này đã dùng tính lương kỳ ĐÃ CHỐT " + labels(fzH) + " (quy tắc Q-15)."
           : "⛔ Không đổi được Số HĐLĐ: phụ lục của hợp đồng này đã dùng tính lương kỳ đã chốt " + labels(fzH) + " (Q-15).", { periods: fzH });
       }
+      // 4a. R-27 (+ R-44: kiểm ở tầng nghiệp vụ): không đổi Mã NV đã có trong bảng lương ĐÃ CHỐT — kể cả Admin (bản chốt không bao giờ bị sửa)
+      if (table === "nhanvien" && op === "update" && before && after && String(before["Mã NV"] || "") !== String(after["Mã NV"] || "")) {
+        var refs27 = GRD.references(db, before["Mã NV"]);
+        if (refs27.kyluong || refs27.kyluong_lichsu) return deny("frozen", "⛔ Không đổi được Mã NV " + before["Mã NV"] + ": mã này đã có trong bảng lương ĐÃ CHỐT (R-27).");
+      }
       // 4b. duyệt & phiên bản công thức tiền lương (Master V5 GĐ2) — kiểm tra ở tầng ghi, không đi vòng được
       var fpatch = null, FA = faMod();
       if (table === FA.TABLE) {
