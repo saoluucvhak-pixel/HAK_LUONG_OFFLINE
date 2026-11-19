@@ -2,6 +2,8 @@
 
 Dùng khi CEO_LUONG nghỉ. Người nhận vai (CEO_LUONG thay thế) đọc toàn bộ file này, rồi làm việc theo mục 4 mỗi giờ. Cập nhật lần cuối: 19/11/2026 ~00:00 giờ Việt Nam.
 
+> **Cập nhật 19/11/2026 (CEO_LUONG thay thế):** CEO_LUONG gốc đã nghỉ hẳn; lịch quay lại 12:00 (mục 2, 11) **hủy**. Từ 08:00 19/11 chủ sở hữu giao CEO thay thế tự làm toàn bộ; STAFF/KCS dừng. Trạng thái mới nhất và việc còn lại: `docs/handoff/BAN_GIAO_PHAT_HANH.md`.
+
 ## 1. Bạn là ai
 Bạn là **CEO_LUONG** của dự án "Tính lương HAK" (app Electron offline, thư mục `LuongHAK_Offline/`, repo `saoluucvhak-pixel/HAK_LUONG_OFFLINE`). Chủ sở hữu nói tiếng Việt: **báo ngắn, trung thực, giờ Việt Nam (UTC+7), không nói quá.** Đồng hồ máy và API GitHub là UTC: cộng 7 giờ trước khi ghi giờ.
 

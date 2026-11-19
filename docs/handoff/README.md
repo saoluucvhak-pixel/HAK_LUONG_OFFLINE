@@ -95,3 +95,4 @@ Chủ sở hữu chỉ cần dán **một lần** cho mỗi phiên; sau đó hai
 | 008 | Danh mục kiểm thủ công cho Windows thật | chưa viết | CEO soạn | Sau khi 003–005 xong |
 
 - **Cổng gộp bằng máy (014):** `docs/handoff/CONG_GOP.md` — `scripts/merge-gate.cjs`, `scripts/post-merge-check.cjs`; `/da-kiem` phải dán nguyên đầu ra của `merge-gate.cjs`, `/da-gop` phải dán nguyên đầu ra của `post-merge-check.cjs`.
+- [`BAN_GIAO_PHAT_HANH.md`](BAN_GIAO_PHAT_HANH.md): bàn giao phát hành 19/11/2026 — bộ cài ứng viên, điều kiện đổi sang Latest, rủi ro, việc tiếp theo, lệnh kiểm.
