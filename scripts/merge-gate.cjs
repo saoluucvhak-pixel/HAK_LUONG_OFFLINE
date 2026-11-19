@@ -16,6 +16,25 @@ const REQUIRED_JOBS = ["Cú pháp · Lint · Unit/Integration/Regression · Ph�
 const semver = (v) => { const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || "")); return m ? [+m[1], +m[2], +m[3]] : null; };
 const newer = (a, b) => { const x = semver(a), y = semver(b); if (!x || !y) return false; for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
 
+/** Số dòng THẬT sự đổi trong một patch (bỏ qua CR cuối dòng): các cặp -/+ giống nhau sau khi bỏ \r được triệt tiêu. */
+function realChanges(patch) {
+  const rem = new Map(); let adds = [], real = 0;
+  String(patch || "").split("\n").forEach((l) => { if (/^(\+\+\+|---) /.test(l)) return; const k = l.slice(1).replace(/\r$/, ""); if (l[0] === "-") rem.set(k, (rem.get(k) || 0) + 1); else if (l[0] === "+") adds.push(k); });
+  adds.forEach((k) => { const n = rem.get(k) || 0; if (n > 0) rem.set(k, n - 1); else real++; });
+  rem.forEach((n) => { real += n; }); return real;
+}
+const EOL_MIN = 20, EOL_HINT = "chạy `node scripts/bump-version.cjs <x.y.z>` (giữ kiểu xuống dòng) hoặc khôi phục kiểu xuống dòng gốc của tệp (CRLF/LF)";
+/** Bước 8 (014-B): tệp bị VIẾT LẠI CẢ TỆP (additions = deletions ≈ tổng số dòng) hoặc phần lớn dòng đổi chỉ khác CR → [{file, why}]. Tệp mới/xóa và tệp nhỏ (< 20 dòng đổi) bỏ qua. */
+function eolProblems(stats) {
+  const bad = [];
+  (stats || []).forEach((f) => {
+    const a = f.additions | 0, d = f.deletions | 0; if (f.status === "added" || f.status === "removed" || Math.max(a, d) < EOL_MIN) return;
+    if (a === d && f.headLines > 0 && a >= f.headLines * 0.95) { bad.push({ file: f.filename, why: "viết lại cả tệp (+" + a + "/−" + d + " trên " + f.headLines + " dòng)" }); return; }
+    if (typeof f.patch === "string" && f.patch) { const real = realChanges(f.patch); if (real * 4 < a + d) bad.push({ file: f.filename, why: "chỉ " + real + " dòng đổi thật trong +" + a + "/−" + d + " (phần còn lại chỉ khác kiểu xuống dòng)" }); }
+  });
+  return bad;
+}
+
 /**
  * input: { number, pr:{ head:{sha}, mergeable_state, labels:[{name}], state, merged }, files:[tên tệp], checkRuns:[{name,status,conclusion}],
  *          comments:[{body,created_at}], headCommitDate, main:{version}, head:{version, changelog, workspaceVersion, hasReleaseDoc}, tags:[tên tag], lockedPaths:[đường dẫn tệp khóa băm] }
@@ -56,6 +75,9 @@ function evaluate(input) {
   // 7. tệp bị cấm (CEO_BAN_GIAO.md mục 6)
   const locked = (input.lockedPaths || []).map((p) => p.replace(/\\/g, "/")), hit = files.filter((f) => FORBIDDEN.some((re) => re.test(f)) || locked.indexOf(f) >= 0);
   add(7, hit.length === 0, hit.length ? "sửa tệp thuộc mục 6 (cần /hoi-chu-so-huu): " + hit.join(", ") : "không sửa workflow CI / khóa băm / tệp dùng chung đã khóa / core/importer.js");
+  // 8. đổi kiểu xuống dòng hàng loạt (014-B): diff không đọc được, dễ xung đột giữa các PR cùng nâng phiên bản
+  const eolBad = eolProblems(input.fileStats);
+  add(8, eolBad.length === 0, eolBad.length ? "tệp bị đổi xuống dòng/viết lại cả tệp: " + eolBad.map((b) => b.file + " (" + b.why + ")").join("; ") + " — " + EOL_HINT : "không có tệp bị viết lại cả tệp / đổi xuống dòng hàng loạt");
   return { pass: out.every((c) => c.ok), checks: out, productChange, toolChange, kind };
 }
 
@@ -70,7 +92,12 @@ const verOf = (pkg) => { try { return JSON.parse(pkg).version; } catch (e) { ret
 
 function collect(number) {
   const pr = ghJson(["repos/" + REPO + "/pulls/" + number]), sha = pr.head.sha;
-  const files = ghPages("repos/" + REPO + "/pulls/" + number + "/files?per_page=100").map((f) => f.filename);
+  const fileRows = ghPages("repos/" + REPO + "/pulls/" + number + "/files?per_page=100"), files = fileRows.map((f) => f.filename);
+  const fileStats = fileRows.map((f) => { // số dòng tổng ở head chỉ lấy khi nghi viết lại cả tệp (additions = deletions ≥ ngưỡng) để đỡ gọi mạng
+    const o = { filename: f.filename, status: f.status, additions: f.additions, deletions: f.deletions, patch: f.patch };
+    if (f.status === "modified" && f.additions === f.deletions && f.additions >= EOL_MIN) { const t = fileAt(f.filename, sha); if (t != null) o.headLines = t.split("\n").length - (t.endsWith("\n") ? 1 : 0); }
+    return o;
+  });
   const checkRuns = ghPages("repos/" + REPO + "/commits/" + sha + "/check-runs?per_page=100");
   const comments = ghPages("repos/" + REPO + "/issues/" + number + "/comments?per_page=100");
   const commit = ghJson(["repos/" + REPO + "/commits/" + sha]);
@@ -78,7 +105,7 @@ function collect(number) {
   const lock = fileAt("shared-modules.lock.json", pr.base.ref); let lockedPaths = [];
   try { JSON.parse(lock).sources.forEach((s) => (s.files || []).forEach((f) => (f.localPaths || []).forEach((p) => lockedPaths.push(p)))); } catch (e) { lockedPaths = []; }
   const ws = fileAt("LuongHAK_Offline/ui/workspace-v104.js", sha) || "", wm = /VERSION\s*=\s*'([^']*)'/.exec(ws), headVer = verOf(fileAt("LuongHAK_Offline/package.json", sha));
-  return { number: Number(number), pr, files, checkRuns, comments, headCommitDate: commit.commit.committer.date, tags, lockedPaths,
+  return { number: Number(number), pr, files, fileStats, checkRuns, comments, headCommitDate: commit.commit.committer.date, tags, lockedPaths,
     main: { version: verOf(fileAt("LuongHAK_Offline/package.json", pr.base.ref)) },
     head: { version: headVer, changelog: fileAt("docs/CHANGELOG.md", sha) || "", workspaceVersion: wm ? wm[1] : "", hasReleaseDoc: !!(headVer && fileAt("docs/releases/v" + headVer + ".md", sha)) } };
 }
@@ -101,4 +128,4 @@ function main(argv) {
   say("merged:" + !!after.merged + (after.merge_commit_sha ? " commit main " + after.merge_commit_sha : "")); return done(after.merged ? 0 : 1);
 }
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { evaluate, isDocOrTest, kindOf, newer, FORBIDDEN, REQUIRED_JOBS };
+module.exports = { evaluate, isDocOrTest, kindOf, newer, eolProblems, realChanges, FORBIDDEN, REQUIRED_JOBS };
