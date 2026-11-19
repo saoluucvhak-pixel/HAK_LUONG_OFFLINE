@@ -81,6 +81,10 @@ contextBridge.exposeInMainWorld("hakPaths", {
   get: () => ipcRenderer.invoke("paths-get"), pick: (kind) => ipcRenderer.invoke("paths-pick", kind), move: (kind, dir) => ipcRenderer.invoke("paths-move", kind, dir),
   info: () => ipcRenderer.invoke("paths-info"), open: (kind) => ipcRenderer.invoke("paths-open", kind), verify: (kind) => ipcRenderer.invoke("paths-verify", kind)
 });
+contextBridge.exposeInMainWorld("hakPeriod", { // 012-B1: gói kỳ lương (lõi khôi phục ở core/repository.js period.*, giao diện ở 012-B2)
+  create: (info) => ipcRenderer.invoke("ky-create", info),             // { ky, user, password? } → { ok, name, dir, size, sha256, encrypted, soDong } | { ok:false, error }
+  inspect: (name, password) => ipcRenderer.invoke("ky-inspect", name, password) // name tùy chọn; bỏ trống = hộp thoại chọn file → { ok, manifest, payload } | { ok:false, error, needPassword?, wrongPassword?, cancelled? }
+});
 contextBridge.exposeInMainWorld("hakDocs", {
   add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }
   list: () => ipcRenderer.invoke("doc-list"),

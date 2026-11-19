@@ -228,6 +228,30 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("PDF: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
     await app.close();
   }
+  // 12. GÓI KỲ LƯƠNG (012-B1, issue #113): IPC thật tạo/kiểm gói .zip|.hakenc → khôi phục bằng lõi period.* → kỳ + nhân sự về đúng lúc sao lưu (băm bằng nhau), kỳ khác và kỳ đã chốt không đổi
+  {
+    const PR = require("../../core/repository.js").period, D12 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-ky-")); fs.mkdirSync(path.join(D12, "downloads"));
+    const d0 = seed(); d0.chamcong = [{ "Kỳ": "2026-09", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }, { "Kỳ": "2026-10", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }, { "Kỳ": "2026-08", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }];
+    d0.kyluong = [{ ky: "2026-08", version: 1, kq: { bangluong: [{ "Mã NV": "A", "Thực lĩnh": 1000, "Tổng thu nhập": 1200 }] } }]; createStorage(D12).save(JSON.stringify(d0));
+    ({ app, w, errs } = await launch(D12)); await login(w);
+    const cr = await w.evaluate(() => window.hakPeriod.create({ ky: "2026-09", user: "admin" }));
+    ok("Gói kỳ: tạo qua IPC thật, tên LuongHAK_Ky_2026-09_<ngày>_<giờ>.zip, nằm trong thư mục sao lưu", cr && cr.ok === true && /^LuongHAK_Ky_2026-09_\d{8}_\d{6}\.zip$/.test(cr.name) && fs.existsSync(path.join(cr.dir, cr.name)), JSON.stringify(cr));
+    const kyd = (d, ky) => PR.canon(d.chamcong.filter((r) => r["Kỳ"] === ky));
+    await saveViaIpc(w, "d.chamcong.push({'Kỳ':'2026-09','Mã NV':'B','Hình thức công':'BT','01':1}); d.chamcong.find(function(r){return r['Kỳ']==='2026-09'&&r['Mã NV']==='A';})['01']=0.5; d.nhanvien[0]['Họ và tên']='Đã sửa sau khi sao lưu'; d.chamcong.find(function(r){return r['Kỳ']==='2026-10';})['01']=0.25;");
+    const mid = await w.evaluate(() => JSON.parse(window.hakStore.load().text)); ok("Điều kiện thử: dữ liệu đã bị sửa sau khi sao lưu", kyd(mid, "2026-09") !== kyd(d0, "2026-09") && mid.nhanvien[0]["Họ và tên"] === "Đã sửa sau khi sao lưu");
+    const ins = await w.evaluate((n) => window.hakPeriod.inspect(n), cr.name); ok("Kiểm gói qua IPC: hợp lệ, đúng kỳ, trả dữ liệu cho lõi khôi phục", ins && ins.ok === true && ins.manifest.ky === "2026-09" && !!ins.payload, JSON.stringify(ins && ins.error));
+    const res = await w.evaluate((x) => { const P = window.HAKCore.repo.period, cur = JSON.parse(window.hakStore.load().text), pl = P.plan(cur, x.payload, "2026-09"); if (!pl.ok) return { ok: false, pl }; const r = P.apply(cur, pl, x.payload); return { ok: r.ok, audit: r.audit, saved: window.hakStore.save(JSON.stringify(cur)) }; }, { payload: ins.payload });
+    ok("Khôi phục kỳ bằng lõi period.* rồi lưu qua IPC thật: thành công, có chuỗi nhật ký kiểm toán", res && res.ok === true && /Khôi phục kỳ 2026-09/.test(res.audit || ""), JSON.stringify(res).slice(0, 300));
+    const aft = await w.evaluate(() => JSON.parse(window.hakStore.load().text));
+    ok("Sau khôi phục: kỳ 2026-09 và nhân sự về đúng lúc sao lưu (băm nội dung bằng nhau)", kyd(aft, "2026-09") === kyd(d0, "2026-09") && PR.canon(aft.nhanvien) === PR.canon(d0.nhanvien));
+    ok("Sau khôi phục: kỳ khác (2026-10 đã sửa sau đó) KHÔNG đổi; kỳ đã chốt 2026-08 và snapshot kyluong không đổi", kyd(aft, "2026-10") === kyd(mid, "2026-10") && kyd(aft, "2026-08") === kyd(d0, "2026-08") && PR.canon(aft.kyluong) === PR.canon(d0.kyluong));
+    const again = await w.evaluate((x) => { const P = window.HAKCore.repo.period, cur = JSON.parse(window.hakStore.load().text), before = JSON.stringify(cur); P.apply(cur, P.plan(cur, x.payload, "2026-09"), x.payload); return JSON.stringify(cur) === before; }, { payload: ins.payload }); ok("Khôi phục lần hai: dữ liệu không đổi (không nhân đôi)", again === true);
+    const lock = await w.evaluate(() => { const P = window.HAKCore.repo.period, cur = JSON.parse(window.hakStore.load().text), p8 = P.slice(cur, "2026-08"); return P.plan(cur, p8, "2026-08"); }); ok("Kỳ đã chốt ở máy (2026-08): khôi phục bị chặn", lock.ok === false && /đã chốt/.test(lock.blocked || ""));
+    const enc = await w.evaluate(() => window.hakPeriod.create({ ky: "2026-09", user: "admin", password: "Mat-khau-du-dai-2026" }));
+    ok("Gói có mật khẩu → .hakenc; thiếu/sai mật khẩu bị từ chối, đúng mật khẩu mở được", enc.ok && /\.hakenc$/.test(enc.name) && (await w.evaluate((n) => window.hakPeriod.inspect(n, ""), enc.name)).needPassword === true && (await w.evaluate((n) => window.hakPeriod.inspect(n, "sai-mat-khau-khac-123"), enc.name)).wrongPassword === true && (await w.evaluate((n) => window.hakPeriod.inspect(n, "Mat-khau-du-dai-2026"), enc.name)).ok === true);
+    ok("Gói kỳ lương: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });
