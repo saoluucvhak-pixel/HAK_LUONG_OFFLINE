@@ -253,6 +253,42 @@ App chỉ tạo bản mới khi dữ liệu đã thay đổi. App offline nên c
 - Quá **7 ngày** chưa sao lưu ra ngoài máy, Trang chủ sẽ nhắc.
 - **Quy trình tháng gợi ý:** chốt kỳ → kiểm tra thư mục thứ hai đã có bản `sau-chot` → mỗi quý thử *Khôi phục từ file* trên một máy khác.
 
+## Sao lưu & Khôi phục (từ 2.0.46–2.0.49) — thay cho các mục sao lưu cũ ở trên khi có chỗ khác nhau
+
+Màn **Công ty & Sao lưu → Sao lưu & Khôi phục** có 5 khu, mỗi chức năng chỉ ở một chỗ:
+
+1. **Sao lưu ngay**
+   - **Sao lưu toàn bộ**, chọn loại:
+     - **SQLite** (mặc định): bản chụp `.sqlite` đã kiểm + bản JSON đối chứng.
+     - **Full Backup**: file `.zip` có cả chứng từ gốc và thư viện OCR, có thể đặt mật khẩu → `.hakenc`.
+     - **JSON**: chỉ dữ liệu, **không** có chứng từ gốc và thư viện OCR.
+   - **Sao lưu kỳ YYYY-MM**: gói `.zip` gồm dữ liệu phát sinh của kỳ đang chọn cùng toàn bộ nhân sự, danh mục, công thức. Có thể đặt mật khẩu → `.hakenc`.
+2. **Khôi phục**
+   - **Khôi phục toàn bộ** (Full Backup hoặc JSON).
+   - **Khôi phục kỳ lương…**: chọn gói kỳ → màn xem trước liệt kê từng thay đổi cũ → mới, rồi xác nhận.
+     - Ô "cho phép xóa" để trống sẵn. Hàng đang được kỳ khác dùng thì không bao giờ bị xóa.
+     - Gói có bản chốt của kỳ: phải tích riêng mới chốt lại kỳ.
+     - Kỳ đã chốt ở máy: không khôi phục đè.
+   - Trước khi ghi, app **tự sao lưu toàn bộ**. Nếu không sao lưu được thì dừng, không ghi gì.
+3. **Tự sao lưu**
+   - Định kỳ 1/2/4/8 giờ, khi đóng app, giữ bản đầu ngày N ngày.
+   - **Mọi lần sao lưu đều tạo bản chụp `.sqlite` đã kiểm.** Giữ 10 bản chụp gần nhất; bản sau chốt kỳ và theo năm giữ vĩnh viễn.
+   - Nếu tạo bản chụp lỗi, khu 1 hiện cảnh báo đỏ.
+4. **Thư mục**: thư mục sao lưu SQLite, JSON, Full Backup, dự phòng ngoài máy (USB/NAS/Drive), chứng từ, thư viện OCR.
+   - Thư mục SQLite cố định trong thư mục dữ liệu. Muốn có bản ở nơi khác thì đặt **Thư mục dự phòng**: app tự chép cả bản JSON lẫn bản chụp `.sqlite` sang đó, có kiểm mã băm.
+5. **Danh sách bản sao lưu & kiểm tra**.
+
+### Chuyển sang máy khác
+1. Ở máy cũ: **Sao lưu toàn bộ → Full Backup** (nên đặt mật khẩu). Chép file `.zip`/`.hakenc` sang USB/Drive. Nếu dùng JSON thì nhớ JSON **không** có chứng từ gốc và thư viện OCR.
+2. Ở máy mới: cài app, đăng nhập (hoặc thiết lập ban đầu).
+3. Vào **Sao lưu & Khôi phục → Khôi phục toàn bộ**, chọn loại file, chọn file, nhập mật khẩu nếu có, xem tóm tắt rồi đồng ý.
+4. Kiểm tra lại số nhân viên, các kỳ đã chốt, và một bảng lương mẫu so với máy cũ.
+5. Chỉ chuyển một kỳ: dùng **Sao lưu kỳ** ở máy cũ và **Khôi phục kỳ lương…** ở máy mới.
+
+Ghi chú:
+- File có bản chốt kỳ bị sửa tay (không khớp kết quả tính lại) sẽ bị từ chối, dữ liệu máy mới không đổi.
+- Sai mật khẩu thì không đọc được gói, dữ liệu không đổi. **Mất mật khẩu là không mở được gói** (không có cửa hậu).
+
 ## Lưu ý
 Danh mục chuẩn chỉ là số liệu khởi đầu — kế toán kiểm tra lại đơn giá, tỷ lệ BH, biểu thuế theo quy định hiện hành.
 
