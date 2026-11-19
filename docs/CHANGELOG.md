@@ -6,6 +6,9 @@
 ## [2.0.52] — 19/11/2026
 - **Chữ gợi ý đạt tương phản AA ≥ 4,5:1 ở mọi màn (handoff 005B-UI003, issue #97).** Chi tiết: `docs/releases/v2.0.52.md`.
 
+## [2.0.51] — 19/11/2026
+- **Chống trùng cho danh mục + sửa dòng danh mục không đổi ô không chạm tới (handoff 013-C, issue #114).** Chi tiết: `docs/releases/v2.0.51.md`.
+
 ## [2.0.50] — 19/11/2026
 - **Danh sách bản sao lưu có cột Định dạng / Phạm vi và lọc theo định dạng, gồm cả lịch sử bản chụp SQLite (handoff 012-C, issue #113).** Chi tiết: `docs/releases/v2.0.50.md`.
 

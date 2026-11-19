@@ -1295,10 +1295,21 @@
     };
 
     var todayIso = function () { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); };
+    // CLEAN-DRAFT-BEGIN (013-C, issue #114): làm sạch bản nháp khi lưu dòng danh mục. Ô KHÔNG đổi so với bản đã lưu giữ nguyên giá trị (vẫn kiểm lỗi) — không chuẩn hóa NFC lại
+    // để nhật ký không ghi thay đổi giả; ô đã sửa / dòng mới thì chuẩn hóa như trước. Hàm thuần — test lấy nguyên văn từ app.js.
+    function cleanDraft(cols, draft, orig, norm) {
+      var cleaned = {}, errs = [];
+      cols.forEach(function (c) {
+        var v = draft[c], s = v == null ? "" : String(v), n = norm(c, s);
+        if (n.error) { errs.push(c + ": " + n.error); return; }
+        cleaned[c] = orig && s === (orig[c] == null ? "" : String(orig[c])) ? orig[c] : n.value;
+      });
+      return { cleaned: cleaned, errs: errs };
+    }
+    // CLEAN-DRAFT-END
     function catSave() {
       var e = cedit(key); if (!e || !need(editPerm)) return;
-      e.state = "VALIDATING"; var cleaned = {}, errs = [];
-      def.cols.forEach(function (c) { var v = e.draft[c], n = VAL.normCell(c, v == null ? "" : String(v)); if (n.error) errs.push(c + ": " + n.error); else cleaned[c] = n.value; });
+      e.state = "VALIDATING"; var cd = cleanDraft(def.cols, e.draft, e.mode === "new" ? null : db[key][e.ri], VAL.normCell), cleaned = cd.cleaned, errs = cd.errs;
       if (errs.length) { e.state = "EDITING"; e.err = errs.join(" · "); draw(); return; }
       e.state = "SAVING";
       var plan = e.mode === "new" ? REPO.plan("insert", key, null, Object.assign({}, e.draft, cleaned), { what: "thêm danh mục" }) : REPO.plan("update", key, db[key][e.ri], cleaned, { what: "sửa danh mục" });
