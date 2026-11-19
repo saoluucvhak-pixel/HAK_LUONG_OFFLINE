@@ -244,4 +244,64 @@ function extractSqliteSnapshot(pkg, dest) {
   } catch (e) { try { fs.rmSync(dest, { force: true }); } catch (e2) { /* bỏ qua */ } return { ok: false, error: "Không giải nén được bản chụp: " + (e.message || e) }; }
   finally { zip.close(); }
 }
-module.exports = { STATUS: ST, create, inspect, extractSqliteSnapshot, SNAPSHOT_PATH, SNAPSHOT_SCHEMA_MAX, importDocuments, importOcrLibrary, importDocumentsFrom, importOcrLibraryFrom, zipReader, dirReader, FORMAT, VERSION };
+// ===== 012-B1 (issue #113): GÓI KỲ LƯƠNG — LuongHAK_Ky_YYYY-MM_<ngày-giờ>.zip = manifest.json + data.json; có mật khẩu → .hakenc (backup-crypt, như Full Backup) =====
+// Gói CHỈ gồm: phát sinh của kỳ + toàn bộ nhân sự/danh mục (core/repository.js period.slice); KHÔNG có nhật ký/người dùng/bảo mật/cấp phát. Kiểm gói chặt trước khi trả dữ liệu.
+const KY_RE_PKG = /^\d{4}-(0[1-9]|1[0-2])$/, shaBuf = (b) => crypto.createHash("sha256").update(b).digest("hex");
+const canonOf = (v) => require("../core/repository.js").period.canon(v);
+async function createPeriodPackage(o) {
+  const fail = (error) => ({ ok: false, error }), BC = require("./backup-crypt"), os = require("os"), now = o.now || (() => new Date());
+  const ky = String(o.ky || ""); if (!KY_RE_PKG.test(ky)) return fail("Kỳ '" + ky + "' không hợp lệ (cần YYYY-MM).");
+  if (!o.dir || typeof o.dir !== "string") return fail("Chưa có thư mục để ghi gói kỳ lương.");
+  if (!o.data || typeof o.data !== "object") return fail("Chưa có dữ liệu để sao lưu.");
+  const pw = o.password ? String(o.password) : ""; if (pw) { const bad = BC.checkPassword(pw); if (bad) return fail(bad); }
+  const sl = require("../core/repository.js").period.slice(o.data, ky), payload = { ky, period: sl.period, global: sl.global, refOnly: sl.refOnly };
+  const dataBuf = Buffer.from(JSON.stringify(payload), "utf8"), soDong = {}, sha256 = {};
+  ["period", "global"].forEach((g) => Object.keys(payload[g]).forEach((t) => { soDong[g + "." + t] = payload[g][t].length; sha256[g + "." + t] = shaBuf(Buffer.from(canonOf(payload[g][t]), "utf8")); }));
+  const d = now(), p2 = (x) => String(x).padStart(2, "0"), stamp = d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + "_" + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds());
+  const manifest = { loai: "ky", dinhDang: 1, ky, phienBanApp: String(o.appVersion || ""), tao: d.toISOString(), taoBoi: String(o.user || ""), soDong, sha256, shaTong: shaBuf(dataBuf), data: { path: "data.json", size: dataBuf.length } };
+  let work = null, w = null;
+  try {
+    fs.mkdirSync(o.dir, { recursive: true });
+    const ext = pw ? ".hakenc" : ".zip"; let name = "LuongHAK_Ky_" + ky + "_" + stamp + ext, i = 2; while (fs.existsSync(path.join(o.dir, name))) name = "LuongHAK_Ky_" + ky + "_" + stamp + "-" + (i++) + ext;
+    const final = path.join(o.dir, name);
+    if (pw) work = fs.mkdtempSync(path.join(os.tmpdir(), "hak-kypkg-")); // bản .zip CHƯA mã hóa không bao giờ nằm trong thư mục đích
+    const zipTmp = pw ? path.join(work, "g.zip") : final + ".tmp";
+    w = Z.createWriter(zipTmp, { now }); w.addBuffer("manifest.json", Buffer.from(JSON.stringify(manifest, null, 1), "utf8")); w.addBuffer("data.json", dataBuf); w.finish(); w = null;
+    if (pw) { const e = await BC.encryptFile(zipTmp, final, pw); if (!e.ok) return fail("Không mã hóa được gói: " + (e.error || "lỗi không rõ")); }
+    else fs.renameSync(zipTmp, final);
+    return { ok: true, name, dir: o.dir, file: final, size: fs.statSync(final).size, sha256: shaFile(final), encrypted: !!pw, ky, soDong };
+  } catch (e) { try { if (w) w.abort(); } catch (e2) { /* đã đóng */ } try { fs.rmSync(path.join(o.dir, "LuongHAK_Ky_" + ky + "_" + stamp + ".zip.tmp"), { force: true }); } catch (e3) { /* chưa tạo */ } return fail("Không tạo được gói kỳ lương: " + (e.message || e)); }
+  finally { if (work) try { fs.rmSync(work, { recursive: true, force: true }); } catch (e) { /* dọn tạm */ } }
+}
+/** Kiểm gói kỳ lương (chỉ đọc). Hợp lệ → { ok, manifest, payload }; không → { ok:false, error[, needPassword|wrongPassword] } và KHÔNG có payload. */
+async function inspectPeriodPackage(file, password) {
+  const bad = (error, x) => Object.assign({ ok: false, error }, x || {}), BC = require("./backup-crypt"), os = require("os");
+  if (!file || !fs.existsSync(file)) return bad("Không thấy tệp gói kỳ lương.");
+  let work = null, zip = null;
+  try {
+    let zf = file;
+    if (BC.isEnc(file)) {
+      if (!password) return bad("Gói được mã hóa — cần nhập mật khẩu.", { needPassword: true });
+      work = fs.mkdtempSync(path.join(os.tmpdir(), "hak-kypkg-")); zf = path.join(work, "g.zip");
+      const de = await BC.decryptFile(file, zf, String(password)); if (!de.ok) return bad(de.code === "AUTH" ? "Sai mật khẩu hoặc gói đã bị sửa." : (de.error || "Không giải mã được gói."), { wrongPassword: de.code === "AUTH" });
+    }
+    try { zip = Z.openZip(zf); } catch (e) { return bad("Không phải gói kỳ lương hợp lệ: " + e.message); }
+    const me = zip.byName["manifest.json"], de2 = zip.byName["data.json"]; if (!me || !de2) return bad("Thiếu manifest.json hoặc data.json — không phải gói kỳ lương của app.");
+    let m; try { m = JSON.parse(zip.readBuffer(me, 8 * 1048576).toString("utf8")); } catch (e) { return bad("manifest.json hỏng: " + e.message); }
+    if (!m || m.loai !== "ky" || !KY_RE_PKG.test(String(m.ky || "")) || !m.sha256 || !m.soDong || !m.shaTong) return bad("Không phải gói kỳ lương (thiếu loại/kỳ/SHA-256/số dòng).");
+    let buf; try { buf = zip.readBuffer(de2); } catch (e) { return bad("data.json không giải nén được — gói hỏng hoặc bị sửa: " + e.message); }
+    if (shaBuf(buf) !== m.shaTong || (m.data && m.data.size != null && buf.length !== m.data.size)) return bad("data.json sai SHA-256 — gói bị hỏng hoặc bị sửa.");
+    let payload; try { payload = JSON.parse(buf.toString("utf8")); } catch (e) { return bad("data.json hỏng: " + e.message); }
+    if (!payload || payload.ky !== m.ky || !payload.period || !payload.global) return bad("Kỳ trong data.json không khớp manifest hoặc thiếu cấu trúc.");
+    const probs = [];
+    ["period", "global"].forEach((g) => Object.keys(payload[g]).forEach((t) => {
+      const k = g + "." + t, rows = payload[g][t]; if (!Array.isArray(rows)) { probs.push(k + ": không phải danh sách"); return; }
+      if (m.soDong[k] !== rows.length) probs.push(k + ": số dòng " + rows.length + " ≠ manifest " + m.soDong[k]); else if (m.sha256[k] !== shaBuf(Buffer.from(canonOf(rows), "utf8"))) probs.push(k + ": sai SHA-256");
+    }));
+    Object.keys(m.soDong).forEach((k) => { const [g, t] = k.split("."); if (!payload[g] || !(t in payload[g])) probs.push(k + ": manifest có nhưng data.json thiếu"); });
+    if (probs.length) return bad("Gói kỳ lương không khớp manifest: " + probs.slice(0, 5).join("; "));
+    return { ok: true, manifest: m, payload, encrypted: BC.isEnc(file) };
+  } catch (e) { return bad("Không kiểm được gói: " + (e.message || e)); }
+  finally { if (zip) try { zip.close(); } catch (e) { /* đã đóng */ } if (work) try { fs.rmSync(work, { recursive: true, force: true }); } catch (e) { /* dọn tạm */ } }
+}
+module.exports = { createPeriodPackage, inspectPeriodPackage, STATUS: ST, create, inspect, extractSqliteSnapshot, SNAPSHOT_PATH, SNAPSHOT_SCHEMA_MAX, importDocuments, importOcrLibrary, importDocumentsFrom, importOcrLibraryFrom, zipReader, dirReader, FORMAT, VERSION };

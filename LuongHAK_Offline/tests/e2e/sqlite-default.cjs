@@ -228,6 +228,30 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("PDF: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
     await app.close();
   }
+  // 12. GÓI KỲ LƯƠNG (012-B1, issue #113): IPC thật tạo/kiểm gói .zip|.hakenc → khôi phục bằng lõi period.* → kỳ + nhân sự về đúng lúc sao lưu (băm bằng nhau), kỳ khác và kỳ đã chốt không đổi
+  {
+    const PR = require("../../core/repository.js").period, D12 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-ky-")); fs.mkdirSync(path.join(D12, "downloads"));
+    const d0 = seed(); d0.chamcong = [{ "Kỳ": "2026-09", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }, { "Kỳ": "2026-10", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }, { "Kỳ": "2026-08", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }];
+    d0.kyluong = [{ ky: "2026-08", version: 1, kq: { bangluong: [{ "Mã NV": "A", "Thực lĩnh": 1000, "Tổng thu nhập": 1200 }] } }]; createStorage(D12).save(JSON.stringify(d0));
+    ({ app, w, errs } = await launch(D12)); await login(w);
+    const cr = await w.evaluate(() => window.hakPeriod.create({ ky: "2026-09", user: "admin" }));
+    ok("Gói kỳ: tạo qua IPC thật, tên LuongHAK_Ky_2026-09_<ngày>_<giờ>.zip, nằm trong thư mục sao lưu", cr && cr.ok === true && /^LuongHAK_Ky_2026-09_\d{8}_\d{6}\.zip$/.test(cr.name) && fs.existsSync(path.join(cr.dir, cr.name)), JSON.stringify(cr));
+    const kyd = (d, ky) => PR.canon(d.chamcong.filter((r) => r["Kỳ"] === ky));
+    await saveViaIpc(w, "d.chamcong.push({'Kỳ':'2026-09','Mã NV':'B','Hình thức công':'BT','01':1}); d.chamcong.find(function(r){return r['Kỳ']==='2026-09'&&r['Mã NV']==='A';})['01']=0.5; d.nhanvien[0]['Họ và tên']='Đã sửa sau khi sao lưu'; d.chamcong.find(function(r){return r['Kỳ']==='2026-10';})['01']=0.25;");
+    const mid = await w.evaluate(() => JSON.parse(window.hakStore.load().text)); ok("Điều kiện thử: dữ liệu đã bị sửa sau khi sao lưu", kyd(mid, "2026-09") !== kyd(d0, "2026-09") && mid.nhanvien[0]["Họ và tên"] === "Đã sửa sau khi sao lưu");
+    const ins = await w.evaluate((n) => window.hakPeriod.inspect(n), cr.name); ok("Kiểm gói qua IPC: hợp lệ, đúng kỳ, trả dữ liệu cho lõi khôi phục", ins && ins.ok === true && ins.manifest.ky === "2026-09" && !!ins.payload, JSON.stringify(ins && ins.error));
+    const res = await w.evaluate((x) => { const P = window.HAKCore.repo.period, cur = JSON.parse(window.hakStore.load().text), pl = P.plan(cur, x.payload, "2026-09"); if (!pl.ok) return { ok: false, pl }; const r = P.apply(cur, pl, x.payload); return { ok: r.ok, audit: r.audit, saved: window.hakStore.save(JSON.stringify(cur)) }; }, { payload: ins.payload });
+    ok("Khôi phục kỳ bằng lõi period.* rồi lưu qua IPC thật: thành công, có chuỗi nhật ký kiểm toán", res && res.ok === true && /Khôi phục kỳ 2026-09/.test(res.audit || ""), JSON.stringify(res).slice(0, 300));
+    const aft = await w.evaluate(() => JSON.parse(window.hakStore.load().text));
+    ok("Sau khôi phục: kỳ 2026-09 và nhân sự về đúng lúc sao lưu (băm nội dung bằng nhau)", kyd(aft, "2026-09") === kyd(d0, "2026-09") && PR.canon(aft.nhanvien) === PR.canon(d0.nhanvien));
+    ok("Sau khôi phục: kỳ khác (2026-10 đã sửa sau đó) KHÔNG đổi; kỳ đã chốt 2026-08 và snapshot kyluong không đổi", kyd(aft, "2026-10") === kyd(mid, "2026-10") && kyd(aft, "2026-08") === kyd(d0, "2026-08") && PR.canon(aft.kyluong) === PR.canon(d0.kyluong));
+    const again = await w.evaluate((x) => { const P = window.HAKCore.repo.period, cur = JSON.parse(window.hakStore.load().text), before = JSON.stringify(cur); P.apply(cur, P.plan(cur, x.payload, "2026-09"), x.payload); return JSON.stringify(cur) === before; }, { payload: ins.payload }); ok("Khôi phục lần hai: dữ liệu không đổi (không nhân đôi)", again === true);
+    const lock = await w.evaluate(() => { const P = window.HAKCore.repo.period, cur = JSON.parse(window.hakStore.load().text), p8 = P.slice(cur, "2026-08"); return P.plan(cur, p8, "2026-08"); }); ok("Kỳ đã chốt ở máy (2026-08): khôi phục bị chặn", lock.ok === false && /đã chốt/.test(lock.blocked || ""));
+    const enc = await w.evaluate(() => window.hakPeriod.create({ ky: "2026-09", user: "admin", password: "Mat-khau-du-dai-2026" }));
+    ok("Gói có mật khẩu → .hakenc; thiếu/sai mật khẩu bị từ chối, đúng mật khẩu mở được", enc.ok && /\.hakenc$/.test(enc.name) && (await w.evaluate((n) => window.hakPeriod.inspect(n, ""), enc.name)).needPassword === true && (await w.evaluate((n) => window.hakPeriod.inspect(n, "sai-mat-khau-khac-123"), enc.name)).wrongPassword === true && (await w.evaluate((n) => window.hakPeriod.inspect(n, "Mat-khau-du-dai-2026"), enc.name)).ok === true);
+    ok("Gói kỳ lương: không lỗi JavaScript ở giao diện", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   // 11. Màn "Sao lưu & Khôi phục" (012-A, issue #113): mỗi chức năng MỘT chỗ; chữ "giữ N ngày" theo cài đặt thật; thư mục JSON; sao lưu JSON ghi vào thư mục đó và khôi phục lại được (băm từng bảng bằng nhau)
   {
     const DG = require("../../main/data-digest"), D11 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-bk-")), JD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-bkjson-")); fs.mkdirSync(path.join(D11, "downloads"));
@@ -261,6 +285,40 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     }
     if (await one("[data-backup-now]")) { const b = await w.locator("[data-backup-now]").boundingBox(), vp = w.viewportSize() || { width: 1366, height: 768 }; ok("Nút Sao lưu toàn bộ thấy ngay khi mở màn (không cần cuộn)", !!b && b.y >= 0 && b.y + b.height <= vp.height, JSON.stringify(b) + " / " + JSON.stringify(vp)); } else ok("Nút Sao lưu toàn bộ thấy ngay khi mở màn (không cần cuộn)", false, "không có nút");
     ok("Màn Sao lưu & Khôi phục: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
+  // 13. GIAO DIỆN sao lưu / khôi phục THEO KỲ (012-B2, issue #113): bấm nút thật → gói .zip; sửa dữ liệu; khôi phục qua màn xem trước (xác nhận riêng, xóa tắt sẵn), tự SAO LƯU TOÀN BỘ trước khi ghi, ghi nhật ký
+  {
+    const D13 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-kyui-")); fs.mkdirSync(path.join(D13, "downloads"));
+    const d0 = seed(); d0.chamcong = [{ "Kỳ": "2026-09", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }, { "Kỳ": "2026-10", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }]; createStorage(D13).save(JSON.stringify(d0));
+    ({ app, w, errs } = await launch(D13)); await login(w);
+    await w.selectOption("#top select", "9"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-backup]", { timeout: 15000 });
+    ok("Khu Sao lưu ngay có nút 'Sao lưu kỳ 2026-09' theo kỳ đang chọn", /2026-09/.test(await w.locator("[data-ky-backup]").innerText()));
+    await w.click("[data-ky-backup]"); await w.waitForSelector("[data-fb-msg]", { timeout: 20000 });
+    const msg = await w.locator("[data-fb-msg]").innerText();
+    const findPk = (dir) => { const out = []; const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/^LuongHAK_Ky_2026-09_.*\.zip$/.test(e.name)) out.push(p); }); walk(dir); return out; };
+    const pk = findPk(D13);
+    ok("Bấm nút: tạo đúng 1 gói LuongHAK_Ky_2026-09_*.zip và báo thành công", pk.length === 1 && /Đã tạo gói kỳ 2026-09/.test(msg), msg + " | " + pk.join(","));
+    const nameA = await w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.find((n) => n["Mã NV"] === "A")["Họ và tên"]);
+    await saveViaIpc(w, "d.chamcong.find(function(r){return r['Kỳ']==='2026-09'&&r['Mã NV']==='A'})['01']=0.5; d.chamcong.push({'Kỳ':'2026-09','Mã NV':'B','Hình thức công':'BT','01':1}); d.nhanvien.find(function(n){return n['Mã NV']==='A'})['Họ và tên']='Tên bị sửa';");
+    await app.close();
+    ({ app, w, errs } = await launch(D13, { HAK_KY_PICK: pk[0] || "" })); await login(w);
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-restore]", { timeout: 15000 });
+    await w.click("[data-ky-restore]"); await w.waitForSelector("[data-ky-preview]", { timeout: 15000 });
+    const pv = await w.locator("[data-ky-preview]").innerText();
+    ok("Xem trước: liệt kê thay đổi nhân sự cũ → mới, có ô xác nhận ghi đè riêng, ô 'cho phép xóa' KHÔNG bật sẵn", /Tên bị sửa → /.test(pv) && (await w.locator("[data-ky-ack-global]").count()) === 1 && (await w.locator("[data-ky-allow-delete]:checked").count()) === 0, pv.slice(0, 400));
+    const bkBefore = await w.evaluate(() => window.hakStore.listBackups().length);
+    await w.click("[data-ky-apply]"); await w.waitForTimeout(400);
+    const still = (await w.locator("[data-ky-preview]").count()) === 1, unchanged = await w.evaluate(() => JSON.parse(window.hakStore.load().text).nhanvien.find((n) => n["Mã NV"] === "A")["Họ và tên"]);
+    ok("Chưa tích xác nhận: KHÔNG ghi, vẫn ở màn xem trước", still && unchanged === "Tên bị sửa", "còn xem trước=" + still + ", tên=" + unchanged);
+    await w.check("[data-ky-ack-global]"); await w.click("[data-ky-apply]"); await w.waitForSelector("[data-fb-msg]", { timeout: 15000 });
+    const after = await w.evaluate(() => JSON.parse(window.hakStore.load().text));
+    const c09 = after.chamcong.filter((r) => r["Kỳ"] === "2026-09"), c10 = after.chamcong.filter((r) => r["Kỳ"] === "2026-10");
+    ok("Sau khôi phục: kỳ 09 về đúng lúc sao lưu (A = 1, không còn B), kỳ 10 giữ nguyên, tên NV về như cũ", c09.length === 1 && String(c09[0]["01"]) === "1" && c10.length === 1 && after.nhanvien.find((n) => n["Mã NV"] === "A")["Họ và tên"] === nameA, JSON.stringify(c09));
+    const bkAfter = await w.evaluate(() => window.hakStore.listBackups());
+    ok("Tự SAO LƯU TOÀN BỘ trước khi khôi phục (có bản 'truoc-khoi-phuc-ky') và nhật ký kiểm toán có 'Khôi phục kỳ lương'", bkAfter.length > bkBefore && JSON.stringify(bkAfter).includes("truoc-khoi-phuc-ky") && after.auditlog.some((a) => a.thaoTac === "Khôi phục kỳ lương"), JSON.stringify(bkAfter).slice(0, 200));
+    ok("Giao diện sao lưu/khôi phục kỳ: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
   const fail = results.filter((r) => !r.pass).length;
