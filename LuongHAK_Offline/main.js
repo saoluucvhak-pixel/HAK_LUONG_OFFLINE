@@ -350,6 +350,27 @@ function registerIpc() {
       return { ok: rep.ok, problems: rep.problems, label: path.basename(f), manifest: rep.manifest && { createdAt: rep.manifest.createdAt, createdBy: rep.manifest.createdBy, appVersion: rep.manifest.appVersion, warnings: rep.manifest.warnings }, docs: rep.docs, ocrSamples: rep.ocrSamples || 0, text: rep.ok ? rep.dataText : null, encrypted: pf !== f }; });
     } catch (err) { return { ok: false, problems: [String(err && err.message || err)] }; }
   }));
+  // 012-B1 (issue #113): gói KỲ LƯƠNG — tạo (ghi vào thư mục Full Backup, tên LuongHAK_Ky_YYYY-MM_<ngày-giờ>.zip|.hakenc) và kiểm gói (chỉ đọc; trả payload cho lõi period.plan ở giao diện 012-B2)
+  ipcMain.handle("ky-create", guardedW("backup.restore", async (e, info) => {
+    try {
+      info = info || {}; const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có dữ liệu để sao lưu" };
+      let data; try { data = JSON.parse(ld.text); } catch (err) { return { ok: false, error: "Dữ liệu hiện tại không đọc được — không tạo gói" }; }
+      return await fullBackup.createPeriodPackage({ dir: spCur().backup, ky: String(info.ky || ""), data, appVersion: app.getVersion(), user: String(info.user || ""), password: info.password ? String(info.password) : "" });
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  }));
+  let lastKyPick = "";
+  ipcMain.handle("ky-inspect", guarded("backup.restore", async (e, name, password) => {
+    try {
+      let f = "";
+      if (name === ":last") { f = lastKyPick; if (!f) return { ok: false, error: "Chưa chọn gói kỳ lương" }; } // 012-B2: nhập mật khẩu xong không phải chọn lại file
+      else if (name) { const cand = path.join(spCur().backup, path.basename(String(name))); f = /^LuongHAK_Ky_\d{4}-\d{2}_.*\.(zip|hakenc)$/i.test(path.basename(cand)) && require("fs").existsSync(cand) ? cand : ""; if (!f) return { ok: false, error: "Không tìm thấy gói kỳ lương trong thư mục sao lưu" }; }
+      else if (process.env.HAK_KY_PICK) f = process.env.HAK_KY_PICK;
+      else { const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn gói kỳ lương (.zip / .hakenc)", filters: [{ name: "Gói kỳ lương", extensions: ["zip", "hakenc"] }], properties: ["openFile"] }); if (!r || !r[0]) return { ok: false, cancelled: true }; f = r[0]; }
+      lastKyPick = f;
+      const rep = await fullBackup.inspectPeriodPackage(f, password ? String(password) : "");
+      return rep.ok ? { ok: true, label: path.basename(f), manifest: rep.manifest, payload: rep.payload, encrypted: rep.encrypted } : { ok: false, error: rep.error, needPassword: !!rep.needPassword, wrongPassword: !!rep.wrongPassword };
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  }));
   // Khôi phục Full Backup theo giao dịch (V8): stage (PRECHECK→STAGING→VERIFY) → commit tài sản → [giao diện thay dữ liệu] → postcheck → finish | rollback
   ipcMain.handle("rs-stage", guarded("backup.restore", async (e, opt) => {
     try {

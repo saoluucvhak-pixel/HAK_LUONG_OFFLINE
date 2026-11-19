@@ -6,6 +6,9 @@
 ## [2.0.48] — 19/11/2026
 - **Thanh trên 1 hàng ở 1366×768 (handoff 005B-UI001, issue #97):** tiêu đề dài cắt bằng "…" (có title), khi cửa sổ ≤ 1500px nút Tìm kiếm / File đã tải / Đăng xuất chỉ còn biểu tượng (tên vẫn ở aria-label/title); kiểm `topWrap` thành PASS/FAIL. Chi tiết: `docs/releases/v2.0.48.md`.
 
+## [2.0.47] — 19/11/2026
+- **Sao lưu/khôi phục theo KỲ LƯƠNG — lõi + IPC (handoff 012-B1, issue #113):** gói `LuongHAK_Ky_YYYY-MM_<ngày-giờ>.zip` (hoặc `.hakenc` có mật khẩu) gồm phát sinh của kỳ + toàn bộ nhân sự/danh mục; khôi phục kỳ không đổi kỳ khác, chặn kỳ đã chốt, xóa mặc định tắt và không xóa hàng đang được dùng. Chưa có giao diện (012-B2). Chi tiết: `docs/releases/v2.0.47.md`.
+
 ## [2.0.46] — 19/11/2026
 - **Màn Sao lưu & Khôi phục gọn 5 khu (handoff 012-A, issue #113):** một nút Sao lưu toàn bộ (SQLite / Full Backup / JSON) + một nút Khôi phục; một bảng thư mục (thêm thư mục sao lưu JSON); bỏ chọn thư mục dự phòng trùng; chữ "giữ N ngày" theo cài đặt. Chưa có sao lưu theo kỳ (012-B). Chi tiết: `docs/releases/v2.0.46.md`.
 
