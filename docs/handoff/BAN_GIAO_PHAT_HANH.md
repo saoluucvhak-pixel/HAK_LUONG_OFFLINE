@@ -3,7 +3,7 @@
 Người lập: CEO_LUONG (thay thế), 19/11/2026. Từ 08:00 19/11 chủ sở hữu giao CEO tự làm toàn bộ (sửa mã, kiểm, gộp, phát hành, bàn giao); STAFF_LUONG và KCS đã dừng; CEO_LUONG gốc nghỉ hẳn (lịch quay lại 12:00 trong `CEO_BAN_GIAO.md` đã hủy).
 
 ## 1. Bộ cài ứng viên
-- **Phiên bản ứng viên: v2.0.50** (bản mới nhất trên `main` sau khi gộp #127). Nhãn GitHub: **Pre-release** (thử nghiệm).
+- **Phiên bản ứng viên: v2.0.54** (bản mới nhất trên `main` sau khi gộp #132). Nhãn GitHub: **Pre-release** (thử nghiệm).
 - Bản chính thức hiện hành (nhãn Latest): **v2.0.30** (18/11/2026).
 - Mỗi bản có `TinhLuongHAK-V10.4-Setup-X.Y.Z.exe`, `SHA256SUMS.txt`, `BUILD_INFO.json`. Kiểm: `node scripts/post-merge-check.cjs X.Y.Z` (tag ↔ commit, CI 8/8, tự băm `.exe`, `BUILD_INFO.commit` = tag, nhãn).
 - **Điều kiện đổi sang Latest:** (1) chủ sở hữu kiểm tay trên Windows thật theo issue **#115** và đánh dấu đạt; (2) chủ sở hữu ghi chấp nhận các nhóm còn "Một phần" ở `docs/ACCEPTANCE_SQLITE_RELEASE.md` §7 hoặc yêu cầu làm tiếp; (3) chủ sở hữu ghi **"đồng ý phát hành vX.Y.Z"**. Sau đó CEO đổi nhãn và đăng ghi chú phát hành.
@@ -23,9 +23,13 @@ Người lập: CEO_LUONG (thay thế), 19/11/2026. Từ 08:00 19/11 chủ sở 
 | 2.0.49 | Quy trình sao lưu khi lưu chính là SQLite: mọi lần sao lưu có bản chụp `.sqlite` đã kiểm, lịch sử 10 bản, chép dự phòng, báo lỗi | #125 |
 | — | Test chuyển máy qua giao diện; ma trận §7; hướng dẫn sao lưu / chuyển máy (`docs/USER_GUIDE.md`) | #126 |
 | 2.0.50 | Danh sách bản sao lưu có cột Định dạng / Phạm vi, lọc | #127 |
+| 2.0.51 | Chống trùng danh mục `dm_*`; sửa dòng danh mục không đổi ô không chạm (NFC theo ô) | #129 |
+| 2.0.52 | Chữ gợi ý đạt tương phản AA mọi màn (UI-003) | #130 |
+| 2.0.53 | Bỏ hai thanh cuộn dọc lồng nhau (UI-004) | #131 |
+| 2.0.54 | Nhập nhiều kỳ nhân sự / danh mục, file nhiều sheet (004.1b); nhật ký nhập ghi hồi tố; chặn đổi Mã NV đã chốt ở tầng nghiệp vụ (R-27); `RULES_TEST_MATRIX.md`; `REPORT_CATALOG.md` | #132 |
 
 ## 3. Trạng thái nghiệm thu
-Xem `docs/ACCEPTANCE_SQLITE_RELEASE.md` §7. Tóm tắt: **Đạt / đạt bằng máy**: Lỗi đã biết, SQLite, Sao lưu–khôi phục–chuyển máy, Phân quyền. **Một phần**: Import (004.1b), Ghi dữ liệu (delta 006), Hiệu lực / Nghiệp vụ / Chốt (chưa rà lại ma trận), Báo cáo (010 #99), UI (UI-003 tương phản, UI-004 thanh cuộn lồng), Hiệu năng (006), Setup (Windows thật). **Chưa nghiệm thu trên Windows thật: tất cả.**
+Xem `docs/ACCEPTANCE_SQLITE_RELEASE.md` §7 (v2.0.54). **Đạt / đạt bằng máy**: Lỗi đã biết, Import, Hiệu lực, Nghiệp vụ, Chốt/thanh toán, SQLite, Sao lưu–khôi phục–chuyển máy, UI (Linux/CI), Phân quyền. **Một phần**: Ghi dữ liệu (delta 006), Báo cáo/lọc (6 báo cáo nghiệp vụ dùng bộ lọc riêng — đề xuất thống nhất chờ duyệt), Hiệu năng (006), Setup (Windows thật). **Chưa nghiệm thu trên Windows thật: tất cả.**
 
 ## 4. Rủi ro còn lại
 1. Chưa thử trên Windows thật (đường dẫn có dấu, USB/ổ mạng, tỉ lệ hiển thị 125%/150%, tắt nóng, đĩa gần đầy) — #115.
@@ -34,13 +38,11 @@ Xem `docs/ACCEPTANCE_SQLITE_RELEASE.md` §7. Tóm tắt: **Đạt / đạt bằn
 4. Bộ cài chưa ký số; dữ liệu trên đĩa chưa mã hóa (tạm dừng). File sao lưu JSON không mã hóa — Full Backup và gói kỳ đặt được mật khẩu.
 5. Lỗi Windows ngẫu nhiên ở `tests/e2e/legacy-upgrade.cjs` (gặp một lần ở #108) chưa rõ nguyên nhân; quy ước: gặp lại thì lưu log, không chạy lại cho qua.
 
-## 5. Việc tiếp theo (P1, không chặn phát hành trừ khi chủ sở hữu yêu cầu)
-- 004.1b (#92): nhập nhiều kỳ cho nhân sự / danh mục, file nhiều sheet, OCR chấm công.
-- 010 (#99): báo cáo chuyên nghiệp + bộ lọc thống nhất mọi màn.
-- 013-C: chuẩn hóa NFC theo ô khi sửa tay; dò nghi trùng cho `dm_*`.
-- UI-003 (tương phản chữ `hint`), UI-004 (hai thanh cuộn lồng ở Bảng chấm công).
+## 5. Việc tiếp theo (chờ chủ sở hữu quyết định)
+- Thống nhất bộ lọc thông minh cho 6 báo cáo nghiệp vụ (`docs/REPORT_CATALOG.md` mục Đề xuất).
+- 006: thiết kế ghi delta / hiệu năng lưu 5.000 NV.
+- E2E chọn file nhiều sheet / ảnh OCR nhiều kỳ qua giao diện (tầng ghi đã kiểm).
 - Khôi phục từ một bản chụp SQLite cũ trong lịch sử (hiện dùng bản JSON cùng thời điểm).
-- 006: thiết kế ghi delta (chờ chủ sở hữu duyệt).
 
 ## 6. Cách làm việc / lệnh kiểm (cho người tiếp nhận)
 ```
