@@ -6659,14 +6659,14 @@
     var bb = $(".brand small"); if (bb) bb.textContent = congTy()["Tên công ty"] || "Chạy offline";
     var top = $("#top"); top.innerHTML = "";
     var title = TITLES[st.tab] || (S[st.tab] && S[st.tab].ten) || "";
-    top.appendChild(h("h2", { text: ["bangtinh", "rp_tonghop", "rp_pb", "rp_tncn", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_soct", "rp_ck", "rp_tm", "slips", "baocaoluong", "rp_ns", "rp_sl", "rp_bd", "rp_th", "rp_tu", "rp_com"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
+    top.appendChild(h("h2", { title: title, text: ["bangtinh", "rp_tonghop", "rp_pb", "rp_tncn", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_soct", "rp_ck", "rp_tm", "slips", "baocaoluong", "rp_ns", "rp_sl", "rp_bd", "rp_th", "rp_tu", "rp_com"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
     top.appendChild(h("button", { class: "topbtn srch", type: "button", "aria-label": "Tìm kiếm", title: "Tìm nhanh màn hình, nhân viên, báo cáo (Ctrl+K)", on: { click: quickSearch } }, ["🔍 Tìm kiếm", h("kbd", { text: "Ctrl K" })]));
     if (["nhansu", "nv", "dm", "caidat", "backup", "kyluong"].indexOf(st.tab) < 0) top.appendChild(periodBox());
-    if (FILES) top.appendChild(h("button", { class: "topbtn", type: "button", "data-files": "1", title: "Xem / mở các file Excel, báo cáo đã tải", on: { click: filesDrawer } }, ["📂 File đã tải"]));
+    if (FILES) top.appendChild(h("button", { class: "topbtn", type: "button", "data-files": "1", title: "Xem / mở các file Excel, báo cáo đã tải", "aria-label": "File đã tải", on: { click: filesDrawer } }, ["📂", h("span", { class: "lbl", text: " File đã tải" })])); // 005B-UI001: chữ ẩn khi hẹp, giữ biểu tượng
     var roleName = (PERM.ROLES[session.vaiTro] || {}).ten || "vai trò không hợp lệ — liên hệ Admin";
     top.appendChild(h("span", { class: "who", text: roleName, title: session.hoTen + " · " + roleName, "data-user": session.tenDangNhap }));
     top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi mật khẩu của " + session.hoTen, "aria-label": "Đổi mật khẩu", on: { click: function () { changePassword(false); } } }, ["🔑"]));
-    top.appendChild(h("button", { class: "topbtn", type: "button", on: { click: function () { logout(); } } }, ["Đăng xuất"]));
+    top.appendChild(h("button", { class: "topbtn", type: "button", "data-logout": "1", title: "Đăng xuất", "aria-label": "Đăng xuất", on: { click: function () { logout(); } } }, ["⏻", h("span", { class: "lbl", text: " Đăng xuất" })]));
     top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi giao diện sáng / tối", "aria-label": "Đổi giao diện sáng / tối", on: { click: toggleTheme } }, [curTheme() === "dark" ? "🏖" : "🌙"]));
     var m = $("#main"); m.innerHTML = ""; refreshNVList();
     if((db._yearArchives||[]).some(function(r){return r.active&&r.year===Number(st.nam);})&&st.tab!=="backup")m.appendChild(h("div",{class:"warn","data-archived-year-notice":"1"},[document.createTextNode("Hồ sơ năm "+st.nam+" đã nằm trong kho riêng. Dữ liệu năm này không được tải vào vùng đang làm. "),btn("Mở kho hồ sơ năm","",function(){st.tab="backup";saveUi();render();})]));

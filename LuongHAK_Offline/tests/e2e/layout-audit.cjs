@@ -5,6 +5,8 @@
 // stickyHead (bảng dài thiếu tiêu đề cột cố định), overlap (nút/ô chồng nhau), contrast (chip/nhãn trạng thái dưới AA), noFocus (control không hiện focus).
 const fs = require("node:fs"), path = require("node:path");
 /** Màn nhập liệu hằng ngày + số dòng tối thiểu phải thấy ngay khi mở màn ở 1366×768 (005B-UI002, issue #97). */
+/** 005B-UI001 (issue #97): chiều cao tối đa của thanh trên — 1 hàng ở 1366×768 và 1920×1080, tối đa 2 hàng ở 1024×768. */
+const TOP_ONE_ROW = 80, TOP_TWO_ROWS = 120;
 const INPUT_SCREENS = ["chamcong", "sanluong", "bandam", "tiencom", "psluong", "ungluong"], MIN_ROWS = 12;
 const SIZES = [{ w: 1366, h: 768 }, { w: 1920, h: 1080 }, { w: 1024, h: 768 }];
 
@@ -64,7 +66,7 @@ function pageChecks() {
     if (ratio < (large ? 3 : 4.5)) out.contrast.push(desc(e) + " " + ratio.toFixed(2));
   });
   // thanh trên bị xuống dòng (các control nằm ở ≥ 2 hàng khác nhau)
-  const top = document.querySelector("#top"); out.topWrap = [];
+  const top = document.querySelector("#top"); out.topWrap = []; out.topH = top ? Math.round(top.getBoundingClientRect().height) : null;
   if (top && top.getBoundingClientRect().height > 80) out.topWrap.push("thanh trên cao " + Math.round(top.getBoundingClientRect().height) + "px (1 hàng ≈ 57px) — control bị đẩy xuống hàng 2+");
   // bảng dữ liệu dài nhưng màn đầu tiên chỉ thấy rất ít dòng (< 6) — thanh công cụ/chú thích chiếm hết chiều cao
   out.fewRows = [];
@@ -137,4 +139,4 @@ async function auditDialogs(opt) {
   }
   return rows;
 }
-module.exports = { INPUT_SCREENS, MIN_ROWS, auditDialogs, syntheticData, auditAll, pageChecks, dialogChecks, focusCheck, SIZES };
+module.exports = { TOP_ONE_ROW, TOP_TWO_ROWS, INPUT_SCREENS, MIN_ROWS, auditDialogs, syntheticData, auditAll, pageChecks, dialogChecks, focusCheck, SIZES };

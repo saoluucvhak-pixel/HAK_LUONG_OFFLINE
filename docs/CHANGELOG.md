@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.48] — 19/11/2026
+- **Thanh trên 1 hàng ở 1366×768 (handoff 005B-UI001, issue #97):** tiêu đề dài cắt bằng "…" (có title), khi cửa sổ ≤ 1500px nút Tìm kiếm / File đã tải / Đăng xuất chỉ còn biểu tượng (tên vẫn ở aria-label/title); kiểm `topWrap` thành PASS/FAIL. Chi tiết: `docs/releases/v2.0.48.md`.
+
 ## [2.0.46] — 19/11/2026
 - **Màn Sao lưu & Khôi phục gọn 5 khu (handoff 012-A, issue #113):** một nút Sao lưu toàn bộ (SQLite / Full Backup / JSON) + một nút Khôi phục; một bảng thư mục (thêm thư mục sao lưu JSON); bỏ chọn thư mục dự phòng trùng; chữ "giữ N ngày" theo cài đặt. Chưa có sao lưu theo kỳ (012-B). Chi tiết: `docs/releases/v2.0.46.md`.
 
