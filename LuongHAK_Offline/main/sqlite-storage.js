@@ -166,11 +166,11 @@ function createSqliteStorage(dir, opts) {
       openDb();
       const nextBytes = Buffer.byteLength(text, "utf8");
       if (cur) { // các biện pháp bảo vệ cũ của storage.save, giữ nguyên ý nghĩa: bản sao lưu đầu ngày, năm, giảm đột ngột — đều chụp TRẠNG THÁI TRƯỚC thay đổi
-        const guardBackup = (tag, file) => { if (!exportReady()) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "): " + backupError + " Dữ liệu chưa bị thay đổi."); const f = verifyBackup(json.backup(tag, file)); if (!f) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "). " + backupError + " Dữ liệu chưa bị thay đổi."); };
+        const guardBackup = (tag, file) => { if (!exportReady()) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "): " + backupError + " Dữ liệu chưa bị thay đổi."); const f = verifyBackup(json.backup(tag, file)); if (!f) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "). " + backupError + " Dữ liệu chưa bị thay đổi."); snapshotNow(tag); };
         const daily = "daily_" + ymd(now()) + ".json";
         if (!fs.existsSync(path.join(json.backupDir, daily))) guardBackup("daily", daily); // chặn lưu nếu không bảo vệ được: giống kho JSON khi ghi file lỗi
         const y = String(now().getFullYear());
-        if (yearChecked !== y) { try { if (json.yearBackups(y).length) yearChecked = y; else if (exportReady()) { const f = verifyBackup(json.backup("nam-" + y, "nam-" + y + "_" + ymd(now()) + ".json")); if (f) yearChecked = y; } } catch (e) { /* không chặn việc lưu; thử lại ở lần lưu sau, không tạo bản từ file cũ */ } }
+        if (yearChecked !== y) { try { if (json.yearBackups(y).length) yearChecked = y; else if (exportReady()) { const f = verifyBackup(json.backup("nam-" + y, "nam-" + y + "_" + ymd(now()) + ".json")); if (f) { yearChecked = y; snapshotNow("nam-" + y); } } } catch (e) { /* không chặn việc lưu; thử lại ở lần lưu sau, không tạo bản từ file cũ */ } }
         const oldBytes = Buffer.byteLength(cur.text, "utf8");
         if (oldBytes > 2048 && nextBytes < oldBytes * 0.5) guardBackup("truoc-giam-du-lieu");
       }
@@ -193,10 +193,44 @@ function createSqliteStorage(dir, opts) {
     for (const f of [name, name + ".sha256"]) { try { fs.rmSync(path.join(json.backupDir, f), { force: true }); } catch (e) { /* bỏ qua */ } }
     backupError = "Bản sao lưu vừa tạo không khớp dữ liệu hiện tại nên đã bị hủy; bản sao lưu tốt trước đó được giữ nguyên."; return null;
   }
-  let snapshotError = "";
-  // Bản chụp SQLite xoay vòng (1 file, ghi đè sau khi bản mới đạt kiểm tra): bổ sung cho bản sao lưu JSON, KHÔNG thay thế; lỗi chỉ ghi lại, không chặn sao lưu.
-  function snapshotNow() { snapshotError = ""; if (!db) return null; const r = store.snapshot(db, path.join(json.backupDir, "data-snapshot.sqlite")); if (!r.ok) snapshotError = r.error; return r; }
-  const backupWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return null; const out = json[name](...args); const v = typeof out === "string" ? verifyBackup(out) : out; if (v && name === "backup") snapshotNow(); return v; };
+  let snapshotError = "", snapshotLast = null;
+  // Bản chụp SQLite (CEO rà quy trình sao lưu 19/11/2026 — nơi lưu CHÍNH là SQLite):
+  //  · MỌI lần sao lưu (tay, định kỳ, khi đóng app, đầu ngày, đầu năm, trước thao tác lớn, sau chốt kỳ) đều tạo bản chụp .sqlite đã kiểm (VACUUM INTO + integrity_check + đối chiếu số dòng);
+  //  · data-snapshot.sqlite = bản MỚI NHẤT (giữ nguyên tên để khôi phục khi data.sqlite hỏng như trước); thêm LỊCH SỬ snap_<thời điểm>_<nhãn>.sqlite: giữ SNAP_KEEP bản thường, bản sau chốt kỳ / theo năm giữ vĩnh viễn;
+  //  · chép bản chụp sang thư mục dự phòng (nếu đã chọn), đọc lại so SHA-256;
+  //  · lỗi KHÔNG chặn sao lưu JSON nhưng được ghi lại và đưa lên giao diện (snapshotStatus().lastError).
+  const SNAP_KEEP = 10, SNAP_RE = /^snap_\d{8}-\d{6}-\d{3}_([a-z0-9-]+)\.sqlite$/i, MIRROR_SUB = "TinhLuongHAK-SaoLuu";
+  const snapPerm = (tag) => /^(sau-chot|nam-\d{4}$)/i.test(tag);
+  const snapStamp = (d) => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "-" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + "-" + String(d.getMilliseconds()).padStart(3, "0");
+  const shaOf = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+  const listSnaps = (d) => { try { return fs.readdirSync(d).filter((x) => SNAP_RE.test(x)).sort().reverse(); } catch (e) { return []; } };
+  function pruneSnaps(d) { listSnaps(d).filter((x) => !snapPerm(x.match(SNAP_RE)[1])).slice(SNAP_KEEP).forEach((x) => { try { fs.rmSync(path.join(d, x), { force: true }); } catch (e) { /* để lần sau */ } }); }
+  function copyVerified(src, dest) { const tmp = dest + ".tmp"; fs.copyFileSync(src, tmp); const fd = fs.openSync(tmp, "r+"); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } if (shaOf(tmp) !== shaOf(src)) { fs.rmSync(tmp, { force: true }); throw new Error("bản chép không khớp SHA-256"); } fs.renameSync(tmp, dest); }
+  function snapshotNow(tag) {
+    snapshotError = ""; if (!db) return null;
+    const latest = path.join(json.backupDir, "data-snapshot.sqlite"), r = store.snapshot(db, latest);
+    if (!r.ok) { snapshotError = "Không tạo được bản chụp SQLite: " + r.error + " (bản sao lưu JSON vẫn có)."; return r; }
+    const t = String(tag || "manual").replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "manual", name = "snap_" + snapStamp(now()) + "_" + t + ".sqlite";
+    try { copyVerified(latest, path.join(json.backupDir, name)); pruneSnaps(json.backupDir); }
+    catch (e) { snapshotError = "Đã có bản chụp mới nhất nhưng không lưu được lịch sử bản chụp: " + String(e && e.message || e); }
+    snapshotLast = { name, at: now().toISOString(), records: r.records, tag: t };
+    try {
+      const st = json.readSettings() || {};
+      if (st.mirrorDir) {
+        if (!fs.existsSync(st.mirrorDir)) throw new Error("Không truy cập được thư mục " + st.mirrorDir + " (USB chưa cắm / ổ mạng mất kết nối?)");
+        const root = path.join(st.mirrorDir, MIRROR_SUB); fs.mkdirSync(root, { recursive: true });
+        copyVerified(path.join(json.backupDir, name), path.join(root, name)); pruneSnaps(root);
+      }
+    } catch (e) { snapshotError = (snapshotError ? snapshotError + " " : "") + "Bản chụp SQLite chưa chép được sang thư mục dự phòng: " + String(e && e.message || e); }
+    return r;
+  }
+  const SNAP_TAG = { backup: (a) => a[0] || "manual", tickSchedule: () => "dinh-ky", backupOnClose: () => "khi-dong", backupYear: (a) => "nam-" + (a[0] || now().getFullYear()) };
+  const backupWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return null; const out = json[name](...args); const v = typeof out === "string" ? verifyBackup(out) : out; if (v && SNAP_TAG[name]) snapshotNow(SNAP_TAG[name](args)); return v; };
+  /** Trạng thái bản chụp SQLite cho giao diện: bản mới nhất (lần này), lịch sử trên máy, lỗi gần nhất ("" = không lỗi). */
+  function snapshotStatus() {
+    const hist = listSnaps(json.backupDir).map((x) => { let size = 0, mtime = null; try { const s0 = fs.statSync(path.join(json.backupDir, x)); size = s0.size; mtime = s0.mtimeMs; } catch (e) { /* bỏ qua */ } return { name: x, tag: x.match(SNAP_RE)[1], size, mtime, permanent: snapPerm(x.match(SNAP_RE)[1]) }; });
+    const info = snapshotInfo(); return { latest: snapshotLast || (info && info.exists ? { name: "data-snapshot.sqlite", at: info.mtime ? new Date(info.mtime).toISOString() : null, records: info.records } : null), history: hist, keep: SNAP_KEEP, lastError: snapshotError };
+  }
   const readWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return name === "changedSinceBackup" ? true : null; return json[name](...args); };
   const mirrorWrap = () => (...args) => { backupError = ""; if (!exportReady()) return { ok: false, error: backupError }; return json.syncMirror(...args); };
   function quarantineCorrupt() { // người dùng chọn "cất file lạ": cất data.json, rồi dùng dữ liệu SQLite
@@ -319,7 +353,7 @@ function createSqliteStorage(dir, opts) {
 
   return Object.assign({}, json, {
     snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, needsRecovery, load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
-    snapshotNow, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
+    snapshotNow, snapshotStatus, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev, kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });
 }

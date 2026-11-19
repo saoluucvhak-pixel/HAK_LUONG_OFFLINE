@@ -321,6 +321,20 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Giao diện sao lưu/khôi phục kỳ: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
+  // 14. QUY TRÌNH SAO LƯU khi nơi lưu CHÍNH là SQLite (CEO rà 19/11): bấm "Sao lưu toàn bộ" (loại SQLite mặc định) → có bản chụp snap_*.sqlite đã kiểm + JSON đối chứng, thông báo nêu tên bản chụp, màn hiện trạng thái bản chụp
+  {
+    const D14 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-snapui-")); fs.mkdirSync(path.join(D14, "downloads"));
+    createStorage(D14).save(JSON.stringify(seed()));
+    ({ app, w, errs } = await launch(D14)); await login(w);
+    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-backup-now]", { timeout: 15000 });
+    ok("Loại sao lưu mặc định là SQLite và mô tả đúng (bản chụp .sqlite + JSON đối chứng)", (await w.locator("[data-backup-kind]").inputValue()) === "sqlite" && /\.sqlite đã kiểm/.test(await w.locator("[data-backup-kind] option[value=sqlite]").innerText()));
+    await w.click("[data-backup-now]"); await w.waitForSelector("[data-fb-msg]", { timeout: 20000 });
+    const m14 = await w.locator("[data-fb-msg]").innerText(), bdir = await w.evaluate(() => window.hakStore.info().backupDir), snapsOnDisk = fs.readdirSync(bdir).filter((x) => /^snap_.*\.sqlite$/.test(x));
+    ok("Bấm Sao lưu toàn bộ (SQLite): có bản chụp snap_*.sqlite trên đĩa và thông báo nêu tên bản chụp + số dòng", snapsOnDisk.length >= 1 && /bản chụp snap_.*\.sqlite \(\d+ dòng, đã kiểm\)/.test(m14), m14 + " | " + snapsOnDisk.join(","));
+    ok("Màn Sao lưu hiện trạng thái bản chụp SQLite mới nhất, không có cảnh báo lỗi bản chụp", (await w.locator("[data-snap-status]").count()) === 1 && /Bản chụp SQLite mới nhất/.test(await w.locator("[data-snap-status]").innerText()) && (await w.locator("[data-snap-error]").count()) === 0);
+    ok("Quy trình sao lưu SQLite: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
+    await app.close();
+  }
   const fail = results.filter((r) => !r.pass).length;
   console.log("\nSQLite chế độ thật E2E: " + (results.length - fail) + "/" + results.length + " đạt"); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });

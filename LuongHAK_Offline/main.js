@@ -134,6 +134,7 @@ function registerIpc() {
   ipcMain.on("store-verify", (e) => { try { e.returnValue = storage.verifyAll(); } catch (err) { e.returnValue = []; } });
   ipcMain.on("store-read", (e, name) => { try { e.returnValue = storage.readBackup(name); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
   // Khôi phục từ bản chụp SQLite: CHỈ khi kho không mở được (màn hình khôi phục, chưa đăng nhập — cùng quy ước với khôi phục từ file khi dữ liệu hỏng); kho đang mở bình thường thì từ chối
+  ipcMain.on("store-snapshot-status", (e) => { try { e.returnValue = storage.snapshotStatus ? storage.snapshotStatus() : null; } catch (err) { e.returnValue = { lastError: String(err && err.message || err), history: [] }; } }); // quy trình sao lưu SQLite: bản chụp mới nhất, lịch sử, lỗi gần nhất
   ipcMain.on("store-snapshot-info", (e) => { try { e.returnValue = storage.snapshotInfo ? storage.snapshotInfo() : { exists: false, ok: false, error: "Chế độ lưu này không có bản chụp SQLite." }; } catch (err) { e.returnValue = { exists: false, ok: false, error: String(err.message || err) }; } });
   ipcMain.on("store-restore-snapshot", (e) => {
     try {
