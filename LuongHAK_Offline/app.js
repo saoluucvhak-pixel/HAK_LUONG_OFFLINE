@@ -6691,10 +6691,27 @@
     var t = Date.now(); if (t - sessChecked < 2000) return; sessChecked = t;
     try { var r = store.authState(); if (r && !r.ok) { session = null; toast("Phiên đăng nhập đã hết hiệu lực hoặc quyền đã bị thu hồi — đăng nhập lại"); } } catch (e) { /* lần vẽ sau thử lại */ }
   }
+  // 005B-UI004 (issue #97): bảng chính là khối cuối của trang mà vẫn tràn khỏi màn → khung trang và bảng cùng cuộn (2 thanh cuộn lồng).
+  // Sau mỗi lần vẽ / đổi cỡ cửa sổ: thu chiều cao tối đa của bảng đúng bằng phần tràn để chỉ còn thanh cuộn của bảng. Chỉ đổi kích thước hiển thị.
+  function fitMainTable() {
+    var m = $("#main"); if (!m) return;
+    var tws = [].slice.call(m.querySelectorAll(".tw")).filter(function (e) { return e.offsetParent !== null && /(auto|scroll)/.test(window.getComputedStyle(e).overflowY); });
+    tws.forEach(function (e) { if (e.dataset.fitH) { e.style.maxHeight = ""; delete e.dataset.fitH; } });
+    var tw = tws.sort(function (a, b) { return b.clientHeight - a.clientHeight; })[0]; if (!tw || tw.scrollHeight <= tw.clientHeight + 2) return;
+    var over = m.scrollHeight - m.clientHeight; if (over <= 2) return;
+    var mb = m.getBoundingClientRect(), below = mb.top + m.scrollHeight - m.scrollTop - tw.getBoundingClientRect().bottom - parseFloat(window.getComputedStyle(m).paddingBottom || 0);
+    if (below >= 40) return; // trang nhiều phần (báo cáo): khung trang cuộn là đúng
+    var target = tw.clientHeight - over; if (target < 200) return;
+    tw.style.maxHeight = target + "px"; tw.dataset.fitH = "1";
+  }
+  var fitQueued = false;
+  function scheduleFit() { if (fitQueued || typeof window.requestAnimationFrame !== "function") return; fitQueued = true; window.requestAnimationFrame(function () { window.requestAnimationFrame(function () { fitQueued = false; try { fitMainTable(); } catch (e) { /* chỉ là bố cục */ } }); }); }
+  if (typeof window !== "undefined" && window.addEventListener) window.addEventListener("resize", scheduleFit);
   function render() {
     if(st.tab !== "backup" && window.hakYears) window.hakYears.release().catch(function(){});
     if (window.HAKUI && window.HAKUI.filter) window.HAKUI.filter.close();
     syncSession();
+    scheduleFit();
     try { renderInner(); }
     catch (e) {
       var m = $("#main"); if (!m) return;
