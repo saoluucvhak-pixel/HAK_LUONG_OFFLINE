@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.45] — 19/11/2026
+- **Màn nhập liệu thấy ≥ 12 dòng ở 1366×768 (handoff 005B-UI002, issue #97):** hướng dẫn/chú giải/chi tiết tổng được gấp lại, thanh nút–bộ lọc–hàng bảng nén gọn; kiểm bố cục `fewRows` thành PASS/FAIL. Không đổi dữ liệu/công thức. Chi tiết: `docs/releases/v2.0.45.md`.
+
 ## [2.0.44] — 19/11/2026
 - **Chống trùng khi nhập (handoff 013, issue #114):** Mã NV / Phiếu cân / Số chứng từ / Số HĐLĐ khác **chữ hoa/thường, khoảng trắng, chữ toàn khổ, gạch nối** nay được coi là NGHI TRÙNG thay vì thành bản ghi mới (`nv01` = `NV 01` = `ＮＶ01`; `pc-001` = `PC - 001`). Nhập Excel: dòng "Nghi trùng" KHÔNG được ghi, có lý do + "Cách sửa", vào file lỗi để sửa (đối chiếu `file = ghi + gộp + không ghi` vẫn đúng). Nhập tay: chặn trùng theo khóa chuẩn hóa cho nhân sự, hợp đồng, sản lượng, ban dăm, tiền cơm, thưởng/trừ, tạm ứng (tiền cơm nhập tay trùng Ngày + Mã NV nay bị chặn như nhập Excel); `input-safety` so phiếu theo khóa chuẩn hóa (lọt cả lúc tính lương trước đây). Chữ nhập MỚI chuẩn hóa NFC (thưởng chép từ Mac/web hết bị tính 2 lần). "Kiểm tra dữ liệu" liệt kê nhóm nghi trùng đã lỡ có (chỉ báo, không tự gộp). Khóa so sánh chỉ để SO SÁNH — không sửa dữ liệu đã lưu; không đổi công thức, lược đồ, kỳ đã chốt, `core/importer.js`.
 
