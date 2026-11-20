@@ -318,7 +318,9 @@ function registerIpc() {
           r.file = encF; r.name = path.basename(encF); r.size = en.size; r.sha256 = en.sha256; r.encrypted = true;
         } catch (err) {
           try { await fsp0.unlink(encF); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(chk); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(encF + ".sha256"); } catch (x) { /* chưa tạo */ }
-          (r.warnings = r.warnings || []).push("KHÔNG mã hóa được (" + (err.message || err) + ") — gói giữ nguyên dạng KHÔNG mã hóa: " + path.basename(plain));
+          try { await fsp0.unlink(plain); } catch (x) { /* dọn bản rõ */ } try { await fsp0.unlink(plain + ".sha256"); } catch (x) { /* dọn bản rõ */ }
+          r.ok = false; r.status = "FAILED"; r.error = "KHÔNG mã hóa được (" + (err.message || err) + ") — đã hủy, không lưu bản rõ";
+          return r;
         }
       }
       let mirrored = "";
