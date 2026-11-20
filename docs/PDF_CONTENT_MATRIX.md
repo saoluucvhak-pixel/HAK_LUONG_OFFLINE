@@ -27,3 +27,10 @@ Tổng 36 báo cáo/sheet, 101 dòng dữ liệu: 85 nguyên dòng, 13 theo kh�
 - Dấu gạch `-`, `:`, `(`, `)` được bỏ khi so sánh (phông dự phòng của Skia không ghi chúng vào ToUnicode) — nên một lỗi chỉ ở các dấu này sẽ không bị bắt; dấu chấm/phẩy của số được GIỮ nguyên khi so.
 - Chạy trên Linux: Chromium dùng phông Type3 dự phòng; trên Windows thật là phông TrueType (Type0) — bộ trích đã có unit test cho dạng này nhưng chưa có bằng chứng chạy trên PDF Windows thật ngoài CI.
 - Chưa phủ: báo cáo lương dạng nhiều bảng khác (thanh toán, chuyển khoản, tiền mặt, thuế TNCN — `payroll-reports`), báo cáo kỳ đã chốt, bộ báo cáo kỳ lương (`17-chot-ky`), PDF của màn hình nhập liệu "⬇ PDF", PDF kho năm, PDF từ OCR. Ma trận này là bước đầu cho 4 nhóm chính.
+
+## Ghi nhận quy tắc định dạng PDF bổ sung (Đợt 4 — A6)
+- **Định dạng ngày & nhãn kỳ:** thống nhất `dd/mm/yyyy` và nhãn kỳ đệm 0 (`09/2026`, `Tháng 09/2026`).
+- **Cảnh báo BẢN NHÁP & hậu tố `_TAM`:** PDF (`table()` và `sheets()` trong `report-html.js`) in khung đỏ `.warn` `"BẢN NHÁP — TÍNH TẠM, kỳ chưa chốt; không dùng để ký/chi tiền"` khi `trangThai` khớp `/chưa chốt|tính tạm/i`; tên file PDF/Excel kỳ chưa chốt gắn hậu tố `_TAM`.
+- **Bảng rộng & ngắt dòng (`repeatColumns`, `nowrap`):** bảng > 16 cột tách phần và lặp cột nhận diện (`repeatColumns`), giữ `nowrap` cho cột số/mã và `overflow-wrap: anywhere` cho cột chữ trong `sheets()`.
+- **Thuế TNCN & Phiếu lương in gọn:** `THUE_TNCN` bổ sung cột `"Mã NV"` và truyền cảnh báo thiếu MST vào `ghiChu` khi in PDF; `@media print` cho `.slips.gon .slip` thu gọn khoảng cách để vừa `>= 2` phiếu/trang A4 (`break-inside: avoid`).
+- **Chưa kiểm trên máy in / Windows / Excel thật:** chưa in thử trên máy in vật lý, chưa mở đối chiếu trực quan bố cục trang trên Adobe/Chrome Print Preview Windows và Microsoft Excel thật ngoài các bài kiểm tra tự động.
