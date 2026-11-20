@@ -1,7 +1,6 @@
 // P1.5 — T-03: Chấm công trùng khóa, khác số công, bị CỘNG DỒN và lọt chốt kỳ
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
-const path = require("node:path");
 const RP = require("../../core/repository.js");
 const INT = require("../../core/integrity.js");
 
