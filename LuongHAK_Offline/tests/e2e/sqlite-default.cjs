@@ -339,6 +339,15 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       await w.selectOption("[data-bk-kind-filter]", "all"); await w.waitForTimeout(200);
       ok("Danh sách bản sao lưu: có cả bản chụp SQLite và bản JSON, cột Định dạng + Phạm vi; lọc 'SQLite' chỉ còn bản .sqlite", nSql >= 1 && nJson >= 1 && /Định dạng/.test(head) && /Phạm vi/.test(head) && onlySql, "sqlite=" + nSql + " json=" + nJson + " | " + head.replace(/\s+/g, " "));
     }
+    { // T-01 (rà soát 5 agent): "Kiểm tra tất cả bản sao lưu" — không bản nào hỏng → biểu ngữ xanh; làm hỏng 1 bản JSON (vẫn là JSON hợp lệ, SHA lệch) → biểu ngữ CẢNH BÁO
+      await w.click('#main button:has-text("Kiểm tra tất cả bản sao lưu")'); await w.waitForTimeout(800);
+      const okBanner = await w.locator('#main .ok:has-text("Đã kiểm tra")').count(), warnBefore = await w.locator('#main .warn:has-text("bị hỏng")').count();
+      const jf = fs.readdirSync(bdir).filter((x) => /\.json$/.test(x)).sort()[0], jp = path.join(bdir, jf), jd = JSON.parse(fs.readFileSync(jp, "utf8")); jd.__sua_tay = "bị sửa"; fs.writeFileSync(jp, JSON.stringify(jd));
+      await w.click('#main button:has-text("Kiểm tra tất cả bản sao lưu")'); await w.waitForTimeout(800);
+      const warnTxt = await w.locator('#main .warn:has-text("bị hỏng")').allInnerTexts(), okAfter = await w.locator('#main .ok:has-text("Đã kiểm tra")').count(), rowBad = await w.locator('[data-bk-row="json"]:has-text("HỎNG")').count();
+      ok("T-01: kiểm tra khi không có bản hỏng → biểu ngữ xanh 'Đã kiểm tra…'", okBanner === 1 && warnBefore === 0, "ok=" + okBanner + " warn=" + warnBefore);
+      ok("T-01: có 1 bản JSON bị sửa → hàng hiện HỎNG VÀ biểu ngữ CẢNH BÁO '1 bản sao lưu bị hỏng' (không còn biểu ngữ xanh)", rowBad >= 1 && warnTxt.some((t) => /\b1 bản sao lưu bị hỏng/.test(t)) && okAfter === 0, "rowBad=" + rowBad + " warn=" + JSON.stringify(warnTxt) + " okAfter=" + okAfter + " file=" + jf);
+    }
     ok("Quy trình sao lưu SQLite: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
