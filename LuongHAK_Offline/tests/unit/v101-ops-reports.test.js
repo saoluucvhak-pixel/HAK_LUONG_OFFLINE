@@ -281,3 +281,15 @@ test("Suất cơm đối chiếu công CC, suất bổ sung và dòng trùng ch�
   assert.equal(rows.find(row => row["Nguồn"] === "Dòng trùng chờ xử lý")["Số suất tính lương"], 0);
   assert.equal(rows.find(row => row["Nguồn"] === "Suất bổ sung")["Số suất tính lương"], 1);
 });
+
+test("U-OPS-PBMULTI (010) bộ lọc Phòng ban CHỌN NHIỀU: mảng tên phòng ban giữ đúng các dòng của các phòng đã chọn; phạm vi in liệt kê đủ; chuỗi đơn vẫn chạy như cũ", () => {
+  const db = mkDb(), a = tenPB(db, PB1), b = tenPB(db, PB2);
+  const one = OPS.build("NHAN_SU", db, base(db, { phongBan: a, trangThaiNV: "tatca" }));
+  assert.deepEqual(one.rows.map((r) => r["Mã NV"]).sort(), ["NV001", "NV002"]);
+  const arr1 = OPS.build("NHAN_SU", db, base(db, { phongBan: [a], trangThaiNV: "tatca" }));
+  assert.deepEqual(arr1.rows.map((r) => r["Mã NV"]).sort(), ["NV001", "NV002"], "mảng 1 phòng ban phải lọc như chuỗi");
+  const both = OPS.build("NHAN_SU", db, base(db, { phongBan: [a, b], trangThaiNV: "tatca" }));
+  assert.equal(both.rows.length, 4); assert.ok(both.loc.some((x) => x.includes(a) && x.includes(b)), JSON.stringify(both.loc));
+  const none = OPS.build("NHAN_SU", db, base(db, { phongBan: [], trangThaiNV: "tatca" }));
+  assert.equal(none.rows.length, 4); assert.equal(none.loc.length, 0);
+});

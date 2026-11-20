@@ -68,15 +68,15 @@
       var v = ""; if (HR && has[ma]) { try { v = s(HR.hienHanh(db, ma, asOf, ix).tenPB); } catch (e) { v = ""; } }
       return (cache[ma] = v);
     }
-    var kw = fold(opt.tuKhoa), pbf = s(opt.phongBan);
+    var kw = fold(opt.tuKhoa), pbl = (Array.isArray(opt.phongBan) ? opt.phongBan : [opt.phongBan]).map(s).filter(Boolean); // 010: Phòng ban chọn nhiều (Smart Filter); chuỗi đơn như cũ
     return {
       qty: function (v) { return isNumeric(v) ? (opt.num || numFallback)(v) : NaN; }, money: function (v) { return isNumeric(v) ? (opt.money || moneyFallback)(v) : NaN; }, name: function (ma) { return name[s(ma)] || ""; }, has: function (ma) { return !!has[s(ma)]; }, pb: pb,
       pass: function (ma, pbName, extra) {
-        if (pbf && (pbName != null ? s(pbName) : pb(ma)) !== pbf) return false;
+        if (pbl.length && pbl.indexOf(pbName != null ? s(pbName) : pb(ma)) < 0) return false;
         if (!kw) return true; return fold([ma, name[s(ma)], pbName != null ? pbName : pb(ma), extra].join(" ")).indexOf(kw) >= 0;
       },
       refPB: function (code) { try { return HR && HR.refName ? s(HR.refName(db, "dm_phongban", code)) : ""; } catch (e) { return ""; } },
-      loc: function () { var l = []; if (pbf) l.push("Phòng ban: " + pbf); if (s(opt.tuKhoa)) l.push("Từ khóa: " + s(opt.tuKhoa)); return l; }
+      loc: function () { var l = []; if (pbl.length) l.push("Phòng ban: " + pbl.join(", ")); if (s(opt.tuKhoa)) l.push("Từ khóa: " + s(opt.tuKhoa)); return l; }
     };
   }
 

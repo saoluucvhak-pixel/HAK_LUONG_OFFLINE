@@ -4000,7 +4000,7 @@
         if (!row["Phiếu"] || !row["Ngày"]) return row;
         return Object.assign({}, row, { "Phiếu": btn(row["Phiếu"], "ghost", function () {
           st.opsReceipt = { type: originType, number: String(row["Phiếu"]).trim(), date: String(row["Ngày"]).slice(0, 10), ky: kyKey(nam, thang) };
-          st.opsKw = ""; st.opsPB = ""; st.tab = origin; saveUi(); render();
+          opsFReset(originType); st.tab = origin; saveUi(); render();
         }, "Xem phiếu gốc " + row["Phiếu"]) });
       }) : r3.audit;
       card.appendChild(simpleTable(linkedAudit));
@@ -4055,7 +4055,7 @@
           var actions = [];
           if (tabAllowed(origin)) actions.push(btn("Mở phiếu cân", "ghost", function () {
             st.opsReceipt = { type: originType, number: String(row["Phiếu cân"]).trim(), date: row["Ngày cân"], ky: kyKey(nam, thang) };
-            st.opsKw = ""; st.opsPB = ""; st.tab = origin; saveUi(); render();
+            opsFReset(originType); st.tab = origin; saveUi(); render();
           }));
           if (!snapshot && entry && tabAllowed("chamcong")) entry.employees.forEach(function (employee) {
             actions.push(btn("Mở công " + employee.ma, "ghost", function () {
@@ -4685,9 +4685,13 @@
   // ---------- V10.1: MẪU BÁO CÁO RIÊNG — nhân sự · sản lượng · bơm dăm · thưởng/trừ · tạm ứng · suất cơm ----------
   var OPS_SCREENS = { rp_ns: "NHAN_SU", rp_sl: "SAN_LUONG", rp_bd: "BOM_DAM", rp_th: "THUONG", rp_tu: "TAM_UNG", rp_com: "SUAT_COM" };
   var OPS_KPI = { SAN_LUONG: ["KL hàng (Tấn)"], BOM_DAM: ["Số xe"], THUONG: ["Thưởng", "Thu nhập khác", "Trừ khác", "Thực nhận"], TAM_UNG: ["Tạm ứng"], SUAT_COM: ["Tổng suất"] };
+  /** 010 (issue #99): bộ lọc của từng báo cáo nghiệp vụ — RIÊNG từng báo cáo (không còn dùng chung một ô từ khóa cho cả 6). */
+  function opsF(type) { st.opsF = st.opsF || {}; return st.opsF[type] = st.opsF[type] || { q: "", pb: [], tt: "dang" }; }
+  function opsFReset(type) { st.opsF = st.opsF || {}; st.opsF[type] = { q: "", pb: [], tt: "dang" }; }
   function opsVm(type) {
+    var of = opsF(type);
     var opt = { nam: st.nam, thang: st.thang, tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", chot: !!kyChot(kyKey(st.nam, st.thang)),
-      hr: HRM, num: E.num, money: E.money, phongBan: st.opsPB || "", tuKhoa: st.opsKw || "", trangThaiNV: st.opsTT || "dang", homNay: HRM.today() };
+      hr: HRM, num: E.num, money: E.money, phongBan: of.pb.slice(), tuKhoa: of.q || "", trangThaiNV: of.tt || "dang", homNay: HRM.today() };
     var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
     if ((type === "THUONG" || type === "TAM_UNG") && can("payroll.view")) {
       if (snapshot) opt.bangluong = snapshot.kq.bangluong;
@@ -4758,16 +4762,22 @@
     var snapshot = OPS.closedTables[type] && kyChot(kyKey(st.nam, st.thang));
     var departments = snapshot ? snapshot.input?.danhmuc?.dm_phongban : db.dm_phongban;
     (departments || []).forEach(function (p) { if (p && p["Tên phòng ban"]) pbs[p["Tên phòng ban"]] = 1; });
-    var pbSel = h("select", { "aria-label": "Phòng ban", "data-ops-key": "phongBan" }); pbSel.appendChild(h("option", { value: "", text: "— Tất cả phòng ban —" }));
-    Object.keys(pbs).sort().forEach(function (n) { pbSel.appendChild(h("option", { value: n, text: n })); });
-    pbSel.value = st.opsPB || ""; pbSel.addEventListener("change", function () { st.opsPB = pbSel.value; render(); }); bar.appendChild(pbSel);
-    if (type === "NHAN_SU") {
-      var ttSel = h("select", { "aria-label": "Trạng thái", "data-ops-key": "trangThaiNV" });
-      [["dang", "Đang làm việc"], ["nghi", "Đã nghỉ việc"], ["tatca", "Tất cả"]].forEach(function (o) { ttSel.appendChild(h("option", { value: o[0], text: o[1] })); });
-      ttSel.value = st.opsTT || "dang"; ttSel.addEventListener("change", function () { st.opsTT = ttSel.value; render(); }); bar.appendChild(ttSel);
-    }
-    var q = h("input", { class: "i", placeholder: "Tìm mã / tên / số chứng từ…", value: st.opsKw || "", "data-ops-key": "tuKhoa" });
-    q.addEventListener("change", function () { st.opsKw = q.value; render(); }); bar.appendChild(q);
+    // 010 (issue #99): Bộ lọc thông minh dùng chung (như báo cáo lương / màn nhập liệu): ô tìm, Phòng ban chọn nhiều, Trạng thái NV; giữ riêng từng báo cáo
+    var of = opsF(type), fields = [{ key: "pb", label: "Phòng ban", type: "multi", options: function () { return Object.keys(pbs).sort(); } }];
+    if (type === "NHAN_SU") fields.push({ key: "tt", label: "Trạng thái", type: "enum", options: [{ value: "dang", label: "Đang làm việc" }, { value: "nghi", label: "Đã nghỉ việc" }] });
+    var keys = fields.map(function (f) { return f.key; });
+    var sfCfg = {
+      screenId: "ops:" + type, searchPlaceholder: "🔍 Tìm mã / tên / số chứng từ…", qAttrs: { "data-ops-key": "tuKhoa" }, qCommit: true,
+      fields: fields, quickFields: ["q"].concat(keys), advancedFields: ["q"].concat(keys),
+      scopeFallback: function () { return "tất cả"; },
+      state: {
+        get: function () { var s = SFC.empty(); s.q = of.q || ""; if (of.pb.length) s.sel.pb = of.pb.slice(); if (type === "NHAN_SU" && of.tt !== "tatca") s.one.tt = of.tt || "dang"; return s; },
+        set: function (s) { of.q = s.q || ""; of.pb = (s.sel.pb || []).slice(); if (type === "NHAN_SU") of.tt = s.one.tt || "tatca"; }
+      },
+      dataSource: function () { return { kept: vm.soDong, total: vm.soDongGoc, unsupported: [] }; },
+      onApply: function () { render(); }
+    };
+    var sfm = sfUi.mount(sfCfg); sfm.cfg = sfCfg; card.appendChild(sfm.el);
     bar.appendChild(h("span", { class: "sp" }));
     bar.appendChild(btn("⬇ Xuất Excel", "pri", function () { opsXlsx(vm); }));
     bar.appendChild(btn("⬇ Xuất PDF", "", function () { opsPdf(vm); }));
