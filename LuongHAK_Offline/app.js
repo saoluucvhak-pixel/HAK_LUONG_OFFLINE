@@ -70,7 +70,7 @@
   }
   var DATECOLS = /^(Ngày|Hiệu lực)/;
   var NUMCOLS = /(Trừ nhanh|Lương|Số tiền|Số suất|KL hàng|Thưởng|Thu nhập|Trừ khác|Tạm ứng|Đơn giá|Tỷ lệ|DN\.|NLD\.|Bậc|Người phụ thuộc|Số người|Tham chiếu|Hệ số|Ngưỡng|ĐK_|Tiền)/;
-  var COLW = { "Mã NV": 96, "Họ và tên": 170, "Diễn giải": 200, "Cách tính": 260, "Tên phụ cấp": 160, "Hình thức lương": 150, "Nội dung": 180, "Nội dung tăng ca": 160, "Nội dung khấu trừ": 160, "Tên hỗ trợ": 150, "Tên phòng ban": 200, "Tên chức vụ": 200, "Ghi chú": 200, "Hình thức công": 90, "Mã nhân viên": 110, "Tên Ngân hàng": 150 };
+  var COLW = { "Mã NV": 96, "Họ và tên": 170, "Biển số": 130, "Số xe": 130, "Diễn giải": 200, "Cách tính": 260, "Tên phụ cấp": 160, "Hình thức lương": 150, "Nội dung": 180, "Nội dung tăng ca": 160, "Nội dung khấu trừ": 160, "Tên hỗ trợ": 150, "Tên phòng ban": 200, "Tên chức vụ": 200, "Ghi chú": 200, "Hình thức công": 90, "Mã nhân viên": 110, "Tên Ngân hàng": 150 };
 
   // ---------- Lưu trữ ----------
   // Bản cài (.exe): lưu ra file data.json trong thư mục dữ liệu của app (window.hakStore, xem preload.js).
@@ -1376,10 +1376,13 @@
       }
       if (inMode) {
         pcTot.innerHTML = ""; var sums = INPUT_SUM[key].map(function (c) { var t = 0; idx.forEach(function (i2) { t += E.money(db[key][i2][c]); }); return "<b>" + esc(c) + ":</b> " + fmt(t); });
-        pcTot.appendChild(h("div", { "data-in-totals": key, html: "<b>Tổng theo bộ lọc (" + esc(inputScopeText(key)) + "):</b> " + idx.length + " dòng · " + sums.join(" · ") }));
-        if (CT_KEY[key] && idx.length) pcTot.appendChild(btn("Đối soát theo nhân viên", "", function () {
+        var totRow = h("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap" }, [
+          h("div", { "data-in-totals": key, html: "<b>Tổng theo bộ lọc (" + esc(inputScopeText(key)) + "):</b> " + idx.length + " dòng · " + sums.join(" · ") })
+        ]);
+        if (CT_KEY[key] && idx.length) totRow.appendChild(btn("Đối soát theo nhân viên", "", function () {
           moneyInputReview(key, idx.map(function (i) { return db[key][i]; }), nameOf);
         }));
+        pcTot.appendChild(totRow);
       }
       if (isCat && cedit(key) && cedit(key).mode === "new") idx.unshift(-1);
       cnt.textContent = idx.length + " dòng" + (theoKy ? " (kỳ " + st.thang + "/" + st.nam + ")" : "") + (qq ? " · đang lọc \"" + st.qs[key] + "\"" : "");
@@ -1395,8 +1398,10 @@
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
         if (key === "sanluong" && c === "Ngày cân") trh.appendChild(h("th", { text: "Ngày cân gốc", style: "min-width:110px" }));
-        var th = h("th", { class: cls, text: isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : key === "sanluong" && c === "Ngày cân" ? "Ngày phân bổ" : c });
-        if (COLW[c]) th.style.minWidth = COLW[c] + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
+        var dispCol = isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : key === "sanluong" && c === "Ngày cân" ? "Ngày phân bổ" : c;
+        var th = h("th", { class: cls, text: dispCol });
+        var colW = COLW[c] || COLW[dispCol];
+        if (colW) th.style.minWidth = colW + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
         trh.appendChild(th);
         if (c === "Mã NV" && def.showName) trh.appendChild(h("th", { text: "Họ tên", style: "min-width:150px" }));
       });
@@ -1465,6 +1470,9 @@
           if (isDay && key === "chamcong") {
             var paint = function () { inp.className = dayCls(inp.value, r["Hình thức công"]); };
             paint(); inp.addEventListener("input", paint); inp.addEventListener("change", function () { setTimeout(paint, 0); });
+          } else if (!DATECOLS.test(c) && c !== "KL hàng (Tấn)") {
+            var syncTitle = function () { inp.title = inp.value || ""; };
+            syncTitle(); inp.addEventListener("input", syncTitle); inp.addEventListener("change", function () { setTimeout(syncTitle, 0); });
           }
           if (rowLocked || (isCat && !editing)) inp.disabled = true; if (isCat && editing) inp.classList.add("editing");
           // Ngày không có trong tháng (VD 31/09): không cho nhập; nếu dữ liệu cũ có giá trị thì vẫn cho sửa để xóa
