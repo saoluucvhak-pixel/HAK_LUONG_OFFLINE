@@ -347,6 +347,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       const warnTxt = await w.locator('#main .warn:has-text("bị hỏng")').allInnerTexts(), okAfter = await w.locator('#main .ok:has-text("Đã kiểm tra")').count(), rowBad = await w.locator('[data-bk-row="json"]:has-text("HỎNG")').count();
       ok("T-01: kiểm tra khi không có bản hỏng → biểu ngữ xanh 'Đã kiểm tra…'", okBanner === 1 && warnBefore === 0, "ok=" + okBanner + " warn=" + warnBefore);
       ok("T-01: có 1 bản JSON bị sửa → hàng hiện HỎNG VÀ biểu ngữ CẢNH BÁO '1 bản sao lưu bị hỏng' (không còn biểu ngữ xanh)", rowBad >= 1 && warnTxt.some((t) => /\b1 bản sao lưu bị hỏng/.test(t)) && okAfter === 0, "rowBad=" + rowBad + " warn=" + JSON.stringify(warnTxt) + " okAfter=" + okAfter + " file=" + jf);
+    }
     { // T-11 (rà soát 5 agent): gửi JSON vào thư mục MẶC ĐỊNH (trong userData) không được tính là "đã sao lưu ra ngoài máy"
       const ext0 = await w.evaluate(() => window.hakStore.backupStatus().lastExternal || null);
       const jb = await w.evaluate(() => window.hakJson.backup());
