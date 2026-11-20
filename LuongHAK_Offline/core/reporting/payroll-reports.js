@@ -195,7 +195,11 @@
   /** Dòng phẳng + dòng tổng cho Excel/PDF. */
   function toRows(vm) {
     var out = vm.rows.map(function (r) { var o = {}; vm.cols.forEach(function (c) { o[c.label] = r[c.key]; }); return o; });
-    if (vm.rows.length) { var t = {}; vm.cols.forEach(function (c, i) { t[c.label] = i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? vm.tong[c.key] : ""); }); out.push(TR.mark(t)); }
+    if (vm.rows.length) {
+      var ni = vm.cols.findIndex(function (c) { return c.label === "Họ và tên" || c.key === "Họ và tên"; });
+      var li = ni >= 0 ? ni : 0;
+      var t = {}; vm.cols.forEach(function (c, i) { t[c.label] = i === li ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? vm.tong[c.key] : ""); }); out.push(TR.mark(t));
+    }
     return out;
   }
   var api = { TYPES: TYPES, KHONG_CAN_CHOT: KHONG_CAN_CHOT, build: build, toRows: toRows, upper: upper };
