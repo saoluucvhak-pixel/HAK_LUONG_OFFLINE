@@ -3374,6 +3374,7 @@
   function exportPayrollBundlePdf(r, ky) {
     if (!need("export", "in bộ báo cáo kỳ")) return;
     var bundle = payrollBundle(r, ky);
+    var tam = /chưa chốt|tính tạm/i.test(bundle.info.trangThai || "") ? "_TAM" : "";
     exportSheetsPdf({
       title: "Bộ báo cáo kỳ lương", ky: bundle.info.kyText, congTy: bundle.info.congTy,
       trangThai: bundle.info.trangThai, sheets: bundle.sheets.map(function (sheet) {
@@ -3381,15 +3382,16 @@
         var cols = ids.concat(sheet.cols.filter(function (key) { return ids.indexOf(key) < 0; }));
         return Object.assign({}, sheet, { name: sheet.title || sheet.name, cols: cols, repeatColumns: ids.length });
       })
-    }, "KyLuong_" + ky + ".pdf", { sectionPages: true, period: ky });
+    }, "KyLuong_" + ky + tam + ".pdf", { sectionPages: true, period: ky });
   }
 
   function exportAll(r, ky) {
     if (!need("export", "xuất bộ báo cáo kỳ")) return;
     if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx) { alert("Thiếu thư viện định dạng Excel."); return; }
     var bundle = payrollBundle(r, ky);
+    var tam = /chưa chốt|tính tạm/i.test(bundle.info.trangThai || "") ? "_TAM" : "";
     window.HAKUi.reportXlsx.buildPayrollBundle(window.ExcelJS, bundle.sheets, bundle.info).xlsx.writeBuffer().then(function (buf) {
-      download("KyLuong_" + ky + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+      download("KyLuong_" + ky + tam + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
     }, function (e) { alert("Không tạo được bộ báo cáo kỳ: " + e.message); });
   }
   /**
@@ -4131,14 +4133,16 @@
     }
     tools.appendChild(h("span", { class: "sp" }));
     if (st.bcl !== "sanluong" && !RF.isEmpty(st.rf)) rfHint.textContent = "Đang lọc: " + RF.describe(st.rf).join(" · ") + " — áp cho bảng nào có cột tương ứng; Excel và PDF xuất ra theo đúng bộ lọc này." + (Object.keys(rfSkip).length ? " Không áp được (báo cáo này không có cột): " + Object.keys(rfSkip).join(", ") + "." : "");
+    var bclTrangThai = dataSource || (src && !BCL_NAM[st.bcl] ? (src.chot ? "Đã chốt" : "Chưa chốt — tính tạm") : (!BCL_NAM[st.bcl] && !snapshot ? "Chưa chốt — tính tạm" : ""));
+    var bclTam = !BCL_NAM[st.bcl] && (/chưa chốt|tính tạm/i.test(bclTrangThai) || (src && !src.chot)) ? "_TAM" : "";
     tools.appendChild(btn("⬇ Xuất PDF", "", function () {
-      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + thang + "/" + nam, trangThai: dataSource || (src && !BCL_NAM[st.bcl] ? (src.chot ? "Đã chốt" : "Chưa chốt — tính tạm") : ""), loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + ".pdf");
+      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + thang + "/" + nam, trangThai: bclTrangThai, loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + bclTam + ".pdf");
     }, "PDF theo đúng bộ lọc đang chọn"));
     tools.appendChild(btn(st.bcl === "sanluong" ? "⬇ Xuất báo cáo đang xem (Excel)" : "⬇ Xuất Excel", "pri", function () {
       if (st.bcl === "baohiem") {
         if (!window.ExcelJS || !window.HAKUi.bhXlsx) { alert("Thiếu thư viện Excel báo cáo bảo hiểm"); return; }
         window.HAKUi.bhXlsx.build(window.ExcelJS, sheets, { congTy: congTy()["Tên công ty"] || "", kyText: "THÁNG " + thang + "/" + nam, trangThai: src.chot ? "Đã chốt" : "Chưa chốt — tính tạm", phamVi: RF.describe(st.rf).join("; ") || "Toàn bộ", ngayLap: new Date().toLocaleDateString("vi-VN"), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
-          download("BaoCao_BaoHiem_" + kyKey(nam, thang) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+          download("BaoCao_BaoHiem_" + kyKey(nam, thang) + bclTam + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
           audit("Xuất Excel bảo hiểm", kyKey(nam, thang));
         }, function (e) { alert("Không xuất được Excel: " + (e.message || e)); });
         return;
@@ -4146,7 +4150,7 @@
       var sh = sheets.filter(function (x) { return x.rows.length; }).map(function (x) { return { name: x.name, cols: Object.keys(x.rows[0]), rows: x.rows }; });
       if (!sh.length) { toast("Không có dữ liệu"); return; }
       if (dataSource) sh.unshift({ name: "NguonDuLieu", cols: ["Nguồn số liệu"], rows: [{ "Nguồn số liệu": dataSource }] });
-      saveXlsx("BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + ".xlsx", sh);
+      saveXlsx("BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + bclTam + ".xlsx", sh);
     }));
     w.appendChild(card); return w;
   }
@@ -4516,19 +4520,21 @@
     if (!vm.rows.length) { toast("Không có dòng nào để xuất"); return false; }
     return true;
   }
+  function payTamSuffix(vm) { return /chưa chốt|tính tạm/i.test(vm && vm.trangThai || "") ? "_TAM" : ""; }
   function payXlsx(vm, type) {
     if (!payExportOk(vm, type)) return;
     if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx) { alert("Thiếu thư viện Excel"); return; }
     var wb = window.HAKUi.reportXlsx.build(window.ExcelJS, vm, { chuKy: type === "TIEN_MAT" || type === "THANH_TOAN" ? ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] : ["Người lập", "Kế toán trưởng", "Giám đốc"], nguoiLap: vm.nguoiLap });
     wb.xlsx.writeBuffer().then(function (buf) {
-      download(vm.file + "_" + vm.kyKey + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+      download(vm.file + "_" + vm.kyKey + payTamSuffix(vm) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel " + vm.title, vm.ky + " · " + vm.soDong + " dòng · phạm vi: " + vm.phamVi);
     }, function (e) { alert("Không tạo được file: " + e.message); });
   }
   function payPdf(vm, type) {
     if (!payExportOk(vm, type)) return;
-    if (vm.nhom) { exportPdf(Object.assign({}, vm, { groups: vm.nhom }), vm.file + "_" + vm.kyKey + "_theoPhongBan.pdf", { chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] }); return; }
-    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, sheets: [{ name: vm.title, cols: vm.cols.map(function (c) { return c.label; }), rows: PRP.toRows(vm), groups: vm.groups || null }] }, vm.file + "_" + vm.kyKey + ".pdf",
+    var tam = payTamSuffix(vm);
+    if (vm.nhom) { exportPdf(Object.assign({}, vm, { groups: vm.nhom }), vm.file + "_" + vm.kyKey + tam + "_theoPhongBan.pdf", { chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] }); return; }
+    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, sheets: [{ name: vm.title, cols: vm.cols.map(function (c) { return c.label; }), rows: PRP.toRows(vm), groups: vm.groups || null }] }, vm.file + "_" + vm.kyKey + tam + ".pdf",
       { chuKy: type === "TIEN_MAT" || type === "THANH_TOAN" ? ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] : ["Người lập", "Kế toán trưởng", "Giám đốc"] });
   }
   function payLap(ht, src) {
@@ -4711,17 +4717,18 @@
     if (!vm.rows.length && !vm.extras.some(function (sheet) { return sheet.rows.length; })) { toast("Không có dòng nào để xuất"); return false; }
     return true;
   }
+  function opsTamSuffix(vm) { return /chưa chốt|tính tạm/i.test(vm && vm.trangThai || "") ? "_TAM" : ""; }
   function opsXlsx(vm) {
     if (!opsExportOk(vm)) return;
     if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx) { alert("Thiếu thư viện Excel"); return; }
     window.HAKUi.reportXlsx.buildMany(window.ExcelJS, OPS.sheetVms(vm), { nguoiLap: vm.nguoiLap }).xlsx.writeBuffer().then(function (buf) {
-      download(vm.file + "_" + vm.kyKey + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+      download(vm.file + "_" + vm.kyKey + opsTamSuffix(vm) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel " + vm.title, (vm.ky || vm.kyText) + " · " + vm.soDong + " dòng · phạm vi: " + vm.phamVi);
     }, function (e) { alert("Không tạo được file: " + e.message); });
   }
   function opsPdf(vm) {
     if (!opsExportOk(vm)) return;
-    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, ghiChu: vm.ghiChu, sheets: OPS.toSheets(vm) }, vm.file + "_" + vm.kyKey + ".pdf", { chuKy: vm.chuKy });
+    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, ghiChu: vm.ghiChu, sheets: OPS.toSheets(vm) }, vm.file + "_" + vm.kyKey + opsTamSuffix(vm) + ".pdf", { chuKy: vm.chuKy });
   }
   /** Xuất bảng dạng mảng đối tượng (báo cáo nhân sự có sẵn) theo mẫu chung: tiêu đề công ty / TÊN IN HOA / chữ ký / A4 ngang. */
   function opsRowsVm(title, rows, file) {
@@ -4844,13 +4851,15 @@
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { mn.appendChild(h("option", { value: o[1], text: o[0] })); });
     mn.addEventListener("change", function () {
       var m = excelSheets(r, r.ky || kyStr())[mn.value];
-      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + ".xlsx", [m]); mn.selectedIndex = 0;
+      var tam = kqKy(st.nam, st.thang).chot ? "" : "_TAM";
+      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + tam + ".xlsx", [m]); mn.selectedIndex = 0;
     });
     bar.appendChild(mn);
     bar.appendChild(btn("⬇ Xuất PDF…", "", function () {
       var pick = excelSheets(r, r.ky || kyStr()), ds = [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]];
       var which = st.pdfPick || "bl"; var o = ds.filter(function (x) { return x[1] === which; })[0] || ds[0], m = pick[o[1]];
-      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + (r.ky || kyStr()), trangThai: (kqKy(st.nam, st.thang).chot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [{ name: o[0], cols: o[1] === "bl" ? (st.compact ? COLS_COMPACT : COLS_FULL) : m.cols, rows: m ? m.rows : [] }] }, m.name + "_" + (r.ky || kyStr()) + ".pdf");
+      var isChot = kqKy(st.nam, st.thang).chot;
+      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + (r.ky || kyStr()), trangThai: (isChot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [{ name: o[0], cols: o[1] === "bl" ? (st.compact ? COLS_COMPACT : COLS_FULL) : m.cols, rows: m ? m.rows : [] }] }, m.name + "_" + (r.ky || kyStr()) + (isChot ? "" : "_TAM") + ".pdf");
     }, "PDF của bảng lương đang xem (theo bộ lọc)"));
     var pm = h("select", { "aria-label": "Loại PDF", style: "min-width:140px" });
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { pm.appendChild(h("option", { value: o[1], text: o[0] })); });

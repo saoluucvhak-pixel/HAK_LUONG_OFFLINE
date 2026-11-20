@@ -74,7 +74,11 @@
     put(r, vm.congTy || "", { font: { bold: true, size: 11 } }); merge(r); r++;
     put(r, vm.title, { font: { bold: true, size: 15 }, alignment: { horizontal: "center", vertical: "middle" } }); merge(r); ws.getRow(r).height = 26; r++;
     put(r, vm.kyText || "", { font: { bold: true, size: 11 }, alignment: { horizontal: "center" } }); merge(r); r++;
-    put(r, "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""), { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++;
+    var isDraft = !!(vm.trangThai && /chưa chốt|tính tạm/i.test(vm.trangThai));
+    var scopeStyle = isDraft
+      ? { font: { italic: true, bold: true, size: 10, color: { argb: "FFC0362C" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDECEA" } }, alignment: { horizontal: "center", wrapText: true } }
+      : { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } };
+    put(r, "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""), scopeStyle); merge(r); r++;
     put(r, "Đơn vị tính: " + (vm.donVi || "Đồng (VND)") + (vm.ngayLap ? " · Ngày lập: " + vm.ngayLap : ""), { font: { size: 10 }, alignment: { horizontal: "center" } }); merge(r); r++;
     if (vm.source) { put(r, "Nguồn: " + vm.source, { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++; }
     r++;
