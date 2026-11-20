@@ -104,7 +104,7 @@ function createYearArchive({ storage, dir, now = ()=>new Date() }) {
   }
   let prevMemo=null;
   /** Bản đang lưu phân tích một lần cho mỗi sig của kho (checkWrite chạy ở MỌI lần lưu); không có sig thì đọc lại như cũ. */
-  function prevDb(){const sg=storage.sig?storage.sig():null;if(sg&&prevMemo&&prevMemo.sig===sg)return prevMemo.db;const db=current().db;prevMemo=sg?{sig:sg,db}:null;return db;}
+  function prevDb(){const sg=storage.sig?storage.sig():null;if(sg&&prevMemo&&prevMemo.sig===sg)return prevMemo.db;const cd=storage.currentDoc?storage.currentDoc():null;if(sg&&cd&&cd.sig===sg&&cd.doc){prevMemo={sig:sg,db:cd.doc};return cd.doc;} /* 006: dùng bản kho SQLite đang giữ, không phân tích lại */const db=current().db;prevMemo=sg?{sig:sg,db}:null;return db;}
   function checkWrite(text,restoring=false,parsed=null){const next=parsed||JSON.parse(text),prev=prevDb();
     if(refs(next).length&&!(next.schemaVersion>=3))throw Error('Dữ liệu có kho năm không được hạ phiên bản cấu trúc');
     if(!restoring && JSON.stringify(next._yearArchives||[])!==JSON.stringify(prev._yearArchives||[]))throw Error('Không được sửa danh sách kho năm qua thao tác lưu thường');

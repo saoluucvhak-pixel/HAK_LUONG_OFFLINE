@@ -196,13 +196,16 @@ function createPolicy(opts) {
   const readText = opts.readText;           // () → string|null: nội dung file dữ liệu trên đĩa
   const sigOf = opts.sigOf || (() => "");   // () → "mtime:size" của file dữ liệu
   const gate = opts.gate || null;           // { blockers(db, ky, o) }
-  let st = null, pending = null;
+  let st = null, pending = null, lastRows = null; // lastRows: 006 — chuỗi JSON từng dòng của bản vừa kiểm (cho kho SQLite dùng lại)
   // Bản CŨ (đang lưu) chỉ đọc + phân tích MỘT lần cho mỗi "sig" (trước đây mỗi lần kiểm ghi đọc/phân tích lại tới ~6 lần, 9,5 MB ở 5.000 NV).
   // Các hàm kiểm tra CHỈ ĐỌC đối tượng này; test deep-freeze (opts.freezeOld) chứng minh điều đó.
   let oldMemo = null;
   function oldState() {
     const sig = sigOf();
     if (oldMemo && oldMemo.sig === sig) return oldMemo;
+    // 006: kho SQLite đang giữ sẵn bản đã phân tích của đúng revision này → dùng lại (chỉ đọc), khỏi đọc + phân tích lại 9 MB sau mỗi lần lưu
+    const ro = opts.readObj ? opts.readObj() : null;
+    if (ro && ro.sig === sig && ro.doc && typeof ro.doc === "object") { if (opts.freezeOld || process.env.HAK_POLICY_FREEZE_OLD === "1") deepFreeze(ro.doc); oldMemo = { sig, text: null, obj: ro.doc, err: null }; return oldMemo; }
     const text = readText(); let obj = null, err = null;
     if (text) { try { obj = JSON.parse(text); if ((opts.freezeOld || process.env.HAK_POLICY_FREEZE_OLD === "1") && obj && typeof obj === "object") deepFreeze(obj); } catch (e) { err = e; } }
     oldMemo = { sig, text, obj, err };
@@ -229,8 +232,20 @@ function createPolicy(opts) {
     }
     return "";
   }
-  function snapshot(obj) {
-    const tables = {}; Object.keys(obj).forEach((k) => { tables[k] = h(obj[k]); });
+  /** 006: dấu vân tay bảng dạng mảng = chuỗi JSON từng dòng ("[" + dòng.join(",") + "]" đúng bằng JSON.stringify(bảng)): hai bảng "giống" ⇔ cùng số dòng và từng dòng
+   *  trùng từng ký tự — cùng ý nghĩa với so băm cả bảng trước đây, nhưng khỏi băm 9 MB mỗi lần lưu; chuỗi dòng trả ra để kho SQLite dùng lại khi so dòng. */
+  const sameTable = (a, b) => {
+    if (typeof a === "string" || typeof b === "string" || !a || !b) return a === b;
+    const x = a.rows, y = b.rows; if (x === y) return true; if (x.length !== y.length) return false;
+    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false; return true;
+  };
+  const rowStr = (r) => { const v = JSON.stringify(r); return v === undefined ? "null" : v; };
+  function snapshot(obj, rowsOut) {
+    const tables = {}; Object.keys(obj).forEach((k) => {
+      const v = obj[k];
+      if (Array.isArray(v)) { const rs = v.map(rowStr); if (rowsOut) rowsOut[k] = rs; tables[k] = { rows: rs }; } // bảng: giữ chuỗi từng dòng (so trực tiếp, khỏi băm)
+      else tables[k] = h(v);
+    });
     const ky = {}; (Array.isArray(obj.kyluong) ? obj.kyluong : []).forEach((k) => { ky[kyKey(k)] = h(k); });
     const aud = Array.isArray(obj.auditlog) ? obj.auditlog : [];
     return { tables, ky, audLen: aud.length, audAll: h(aud), users: (Array.isArray(obj.nguoidung) ? obj.nguoidung : []).map((u) => ({ name: String(u.tenDangNhap || "").toLowerCase(), h: h(u), vaiTro: u.vaiTro, khoa: !!u.khoa, fields: canon(Object.assign({}, u, SELF_PW_FIELDS.reduce((o, f) => (o[f] = null, o), {}), { dangNhapLuc: null })), cred: JSON.stringify(SELF_PW_FIELDS.map((f) => u[f])) })), hasUsers: Array.isArray(obj.nguoidung) && obj.nguoidung.length > 0 };
@@ -249,15 +264,15 @@ function createPolicy(opts) {
    * @returns { ok:true } | { ok:false, error }
    */
   function check(text, who, opts) {
-    pending = null;
+    pending = null; lastRows = null;
     let next; try { next = opts && opts.parsed ? opts.parsed : JSON.parse(text); } catch (e) { return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" }; }
     if (!next || typeof next !== "object" || Array.isArray(next)) return { ok: false, error: "Dữ liệu cần lưu không hợp lệ" };
-    const prev = ensurePrev(), nx = snapshot(next);
+    const rows = {}, prev = ensurePrev(), nx = snapshot(next, rows); lastRows = { next, rows };
     try { require("../core/production-carry.js").validate(next, opts && opts.restoring ? null : oldObj()); } catch (e) { return {ok:false,error:String(e.message||e)}; }
     try { require("../core/input-review.js").validate(next); var old = oldObj(); if (old && old.schemaVersion >= 5 && !(next.schemaVersion >= 5) && !(opts && opts.restoring)) throw Error("Không được hạ cấu trúc dữ liệu lưu nhập liệu"); } catch (e) { return {ok:false,error:e.message}; }
     pending = nx;
     if (!prev || !prev.hasUsers) return { ok: true, firstRun: true }; // chưa có dữ liệu / chưa có tài khoản: thiết lập ban đầu
-    const changed = Object.keys(nx.tables).filter((k) => prev.tables[k] !== nx.tables[k]).concat(Object.keys(prev.tables).filter((k) => !(k in nx.tables)));
+    const changed = Object.keys(nx.tables).filter((k) => !sameTable(prev.tables[k], nx.tables[k])).concat(Object.keys(prev.tables).filter((k) => !(k in nx.tables)));
     if (!changed.length) return { ok: true };
     const perms = who && who.perms || [];
     const has = (p) => perms.indexOf(p) >= 0;
@@ -426,7 +441,9 @@ function createPolicy(opts) {
   /** Gọi sau khi storage.save thành công */
   function commit() { oldMemo = null; if (pending) { st = Object.assign({ sig: sigOf() }, pending); } pending = null; }
   function reset() { st = null; pending = null; oldMemo = null; }
-  return { check, commit, reset, permsFor };
+  /** 006: chuỗi từng dòng của lần check() gần nhất — CHỈ trả khi đúng đối tượng parsed đó (tránh dùng nhầm). */
+  function rowsFor(parsed) { return lastRows && parsed && lastRows.next === parsed ? lastRows.rows : null; }
+  return { check, commit, reset, permsFor, rowsFor };
 }
 function fileSig(file) { return () => { try { const s = fs.statSync(file); return s.mtimeMs + ":" + s.size; } catch (e) { return ""; } }; }
 module.exports = { createPolicy, permsFor, fileSig, checkNghiepVuNS, checkTtluong, checkCongThuc };
