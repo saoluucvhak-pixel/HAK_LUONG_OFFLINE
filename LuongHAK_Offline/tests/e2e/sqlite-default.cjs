@@ -339,6 +339,12 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       await w.selectOption("[data-bk-kind-filter]", "all"); await w.waitForTimeout(200);
       ok("Danh sách bản sao lưu: có cả bản chụp SQLite và bản JSON, cột Định dạng + Phạm vi; lọc 'SQLite' chỉ còn bản .sqlite", nSql >= 1 && nJson >= 1 && /Định dạng/.test(head) && /Phạm vi/.test(head) && onlySql, "sqlite=" + nSql + " json=" + nJson + " | " + head.replace(/\s+/g, " "));
     }
+    { // T-11 (rà soát 5 agent): gửi JSON vào thư mục MẶC ĐỊNH (trong userData) không được tính là "đã sao lưu ra ngoài máy"
+      const ext0 = await w.evaluate(() => window.hakStore.backupStatus().lastExternal || null);
+      const jb = await w.evaluate(() => window.hakJson.backup());
+      const ext1 = await w.evaluate(() => window.hakStore.backupStatus().lastExternal || null);
+      ok("T-11: JSON vào thư mục mặc định (cùng máy) — ghi được nhưng KHÔNG đổi mốc 'ngoài máy'", !!(jb && jb.ok) && ext1 === ext0, JSON.stringify({ jb: jb && { ok: jb.ok, dir: jb.dir, error: jb.error }, ext0, ext1 }));
+    }
     ok("Quy trình sao lưu SQLite: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
   }
