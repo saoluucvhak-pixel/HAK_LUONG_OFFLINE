@@ -8,6 +8,12 @@
   function money(v) { var x = Math.round(+v || 0); return x === 0 ? "–" : x.toLocaleString("vi-VN"); }
   function qty(v) { var x = +v; if (!isFinite(x) || x === 0) return "–"; return (Math.round(x * 1000) / 1000).toLocaleString("vi-VN", { maximumFractionDigits: 3 }); }
   function cell(c, v) { return c.kind === "money" ? money(v) : c.kind === "qty" ? qty(v) : esc(v); }
+  function fmtDateMeta(v) { var s = String(v || ""); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4) : s; }
+  function metaLine(vm) {
+    var nl = vm.ngayLap ? fmtDateMeta(vm.ngayLap) : "";
+    var parts = [nl && ("Ngày lập " + esc(nl)), vm.nguoiLap && ("Người lập " + esc(vm.nguoiLap)), vm.donVi && ("Đơn vị tính: " + esc(vm.donVi))].filter(Boolean);
+    return parts.length ? "<p class=\"sub\">" + parts.join(" · ") + "</p>" : "";
+  }
 
   var CSS = "@page{size:A4 landscape;margin:12mm 10mm 14mm 10mm}*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;font-size:8.5pt;color:#111;margin:0}" +
     "h1{font-size:14pt;margin:0 0 2mm;text-align:center}.sub{text-align:center;margin:0 0 1.5mm;color:#333}.loc{margin:2mm 0;padding:1.5mm 3mm;border:1px solid #bbb;background:#f6f6f6;font-size:8pt}" +
@@ -22,7 +28,7 @@
     // Bảng đã nhóm theo phòng ban → cột "Phòng ban" lặp thừa trong bản in, bỏ để cột tên đủ rộng
     vm = Object.assign({}, vm, { cols: vm.cols.filter(function (c) { return !(c.key === "Phòng ban" && vm.groups && vm.groups.length); }) });
     var h = "<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>" + esc(vm.title) + "</title><style>" + CSS + "</style></head><body>";
-    h += "<h1>" + esc(String(vm.title || "").toLocaleUpperCase("vi-VN")) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && "Kỳ " + esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>";
+    h += "<h1>" + esc(String(vm.title || "").toLocaleUpperCase("vi-VN")) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && "Kỳ " + esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>" + metaLine(vm);
     if (vm.loc && vm.loc.length) h += "<div class=\"loc\"><b>Bộ lọc:</b> " + vm.loc.map(esc).join(" · ") + " — hiển thị " + vm.soDong + "/" + vm.soDongGoc + " dòng</div>";
     if (vm.kiemTra && vm.kiemTra.lech && vm.kiemTra.lech.length) h += "<div class=\"warn\">⚠ " + vm.kiemTra.lech.length + " dòng có tổng các khoản ≠ Tổng thu nhập của engine: " + vm.kiemTra.lech.slice(0, 5).map(function (x) { return esc(x.maNV); }).join(", ") + (vm.kiemTra.lech.length > 5 ? "…" : "") + "</div>";
     h += "<table><thead><tr>" + vm.cols.map(function (c) { return "<th" + (c.strong ? " class=\"s\"" : "") + ">" + esc(c.label) + "</th>"; }).join("") + "</tr></thead><tbody>";
@@ -42,7 +48,7 @@
   function sheets(vm, opt) {
     opt = opt || {};
     var h = "<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>" + esc(vm.title) + "</title><style>" + CSS + "table{margin-bottom:4mm}h2{font-size:10.5pt;margin:4mm 0 1.5mm}td.t{white-space:normal;overflow-wrap:anywhere}h2{break-after:avoid}</style></head><body>";
-    h += "<h1>" + esc(String(vm.title || "").toLocaleUpperCase("vi-VN")) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>";
+    h += "<h1>" + esc(String(vm.title || "").toLocaleUpperCase("vi-VN")) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>" + metaLine(vm);
     if (vm.loc && vm.loc.length) h += "<div class=\"loc\"><b>Bộ lọc:</b> " + vm.loc.map(esc).join(" · ") + "</div>";
     (vm.ghiChu || []).forEach(function (g) { h += "<div class=\"loc\">" + esc(g) + "</div>"; });
     var any = false;
