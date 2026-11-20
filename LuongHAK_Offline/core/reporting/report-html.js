@@ -7,7 +7,12 @@
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function money(v) { var x = Math.round(+v || 0); return x === 0 ? "–" : x.toLocaleString("vi-VN"); }
   function qty(v) { var x = +v; if (!isFinite(x) || x === 0) return "–"; return (Math.round(x * 1000) / 1000).toLocaleString("vi-VN", { maximumFractionDigits: 3 }); }
-  function cell(c, v) { return c.kind === "money" ? money(v) : c.kind === "qty" ? qty(v) : esc(v); }
+  function isoToVn(label, v) {
+    if (v == null || v === "") return v;
+    var s = String(v);
+    return /^Ngày/.test(String(label || "").trim()) && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4) : v;
+  }
+  function cell(c, v) { return c.kind === "money" ? money(v) : c.kind === "qty" ? qty(v) : esc(isoToVn(c.label || c.key, v)); }
 
   var CSS = "@page{size:A4 landscape;margin:12mm 10mm 14mm 10mm}*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;font-size:8.5pt;color:#111;margin:0}" +
     "h1{font-size:14pt;margin:0 0 2mm;text-align:center}.sub{text-align:center;margin:0 0 1.5mm;color:#333}.loc{margin:2mm 0;padding:1.5mm 3mm;border:1px solid #bbb;background:#f6f6f6;font-size:8pt}" +
@@ -73,7 +78,7 @@
         h += "<tr>" + sc.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
         sh.rows.forEach(function (r, i) {
           var tot = i === sh.rows.length - 1 && TR.is(r);
-          h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + sc.map(function (c) { var v = r[c]; return "<td class=\"" + (num[c] ? "m" : "t") + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(v)) + "</td>"; }).join("") + "</tr>";
+          h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + sc.map(function (c) { var v = r[c]; return "<td class=\"" + (num[c] ? "m" : "t") + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(isoToVn(c, v))) + "</td>"; }).join("") + "</tr>";
         });
         h += "</tbody></table>";
       });
