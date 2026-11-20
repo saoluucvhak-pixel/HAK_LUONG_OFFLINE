@@ -2,16 +2,17 @@
   'use strict';
   var node=typeof module!=='undefined'&&module.exports,V=node?require('./validate.js'):root.HAKCore.validate;
   var tables=['chamcong','sanluong','bandam'];
+  var TABLE_NAMES={chamcong:'Chấm công',sanluong:'Sản lượng',bandam:'Ban dăm'};
   function issues(db,table,period){
     var out=[],seen=Object.create(null),receipt=Object.create(null);
     (db[table]||[]).forEach(function(r,i){
-      var p=V.rowPeriod(table,r),label=table+' dòng '+(i+1)+': ';
+      var p=V.rowPeriod(table,r),label=(TABLE_NAMES[table]||table)+' dòng '+(i+1)+': ';
       if(!p){out.push(label+'ngày/kỳ không hợp lệ — sửa hoặc xóa dòng lỗi trước khi tính lương');return;}
       if(p!==period||table==='chamcong')return;
       var id=String(r['Phiếu cân']||'').trim(),ma=String(r['Mã NV']||'').trim(),key=V.nearKey(id)+'|'+V.nearKey(ma),nid=V.nearKey(id);
       var quantity=String(r['KL hàng (Tấn)']==null?'':r['KL hàng (Tấn)']).trim();
       if(!/^\d+(?:[.,]\d+)?$/.test(quantity)||!(Number(quantity.replace(',','.'))>0)||!Number.isFinite(Number(quantity.replace(',','.'))))
-        out.push(label+'phiếu '+(id||'(thiếu số)')+' có '+(table==='bandam'?'số xe':'khối lượng')+' không hợp lệ: '+(quantity||'(trống)'));
+        out.push(label+'phiếu '+(id||'(thiếu số)')+' có '+(table==='bandam'?'số xe':'khối lượng')+' không hợp lệ: '+(quantity||'(trống)')+' — nhập số lớn hơn 0 và kiểm tra các ô đỏ');
       if(!id)return;
       if(seen[key])out.push(label+'trùng khóa Phiếu cân + Mã NV ('+id+')');seen[key]=true;
       if(table==='bandam'&&receipt[nid]!==undefined&&receipt[nid]!==!!ma)out.push(label+'phiếu '+id+' bị trộn phân bổ theo tổ và trực tiếp');
