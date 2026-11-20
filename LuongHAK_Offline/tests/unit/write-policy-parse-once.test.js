@@ -71,5 +71,6 @@ test("U-WPO-05: wiring main.js phân tích một lần và truyền parsed cho p
   const src = fs.readFileSync(path.join(__dirname, "../../main.js"), "utf8");
   assert.match(src, /policy\(\)\.check\(text, who, \{[^}]*parsed \}\)/);
   assert.match(src, /years\.checkWrite\(text,.*,parsed\)/);
-  assert.match(src, /storage\.save\(text, parsed\)/);
+  assert.match(src, /storage\.save\(text, parsed, policy\(\)\.rowsFor \? policy\(\)\.rowsFor\(parsed\) : null\)/); // 006: thêm chuỗi từng dòng đã tính ở bước kiểm
+  assert.match(src, /readObj: storage\.currentDoc \?/);
 });
