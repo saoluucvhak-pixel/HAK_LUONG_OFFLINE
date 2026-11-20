@@ -157,7 +157,7 @@ function createSqliteStorage(dir, opts) {
     return { ok: true, text: cur.text };
   }
 
-  function save(text, parsed) {
+  function save(text, parsed, rowsHint) {
     try {
       let next = null; try { next = typeof text === "string" ? (parsed && typeof parsed === "object" ? parsed : JSON.parse(text)) : null; } catch (e) { next = null; } // phân tích MỘT lần: vừa kiểm hợp lệ vừa dùng để so sánh
       if (!next || typeof next !== "object" || Array.isArray(next)) return "Dữ liệu cần lưu không hợp lệ — đã hủy ghi để bảo vệ dữ liệu hiện tại";
@@ -174,7 +174,7 @@ function createSqliteStorage(dir, opts) {
         const oldBytes = Buffer.byteLength(cur.text, "utf8");
         if (oldBytes > 2048 && nextBytes < oldBytes * 0.5) guardBackup("truoc-giam-du-lieu");
       }
-      const cache = { prev: cur ? cur.rows : null }, cs = cset.diff(cur ? cur.doc : {}, next, cache);
+      const cache = { prev: cur ? cur.rows : null, hint: parsed && parsed === next && rowsHint ? rowsHint : null }, cs = cset.diff(cur ? cur.doc : {}, next, cache); // 006: chuỗi từng dòng do bước kiểm quy tắc đã tính (chỉ dùng khi đúng đối tượng parsed)
       if (cset.isEmpty(cs) && cur && cur.text === text) return true;
       store.tx(db, () => { cset.applyToDb(db, cs); setMeta("primary", "1"); setMeta("rev", rev + 1); });
       rev++; cur = { text, doc: next, rows: cache.next }; jsonStale = true; scheduleExport();
@@ -354,7 +354,9 @@ function createSqliteStorage(dir, opts) {
   return Object.assign({}, json, {
     snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, needsRecovery, load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
     snapshotNow, snapshotStatus, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
-    sig: () => "sqlite:" + rev, kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
+    sig: () => "sqlite:" + rev,
+    /** 006: bản đang lưu ĐÃ phân tích (chỉ đọc) + sig — để kiểm quy tắc / kho năm không phân tích lại toàn bộ dữ liệu sau mỗi lần lưu. */
+    currentDoc: () => (cur && !conflict ? { sig: "sqlite:" + rev, doc: cur.doc } : null), kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });
 }
 

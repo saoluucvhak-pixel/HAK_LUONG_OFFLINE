@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.56] — 20/11/2026
+- **Hiệu năng lưu 5.000 NV (006):** không phân tích lại bản cũ sau mỗi lần lưu, dùng chung chuỗi từng dòng; chuỗi ghi 242 → 104 ms (p50). Chi tiết: `docs/releases/v2.0.56.md`.
+
 ## [2.0.55] — 20/11/2026
 - **Một kiểu Bộ lọc thông minh cho mọi báo cáo (handoff 010, issue #99):** 6 báo cáo nghiệp vụ dùng Smart Filter chung, Phòng ban chọn nhiều, giữ bộ lọc riêng từng báo cáo. Chi tiết: `docs/releases/v2.0.55.md`.
 
