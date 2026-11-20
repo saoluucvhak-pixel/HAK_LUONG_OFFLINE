@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.58] — 20/11/2026
+- **Cảnh báo mềm `normCell` cho số tiền âm và số suất cơm bất thường (P3.6, T-21):** `core/validate.js` trả về `warn` (không chặn lưu) cho số tiền âm hoặc `Số suất cơm` âm / vượt ngưỡng `MAX_SUAT_COM_NGAY = 3`; bảng nhập liệu tô viền cảnh báo và hiển thị toast. Chi tiết: `docs/releases/v2.0.58.md`.
+
 ## [2.0.57] — 20/11/2026
 - **Sửa biểu ngữ kiểm tra sao lưu (T-01, rà soát 5 agent):** có bản sao lưu hỏng thì cảnh báo, không còn báo xanh. Chi tiết: `docs/releases/v2.0.57.md`. Chi tiết: `docs/releases/v2.0.57.md`.
 
