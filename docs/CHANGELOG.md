@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.58] — 20/11/2026
+- **PDF bảng lương đủ cột lặp Mã NV–Họ tên, có dòng tổng & chữ ký bộ báo cáo kỳ (P4.5, A6-01 + A6-25):** sắp lại `Mã NV`, `Họ và tên` đứng đầu với `repeatColumns: 2` và thêm `addTotal` chỉ cho bản PDF ở `21-mau-bao-cao-rieng.js`; truyền `chuKy` cho các sheet không phải `ThongTinKy` khi xuất PDF bộ báo cáo kỳ ở `17-chot-ky.js`. Chi tiết: `docs/releases/v2.0.58.md`.
+
 ## [2.0.57] — 20/11/2026
 - **Sửa biểu ngữ kiểm tra sao lưu (T-01, rà soát 5 agent):** có bản sao lưu hỏng thì cảnh báo, không còn báo xanh. Chi tiết: `docs/releases/v2.0.57.md`. Chi tiết: `docs/releases/v2.0.57.md`.
 
