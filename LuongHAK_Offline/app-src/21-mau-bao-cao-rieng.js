@@ -77,7 +77,7 @@
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { mn.appendChild(h("option", { value: o[1], text: o[0] })); });
     mn.addEventListener("change", function () {
       var m = excelSheets(r, r.ky || kyStr())[mn.value];
-      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + ".xlsx", [m]); mn.selectedIndex = 0;
+      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + ".xlsx", [m], "pro"); mn.selectedIndex = 0;
     });
     bar.appendChild(mn);
     bar.appendChild(btn("⬇ Xuất PDF…", "", function () {

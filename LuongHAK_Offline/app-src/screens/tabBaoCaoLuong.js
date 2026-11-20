@@ -211,7 +211,7 @@
       var sh = sheets.filter(function (x) { return x.rows.length; }).map(function (x) { return { name: x.name, cols: Object.keys(x.rows[0]), rows: x.rows }; });
       if (!sh.length) { toast("Không có dữ liệu"); return; }
       if (dataSource) sh.unshift({ name: "NguonDuLieu", cols: ["Nguồn số liệu"], rows: [{ "Nguồn số liệu": dataSource }] });
-      saveXlsx("BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + ".xlsx", sh);
+      saveXlsx("BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + ".xlsx", sh, "pro");
     }));
     w.appendChild(card); return w;
   }
