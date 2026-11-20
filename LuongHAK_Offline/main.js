@@ -104,7 +104,7 @@ function registerIpc() {
   ipcMain.handle("year-table",guarded("backup.restore",async(e,year,kind,period,page)=>yearWorker("table",[year,kind,period,page])));
   ipcMain.handle("year-export",guarded("export",async(e,year,kind,period,format,page)=>{const denied=guard.deny(e,"backup.restore");if(denied)return {ok:false,error:denied};try{return await require('./main/year-archive-export').exportYear({years,exportsDir,year,kind,period,format,page,renderPdf:p=>pdfSvc.renderPdf({BrowserWindow},p)});}catch(err){return {ok:false,error:String(err.message||err)};}}));
   ipcMain.handle("year-restore",guardedW("system.admin",async(e,year,reason,token)=>yearWorker("restore",[year,reason,token,guard.userOf(e)])));
-  const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, sigOf: storage.sig ? () => storage.sig() : fileSig(storage.dataFile), gate: payGate }));
+  const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, readObj: storage.currentDoc ? () => storage.currentDoc() : null, sigOf: storage.sig ? () => storage.sig() : fileSig(storage.dataFile), gate: payGate }));
   const sigNow = () => (storage.sig ? storage.sig() : fileSig(storage.dataFile)());
   ipcMain.on("store-sig", (e) => { try { e.returnValue = String(sigNow()); } catch (err) { e.returnValue = ""; } });
   ipcMain.on("store-save", (e, text, baseSig) => {
@@ -121,7 +121,7 @@ function registerIpc() {
       const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv, parsed });
       if (!v.ok) { if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n"); e.returnValue = v.error; return; }
       if(storage.hasDataFile()) years.checkWrite(text,!!(restorer&&restorer.busy()),parsed);
-      const r = storage.save(text, parsed);
+      const r = storage.save(text, parsed, policy().rowsFor ? policy().rowsFor(parsed) : null); // 006: dùng lại chuỗi từng dòng đã tính ở bước kiểm
       if (r === true) { policy().commit(); if (rcv && !who) guard.recoveryDone(e); }
       if (c && c.touch) c.touch();
       e.returnValue = r;

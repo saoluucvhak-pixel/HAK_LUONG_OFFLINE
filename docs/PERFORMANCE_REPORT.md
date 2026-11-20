@@ -135,3 +135,7 @@ Nhận định (trung thực):
 - Thời gian tăng gần tuyến tính theo kích thước tài liệu (5.000→10.000 NV: ×2,0) nên không có điểm gãy bất ngờ trong dải đo.
 - `data.sqlite-wal` bằng cỡ cơ sở dữ liệu sau lần lưu đầu (23/46 MB): bình thường với WAL, được checkpoint khi đóng.
 - Chưa đo: nhiều năm/chứng từ, nhiều bảng lớn đồng thời, RAM của giao diện, Windows.
+
+## Đo lại sau 006, v2.0.56 (20/11/2026)
+
+Tái lập: `docs/v2.0.56/perf-steps.cjs` (60 lần sửa 1 ô, bỏ 3 lần đầu, cùng máy và dữ liệu giả). Chuỗi ghi tiến trình chính: **5.000 NV 242/315 → 104/161 ms (p50/p95); 10.000 NV 531/656 → 214/302 ms; 300 NV 6/9 ms.** Nguyên nhân trước: sau mỗi lần lưu, bước kiểm quy tắc ghi và kho năm đều đọc + phân tích lại toàn bộ dữ liệu (2 × ~37 ms), băm cả bảng (~30 ms) và kho SQLite tuần tự hóa lại từng dòng (~50 ms). Mục tiêu < 150 ms ở 5.000 NV: **đạt ở p50, chưa đạt ở p95** (~161 ms). Chưa đo trên Windows thật.

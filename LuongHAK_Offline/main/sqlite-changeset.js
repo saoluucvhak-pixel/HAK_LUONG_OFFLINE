@@ -12,7 +12,7 @@ const sha16 = (s) => crypto.createHash("sha256").update(s).digest("hex").slice(0
 const isTable = (v) => Array.isArray(v);
 
 function diffRows(a, b, cache, key) {
-  const sa = cache && cache.prev && cache.prev[key] && cache.prev[key].length === a.length ? cache.prev[key] : a.map(str), sb = b.map(str);
+  const sa = cache && cache.prev && cache.prev[key] && cache.prev[key].length === a.length ? cache.prev[key] : a.map(str), hb = cache && cache.hint && cache.hint[key], sb = hb && hb.length === b.length ? hb : b.map(str); // 006: dùng lại chuỗi từng dòng đã tính
   if (cache) (cache.next = cache.next || {})[key] = sb;
   let p = 0; const n = sa.length, m = sb.length;
   while (p < n && p < m && sa[p] === sb[p]) p++;
