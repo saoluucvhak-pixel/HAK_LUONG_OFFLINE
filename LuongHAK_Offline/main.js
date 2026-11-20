@@ -522,7 +522,7 @@ app.whenReady().then(() => {
   try { require("./main/storage-paths").markUsed(app.getPath("userData"), storage.readSettings(), "", storage.writeSettings); } catch (e) { /* không chặn khởi động */ }
   try { const rc = restorer.recover(); if (rc.note) { const st0 = storage.readSettings(); st0.lastRestoreNote = rc.note; storage.writeSettings(st0); } } catch (e) { /* không chặn khởi động */ }
   exportsDir = createExports({ readSettings: storage.readSettings, writeSettings: storage.writeSettings, defaultDir: path.join(app.getPath("documents"), "Tinh Luong HAK", "File xuat"), fixedDir: process.env.HAK_DOWNLOAD_DIR || "" });
-  try { storage.backup("startup"); } catch (e) { /* lần đầu chưa có dữ liệu */ }
+  try { if (!storage.changedSinceBackup || storage.changedSinceBackup()) storage.backup("startup"); } catch (e) { /* lần đầu chưa có dữ liệu */ }
   registerIpc();
   createWindow();
   // Sao lưu định kỳ khi app đang mở (kiểm tra mỗi phút; chỉ sao lưu khi đến giờ VÀ dữ liệu đã đổi). HAK_SCHEDULE_TICK_MS: kiểm thử tự động
