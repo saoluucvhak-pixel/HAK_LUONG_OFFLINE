@@ -325,8 +325,25 @@
       (db[t] || []).forEach(function (r) {
         if (!r) return; var k = kyOfRow(t, r);
         if (t === "kyluong" || t === "kyluong_lichsu") { if (nk(r.ky) !== ky && r.kq && (r.kq.bangluong || []).some(function (x) { return x["Mã NV"] === ma; })) set[r.ky] = 1; }
-        else if (r["Mã NV"] === ma && k && k !== ky) set[k] = 1;
+        else if ((r["Mã NV"] === ma || r.ma === ma) && k && k !== ky) set[k] = 1;
       });
+    });
+    return Object.keys(set).sort();
+  }
+  var EXTRA_EMP_TABLES = ["benefitAssignments", "benefitIssues", "benefitAdjustments"];
+  function rowUsesEmployee(r, ma) {
+    if (!r) return false;
+    if (r["Mã NV"] === ma || r.employee === ma || r.ma === ma) return true;
+    return Array.isArray(r.lines) && r.lines.some(function (l) { return l && (l.employee === ma || l["Mã NV"] === ma || l.ma === ma); });
+  }
+  /** Bảng ngoài nhóm kỳ / nhóm toàn bộ đang tham chiếu Mã NV `ma` (tránh xóa làm mồ côi nghiphep, khenthuong, benefitIssues…). */
+  function extraRefsUsingMa(db, ma) {
+    var set = {}, refs = (GRD && typeof GRD.references === "function") ? GRD.references(db, ma) : {};
+    Object.keys(refs).forEach(function (t) {
+      if (!isGlobalTable(t) && PERIOD_TABLES.indexOf(t) < 0) set[t] = 1;
+    });
+    EXTRA_EMP_TABLES.forEach(function (t) {
+      if ((db[t] || []).some(function (r) { return rowUsesEmployee(r, ma); })) set[t] = 1;
     });
     return Object.keys(set).sort();
   }
@@ -338,13 +355,19 @@
     return { kys: Object.keys(set).sort(), hd: hd };
   }
   function deleteBlock(db, ky, t, row, lookup) { // → "" nếu xóa được, ngược lại lý do tiếng Việt
-    if (row && "Mã NV" in row) { var kys = kyUsingMa(db, ky, row["Mã NV"]); if (kys.length) return "không xóa vì kỳ " + kys.join(", ") + " đang dùng Mã NV " + row["Mã NV"]; return ""; }
+    if (row && "Mã NV" in row) {
+      var ma = row["Mã NV"], kys = kyUsingMa(db, ky, ma), refs = extraRefsUsingMa(db, ma), parts = [];
+      if (kys.length) parts.push("kỳ " + kys.join(", "));
+      if (refs.length) parts.push("bảng " + refs.join(", "));
+      if (parts.length) return "không xóa vì " + parts.join(" và ") + " đang dùng Mã NV " + ma;
+      return "";
+    }
     if (/^dm_/.test(t)) { var code = String(row[Object.keys(row)[0]] == null ? "" : row[Object.keys(row)[0]]); if (!code) return ""; var u = usesOfCode(lookup, ky, code); var why = []; if (u.hd) why.push("chitiethd (" + u.hd + " dòng)"); if (u.kys.length) why.push("kỳ " + u.kys.join(", ")); if (why.length) return "không xóa vì " + why.join(" và ") + " đang dùng mã " + code; }
     return "";
   }
   function planPeriodRestore(db, payload, ky, opt) {
     opt = opt || {}; db = db || {};
-    var out = { ok: true, ky: ky, errors: [], blocked: "", period: {}, global: {}, slOther: [], otherOpenPeriods: [], warning: "", deletes: { allowed: !!opt.allowDelete, rows: [], blocked: [] }, counts: { period: 0, add: 0, change: 0, remove: 0 } };
+    var out = { ok: true, ky: ky, errors: [], blocked: "", period: {}, global: {}, slOther: [], otherOpenPeriods: [], warning: "", warnings: [], deletes: { allowed: !!opt.allowDelete, rows: [], blocked: [] }, counts: { period: 0, add: 0, change: 0, remove: 0 } };
     var fail = function (m) { out.ok = false; out.errors.push(m); };
     if (!KY_RE.test(String(ky || ""))) { fail("Kỳ '" + ky + "' sai định dạng (cần YYYY-MM)."); return out; }
     if (!payload || typeof payload !== "object" || !payload.period || typeof payload.period !== "object" || !payload.global || typeof payload.global !== "object") { fail("Gói thiếu cấu trúc (period/global) — không dùng được."); return out; }
@@ -359,7 +382,21 @@
     // gói chứa BẢN CHỐT của kỳ (lấy lúc kỳ đã chốt) mà máy đang MỞ kỳ → khôi phục sẽ chốt lại: phải cảnh báo + xác nhận riêng (CEO #123)
     out.reclose = ((payload.period.kyluong || []).some(function (r) { return inKy("kyluong", r, ky); }));
     // nhóm A
-    PERIOD_TABLES.forEach(function (t) { var cur = (db[t] || []).filter(function (r) { return inKy(t, r, ky); }), pk = payload.period[t] || []; if (!cur.length && !pk.length) return; out.period[t] = { before: cur.length, after: pk.length }; out.counts.period += pk.length; });
+    var missingPeriodTables = [];
+    PERIOD_TABLES.forEach(function (t) {
+      var hasInPkg = Object.prototype.hasOwnProperty.call(payload.period, t);
+      var cur = (db[t] || []).filter(function (r) { return inKy(t, r, ky); }), pk = payload.period[t] || [];
+      if (!hasInPkg) {
+        if (cur.length) out.warnings.push("Cảnh báo: Gói thiếu bảng nhóm kỳ '" + t + "' — khôi phục sẽ xóa " + cur.length + " dòng kỳ " + ky + " hiện có ở máy (trước " + cur.length + " -> sau 0).");
+        else missingPeriodTables.push(t);
+      }
+      if (!cur.length && !pk.length) return;
+      out.period[t] = { before: cur.length, after: pk.length };
+      out.counts.period += pk.length;
+    });
+    if (missingPeriodTables.length) {
+      out.warnings.push("Cảnh báo: Gói thiếu bảng nhóm kỳ (" + missingPeriodTables.join(", ") + ") — ở máy hiện có 0 dòng kỳ " + ky + ".");
+    }
     // sl_chuyenky: dòng source === ky (target khác) giữ nguyên; liệt kê khác biệt với gói
     var ref = (payload.refOnly && payload.refOnly.sl_chuyenky) || [], mine = (db.sl_chuyenky || []).filter(function (r) { return srcOut(r, ky); }), idOf = function (r) { return r.id != null ? String(r.id) : canon(r); }, refMap = {}, mineMap = {};
     ref.forEach(function (r) { refMap[idOf(r)] = r; }); mine.forEach(function (r) { mineMap[idOf(r)] = r; });
