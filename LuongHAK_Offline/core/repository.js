@@ -404,7 +404,56 @@
   }
   var period = { PERIOD_TABLES: PERIOD_TABLES, HR_TABLES: HR_TABLES, isGlobalTable: isGlobalTable, kyOfRow: kyOfRow, inKy: inKy, closedKy: closedKy, slice: periodSlice, plan: planPeriodRestore, apply: applyPeriodRestore, canon: canon };
 
-  var api = { createRepo: createRepo, permFor: permFor, retroText: retroText, identOf: identOf, HD_CHILD_DEFAULT: HD_CHILD_DEFAULT, period: period };
+  /**
+   * Cập nhật mọi tham chiếu Mã NV (cả r["Mã NV"] và các bảng đặc thù dùng employee / taxOverrides)
+   * khi đổi Mã NV. Bỏ qua nhanvien, auditlog, kyluong, kyluong_lichsu.
+   * Trả về object { [table]: count } cho các bảng có bản ghi thay đổi.
+   */
+  function renameEmployeeRefs(db, oldCode, newCode) {
+    var counts = {};
+    if (!db || typeof db !== "object" || !oldCode || !newCode || oldCode === newCode) return counts;
+    var bump = function (t) { counts[t] = (counts[t] || 0) + 1; };
+    var skip = { nhanvien: 1, auditlog: 1, kyluong: 1, kyluong_lichsu: 1 };
+    Object.keys(db).forEach(function (k) {
+      if (skip[k] || !Array.isArray(db[k])) return;
+      db[k].forEach(function (r) {
+        if (!r || typeof r !== "object") return;
+        if (r["Mã NV"] === oldCode) { r["Mã NV"] = newCode; bump(k); }
+      });
+    });
+    (db.productionAttendance || []).forEach(function (r) {
+      if (r && r.employee === oldCode) { r.employee = newCode; bump("productionAttendance"); }
+    });
+    (db.benefitAssignments || []).forEach(function (r) {
+      if (r && r.employee === oldCode) { r.employee = newCode; bump("benefitAssignments"); }
+    });
+    (db.benefitIssues || []).forEach(function (doc) {
+      if (!doc || !Array.isArray(doc.lines)) return;
+      doc.lines.forEach(function (line) {
+        if (line && line.employee === oldCode) { line.employee = newCode; bump("benefitIssues"); }
+      });
+    });
+    (db.benefitAdjustments || []).forEach(function (adj) {
+      if (!adj) return;
+      if (Array.isArray(adj.lines)) adj.lines.forEach(function (line) {
+        if (line && line.employee === oldCode) { line.employee = newCode; bump("benefitAdjustments"); }
+      });
+      if (Array.isArray(adj.to)) adj.to.forEach(function (line) {
+        if (line && line.employee === oldCode) { line.employee = newCode; bump("benefitAdjustments"); }
+      });
+    });
+    (db.sl_chuyenky || []).forEach(function (r) {
+      if (!r || !r.taxOverrides || typeof r.taxOverrides !== "object") return;
+      if (Object.prototype.hasOwnProperty.call(r.taxOverrides, oldCode)) {
+        if (!Object.prototype.hasOwnProperty.call(r.taxOverrides, newCode)) r.taxOverrides[newCode] = r.taxOverrides[oldCode];
+        delete r.taxOverrides[oldCode];
+        bump("sl_chuyenky");
+      }
+    });
+    return counts;
+  }
+
+  var api = { createRepo: createRepo, permFor: permFor, retroText: retroText, identOf: identOf, HD_CHILD_DEFAULT: HD_CHILD_DEFAULT, period: period, renameEmployeeRefs: renameEmployeeRefs };
   if (isNode) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.repo = api; }
 })(typeof window !== "undefined" ? window : this);
