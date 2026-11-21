@@ -5,15 +5,15 @@ Nguồn: `LuongHAK_Offline/tests/e2e/layout-audit.cjs` chạy trong `tests/e2e/i
 ## 1. Kiểm cứng (CI đỏ nếu vi phạm) — kết quả hiện tại: 0 lỗi ở 117 (màn × cỡ) + 9 hộp thoại
 Không tràn ngang trang · không chữ bị cắt cụt (không có `…`/tooltip) · bảng rộng có vùng cuộn riêng (không phải cả `#main`) · bảng ≥ 12 dòng có tiêu đề cột cố định (`position: sticky`) · control cùng thanh không chồng nhau · 12 lần Tab: control nhận focus đều có dấu hiệu nhìn thấy · hộp thoại (Thêm nhân viên, Xem trước nhập Excel, Danh mục-Lịch sử) vừa khung nhìn và nút chính thấy ngay. **Ca đối chứng** (cố ý chèn chữ cắt, bảng rộng, hai nút chồng, chữ mờ) chứng minh bộ kiểm bắt được lỗi.
 
-## 2. Lỗi ghi nhận (chưa sửa; CI chỉ in số lượng, không đỏ)
-| Mã | Mức | Lỗi | Phạm vi đo được | Ảnh |
+## 2. Các lỗi UI-001..UI-004 đã xử lý (chờ nghiệm thu trực quan Windows thật)
+| Mã | Mức | Lỗi | Phạm vi đo được ban đầu | Ảnh |
 |---|---|---|---|---|
 | UI-001 | Trung | **ĐÃ SỬA v2.0.48 (kiểm PASS/FAIL trong `input-filter-dept`)** — **Thanh trên bị đẩy xuống 2–3 hàng**: tiêu đề + Tìm kiếm + Kỳ lương + File đã tải + bảng màu + tài khoản + Đăng xuất + chủ đề không vừa một hàng; thanh cao 106–157 px thay vì 57 px (một hàng), lấy mất chiều cao làm việc | 1366×768: 34/39 màn; 1024×768: 39/39; 1920×1080: 0/39 | `ui-chamcong-1366x768.png`, `ui-home-1024x768.png` |
 | UI-002 | **ĐÃ SỬA ở v2.0.45 (PR 005B-UI002; chờ CEO/Windows thật)** — ghi nhận ban đầu: **Cao** cho màn nhập hằng ngày | **Ít dòng dữ liệu nhìn thấy khi mở màn (< 6)**: thanh nút + bộ lọc + chú thích + chú giải màu chiếm ~480 px; người nhập phải cuộn mới thấy dòng — Bảng chấm công 4 dòng, **Sản lượng 1 dòng**, Kiểm tra bảng lương 1, Bảng thanh toán lương 0, Chi tiết thanh toán 3, Tổng hợp lương 4, Chi tiết NV 3, Thuế TNCN 4 | 1366×768: 8 màn; 1024×768: 13 màn; 1920×1080: 0 | `ui-sanluong-1366x768.png` |
 | UI-003 | Thấp | **ĐÃ SỬA v2.0.52 (kiểm PASS/FAIL trong `input-filter-dept`)** — **Tương phản chữ dưới AA**: dòng "Phạm vi: …" (lớp `hint`) 4,23 : 1 (< 4,5) ở thanh số dòng của Smart Filter | 60/117 (màn × cỡ) | `ui-chamcong-1366x768.png` |
-| UI-004 | Thấp | **ĐÃ SỬA v2.0.53 cho mọi màn ép vừa được (kiểm PASS/FAIL trong `input-filter-dept`); trang báo cáo nhiều phần vẫn có khung trang cuộn + bảng cuộn riêng — giới hạn thiết kế (bảng rộng cần vùng cuộn ngang và tiêu đề cột cố định)** — **Hai thanh cuộn dọc lồng nhau** (khung trang + bảng) ở Bảng chấm công — quan sát bằng mắt từ ảnh, chưa có phép đo tự động | 1366×768 | `ui-chamcong-1366x768.png` |
+| UI-004 | Thấp | **ĐÃ SỬA v2.0.53 cho mọi màn ép vừa được (kiểm PASS/FAIL trong `input-filter-dept`); trang báo cáo nhiều phần vẫn có khung trang cuộn + bảng cuộn riêng — giới hạn thiết kế (bảng rộng cần vùng cuộn ngang và tiêu đề cột cố định)** — **Hai thanh cuộn dọc lồng nhau** (khung trang + bảng) ở Bảng chấm công | 1366×768 | `ui-chamcong-1366x768.png` |
 
-Gợi ý sửa (chưa làm, mỗi nhóm một PR nhỏ có test đỏ trước, đổi CSS `ui/workspace-v104.css`/`app-src`, đổi phiên bản, chờ CEO đọc diff): UI-001 cho thanh trên co về một hàng (thu gọn nhãn "Tìm kiếm"/"File đã tải" thành biểu tượng khi hẹp); UI-002 gấp chú thích/chú giải thành "ⓘ Hướng dẫn" có thể mở và gom hai hàng nút; UI-003 đậm hơn màu `hint`. Đổi nhãn hiển thị phải giữ nguyên mã/khóa dữ liệu.
+Tất cả 4 nhóm UI-001 (v2.0.48), UI-002 (v2.0.45), UI-003 (v2.0.52) và UI-004 (v2.0.53) đã được xử lý và kiểm tự động đạt trong `layout-audit.cjs` / `input-filter-dept.cjs`; giữ nguyên mã/khóa dữ liệu, chờ nghiệm thu mắt người trên Windows thật.
 
 ## 3. Mục 5 — "dễ dùng": đếm số bước từ màn chính (ĐỀ XUẤT, chưa chạy tự động, chưa sửa)
 | Luồng | Các bước (ước tính từ giao diện) | Số bước | Nhận xét |

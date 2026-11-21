@@ -19,12 +19,34 @@ test("U-UI-02 nhãn không có emoji / emoji chưa có icon thì giữ nguyên",
   assert.strictEqual(I.split(""), null);
 });
 
-test("U-UI-03 mọi emoji dùng trên giao diện (menu, nút, thẻ hồ sơ) đều có icon", () => {
+test("U-UI-03 mọi emoji dùng trên giao diện (app-src, ui, hr) đều có icon", () => {
   const fs = require("fs"), path = require("path");
-  const src = ["app.js", "hr.js"].map((f) => fs.readFileSync(path.join(__dirname, "../..", f), "utf8")).join("\n");
+  const root = path.join(__dirname, "../..");
+  function walkJs(dir) {
+    const out = [];
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) out.push(...walkJs(p));
+      else if (ent.isFile() && ent.name.endsWith(".js")) out.push(p);
+    }
+    return out;
+  }
+  const files = [
+    ...walkJs(path.join(root, "app-src")),
+    ...walkJs(path.join(root, "ui")),
+    path.join(root, "hr.js")
+  ];
   const missing = new Set();
-  for (const m of src.matchAll(/["']((?:\p{Extended_Pictographic}|[⬇⬆▶↔✎✔⚠＋])️?)\s/gu)) if (!I.split(m[1] + " x")) missing.add(m[1]);
-  for (const m of src.matchAll(/icon: "([^"]+)"/g)) if (!I.split(m[1] + " x")) missing.add(m[1]);
+  for (const f of files) {
+    const src = fs.readFileSync(f, "utf8");
+    const rel = path.relative(root, f).replace(/\\/g, "/");
+    for (const m of src.matchAll(/["']((?:\p{Extended_Pictographic}|[⬇⬆▶↔✎✔⚠＋])️?)\s/gu)) {
+      if (!I.split(m[1] + " x")) missing.add(m[1] + " (" + rel + ")");
+    }
+    for (const m of src.matchAll(/icon:\s*["']([^"']+)["']/g)) {
+      if (!I.split(m[1] + " x")) missing.add(m[1] + " (" + rel + ")");
+    }
+  }
   assert.deepStrictEqual([...missing], []);
   for (const k of Object.keys(I.MAP)) assert.ok(I.names.includes(I.MAP[k]), "thiếu hình cho " + k);
 });

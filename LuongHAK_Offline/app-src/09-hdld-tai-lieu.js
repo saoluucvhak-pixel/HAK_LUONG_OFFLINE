@@ -204,8 +204,9 @@
         var touched = Object.keys(db).filter(function (k) { return Array.isArray(db[k]); });
         if (!txn(touched, function () {
           if (d["Mã NV"] !== old) {
-            Object.keys(db).forEach(function (k) { if (Array.isArray(db[k]) && k !== "auditlog" && k !== "kyluong" && k !== "kyluong_lichsu") db[k].forEach(function (r) { if (r && r !== nv && r["Mã NV"] === old) r["Mã NV"] = d["Mã NV"]; }); });
-            audit("Đổi Mã NV", old + " → " + d["Mã NV"] + " (" + (refTxt || "không có dữ liệu liên quan") + ")");
+            var renamed = RP.renameEmployeeRefs(db, old, d["Mã NV"]);
+            var renamedTxt = Object.keys(renamed).map(function (k) { return (ALL[k] ? ALL[k].ten : k) + ": " + renamed[k]; }).join(", ");
+            audit("Đổi Mã NV", old + " → " + d["Mã NV"] + " (" + (renamedTxt || "không có dữ liệu liên quan") + ")");
           }
           Object.assign(nv, d); auditChange("Sửa thông tin cơ bản", "nhanvien", bNV, nv, nv["Mã NV"]);
         })) { nv = db.nhanvien[nvIndex]; alert("Chưa lưu hồ sơ: " + lastTxnError + ". Form giữ nguyên để thử lại."); return; }
