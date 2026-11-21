@@ -32,7 +32,7 @@ test("U-A604-01 sheets() không dùng overflow-wrap:anywhere, dùng overflow-wra
   assert.match(html, /overflow-wrap:\s*break-word/, "Phải dùng overflow-wrap:break-word cho văn bản dài");
   assert.match(html, /td\.n\{[^}]*white-space:\s*nowrap/, "Phải định nghĩa td.n{white-space:nowrap}");
 
-  for (const val of ["NV0001", "19034567890123", "001122334455", "Vietcombank CN HCM", "2026-09", "2026-09-30", "PC-2026-001", "8012345678", "0123456789"]) {
+  for (const val of ["NV0001", "19034567890123", "001122334455", "Vietcombank CN HCM", "2026-09", "30/09/2026", "PC-2026-001", "8012345678", "0123456789"]) {
     assert.ok(html.includes('<td class="n">' + val + '</td>'), "Cột định danh phải có class='n': " + val);
   }
   assert.ok(html.includes('<td class="t">Nguyễn Văn Một Tên Rất Dài'), "Cột Họ và tên giữ class='t'");

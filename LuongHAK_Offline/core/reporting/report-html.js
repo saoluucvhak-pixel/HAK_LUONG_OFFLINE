@@ -7,7 +7,12 @@
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function money(v) { var x = Math.round(+v || 0); return x === 0 ? "–" : x.toLocaleString("vi-VN"); }
   function qty(v) { var x = +v; if (!isFinite(x) || x === 0) return "–"; return (Math.round(x * 1000) / 1000).toLocaleString("vi-VN", { maximumFractionDigits: 3 }); }
-  function cell(c, v) { return c.kind === "money" ? money(v) : c.kind === "qty" ? qty(v) : esc(v); }
+  function isoToVn(label, v) {
+    if (v == null || v === "") return v;
+    var s = String(v);
+    return /^Ngày/.test(String(label || "").trim()) && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4) : v;
+  }
+  function cell(c, v) { return c.kind === "money" ? money(v) : c.kind === "qty" ? qty(v) : esc(isoToVn(c.label || c.key, v)); }
 
   var NOWRAP_COL_RE = /^(Mã|Số tài khoản|STK|Ngân hàng|Kỳ|Ngày|Số chứng từ|Mã số thuế|MST)/;
   function isNowrapCol(label) { return NOWRAP_COL_RE.test(String(label || "").trim()); }
@@ -76,7 +81,7 @@
         h += "<tr>" + sc.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
         sh.rows.forEach(function (r, i) {
           var tot = i === sh.rows.length - 1 && TR.is(r);
-          h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + sc.map(function (c) { var v = r[c]; var cls = num[c] ? "m" : (isNowrapCol(c) ? "n" : "t"); return "<td class=\"" + cls + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(v)) + "</td>"; }).join("") + "</tr>";
+          h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + sc.map(function (c) { var v = r[c]; var cls = num[c] ? "m" : (isNowrapCol(c) ? "n" : "t"); return "<td class=\"" + cls + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(isoToVn(c, v))) + "</td>"; }).join("") + "</tr>";
         });
         h += "</tbody></table>";
       });
