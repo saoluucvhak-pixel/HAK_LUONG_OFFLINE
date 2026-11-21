@@ -34,7 +34,7 @@
   }
   function dateFix(i) {
     var t = i.value.trim(), n = t ? VAL.normDate(t) : "";
-    if (n === null) { i.classList.add("invalid"); i.setAttribute("aria-invalid", "true"); i.title = "Ngày không hợp lệ — nhập dd/MM/yyyy (ví dụ 29/02/2028)"; return; }
+    if (n === null) { i.classList.add("invalid"); i.setAttribute("aria-invalid", "true"); i.title = "Ngày không hợp lệ — nhập ngày dạng dd/MM/yyyy, ví dụ 15/09/2026 (năm 4 chữ số)"; return; }
     i.classList.remove("invalid"); i.removeAttribute("aria-invalid"); i.title = i.getAttribute("aria-label") || "";
     if (n) i.value = n.slice(8, 10) + "/" + n.slice(5, 7) + "/" + n.slice(0, 4);
   }
