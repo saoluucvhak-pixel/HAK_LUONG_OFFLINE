@@ -85,6 +85,7 @@
     if (lastSaveStale) { if (confirm("Dữ liệu đã được thay đổi ở nơi khác nên bản đang mở là bản CŨ; app không ghi để tránh ghi đè dữ liệu mới.\n\nBấm OK để ĐÓNG và bỏ thay đổi chưa lưu của màn hình này. Bấm Hủy để giữ cửa sổ.")) { dirty = false; return true; } return false; }
     toast("Chưa lưu được dữ liệu — app giữ cửa sổ mở. " + lastSaveError); return false;
   };
+  window.hakMakeDirty = function () { audit("Thao tác kiểm thử", "stale-base"); dirty = true; };
   window.addEventListener("beforeunload", function (e) {
     if (!dirty) return;
     closingNow = true; var okSave = saveNow(); closingNow = false;

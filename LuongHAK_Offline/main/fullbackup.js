@@ -8,7 +8,8 @@ const FORMAT = "HAK-FULLBACKUP", VERSION = 2;
 const SNAP_DEFLATE_MAX = 256 * 1048576;
 const SNAPSHOT_PATH = "sqlite/data-snapshot.sqlite"; // 002b: bản chụp SQLite TÙY CHỌN trong gói (manifest.sqliteSnapshot); app cũ không biết tới và bỏ qua, data.json vẫn là nguồn khôi phục chuẩn
 const rowsOf = (o) => Object.keys(o).reduce((n, k) => n + (Array.isArray(o[k]) ? o[k].length : 0), 0);
-function shaFile(file) { const h = crypto.createHash("sha256"), fd = fs.openSync(file, "r"), b = Buffer.alloc(1 << 20); let n; try { while ((n = fs.readSync(fd, b, 0, b.length, null)) > 0) h.update(b.subarray(0, n)); } finally { fs.closeSync(fd); } return h.digest("hex"); }
+function shaFileWith(f, file) { const h = crypto.createHash("sha256"), fd = f.openSync(file, "r"), b = Buffer.alloc(1 << 20); let n; try { while ((n = f.readSync(fd, b, 0, b.length, null)) > 0) h.update(b.subarray(0, n)); } finally { f.closeSync(fd); } return h.digest("hex"); }
+function shaFile(file) { return shaFileWith(fs, file); }
 const SNAPSHOT_SCHEMA_MAX = 2; // schema SQLite tối đa app này hiểu; khớp với SCHEMA_VERSION của kho (tests/unit/fullbackup-snapshot.test.js kiểm hai số bằng nhau). Tệp này không tự mở SQLite (quy tắc U-SQL-07): bản chụp do kho chụp và kiểm, ở đây chỉ đối chiếu siêu dữ liệu
 /** Kiểm siêu dữ liệu bản chụp do kho SQLite cung cấp (kho đã VACUUM INTO + integrity_check + đối chiếu số dòng): có tệp, schema ≤ app, số dòng = số dòng của data.json cùng thời điểm. Ném lỗi nếu không đạt. */
 function checkSnapshotMeta(sn, wantRows) {
@@ -304,4 +305,39 @@ async function inspectPeriodPackage(file, password) {
   } catch (e) { return bad("Không kiểm được gói: " + (e.message || e)); }
   finally { if (zip) try { zip.close(); } catch (e) { /* đã đóng */ } if (work) try { fs.rmSync(work, { recursive: true, force: true }); } catch (e) { /* dọn tạm */ } }
 }
-module.exports = { createPeriodPackage, inspectPeriodPackage, STATUS: ST, create, inspect, extractSqliteSnapshot, SNAPSHOT_PATH, SNAPSHOT_SCHEMA_MAX, importDocuments, importOcrLibrary, importDocumentsFrom, importOcrLibraryFrom, zipReader, dirReader, FORMAT, VERSION };
+/** Chép tệp an toàn: ghi .tmp -> fsync -> đối chiếu SHA-256 -> rename -> dọn .tmp nếu lỗi. */
+function copyFileDurable(src, dest, opts) {
+  const f = (opts && opts.fsImpl) || fs;
+  const tmp = dest + ".tmp";
+  f.mkdirSync(path.dirname(dest), { recursive: true });
+  try { f.rmSync(tmp, { force: true }); } catch (e) { /* bỏ qua */ }
+  try {
+    f.copyFileSync(src, tmp);
+    const fd = f.openSync(tmp, "r+");
+    try { f.fsyncSync(fd); } finally { f.closeSync(fd); }
+    const wantSha = (opts && opts.expectedSha256) || shaFileWith(f, src);
+    const gotSha = shaFileWith(f, tmp);
+    if (gotSha !== wantSha) throw new Error("Bản sao dự phòng sai SHA-256 (" + gotSha.slice(0, 12) + " ≠ " + wantSha.slice(0, 12) + ")");
+    f.renameSync(tmp, dest);
+  } catch (err) {
+    try { f.rmSync(tmp, { force: true }); } catch (e) { /* bỏ qua */ }
+    throw err;
+  }
+}
+/** Chép gói Full Backup (và .sha256 nếu có) sang <mirrorDir>/FullBackup an toàn, dọn .tmp mồ côi. */
+function mirrorFullBackup(srcFile, mirrorDir, opts) {
+  const f = (opts && opts.fsImpl) || fs;
+  const targetDir = path.join(mirrorDir, "FullBackup");
+  f.mkdirSync(targetDir, { recursive: true });
+  for (const entry of f.readdirSync(targetDir)) {
+    if (/\.tmp$/i.test(entry)) {
+      try { f.rmSync(path.join(targetDir, entry), { force: true }); } catch (e) { /* bỏ qua */ }
+    }
+  }
+  const destPkg = path.join(targetDir, path.basename(srcFile));
+  copyFileDurable(srcFile, destPkg, { expectedSha256: opts && opts.expectedSha256, fsImpl: f });
+  const srcSha = (opts && opts.sha256File) || (srcFile + ".sha256");
+  if (f.existsSync(srcSha)) copyFileDurable(srcSha, destPkg + ".sha256", { fsImpl: f });
+  return targetDir;
+}
+module.exports = { createPeriodPackage, inspectPeriodPackage, copyFileDurable, mirrorFullBackup, STATUS: ST, create, inspect, extractSqliteSnapshot, SNAPSHOT_PATH, SNAPSHOT_SCHEMA_MAX, importDocuments, importOcrLibrary, importDocumentsFrom, importOcrLibraryFrom, zipReader, dirReader, FORMAT, VERSION };
