@@ -125,25 +125,25 @@
 
   function exportPayrollBundlePdf(r, ky) {
     if (!need("export", "in bộ báo cáo kỳ")) return;
-    var bundle = payrollBundle(r, ky);
-    var signRoles = ["Người lập biểu", "Kế toán trưởng", "Giám đốc"];
+    var b = payrollBundle(r, ky), sign = ["Người lập biểu", "Kế toán trưởng", "Giám đốc"];
+    var tam = /chưa chốt|tính tạm/i.test(b.info.trangThai || "") ? "_TAM" : "";
     exportSheetsPdf({
-      title: "Bộ báo cáo kỳ lương", ky: bundle.info.kyText, congTy: bundle.info.congTy,
-      trangThai: bundle.info.trangThai, sheets: bundle.sheets.map(function (sheet) {
-        var ids = ["STT", "Mã NV", "Họ và tên"].filter(function (key) { return sheet.cols.indexOf(key) >= 0; });
-        var cols = ids.concat(sheet.cols.filter(function (key) { return ids.indexOf(key) < 0; }));
-        var isInfo = sheet.name === "ThongTinKy";
-        return Object.assign({}, sheet, { name: sheet.title || sheet.name, cols: cols, repeatColumns: ids.length, chuKy: isInfo ? [] : signRoles });
+      title: "Bộ báo cáo kỳ lương", ky: b.info.kyText, congTy: b.info.congTy,
+      trangThai: b.info.trangThai, sheets: b.sheets.map(function (sh) {
+        var ids = ["STT", "Mã NV", "Họ và tên"].filter(function (k) { return sh.cols.indexOf(k) >= 0; });
+        var cols = ids.concat(sh.cols.filter(function (k) { return ids.indexOf(k) < 0; }));
+        return Object.assign({}, sh, { name: sh.title || sh.name, cols: cols, repeatColumns: ids.length, chuKy: sh.name === "ThongTinKy" ? [] : sign });
       })
-    }, "KyLuong_" + ky + ".pdf", { sectionPages: true, period: ky, chuKy: signRoles });
+    }, "KyLuong_" + ky + tam + ".pdf", { sectionPages: true, period: ky, chuKy: sign });
   }
 
   function exportAll(r, ky) {
     if (!need("export", "xuất bộ báo cáo kỳ")) return;
     if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx) { alert("Thiếu thư viện định dạng Excel."); return; }
     var bundle = payrollBundle(r, ky);
+    var tam = /chưa chốt|tính tạm/i.test(bundle.info.trangThai || "") ? "_TAM" : "";
     window.HAKUi.reportXlsx.buildPayrollBundle(window.ExcelJS, bundle.sheets, bundle.info).xlsx.writeBuffer().then(function (buf) {
-      download("KyLuong_" + ky + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+      download("KyLuong_" + ky + tam + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
     }, function (e) { alert("Không tạo được bộ báo cáo kỳ: " + e.message); });
   }
   /**

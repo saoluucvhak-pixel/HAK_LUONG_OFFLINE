@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.91] — 21/11/2026
+- **[A6-07] [A6-07] In khung cảnh báo BẢN NHÁP và thêm hậu tố _TAM khi xuất báo cáo kỳ chưa chốt (P4.7):** tests/unit/report-draft-badge.test.js (Đỏ → Xanh 4/4, 90/90 report tests pass). Chi tiết: `docs/releases/v2.0.91.md`.
+
 ## [2.0.90] — 21/11/2026
 - **[A6-06 + A6-16 + A6-21] [A6-06] Bổ sung Ngày lập/Người lập/Đơn vị tính, giữ dấu & và tăng cỡ chữ chân trang PDF/Excel (P4.6):** tests/unit/pdf-footer.test.js (Đỏ → Xanh 3/3, 93/93 report tests pass). Chi tiết: `docs/releases/v2.0.90.md`.
 

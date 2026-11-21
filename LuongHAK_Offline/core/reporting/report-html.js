@@ -31,6 +31,9 @@
     "th.ky,td.ky{min-width:32mm}table.has-ky tbody tr td{height:9mm}" +
     ".sign{display:flex;justify-content:space-around;margin-top:10mm;text-align:center;page-break-inside:avoid;break-inside:avoid}.sign div{width:30%}";
 
+  function isDraft(vm) { return !!(vm && vm.trangThai && /chưa chốt|tính tạm/i.test(vm.trangThai)); }
+  var DRAFT_WARN = "<div class=\"warn\">BẢN NHÁP — TÍNH TẠM, kỳ chưa chốt; không dùng để ký/chi tiền</div>";
+
   /** vm: kết quả internalPayroll.build() hoặc bảng cùng hình dạng. opt: { chuKy: [tên chức danh] } */
   function table(vm, opt) {
     opt = opt || {};
@@ -38,6 +41,7 @@
     vm = Object.assign({}, vm, { cols: vm.cols.filter(function (c) { return !(c.key === "Phòng ban" && vm.groups && vm.groups.length); }) });
     var h = "<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>" + esc(vm.title) + "</title><style>" + CSS + "</style></head><body>";
     h += "<h1>" + esc(String(vm.title || "").toLocaleUpperCase("vi-VN")) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && "Kỳ " + esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>" + metaLine(vm);
+    if (isDraft(vm)) h += DRAFT_WARN;
     if (vm.loc && vm.loc.length) h += "<div class=\"loc\"><b>Bộ lọc:</b> " + vm.loc.map(esc).join(" · ") + " — hiển thị " + vm.soDong + "/" + vm.soDongGoc + " dòng</div>";
     if (vm.kiemTra && vm.kiemTra.lech && vm.kiemTra.lech.length) h += "<div class=\"warn\">⚠ " + vm.kiemTra.lech.length + " dòng có tổng các khoản ≠ Tổng thu nhập của engine: " + vm.kiemTra.lech.slice(0, 5).map(function (x) { return esc(x.maNV); }).join(", ") + (vm.kiemTra.lech.length > 5 ? "…" : "") + "</div>";
     var idN = 0; if (vm.cols.length > 16) { var ix = vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"); idN = ix >= 0 && ix < 4 ? ix + 1 : 2; }
@@ -65,6 +69,7 @@
     opt = opt || {};
     var h = "<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\"><title>" + esc(vm.title) + "</title><style>" + CSS + "table{margin-bottom:4mm}h2{font-size:10.5pt;margin:4mm 0 1.5mm}td.t{white-space:normal;overflow-wrap:break-word}h2{break-after:avoid}</style></head><body>";
     h += "<h1>" + esc(String(vm.title || "").toLocaleUpperCase("vi-VN")) + "</h1><p class=\"sub\">" + [vm.congTy && esc(vm.congTy), vm.ky && esc(vm.ky), vm.trangThai && esc(vm.trangThai)].filter(Boolean).join(" · ") + "</p>" + metaLine(vm);
+    if (isDraft(vm)) h += DRAFT_WARN;
     if (vm.loc && vm.loc.length) h += "<div class=\"loc\"><b>Bộ lọc:</b> " + vm.loc.map(esc).join(" · ") + "</div>";
     (vm.ghiChu || []).forEach(function (g) { h += "<div class=\"loc\">" + esc(g) + "</div>"; });
     var any = false;
