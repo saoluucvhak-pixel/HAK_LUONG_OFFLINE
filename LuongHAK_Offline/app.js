@@ -1286,6 +1286,14 @@
     card.appendChild(body); wrap.appendChild(card);
     var vis = def.cols.filter(function (c) { return (def.hide || []).indexOf(c) < 0; });
     // Tô màu ô chấm công theo số công + loại dòng (Hình thức công) — chỉ hiển thị, không đổi dữ liệu
+    var knownPcLabels = null;
+    if (key === "chamcong") {
+      knownPcLabels = {};
+      (db.dm_phucap || []).forEach(function (x) {
+        var m = String(x && x["Mã phụ cấp"] || "").trim().toUpperCase();
+        if (m) knownPcLabels[m] = 1;
+      });
+    }
     var dayCls = function (v, ht) {
       if (v === "" || v == null) return "";
       var t = E.tachCong(v); if (!t.soCong) return "cv cE";
@@ -1431,7 +1439,7 @@
             var idE = ID.checkWrite(db, key, r, patch); if (idE) { alert(idE); inp.value = r[c] == null ? "" : r[c]; return; } // 1 người 1 Mã NV (CCCD)
             var pE = REPO.plan("update", key, r, patch, { what: "sửa dòng này", checkDup: CT_KEY[key] });
             if (!pE.ok) { alert(pE.msg); inp.value = r[c] == null ? "" : r[c]; return; }
-            var dc = isDay && key === "chamcong" ? VAL.dayCell(c, n.value, r["Kỳ"]) : null;
+            var dc = isDay && key === "chamcong" ? VAL.dayCell(c, n.value, r["Kỳ"], knownPcLabels) : null;
             if (dc && dc.warn) toast("⚠ " + dc.warn);
             if (pE.retro) toast("⚠ Hồi tố: dòng này có hiệu lực trong kỳ đã chốt " + pE.impact.periods.map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi");
             if (!commit(pE, { audit: theoKy ? false : "retro", action: "Sửa danh mục" })) { inp.value = r[c] == null ? "" : r[c]; return; }
@@ -1447,6 +1455,7 @@
             if (!need(editPerm)) return;
             if (!theoKy && GRD.closedPeriods(db).length && !can("retro.edit")) { alert("⛔ Đã có kỳ lương chốt — chỉ Admin được dán hàng loạt vào danh mục (có thể hồi tố)."); return; }
             var lines = txt.replace(/\r/g, "").replace(/\n$/, "").split("\n"), start = def.cols.indexOf(c);
+<<<<<<< HEAD
             var overwriteCount = 0, addCount = 0;
             lines.forEach(function (_, li) { if (idx[n + li] != null) overwriteCount++; else addCount++; });
             if (overwriteCount >= 1) {
@@ -1469,10 +1478,42 @@
             });
             if (!okTxn) { alert("Chưa dán được: " + lastTxnError); return; }
             draw(); toast("Đã dán " + (ovApplied + addApplied) + " dòng (đè " + ovApplied + ", thêm " + addApplied + ")" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") +
+=======
+            var bad = 0, warnCnt = 0, skip = 0, retro = 0, retroKy = {};
+            lines.forEach(function (ln, li) {
+              var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
+              ln.split("\t").forEach(function (v, k) {
+                var col = def.cols[start + k];
+                if (col && col !== def.kyCol) {
+                  var nc = VAL.normCell(col, v);
+                  if (nc.error) { bad++; return; }
+                  if (key === "chamcong" && /^\d\d$/.test(col)) {
+                    var dcp = VAL.dayCell(col, nc.value, cand["Kỳ"], knownPcLabels);
+                    if (dcp.error) { bad++; return; }
+                    if (dcp.warn) warnCnt++;
+                  }
+                  cand[col] = nc.value;
+                }
+              });
+              var cur0 = tgt == null ? null : db[key][tgt]; if (ID.checkWrite(db, key, cur0, cand)) { skip++; return; } // CCCD đã thuộc người khác: không ghi dòng này
+              var pP = tgt == null ? REPO.plan("insert", key, null, cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] }) : REPO.plan("update", key, db[key][tgt], cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] });
+              var rP = pP.ok ? REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }) : pP;
+              if (!rP.ok) { skip++; return; }
+              // Danh mục chồng lên kỳ đã chốt: repository đã ghi nhật ký [HỒI TỐ] từng dòng — đếm lại để cảnh báo (không chặn)
+              if (rP.retro) { retro++; rP.impact.periods.forEach(function (p) { retroKy[p] = 1; }); }
+              if (tgt == null) idx.push(db[key].length - 1);
+            });
+            save(); draw(); toast("Đã dán " + (lines.length - skip) + " dòng" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") + (warnCnt ? " · ⚠ " + warnCnt + " ô có nhãn lạ / vượt công — kiểm tra lại" : "") +
+>>>>>>> origin/main
               (retro ? " · ⚠ " + retro + " dòng hồi tố kỳ đã chốt " + Object.keys(retroKy).sort().map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi" : ""));
           });
           if (isDay && key === "chamcong") {
-            var paint = function () { inp.className = dayCls(inp.value, r["Hình thức công"]); };
+            var paint = function () {
+              var dc0 = VAL.dayCell(c, inp.value, r["Kỳ"], knownPcLabels);
+              inp.className = dayCls(inp.value, r["Hình thức công"]) + (dc0 && dc0.warn ? " c-warn" : "");
+              if (dc0 && dc0.warn) { inp.style.outline = "2px solid #d97706"; if (!lkc) inp.title = dc0.warn; }
+              else { inp.style.outline = ""; if (!lkc) inp.title = ""; }
+            };
             paint(); inp.addEventListener("input", paint); inp.addEventListener("change", function () { setTimeout(paint, 0); });
           }
           if (rowLocked || (isCat && !editing)) inp.disabled = true; if (isCat && editing) inp.classList.add("editing");
@@ -3513,7 +3554,7 @@
     // core/integrity.js đã tự xác định là tiền bị CỘNG TRÙNG (phiếu cân / số chứng từ trùng khóa
     // → sản lượng, thưởng, tạm ứng bị tính 2 lần) — khớp đúng BLOCKER "sản lượng/chấm công bị cộng
     // trùng" của mục IV.2, dù mức integrity.js gán là High (ảnh hưởng tiền trực tiếp như Critical).
-    var critIssues = INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN)/.test(i.msg); });
+    var critIssues = INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN|DỒN)/.test(i.msg); });
     // 1 người 2 Mã NV (CCCD trùng giữa các nhân viên CÓ TRONG BẢNG LƯƠNG kỳ này) = trả lương 2 lần → chặn cứng như Mã NV trùng (core/identity.js)
     ID.payrollDuplicates(db, HRM.staffForPayroll(db, st.nam, st.thang).list.map(function (x) { return x["Mã nhân viên"]; })).forEach(function (d) { critIssues.push({ level: "Critical", msg: d.msg }); });
     if (critIssues.length) {
