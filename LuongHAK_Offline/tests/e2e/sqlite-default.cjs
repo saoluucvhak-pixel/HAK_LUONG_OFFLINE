@@ -73,7 +73,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   const nvSnap = sqliteNv(D).length;
   await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0101','Họ và tên':'Sau bản chụp'});");
   ok("Có thêm 0101 SAU bản chụp (bản chụp không có)", sqliteNv(D).includes("0101") && sqliteNv(D).length === nvSnap + 1);
-  await app.close(); await sleep(500);
+  await killHard(app); await sleep(500);
   const goodDb = fs.readFileSync(path.join(D, "data.sqlite")); fs.truncateSync(path.join(D, "data.sqlite"), 200); for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(D, "data.sqlite" + x), { force: true });
   ({ app, w, errs } = await launch(D));
   const recBtn = 'button:has-text("Khôi phục từ bản chụp SQLite")';
@@ -98,7 +98,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   ok("Full Backup tạo thành công và có bản chụp SQLite hợp lệ trong gói (manifest.sqliteSnapshot, SHA-256, số dòng khớp data.json)", !!(fbr && fbr.ok === true) && rep.ok === true && !!rep.sqlite && rep.sqlite.ok === true, JSON.stringify(fbr).slice(0, 300) + " " + JSON.stringify(rep.sqlite));
   const nvPkg = sqliteNv(D).length;
   await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0103','Họ và tên':'Sau khi tạo gói'});");
-  await app.close(); await sleep(500);
+  await killHard(app); await sleep(500);
   fs.truncateSync(path.join(D, "data.sqlite"), 200); for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(D, "data.sqlite" + x), { force: true });
   ({ app, w, errs } = await launch(D, { HAK_FB_PICK: pkgFile }));
   const pkgBtn = 'button:has-text("Khôi phục từ gói Full Backup")';
