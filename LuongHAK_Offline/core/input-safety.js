@@ -3,7 +3,18 @@
   var node=typeof module!=='undefined'&&module.exports,V=node?require('./validate.js'):root.HAKCore.validate;
   var tables=['chamcong','sanluong','bandam'];
   var TABLE_NAMES={chamcong:'Chấm công',sanluong:'Sản lượng',bandam:'Ban dăm'};
+  function employeeIssues(db){
+    var out=[],seen=Object.create(null);
+    (db&&db.nhanvien||[]).forEach(function(r,i){
+      var ma=String(r&&r['Mã NV']||'').trim();
+      if(!ma)return;
+      if(seen[ma])out.push('Nhân sự dòng '+(i+1)+': trùng Mã NV "'+ma+'" — xóa hoặc sửa mã trùng trước khi tính lương');
+      seen[ma]=true;
+    });
+    return out;
+  }
   function issues(db,table,period){
+    if(table==='nhanvien')return employeeIssues(db);
     var out=[],seen=Object.create(null),receipt=Object.create(null);
     (db[table]||[]).forEach(function(r,i){
       var p=V.rowPeriod(table,r),label=(TABLE_NAMES[table]||table)+' dòng '+(i+1)+': ';
@@ -19,7 +30,7 @@
       receipt[nid]=!!ma;
     });return out;
   }
-  function problems(db,period){var periods=[period],out=[];(db.sl_chuyenky||[]).forEach(function(r){if(r.target===period)periods.push(r.source);});periods.forEach(function(p){tables.forEach(function(t){issues(db,t,p).forEach(function(m){if(out.indexOf(m)<0)out.push(m);});});});return out;}
+  function problems(db,period){var periods=[period],out=employeeIssues(db);(db.sl_chuyenky||[]).forEach(function(r){if(r.target===period)periods.push(r.source);});periods.forEach(function(p){tables.forEach(function(t){issues(db,t,p).forEach(function(m){if(out.indexOf(m)<0)out.push(m);});});});return out;}
   function assertPeriod(db,period){var p=problems(db,period);if(p.length)throw Error(p.join('; '));}
   // Keep drafts incomplete while typing, but never erase their period or change pump mode implicitly.
   function mutation(db,table,before,after){
