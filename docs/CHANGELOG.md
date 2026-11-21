@@ -3,6 +3,120 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.95] — 22/11/2026
+- **[A6-13] [A6-13] Tối ưu CSS @media print cho chế độ In gọn phiếu lương đạt >= 2 phiếu/trang A4 (P4.11):** tests/unit/slip-print-compact.test.js (Đỏ → Xanh 2/2, 92/92 report tests pass). Chi tiết: `docs/releases/v2.0.95.md`.
+
+## [2.0.94] — 21/11/2026
+- **[A6-22 + A6-23 + A6-24] [A6-22] Chuẩn hóa nhãn kỳ đệm số 0, thêm nhóm phòng ban Excel nội bộ và cột Mã NV ở Thuế TNCN (P4.10):** tests/unit/report-period-ip-tncn.test.js (Đỏ → Xanh 3/3, 93/93 report tests pass). Chi tiết: `docs/releases/v2.0.94.md`.
+
+## [2.0.93] — 21/11/2026
+- **[A6-10 + A6-18 + A6-17] [A6-10] Tối ưu bố cục in Excel bảo hiểm, wrapText Họ tên, thu gọn vùng đóng băng và pbkl-xlsx (P4.9):** tests/unit/bh-xlsx.test.js + report-xlsx-layout.test.js (Đỏ → Xanh 5/5, 94/94 pass). Chi tiết: `docs/releases/v2.0.93.md`.
+
+## [2.0.92] — 21/11/2026
+- **[A6-02] [A6-02] Chuyển các lối xuất Excel thô sang mẫu chuyên nghiệp proXlsx/buildMany (P4.8):** tests/unit/saveXlsx-pro.test.js (Đỏ → Xanh 4/4, 90/90 report tests pass). Chi tiết: `docs/releases/v2.0.92.md`.
+
+## [2.0.91] — 21/11/2026
+- **[A6-07] [A6-07] In khung cảnh báo BẢN NHÁP và thêm hậu tố _TAM khi xuất báo cáo kỳ chưa chốt (P4.7):** tests/unit/report-draft-badge.test.js (Đỏ → Xanh 4/4, 90/90 report tests pass). Chi tiết: `docs/releases/v2.0.91.md`.
+
+## [2.0.90] — 21/11/2026
+- **[A6-06 + A6-16 + A6-21] [A6-06] Bổ sung Ngày lập/Người lập/Đơn vị tính, giữ dấu & và tăng cỡ chữ chân trang PDF/Excel (P4.6):** tests/unit/pdf-footer.test.js (Đỏ → Xanh 3/3, 93/93 report tests pass). Chi tiết: `docs/releases/v2.0.90.md`.
+
+## [2.0.89] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.89.md`.
+
+## [2.0.88] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.88.md`.
+
+## [2.0.87] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.87.md`.
+
+## [2.0.86] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.86.md`.
+
+## [2.0.85] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.85.md`.
+
+## [2.0.84] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.84.md`.
+
+## [2.0.83] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.83.md`.
+
+## [2.0.82] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.82.md`.
+
+## [2.0.81] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.81.md`.
+
+## [2.0.80] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.80.md`.
+
+## [2.0.79] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.79.md`.
+
+## [2.0.78] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.78.md`.
+
+## [2.0.77] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.77.md`.
+
+## [2.0.76] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.76.md`.
+
+## [2.0.75] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.75.md`.
+
+## [2.0.74] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.74.md`.
+
+## [2.0.73] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.73.md`.
+
+## [2.0.72] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.72.md`.
+
+## [2.0.71] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.71.md`.
+
+## [2.0.70] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.70.md`.
+
+## [2.0.69] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.69.md`.
+
+## [2.0.68] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.68.md`.
+
+## [2.0.67] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.67.md`.
+
+## [2.0.66] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.66.md`.
+
+## [2.0.65] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.65.md`.
+
+## [2.0.64] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.64.md`.
+
+## [2.0.63] — 21/11/2026
+- **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.63.md`.
+
+## [2.0.62] — 21/11/2026
+- **An toàn nhập liệu sản lượng hỗn hợp (T-04):** chuẩn hóa kiểm tra hợp lệ dòng sản lượng phân bổ theo tổ và trực tiếp nhân viên, hiển thị thông báo chi tiết rõ ràng. Chi tiết: `docs/releases/v2.0.62.md`.
+
+## [2.0.61] — 21/11/2026
+- **Chống trùng dòng chấm công và chặn chốt kỳ khi cộng dồn (T-03):** `repository.plan` từ chối thêm dòng chấm công trùng khóa (Kỳ + Mã NV + Hình thức công); mở rộng regex chặn chốt kỳ `/CỘNG (2 LẦN|NHIỀU LẦN|DỒN)/` để chặn dữ liệu cũ trùng khác số công. Chi tiết: `docs/releases/v2.0.61.md`.
+
+## [2.0.60] — 21/11/2026
+- **Bản chụp SQLite khi đóng app (T-07, N-03):** gọi `storage.backupOnClose()` trước `storage.close()` khi thoát app để tạo đủ bản chụp snapshot SQLite. Chi tiết: `docs/releases/v2.0.60.md`.
+
+## [2.0.59] — 21/11/2026
+- **Full Backup mã hóa lỗi trả FAILED và xóa bản rõ (T-06):** có mật khẩu mà mã hóa lỗi phải trả FAILED và xóa bản rõ, không để lại tệp rõ khi người dùng đã yêu cầu đặt mật khẩu. Chi tiết: `docs/releases/v2.0.59.md`.
+
+## [2.0.58] — 20/11/2026
+- **Mốc "sao lưu ra ngoài máy" (T-11):** gửi JSON vào thư mục mặc định (cùng máy) không còn được tính là ngoài máy. Chi tiết: `docs/releases/v2.0.58.md`. Chi tiết: `docs/releases/v2.0.58.md`.
+
 ## [2.0.57] — 20/11/2026
 - **Sửa biểu ngữ kiểm tra sao lưu (T-01, rà soát 5 agent):** có bản sao lưu hỏng thì cảnh báo, không còn báo xanh. Chi tiết: `docs/releases/v2.0.57.md`. Chi tiết: `docs/releases/v2.0.57.md`.
 

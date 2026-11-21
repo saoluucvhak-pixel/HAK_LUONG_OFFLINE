@@ -359,7 +359,7 @@ button.b.chipbtn{min-height:0;padding:3px 10px;margin:2px 4px 2px 0;border-radiu
 button.b.chipbtn:hover{border-color:var(--warn)}
 label.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px}
 .slips.gon{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}
-@media print{.slips.gon{display:block}.slips.gon .slip{page-break-after:auto;page-break-inside:avoid}.slips.gon .card{margin:0 0 6mm;border:1px dashed #999}}
+@media print{.slips.gon{display:block}.slips.gon .card{margin:0 0 4mm;padding:6px 10px;border:1px dashed #999;page-break-inside:avoid;break-inside:avoid}.slips.gon .slip{page-break-after:auto;page-break-inside:avoid;break-inside:avoid;font-size:10.5px;line-height:1.25}.slips.gon .slip h3{margin:2px 0 4px!important;font-size:12px}.slips.gon .slip .head{margin-bottom:4px}.slips.gon .slip table td{padding:2px 5px}.slips.gon .slip tr.sec td{padding-top:3px;padding-bottom:3px}}
 table.sld-thieu td{white-space:normal;vertical-align:top}
 table.sld-thieu td:last-child{min-width:420px}
 table.sld-thieu button.b.chipbtn{white-space:normal;text-align:left;justify-content:flex-start}
@@ -731,3 +731,14 @@ td.ot-note{background:var(--th);color:var(--mut)}
 }
 /* 005B-UI003 (issue #97): chữ gợi ý (.hint) đạt tương phản AA ≥ 4,5:1 — trộn màu phụ với màu chữ chính: đậm hơn ở giao diện sáng, sáng hơn ở giao diện tối. Không đổi bố cục. */
 .hint{color:color-mix(in srgb,var(--mut) 70%,var(--ink))}
+/* T-25: tiêu đề cột bảng (th) trên nền --th đạt tương phản WCAG AA ≥ 4,5:1 ở mọi giao diện */
+th{color:color-mix(in srgb,var(--mut) 60%,var(--ink))}
+/* T-29: bảng Thư mục lưu trữ & Danh sách sao lưu gọn trong khung 1024–1366px, không tràn/dính cột */
+.bk-stg-tbl,.bk-list-tbl{width:100%;table-layout:auto}
+.bk-stg-tbl th,.bk-stg-tbl td,.bk-list-tbl th,.bk-list-tbl td{padding:7px 9px;vertical-align:top;white-space:normal}
+.bk-path,.bk-name,.bk-tag,.bk-status{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.bk-path{min-width:160px;max-width:300px}
+.bk-name{min-width:130px;max-width:210px}
+.bk-status{min-width:110px;max-width:185px}
+.bk-act{white-space:normal;min-width:110px}
+.bk-acts{display:flex;flex-wrap:wrap;gap:4px}

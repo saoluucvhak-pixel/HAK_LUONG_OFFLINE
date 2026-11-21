@@ -72,12 +72,18 @@
     var merge = function (r) { if (nc > 1) ws.mergeCells("A" + r + ":" + last + r); };
     var r = 1;
     put(r, vm.congTy || "", { font: { bold: true, size: 11 } }); merge(r); r++;
-    put(r, vm.title, { font: { bold: true, size: 15 }, alignment: { horizontal: "center", vertical: "middle" } }); merge(r); ws.getRow(r).height = 26; r++;
+    put(r, vm.title, { font: { bold: true, size: 15 }, alignment: { horizontal: "center", vertical: "middle" } }); merge(r); ws.getRow(r).height = 24; r++;
     put(r, vm.kyText || "", { font: { bold: true, size: 11 }, alignment: { horizontal: "center" } }); merge(r); r++;
-    put(r, "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""), { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++;
-    put(r, "Đơn vị tính: " + (vm.donVi || "Đồng (VND)") + (vm.ngayLap ? " · Ngày lập: " + vm.ngayLap : ""), { font: { size: 10 }, alignment: { horizontal: "center" } }); merge(r); r++;
-    if (vm.source) { put(r, "Nguồn: " + vm.source, { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++; }
-    r++;
+    var isDraft = !!(vm.trangThai && /chưa chốt|tính tạm/i.test(vm.trangThai));
+    var scopeStyle = isDraft
+      ? { font: { italic: true, bold: true, size: 10, color: { argb: "FFC0362C" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDECEA" } }, alignment: { horizontal: "center", wrapText: true } }
+      : { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } };
+    var metaParts = [
+      "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""),
+      "Đơn vị tính: " + (vm.donVi || "Đồng (VND)") + (vm.ngayLap ? " · Ngày lập: " + vm.ngayLap : "") + (vm.nguoiLap ? " · Người lập: " + vm.nguoiLap : "")
+    ];
+    if (vm.source) metaParts.push("Nguồn: " + vm.source);
+    put(r, metaParts.join(" · "), scopeStyle); merge(r); r++;
     if (vm.groups && vm.groups.length) { // tiêu đề hai tầng: nhóm cột ở hàng trên
       vm.groups.forEach(function (g) {
         if (g.to > g.from) ws.mergeCells(r, g.from + 1, r, g.to + 1);
@@ -97,16 +103,18 @@
     r++;
     var q3 = function (c) { return c.kind === "qty3"; };
     var decCols = vm.cols.map(function (c) { return c.kind === "qty" && vm.rows.some(function (row) { var x = +row[c.key]; return isFinite(x) && Math.abs(x - Math.round(x)) > 1e-9; }); });
+    var hasKy = vm.cols.some(function (c) { return /^Ký nhận$/i.test(c.label); });
     var writeRow = function (row) {
       vm.cols.forEach(function (c, i) {
         var cell = ws.getCell(r, i + 1), v = row[c.key];
         if (/^Ngày/.test(c.label) && isoToDate(v)) { cell.value = isoToDate(v); cell.numFmt = "dd/mm/yyyy"; cell.alignment = { horizontal: "center", vertical: "middle" }; }
-        else if (TEXT_COLS.test(c.label) || c.kind === "text") { cell.value = safeText(v); cell.numFmt = "@"; cell.alignment = { vertical: "middle", wrapText: c.wrap || c.label === "Nội dung" }; }
+        else if (TEXT_COLS.test(c.label) || c.kind === "text") { cell.value = safeText(v); cell.numFmt = "@"; cell.alignment = { vertical: "middle", wrapText: c.wrap || c.label === "Nội dung" || c.label === "Họ và tên" }; }
         else if (c.kind === "attendance") { cell.value = typeof v === "number" ? v : safeText(v); cell.numFmt = "0.###"; }
         else if (c.kind === "money") { cell.value = v === "" || v == null ? null : (vm.preserveMoney ? +v : Math.round(+v)); cell.numFmt = "#,##0;[Red]-#,##0"; }
         else { cell.value = v === "" || v == null ? null : +v; cell.numFmt = q3(c) ? "#,##0.000" : decCols[i] ? "#,##0.00" : "#,##0"; if (/^STT$/i.test(c.label)) cell.alignment = { horizontal: "center" }; }
         cell.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
       });
+      if (hasKy) ws.getRow(r).height = Math.max(ws.getRow(r).height || 0, 28);
       r++;
     };
     var FILL_G = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF1EC" } }, FILL_S = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F4F4" } };
@@ -148,12 +156,13 @@
     // độ rộng cột theo nội dung
     vm.cols.forEach(function (c, i) {
       var mx = String(c.label).length; vm.rows.forEach(function (row) { var v = row[c.key]; var L = v == null ? 0 : (c.kind === "money" ? String(Math.round(+v || 0)).length + 3 : String(v).length); if (L > mx) mx = L; });
-      ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(c.wrap || c.label === "Nội dung" ? 48 : 32, mx + 2));
+      var isWrap = c.wrap || c.label === "Nội dung" || c.label === "Họ và tên";
+      ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(isWrap ? 48 : 32, mx + 2));
     });
-    if (vm.cols.some(function (c) { return c.wrap; }) && !vm.nhom) {
+    if (vm.cols.some(function (c) { return c.wrap || c.label === "Nội dung" || c.label === "Họ và tên"; }) && !vm.nhom) {
       vm.rows.forEach(function (row, i) {
         var lines = vm.cols.reduce(function (max, c, j) {
-          return c.wrap ? Math.max(max, Math.ceil(String(row[c.key] || "").length / Math.max(8, ws.getColumn(j + 1).width - 4))) : max;
+          return (c.wrap || c.label === "Nội dung" || c.label === "Họ và tên") ? Math.max(max, Math.ceil(String(row[c.key] || "").length / Math.max(8, ws.getColumn(j + 1).width - 4))) : max;
         }, 1);
         if (lines > 1) ws.getRow(hr + 1 + i).height = 17 * lines;
       });
@@ -165,7 +174,8 @@
       margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }, printTitlesRow: (vm.groups && vm.groups.length ? (hr - 1) : hr) + ":" + hr };
     if (wide && idName >= 0) ws.pageSetup.printTitlesColumn = "A:" + colLetter(idName);
     ws.pageSetup.printArea = "A1:" + last + sigEnd;
-    ws.headerFooter = { oddFooter: "&L" + (vm.congTy || "") + " · " + vm.title + "&RTrang &P / &N" };
+    var escHF = function (s) { return String(s || "").replace(/&/g, "&&"); };
+    ws.headerFooter = { oddFooter: "&L" + escHF(vm.congTy) + " · " + escHF(vm.title) + "&RTrang &P / &N" };
     ws.views = [{ state: "frozen", xSplit: nc > 8 && idName >= 0 ? idName + 1 : 0, ySplit: hr, topLeftCell: "A" + (hr + 1) }];
     if (vm.rows.length && !(vm.nhom && vm.nhom.length)) ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: lastData - (hasTotal ? 1 : 0), column: nc } };
     ws.properties.defaultRowHeight = 18;

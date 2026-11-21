@@ -77,13 +77,19 @@
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { mn.appendChild(h("option", { value: o[1], text: o[0] })); });
     mn.addEventListener("change", function () {
       var m = excelSheets(r, r.ky || kyStr())[mn.value];
-      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + ".xlsx", [m]); mn.selectedIndex = 0;
+      var tam = kqKy(st.nam, st.thang).chot ? "" : "_TAM";
+      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + tam + ".xlsx", [m], "pro"); mn.selectedIndex = 0;
     });
     bar.appendChild(mn);
     bar.appendChild(btn("⬇ Xuất PDF…", "", function () {
       var pick = excelSheets(r, r.ky || kyStr()), ds = [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]];
       var which = st.pdfPick || "bl"; var o = ds.filter(function (x) { return x[1] === which; })[0] || ds[0], m = pick[o[1]];
-      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + (r.ky || kyStr()), trangThai: (kqKy(st.nam, st.thang).chot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [{ name: o[0], cols: o[1] === "bl" ? (st.compact ? COLS_COMPACT : COLS_FULL) : m.cols, rows: m ? m.rows : [] }] }, m.name + "_" + (r.ky || kyStr()) + ".pdf");
+      var isChot = kqKy(st.nam, st.thang).chot;
+      var pdfCols = o[1] === "bl" ? (st.compact ? COLS_COMPACT : ["Mã NV", "Họ và tên"].concat(COLS_FULL.filter(function (c) { return c !== "Mã NV" && c !== "Họ và tên"; }))) : m.cols;
+      var pdfRows = o[1] === "bl" && m && m.rows && m.rows.length ? addTotal(m.rows) : (m ? m.rows : []);
+      var shObj = { name: o[0], cols: pdfCols, rows: pdfRows };
+      if (o[1] === "bl" && !st.compact) shObj.repeatColumns = 2;
+      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + ("0" + st.thang).slice(-2) + "/" + st.nam, trangThai: (isChot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [shObj] }, m.name + "_" + (r.ky || kyStr()) + (isChot ? "" : "_TAM") + ".pdf");
     }, "PDF của bảng lương đang xem (theo bộ lọc)"));
     var pm = h("select", { "aria-label": "Loại PDF", style: "min-width:140px" });
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { pm.appendChild(h("option", { value: o[1], text: o[0] })); });
@@ -132,7 +138,7 @@
   function slipEl(b) {
     var s = h("div", { class: "slip" });
     if (congTy()["Tên công ty"]) s.appendChild(h("div", { text: congTy()["Tên công ty"], style: "font-weight:700;text-transform:uppercase;font-size:13px" }));
-    s.appendChild(h("h3", { text: "PHIẾU LƯƠNG THÁNG " + st.thang + "/" + st.nam, style: "text-align:center;margin:4px 0 10px" }));
+    s.appendChild(h("h3", { text: "PHIẾU LƯƠNG THÁNG " + ("0" + st.thang).slice(-2) + "/" + st.nam, style: "text-align:center;margin:4px 0 10px" }));
     s.appendChild(h("div", { class: "head", html: "<b>" + esc(b["Họ và tên"]) + "</b> · Mã NV: " + esc(b["Mã NV"]) + (b["Phòng ban"] ? " · " + esc(b["Phòng ban"]) : "") + "<br><span style='color:#6c7a74'>Tổng công: " + b["Tổng công"] + " / Công chuẩn: " + b["Công chuẩn"] + (b["Sản lượng (tấn)"] ? " · Sản lượng: " + b["Sản lượng (tấn)"] + " tấn" : "") + "</span>" }));
     var t = h("table");
     slipLines(b).forEach(function (l) {
@@ -219,7 +225,7 @@
     var sec = function (x) { t.appendChild(h("tr", {}, [h("td", { colspan: 3, text: x, style: "font-weight:700;padding-top:8px;border-bottom:1px solid #d3dcc7" })])); };
     var nv = snapshot ? {} : (db.nhanvien || []).filter(function (n) { return n["Mã NV"] === b["Mã NV"]; })[0] || {};
     sec("1. Hồ sơ & cấu hình");
-    row("Nhân viên", b["Mã NV"] + " — " + b["Họ và tên"], "kỳ " + st.thang + "/" + st.nam);
+    row("Nhân viên", b["Mã NV"] + " — " + b["Họ và tên"], "kỳ " + ("0" + st.thang).slice(-2) + "/" + st.nam);
     row("Mã TNCN", c.maThueTNCN || "(chưa có)", c.maThueTNCN ? (PP_THUE[c.phuongPhapThue] || c.phuongPhapThue || "") : "Chưa gán mã thuế — KHÔNG tự chọn mã khác");
     row("Mã giảm trừ bản thân / phụ thuộc", (c.maGTBT || "—") + " / " + (c.maGTPT || "—"), "tra theo hiệu lực trong kỳ");
     row("Số người phụ thuộc (kỳ này)", String(c.soNPT || 0), nv["Người phụ thuộc"] != null ? "hồ sơ ghi " + nv["Người phụ thuộc"] : "");

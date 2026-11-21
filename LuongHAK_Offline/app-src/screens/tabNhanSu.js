@@ -3,8 +3,8 @@
     bar.appendChild(btn("＋ Thêm nhân viên", "pri", wizardNV)); bar.appendChild(h("span", { class: "sp" }));
     bar.appendChild(btn("📄 Tải file mẫu", "", function () { saveXlsx("Mau_HoSoNhanSu.xlsx", Object.keys(HR).map(templateSheet), "template"); toast("File mẫu có 1 sheet cho mỗi loại hồ sơ"); }, "Mỗi loại hồ sơ là 1 sheet"));
     bar.appendChild(btn("⬆ Nhập Excel", "", importAllFile, "Nhập file Excel nhiều sheet (Nhân viên, Thông tin cá nhân, Hợp đồng…)"));
-    bar.appendChild(btn("⬇ Sổ lao động", "", function () { var rows = HRM.reports(db, { hidePay: !canSeePay() }).soLaoDong(st.nam); saveXlsx("SoQuanLyLaoDong.xlsx", [{ name: "Sổ quản lý lao động", cols: rows[0] ? Object.keys(rows[0]) : [], rows: rows }]); }));
-    bar.appendChild(btn("⬇ Excel danh sách đang lọc", "", function () { var rows = nsRows().map(nsExportRow); saveXlsx("DanhSachNhanSu_loc.xlsx", [{ name: "Nhân sự", cols: rows[0] ? Object.keys(rows[0]) : [], rows: rows }]); }, "Xuất đúng các dòng đang hiển thị"));
+    bar.appendChild(btn("⬇ Sổ lao động", "", function () { var rows = HRM.reports(db, { hidePay: !canSeePay() }).soLaoDong(st.nam); saveXlsx("SoQuanLyLaoDong.xlsx", [{ name: "Sổ quản lý lao động", cols: rows[0] ? Object.keys(rows[0]) : [], rows: rows }], "pro"); }));
+    bar.appendChild(btn("⬇ Excel danh sách đang lọc", "", function () { var rows = nsRows().map(nsExportRow); saveXlsx("DanhSachNhanSu_loc.xlsx", [{ name: "Nhân sự", cols: rows[0] ? Object.keys(rows[0]) : [], rows: rows }], "pro"); }, "Xuất đúng các dòng đang hiển thị"));
     bar.appendChild(btn("⬇ PDF", "", function () { exportSheetsPdf({ title: "DANH SÁCH NHÂN SỰ (đã lọc)", ky: SFC.scopeText(sf.cfg, sf.cfg.state.get(), "tất cả"), sheets: [{ name: "Nhân sự", rows: nsRows().map(nsExportRow) }] }, "DanhSachNhanSu_loc.pdf"); }, "Xuất đúng các dòng đang hiển thị"));
     bar.appendChild(btn("🖨 In", "", function () { if (!need("export", "in")) return; window.print(); }));
     card.appendChild(bar);

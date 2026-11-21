@@ -9,7 +9,7 @@
 
   function n0(value) { return +value || 0; }
   function kyKey(year, month) { return year + "-" + ("0" + month).slice(-2); }
-  function kyLabel(ky) { var parts = String(ky).split("-"); return "Tháng " + (+parts[1]) + "/" + parts[0]; }
+  function kyLabel(ky) { var parts = String(ky).split("-"); return "Tháng " + ("0" + (+parts[1])).slice(-2) + "/" + parts[0]; }
 
   function addTotal(rows, label) {
     if (!rows.length) return rows;
@@ -70,7 +70,7 @@
   }
 
   function bcHachToan(r, nam, thang, snapshot, departments, paymentLines) {
-    var ky = thang + "/" + nam, rows = [], cp = {}, cpBH = {}, sum = function (f) { return r.bangluong.reduce(function (a, x) { return a + n0(x[f]); }, 0); };
+    var ky = ("0" + thang).slice(-2) + "/" + nam, rows = [], cp = {}, cpBH = {}, sum = function (f) { return r.bangluong.reduce(function (a, x) { return a + n0(x[f]); }, 0); };
     // Q-19 (R-53): chi phí người điều chuyển chia theo công ở từng phòng → đúng TK chi phí của từng phòng
     var period = kyKey(nam, thang);
     var catalog = snapshot && snapshot.input && snapshot.input.danhmuc && snapshot.input.danhmuc.dm_phongban;
@@ -156,7 +156,7 @@
     return addTotal(Object.keys(m).sort().map(function (k) { return m[k]; }));
   }
 
-  var api = { addTotal: addTotal, bcCong: bcCong, bcSanLuong: bcSanLuong, bcHachToan: bcHachToan,
+  var api = { kyLabel: kyLabel, addTotal: addTotal, bcCong: bcCong, bcSanLuong: bcSanLuong, bcHachToan: bcHachToan,
     bcSoSanh: bcSoSanh, bc12Thang: bc12Thang, bcNVNam: bcNVNam, bcThueNam: bcThueNam };
   if (node) module.exports = api;
   else root.HAKCore.periodReports = api;

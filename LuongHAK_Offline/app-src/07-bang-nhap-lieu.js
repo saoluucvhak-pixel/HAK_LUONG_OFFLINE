@@ -34,7 +34,8 @@
     bar.appendChild(q); bar.appendChild(cnt); bar.appendChild(h("span", { class: "sp" }));
     if (key === "sanluong" || (key === "bandam" && pumpMode === "team")) bar.appendChild(btn(key === "bandam" ? "Mẫu Excel chia tổ" : "📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
     else if (key !== "bandam") bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadTemplate(key); }, "File Excel mẫu có sẵn tên cột + dòng ví dụ"));
-    if (!locked) bar.appendChild(btn("⬆ Nhập Excel", "", function () { importFile(key, draw, pumpMode); }, "Nhập từ file .xlsx / .xls / .csv"));
+    var permBtn = function (label, cls, fn, perm, okTitle, noTitle) { var allow = can(perm), b = btn(label, cls, fn, allow ? (okTitle || "") : noTitle); if (!allow) b.disabled = true; return b; };
+    if (!locked) bar.appendChild(permBtn("⬆ Nhập Excel", "", function () { importFile(key, draw, pumpMode); }, "import", "Nhập từ file .xlsx / .xls / .csv", "Tài khoản không có quyền nhập Excel"));
     if (["chamcong", "sanluong"].indexOf(key) >= 0 && !locked) { bar.appendChild(btn("Thay toàn bộ kỳ từ Excel…", "", function () { inputPeriodBatch(key, true, draw); })); bar.appendChild(btn("Xóa dữ liệu kỳ…", "red ghost", function () { inputPeriodBatch(key, false, draw); })); }
     if (key === "bandam" && pumpMode === "direct") bar.appendChild(btn("Mẫu Excel giao trực tiếp", "", bandamDirectExcelTemplate));
     if (key === "sanluong") { bar.appendChild(btn("Chuyển thành SL kỳ mới…", "", function () { productionReperiodScreen(draw); })); bar.appendChild(btn("Chỉ đổi kỳ chi trả SL…", "", function () { productionCarryScreen(draw); })); }
@@ -92,7 +93,7 @@
       bar.appendChild(btn("🖨 In", "", function () { if (!need("export", "in")) return; window.print(); }));
     }
     if (pcMode) bar.appendChild(btn("⬇ PDF", "", function () { var rows = pcRows(); exportSheetsPdf({ title: def.ten + " (đã lọc)", ky: pcScopeText(key), sheets: [{ name: def.ten, rows: rows.map(function (r) { var o = {}; def.cols.forEach(function (c) { o[c] = r[c] == null ? "" : r[c]; }); return o; }) }] }, slug(def.ten) + "_loc.pdf"); }, "Xuất đúng các dòng đang lọc"));
-    bar.appendChild(btn("⬇ Xuất Excel", "", function () { var rows = scanRows(), loc = sfm && !SFC.isEmpty(sfm.cfg.state.get()); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + (loc && !pcMode && !inMode ? "_loc" : "") + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }], key === "sanluong" || key === "bandam" ? undefined : "pro"); }));
+    bar.appendChild(permBtn("⬇ Xuất Excel", "", function () { var rows = scanRows(), loc = sfm && !SFC.isEmpty(sfm.cfg.state.get()); saveXlsx(slug(def.ten) + (inMode ? (inputF(key).tu || inputF(key).den ? "_loc" : "_" + kyStr()) : theoKy && !(pcMode && plfScoped(key)) ? "_" + kyStr() : (pcMode ? "_loc" : "")) + (loc && !pcMode && !inMode ? "_loc" : "") + ".xlsx", [{ name: def.ten, cols: def.cols, rows: rows }], key === "sanluong" || key === "bandam" ? undefined : "pro"); }, "export", "", "Tài khoản không có quyền xuất Excel"));
     card.appendChild(bar);
     if (key === "sanluong") (db.sl_chuyenky || []).filter(function (r) { return r.source === kyStr() || r.target === kyStr(); }).forEach(function (r) { card.appendChild(h("div", { class: "warn", text: "Sản lượng phát sinh " + r.source + " → tính vào lương " + r.target + ". Người/công theo kỳ phát sinh; đơn giá/bù theo kỳ chi trả. Không tính hai lần." })); });
     if (inMode) INDEX_PB = null;
@@ -158,6 +159,14 @@
     card.appendChild(body); wrap.appendChild(card);
     var vis = def.cols.filter(function (c) { return (def.hide || []).indexOf(c) < 0; });
     // Tô màu ô chấm công theo số công + loại dòng (Hình thức công) — chỉ hiển thị, không đổi dữ liệu
+    var knownPcLabels = null;
+    if (key === "chamcong") {
+      knownPcLabels = {};
+      (db.dm_phucap || []).forEach(function (x) {
+        var m = String(x && x["Mã phụ cấp"] || "").trim().toUpperCase();
+        if (m) knownPcLabels[m] = 1;
+      });
+    }
     var dayCls = function (v, ht) {
       if (v === "" || v == null) return "";
       var t = E.tachCong(v); if (!t.soCong) return "cv cE";
@@ -248,10 +257,13 @@
       }
       if (inMode) {
         pcTot.innerHTML = ""; var sums = INPUT_SUM[key].map(function (c) { var t = 0; idx.forEach(function (i2) { t += E.money(db[key][i2][c]); }); return "<b>" + esc(c) + ":</b> " + fmt(t); });
-        pcTot.appendChild(h("div", { "data-in-totals": key, html: "<b>Tổng theo bộ lọc (" + esc(inputScopeText(key)) + "):</b> " + idx.length + " dòng · " + sums.join(" · ") }));
-        if (CT_KEY[key] && idx.length) pcTot.appendChild(btn("Đối soát theo nhân viên", "", function () {
+        var totRow = h("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap" }, [
+          h("div", { "data-in-totals": key, html: "<b>Tổng theo bộ lọc (" + esc(inputScopeText(key)) + "):</b> " + idx.length + " dòng · " + sums.join(" · ") })
+        ]);
+        if (CT_KEY[key] && idx.length) totRow.appendChild(btn("Đối soát theo nhân viên", "", function () {
           moneyInputReview(key, idx.map(function (i) { return db[key][i]; }), nameOf);
         }));
+        pcTot.appendChild(totRow);
       }
       if (isCat && cedit(key) && cedit(key).mode === "new") idx.unshift(-1);
       cnt.textContent = idx.length + " dòng" + (theoKy ? " (kỳ " + st.thang + "/" + st.nam + ")" : "") + (qq ? " · đang lọc \"" + st.qs[key] + "\"" : "");
@@ -267,8 +279,10 @@
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
         if (key === "sanluong" && c === "Ngày cân") trh.appendChild(h("th", { text: "Ngày cân gốc", style: "min-width:110px" }));
-        var th = h("th", { class: cls, text: isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : key === "sanluong" && c === "Ngày cân" ? "Ngày phân bổ" : c });
-        if (COLW[c]) th.style.minWidth = COLW[c] + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
+        var dispCol = isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : key === "sanluong" && c === "Ngày cân" ? "Ngày phân bổ" : c;
+        var th = h("th", { class: cls, text: dispCol });
+        var colW = COLW[c] || COLW[dispCol];
+        if (colW) th.style.minWidth = colW + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
         trh.appendChild(th);
         if (c === "Mã NV" && def.showName) trh.appendChild(h("th", { text: "Họ tên", style: "min-width:150px" }));
       });
@@ -287,10 +301,12 @@
           var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : "";
           if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
           var nameTd;
+          var setWarn = function (msg) { inp.classList.toggle("warn-cell", !!msg); inp.style.borderColor = msg ? "#d97706" : ""; if (msg) inp.title = msg; };
           var inp = makeInput(c, r[c], function (v) {
             if (isCat) { // danh mục: chỉ cập nhật bản nháp, KHÔNG ghi dữ liệu
               if (!editing) { inp.value = r[c] == null ? "" : r[c]; return; }
               var nc = VAL.normCell(c, v); if (nc.error) { toast("⚠ " + c + ": " + nc.error); inp.value = ced.draft[c] == null ? "" : ced.draft[c]; return; }
+              setWarn(nc.warn); if (nc.warn) toast("⚠ " + nc.warn);
               ced.draft[c] = nc.value; ced.dirty = true; ced.err = ""; if (inp.value !== nc.value) inp.value = nc.value;
               var st0 = tr.querySelector("[data-cat-state]"); if (st0) { st0.textContent = "● Có thay đổi chưa lưu"; st0.setAttribute("data-cat-state", "EDITING"); }
               return;
@@ -303,13 +319,22 @@
             var idE = ID.checkWrite(db, key, r, patch); if (idE) { alert(idE); inp.value = r[c] == null ? "" : r[c]; return; } // 1 người 1 Mã NV (CCCD)
             var pE = REPO.plan("update", key, r, patch, { what: "sửa dòng này", checkDup: CT_KEY[key] });
             if (!pE.ok) { alert(pE.msg); inp.value = r[c] == null ? "" : r[c]; return; }
-            var dc = isDay && key === "chamcong" ? VAL.dayCell(c, n.value, r["Kỳ"]) : null;
+            var dc = isDay && key === "chamcong" ? VAL.dayCell(c, n.value, r["Kỳ"], knownPcLabels) : null;
             if (dc && dc.warn) toast("⚠ " + dc.warn);
+            if (n.warn) toast("⚠ " + n.warn);
+            setWarn(n.warn || (dc && dc.warn));
+            if ((key === "sanluong" || key === "bandam") && c === "KL hàng (Tấn)") {
+              var qs0 = String(n.value == null ? "" : n.value).trim(), qn0 = Number(qs0.replace(",", "."));
+              if (!/^\d+(?:[.,]\d+)?$/.test(qs0) || !(qn0 > 0) || !isFinite(qn0)) {
+                toast("⚠ " + (key === "bandam" ? "Số xe" : "Khối lượng") + " phải là số lớn hơn 0 — kiểm tra lại các ô đỏ trước khi Lưu.");
+              }
+            }
             if (pE.retro) toast("⚠ Hồi tố: dòng này có hiệu lực trong kỳ đã chốt " + pE.impact.periods.map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi");
             if (!commit(pE, { audit: theoKy ? false : "retro", action: "Sửa danh mục" })) { inp.value = r[c] == null ? "" : r[c]; return; }
             if (inp.value !== n.value && !isDay) inp.value = n.value;
             save(); refreshInputReview(); if (c === "Mã NV" && nameTd) nameTd.textContent = tenNV(n.value) || (n.value ? "⚠ chưa có trong Nhân sự" : ""); if (isDay) updTot();
           }, null, key);
+          if (!isDay && r[c] != null && r[c] !== "") { var nw = VAL.normCell(c, r[c]); if (nw.warn) setWarn(nw.warn); }
           if (key === "chamcong" && isDay) { var lkc = LKMAP[attRecordId("chamcong", r) + "|" + c]; if (lkc) { inp.classList.add("has-src"); inp.title = "Nguồn: " + lkc.docId + " trang " + lkc.page + " — chuột phải (hoặc Alt+bấm) để xem ảnh/PDF gốc"; inp.addEventListener("contextmenu", function (ev) { ev.preventDefault(); openCellSource(lkc); }); inp.addEventListener("click", function (ev) { if (ev.altKey) { ev.preventDefault(); openCellSource(lkc); } }); } }
           inp.addEventListener("paste", function (ev) {
             if (isCat) return; // danh mục: dán nhiều dòng không được ghi ngầm; dùng Nhập Excel (có xem trước)
@@ -319,24 +344,62 @@
             if (!need(editPerm)) return;
             if (!theoKy && GRD.closedPeriods(db).length && !can("retro.edit")) { alert("⛔ Đã có kỳ lương chốt — chỉ Admin được dán hàng loạt vào danh mục (có thể hồi tố)."); return; }
             var lines = txt.replace(/\r/g, "").replace(/\n$/, "").split("\n"), start = def.cols.indexOf(c);
-            var bad = 0, skip = 0, retro = 0, retroKy = {};
-            lines.forEach(function (ln, li) {
-              var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
-              ln.split("\t").forEach(function (v, k) { var col = def.cols[start + k]; if (col && col !== def.kyCol) { var nc = VAL.normCell(col, v); if (nc.error || (key === "chamcong" && /^\d\d$/.test(col) && VAL.dayCell(col, nc.value, cand["Kỳ"]).error)) { bad++; return; } cand[col] = nc.value; } });
-              var cur0 = tgt == null ? null : db[key][tgt]; if (ID.checkWrite(db, key, cur0, cand)) { skip++; return; } // CCCD đã thuộc người khác: không ghi dòng này
-              var pP = tgt == null ? REPO.plan("insert", key, null, cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] }) : REPO.plan("update", key, db[key][tgt], cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] });
-              var rP = pP.ok ? REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }) : pP;
-              if (!rP.ok) { skip++; return; }
-              // Danh mục chồng lên kỳ đã chốt: repository đã ghi nhật ký [HỒI TỐ] từng dòng — đếm lại để cảnh báo (không chặn)
-              if (rP.retro) { retro++; rP.impact.periods.forEach(function (p) { retroKy[p] = 1; }); }
-              if (tgt == null) idx.push(db[key].length - 1);
+            var overwriteCount = 0, addCount = 0;
+            lines.forEach(function (_, li) { if (idx[n + li] != null) overwriteCount++; else addCount++; });
+            if (overwriteCount >= 1) {
+              if (!confirm("Sẽ ghi đè " + overwriteCount + " dòng hiện có, thêm " + addCount + " dòng mới. Tiếp tục?")) return;
+            }
+            var bad = 0, warnCnt = 0, skip = 0, retro = 0, retroKy = {}, ovApplied = 0, addApplied = 0;
+            var okTxn = txn([key], function () {
+              lines.forEach(function (ln, li) {
+                var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
+                ln.split("\t").forEach(function (v, k) {
+                  var col = def.cols[start + k];
+                  if (col && col !== def.kyCol) {
+                    var nc = VAL.normCell(col, v);
+                    if (nc.error) { bad++; return; }
+                    if (key === "chamcong" && /^\d\d$/.test(col)) {
+                      var dcp = VAL.dayCell(col, nc.value, cand["Kỳ"], knownPcLabels);
+                      if (dcp.error) { bad++; return; }
+                      if (dcp.warn) warnCnt++;
+                    }
+                    cand[col] = nc.value;
+                  }
+                });
+                var cur0 = tgt == null ? null : db[key][tgt]; if (ID.checkWrite(db, key, cur0, cand)) { skip++; return; } // CCCD đã thuộc người khác: không ghi dòng này
+                var pP = tgt == null ? REPO.plan("insert", key, null, cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] }) : REPO.plan("update", key, db[key][tgt], cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] });
+                var rP = pP.ok ? REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }) : pP;
+                if (!rP.ok) { skip++; return; }
+                if (tgt == null) { addApplied++; idx.push(db[key].length - 1); } else ovApplied++;
+                // Danh mục chồng lên kỳ đã chốt: repository đã ghi nhật ký [HỒI TỐ] từng dòng — đếm lại để cảnh báo (không chặn)
+                if (rP.retro) { retro++; rP.impact.periods.forEach(function (p) { retroKy[p] = 1; }); }
+              });
+              return true;
             });
-            save(); draw(); toast("Đã dán " + (lines.length - skip) + " dòng" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") +
+            if (!okTxn) { alert("Chưa dán được: " + lastTxnError); return; }
+            draw(); toast("Đã dán " + (ovApplied + addApplied) + " dòng (đè " + ovApplied + ", thêm " + addApplied + ")" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") + (warnCnt ? " · ⚠ " + warnCnt + " ô có nhãn lạ / vượt công — kiểm tra lại" : "") +
               (retro ? " · ⚠ " + retro + " dòng hồi tố kỳ đã chốt " + Object.keys(retroKy).sort().map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi" : ""));
           });
           if (isDay && key === "chamcong") {
-            var paint = function () { inp.className = dayCls(inp.value, r["Hình thức công"]); };
+            var paint = function () {
+              var dc0 = VAL.dayCell(c, inp.value, r["Kỳ"], knownPcLabels);
+              inp.className = dayCls(inp.value, r["Hình thức công"]) + (dc0 && dc0.warn ? " c-warn" : "");
+              if (dc0 && dc0.warn) { inp.style.outline = "2px solid #d97706"; if (!lkc) inp.title = dc0.warn; }
+              else { inp.style.outline = ""; if (!lkc) inp.title = ""; }
+            };
             paint(); inp.addEventListener("input", paint); inp.addEventListener("change", function () { setTimeout(paint, 0); });
+          } else if (!DATECOLS.test(c) && c !== "KL hàng (Tấn)") {
+            var syncTitle = function () { inp.title = inp.value || ""; };
+            syncTitle(); inp.addEventListener("input", syncTitle); inp.addEventListener("change", function () { setTimeout(syncTitle, 0); });
+          }
+          if ((key === "sanluong" || key === "bandam") && c === "KL hàng (Tấn)") {
+            var paintKl = function () {
+              var qs1 = String(inp.value == null ? "" : inp.value).trim(), qn1 = Number(qs1.replace(",", "."));
+              var badKl = !/^\d+(?:[.,]\d+)?$/.test(qs1) || !(qn1 > 0) || !isFinite(qn1);
+              inp.style.outline = badKl ? "2px solid #dc2626" : "";
+              if (badKl) inp.title = "Nhập số lớn hơn 0";
+            };
+            paintKl(); inp.addEventListener("input", paintKl); inp.addEventListener("change", function () { setTimeout(paintKl, 0); });
           }
           if (rowLocked || (isCat && !editing)) inp.disabled = true; if (isCat && editing) inp.classList.add("editing");
           // Ngày không có trong tháng (VD 31/09): không cho nhập; nếu dữ liệu cũ có giá trị thì vẫn cho sửa để xóa
