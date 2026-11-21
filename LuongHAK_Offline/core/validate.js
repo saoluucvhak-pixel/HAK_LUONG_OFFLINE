@@ -103,7 +103,7 @@
   function normCell(col, v) {
     if (/^\d{2}$/.test(col) && isNullText(v)) return { value: "" }; // ô ngày chấm công mang chữ "null" = ô trống
     if (col === KY_COL) { var k = normKy(v); return k === null ? { value: String(v), error: "Kỳ không hợp lệ (cần dạng 2026-09)" } : { value: k }; }
-    if (isDateCol(col)) { var d = normDate(v); return d === null ? { value: String(v), error: "Ngày không hợp lệ (cần dạng 2026-09-15 hoặc 15/09/2026)" } : { value: d }; }
+    if (isDateCol(col)) { var d = normDate(v); return d === null ? { value: String(v), error: "Ngày không hợp lệ — nhập ngày dạng dd/MM/yyyy, ví dụ 15/09/2026 (năm 4 chữ số)" } : { value: d }; }
     if (CAP_COLS.test(col)) {
       if (v == null || String(v).trim() === "") return { value: "" };
       var cap = parseMoney(v);
