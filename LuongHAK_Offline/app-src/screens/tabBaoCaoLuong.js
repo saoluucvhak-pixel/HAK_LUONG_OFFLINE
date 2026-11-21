@@ -20,17 +20,17 @@
       var lab = g.hadTotal ? String(rows[rows.length - 1][Object.keys(rows[rows.length - 1])[0]]) : "";
       return g.hadTotal && g.rows.length ? addTotal(g.rows, lab) : g.rows;
     }
-    var nam = st.nam, thang = st.thang, snapshot = kyChot(kyKey(nam, thang)), info = function (t, cls) { card.appendChild(h("div", { class: cls || "hint", html: t })); };
+    var nam = st.nam, thang = st.thang, kyPad = ("0" + thang).slice(-2) + "/" + nam, snapshot = kyChot(kyKey(nam, thang)), info = function (t, cls) { card.appendChild(h("div", { class: cls || "hint", html: t })); };
     if (BCL_NAM[st.bcl]) {
       var ks = chotTrongNam(nam);
       info("Năm <b>" + nam + "</b> (đổi năm ở ô Kỳ lương phía trên). Báo cáo cả năm chỉ cộng các <b>kỳ đã chốt</b>: " + (ks.length ? ks.map(function (k) { return "T" + (+k.ky.slice(5)); }).join(", ") : "chưa có kỳ nào") + ".", ks.length ? "hint" : "warn");
     } else {
       var src = st.bcl === "cong" || st.bcl === "sanluong" ? null : kqKy(nam, thang);
-      if (src) info(src.chot ? "🔒 Số liệu kỳ <b>" + thang + "/" + nam + "</b> lấy từ bảng lương <b>đã chốt</b>." : "⚠ Kỳ <b>" + thang + "/" + nam + "</b> <b>chưa chốt</b> — số liệu tính tạm từ dữ liệu hiện tại, có thể thay đổi.", src.chot ? "locked" : "warn");
+      if (src) info(src.chot ? "🔒 Số liệu kỳ <b>" + kyPad + "</b> lấy từ bảng lương <b>đã chốt</b>." : "⚠ Kỳ <b>" + kyPad + "</b> <b>chưa chốt</b> — số liệu tính tạm từ dữ liệu hiện tại, có thể thay đổi.", src.chot ? "locked" : "warn");
     }
     var dataSource = st.bcl === "cong" ? inputReportSource("chamcong", kyKey(nam, thang)) : "";
     if (dataSource) info(esc(dataSource));
-    if (st.bcl === "cong") { var r2 = FX(bcCong(nam, thang)); if (snapshot && !Array.isArray(snapshot.input?.data?.chamcong)) info("Bản chốt cũ thiếu dữ liệu chấm công.", "warn"); info("Tổng hợp từ bảng chấm công kỳ " + thang + "/" + nam + ". Ngày có nhãn: VD QC×7 = 7 ngày công tác QC."); card.appendChild(simpleTable(r2)); sheets.push({ name: "TongHopCong", rows: r2 }); }
+    if (st.bcl === "cong") { var r2 = FX(bcCong(nam, thang)); if (snapshot && !Array.isArray(snapshot.input?.data?.chamcong)) info("Bản chốt cũ thiếu dữ liệu chấm công.", "warn"); info("Tổng hợp từ bảng chấm công kỳ " + kyPad + ". Ngày có nhãn: VD QC×7 = 7 ngày công tác QC."); card.appendChild(simpleTable(r2)); sheets.push({ name: "TongHopCong", rows: r2 }); }
     else if (st.bcl === "sanluong") {
       st.bclLoai = st.bclLoai || "sanluong";
       var ls = h("select"); [["sanluong", "Sản lượng gỗ (tấn)"], ["bandam", "Ban dăm xuất hàng (số xe)"]].forEach(function (o) { ls.appendChild(h("option", { value: o[0], text: o[1] })); });
@@ -199,12 +199,12 @@
     var bclTrangThai = dataSource || (src && !BCL_NAM[st.bcl] ? (src.chot ? "Đã chốt" : "Chưa chốt — tính tạm") : (!BCL_NAM[st.bcl] && !snapshot ? "Chưa chốt — tính tạm" : ""));
     var bclTam = !BCL_NAM[st.bcl] && (/chưa chốt|tính tạm/i.test(bclTrangThai) || (src && !src.chot)) ? "_TAM" : "";
     tools.appendChild(btn("⬇ Xuất PDF", "", function () {
-      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + thang + "/" + nam, trangThai: bclTrangThai, loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + bclTam + ".pdf");
+      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + kyPad, trangThai: bclTrangThai, loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + bclTam + ".pdf");
     }, "PDF theo đúng bộ lọc đang chọn"));
     tools.appendChild(btn(st.bcl === "sanluong" ? "⬇ Xuất báo cáo đang xem (Excel)" : "⬇ Xuất Excel", "pri", function () {
       if (st.bcl === "baohiem") {
         if (!window.ExcelJS || !window.HAKUi.bhXlsx) { alert("Thiếu thư viện Excel báo cáo bảo hiểm"); return; }
-        window.HAKUi.bhXlsx.build(window.ExcelJS, sheets, { congTy: congTy()["Tên công ty"] || "", kyText: "THÁNG " + thang + "/" + nam, trangThai: src.chot ? "Đã chốt" : "Chưa chốt — tính tạm", phamVi: RF.describe(st.rf).join("; ") || "Toàn bộ", ngayLap: new Date().toLocaleDateString("vi-VN"), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
+        window.HAKUi.bhXlsx.build(window.ExcelJS, sheets, { congTy: congTy()["Tên công ty"] || "", kyText: "THÁNG " + kyPad, trangThai: src.chot ? "Đã chốt" : "Chưa chốt — tính tạm", phamVi: RF.describe(st.rf).join("; ") || "Toàn bộ", ngayLap: new Date().toLocaleDateString("vi-VN"), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
           download("BaoCao_BaoHiem_" + kyKey(nam, thang) + bclTam + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
           audit("Xuất Excel bảo hiểm", kyKey(nam, thang));
         }, function (e) { alert("Không xuất được Excel: " + (e.message || e)); });
