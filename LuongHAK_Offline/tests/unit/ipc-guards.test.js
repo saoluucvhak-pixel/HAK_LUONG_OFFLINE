@@ -68,3 +68,8 @@ test("Màn khởi động/khôi phục: store-info, backup-status, store-snapsho
     assert.doesNotMatch(h, /guard\.deny|syncGuard|guard\.userOf/, ch + " phải giữ mở cho màn khởi động/khôi phục");
   }
 });
+
+test("Màn khôi phục: inRecovery() kiểm tra !ld.ok để cho phép đọc sao lưu & dọn file hỏng khi kho có xung đột/hỏng", () => {
+  assert.match(mainSrc, /const inRecovery = \(\) => \{ try \{ const ld = storage\.load\(\); return !ld \|\| !ld\.ok/, "inRecovery phải kiểm tra load().ok");
+});
+

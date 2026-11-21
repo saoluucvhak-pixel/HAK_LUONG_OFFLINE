@@ -89,7 +89,7 @@ function registerIpc() {
   const guarded = (perm, fn) => async (e, ...a) => { const d = guard.deny(e, perm); return d ? { ok: false, error: d, problems: [d] } : fn(e, ...a); };
   const syncGuard = (e, perm) => guard.deny(e, perm) || "";
   const syncWriteBusy = () => (yearBusy ? "Đang xử lý hồ sơ năm — vui lòng chờ hoàn tất" : fbJob ? "Đang sao lưu Full Backup — chờ sao lưu xong (hoặc bấm Hủy) rồi thử lại" : restorer && restorer.busy() ? "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" : "");
-  const inRecovery = () => { try { return storage.needsRecovery ? storage.needsRecovery() : !storage.load().ok; } catch (err) { return true; } };
+  const inRecovery = () => { try { const ld = storage.load(); return !ld || !ld.ok || !!(storage.needsRecovery && storage.needsRecovery()); } catch (err) { return true; } };
   // V9: phiên do TIẾN TRÌNH CHÍNH tạo sau khi tự kiểm mật khẩu với tài khoản trên đĩa; renderer không gửi được danh sách quyền
   ipcMain.on("auth-login", (e, name, pw) => { e.returnValue = guard.login(e, name, pw); });
   ipcMain.on("auth-logout", (e) => { e.returnValue = guard.logout(e); });
