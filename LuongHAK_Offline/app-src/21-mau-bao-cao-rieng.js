@@ -27,18 +27,17 @@
     if (!vm.rows.length && !vm.extras.some(function (sheet) { return sheet.rows.length; })) { toast("Không có dòng nào để xuất"); return false; }
     return true;
   }
-  function opsTamSuffix(vm) { return /chưa chốt|tính tạm/i.test(vm && vm.trangThai || "") ? "_TAM" : ""; }
   function opsXlsx(vm) {
     if (!opsExportOk(vm)) return;
     if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx) { alert("Thiếu thư viện Excel"); return; }
     window.HAKUi.reportXlsx.buildMany(window.ExcelJS, OPS.sheetVms(vm), { nguoiLap: vm.nguoiLap }).xlsx.writeBuffer().then(function (buf) {
-      download(vm.file + "_" + vm.kyKey + opsTamSuffix(vm) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+      download(vm.file + "_" + vm.kyKey + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel " + vm.title, (vm.ky || vm.kyText) + " · " + vm.soDong + " dòng · phạm vi: " + vm.phamVi);
     }, function (e) { alert("Không tạo được file: " + e.message); });
   }
   function opsPdf(vm) {
     if (!opsExportOk(vm)) return;
-    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, ghiChu: vm.ghiChu, sheets: OPS.toSheets(vm) }, vm.file + "_" + vm.kyKey + opsTamSuffix(vm) + ".pdf", { chuKy: vm.chuKy });
+    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, ghiChu: vm.ghiChu, sheets: OPS.toSheets(vm) }, vm.file + "_" + vm.kyKey + ".pdf", { chuKy: vm.chuKy });
   }
   /** Xuất bảng dạng mảng đối tượng (báo cáo nhân sự có sẵn) theo mẫu chung: tiêu đề công ty / TÊN IN HOA / chữ ký / A4 ngang. */
   function opsRowsVm(title, rows, file) {
