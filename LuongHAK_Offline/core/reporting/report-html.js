@@ -19,10 +19,11 @@
 
   var CSS = "@page{size:A4 landscape;margin:12mm 10mm 14mm 10mm}*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;font-size:8.5pt;color:#111;margin:0}" +
     "h1{font-size:14pt;margin:0 0 2mm;text-align:center}.sub{text-align:center;margin:0 0 1.5mm;color:#333}.loc{margin:2mm 0;padding:1.5mm 3mm;border:1px solid #bbb;background:#f6f6f6;font-size:8pt}" +
-    ".warn{margin:2mm 0;padding:1.5mm 3mm;border:1px solid #c0362c;color:#c0362c;font-size:8pt}table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{page-break-inside:avoid}" +
+    ".warn{margin:2mm 0;padding:1.5mm 3mm;border:1px solid #c0362c;color:#c0362c;font-size:8pt}table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{page-break-inside:avoid;break-inside:avoid}" +
     "th,td{border:.4pt solid #666;padding:1mm 1.5mm}th{background:#e8efe9;text-align:center}td.m,td.q{text-align:right;white-space:nowrap}td.t{text-align:left;white-space:nowrap}td.n{text-align:left;white-space:nowrap}" +
-    "tr.sub td{background:#f1f1f1;font-weight:700}tr.tot td{background:#dfe9e2;font-weight:700;border-top:1.2pt solid #333}th.s,td.s{font-weight:700}" +
-    ".sign{display:flex;justify-content:space-around;margin-top:10mm;text-align:center;page-break-inside:avoid}.sign div{width:30%}";
+    "tr.sub{break-after:avoid}tr.sub td{background:#f1f1f1;font-weight:700}tr.tot{break-inside:avoid}tr.tot td{background:#dfe9e2;font-weight:700;border-top:1.2pt solid #333;white-space:nowrap}th.s,td.s{font-weight:700}" +
+    "th.ky,td.ky{min-width:32mm}table.has-ky tbody tr td{height:9mm}" +
+    ".sign{display:flex;justify-content:space-around;margin-top:10mm;text-align:center;page-break-inside:avoid;break-inside:avoid}.sign div{width:30%}";
 
   /** vm: kết quả internalPayroll.build() hoặc bảng cùng hình dạng. opt: { chuKy: [tên chức danh] } */
   function table(vm, opt) {
@@ -72,16 +73,17 @@
       var grpOf = {}; (sh.groups || []).forEach(function (g) { for (var q = g.from; q <= g.to; q++) grpOf[cols[q]] = g.label; });
       segs.forEach(function (sc, si) {
         var small = sc.length > 14 ? "font-size:6.5pt;" : sc.length > 9 ? "font-size:7.5pt;" : "", br = si > 0 ? "page-break-before:always;" : "";
+        var hasKy = sc.some(function (c) { return /^Ký nhận$/i.test(c); });
         if (segs.length > 1) h += "<div class=\"loc\" style=\"" + br + "\">Phần " + (si + 1) + "/" + segs.length + " — các cột " + esc(sc.slice(idN).join(", ")) + "</div>";
-        h += "<table style=\"" + small + "\"><thead>";
+        h += "<table" + (hasKy ? " class=\"has-ky\"" : "") + " style=\"" + small + "\"><thead>";
         if (sh.groups && sh.groups.length) {
           var gr = [], prev = null; sc.forEach(function (c, ci) { var lb = ci < idN && segs.length > 1 ? "NHÂN VIÊN" : (grpOf[c] || ""); if (prev && prev.l === lb) prev.n++; else { prev = { l: lb, n: 1 }; gr.push(prev); } });
           h += "<tr>" + gr.map(function (g) { return "<th colspan=\"" + g.n + "\" style=\"background:#d5e4d9\">" + esc(g.l) + "</th>"; }).join("") + "</tr>";
         }
-        h += "<tr>" + sc.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
+        h += "<tr>" + sc.map(function (c) { return "<th" + (/^Ký nhận$/i.test(c) ? " class=\"ky\"" : "") + ">" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
         sh.rows.forEach(function (r, i) {
           var tot = i === sh.rows.length - 1 && TR.is(r);
-          h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + sc.map(function (c) { var v = r[c]; var cls = num[c] ? "m" : (isNowrapCol(c) ? "n" : "t"); return "<td class=\"" + cls + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(isoToVn(c, v))) + "</td>"; }).join("") + "</tr>";
+          h += "<tr" + (tot ? " class=\"tot\"" : "") + ">" + sc.map(function (c) { var v = r[c]; var cls = (num[c] ? "m" : (isNowrapCol(c) ? "n" : "t")) + (/^Ký nhận$/i.test(c) ? " ky" : ""); return "<td class=\"" + cls + "\">" + (typeof v === "number" ? (Number.isInteger(v) ? money(v) : qty(v)) : esc(isoToVn(c, v))) + "</td>"; }).join("") + "</tr>";
         });
         h += "</tbody></table>";
       });
