@@ -20,7 +20,7 @@
     if(!['chamcong','sanluong'].includes(key)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))throw Error('Bảng hoặc kỳ không hợp lệ');
     if((db.kyluong||[]).some(function(x){return x.ky===period;}))throw Error('Kỳ đã chốt — mở chốt trước khi thay/xóa');
     var stored=db[key]||[];
-    var remove=[],totals=[],unresolved=[],rows=[],ignored=[],candidates=[];
+    var remove=[],totals=[],unresolved=[],rows=[],ignored=[],candidates=[],nearWarnings=[];
     stored.forEach(function(row){
       var rowPeriod=V.rowPeriod(key,row);
       if(rowPeriod===period)remove.push(row);
@@ -42,8 +42,26 @@
       if(p.items.some(function(it){return !['add','merged'].includes(it.action);}))throw Error('File có dòng lỗi/trùng/xung đột. Chưa thay dữ liệu. '+p.items.filter(function(it){return !['add','merged'].includes(it.action);}).map(function(it){return it.reason||it.action;}).slice(0,3).join('; '));
       rows=p.items.filter(function(it){return it.action==='add';}).map(function(it){return it.row;});
       if(!rows.length||rows.some(function(r){return V.rowPeriod(key,r)!==period;}))throw Error('Mọi dòng trong file phải thuộc đúng kỳ '+period+'; không chấp nhận thiếu kỳ/ngày');
+      if(V.NEAR_COLS&&V.NEAR_COLS[key]){
+        var nearCols=V.NEAR_COLS[key],otherByNear=Object.create(null);
+        d[key].forEach(function(r){var nk=V.nearKeyOf(key,r);if(nk&&!otherByNear[nk])otherByNear[nk]=r;});
+        rows.forEach(function(r){
+          var nk=V.nearKeyOf(key,r),twin=nk&&otherByNear[nk];
+          if(!twin)return;
+          var label=nearCols.map(function(c){return String(r[c]==null?'':r[c]).trim();}).join(' / ');
+          var twinLabel=nearCols.map(function(c){return String(twin[c]==null?'':twin[c]).trim();}).join(' / ');
+          var otherPeriod=V.rowPeriod(key,twin)||'không rõ kỳ';
+          nearWarnings.push({
+            line:r.__line,
+            key:label,
+            matchKey:twinLabel,
+            matchPeriod:otherPeriod,
+            message:'Nghi trùng khóa gần giống ở kỳ '+otherPeriod+': "'+label+'" gần giống "'+twinLabel+'"'
+          });
+        });
+      }
     }
-    return{key:key,period:period,remove:remove,totals:totals,unresolved:unresolved,rows:rows,ignored:ignored,token:JSON.stringify(db[key]||[])};
+    return{key:key,period:period,remove:remove,totals:totals,unresolved:unresolved,rows:rows,ignored:ignored,nearWarnings:nearWarnings,token:JSON.stringify(db[key]||[])};
   }
   /** Loại khỏi Sản lượng / Bơm dăm các dòng TỔNG (Total / Tổng cộng, không ngày cân, tổ, người) lẫn vào khi nhập file. Trả danh sách dòng đã loại. */
   function removeTotals(db){
