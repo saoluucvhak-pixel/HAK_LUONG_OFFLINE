@@ -256,10 +256,13 @@
       }
       if (inMode) {
         pcTot.innerHTML = ""; var sums = INPUT_SUM[key].map(function (c) { var t = 0; idx.forEach(function (i2) { t += E.money(db[key][i2][c]); }); return "<b>" + esc(c) + ":</b> " + fmt(t); });
-        pcTot.appendChild(h("div", { "data-in-totals": key, html: "<b>Tổng theo bộ lọc (" + esc(inputScopeText(key)) + "):</b> " + idx.length + " dòng · " + sums.join(" · ") }));
-        if (CT_KEY[key] && idx.length) pcTot.appendChild(btn("Đối soát theo nhân viên", "", function () {
+        var totRow = h("div", { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap" }, [
+          h("div", { "data-in-totals": key, html: "<b>Tổng theo bộ lọc (" + esc(inputScopeText(key)) + "):</b> " + idx.length + " dòng · " + sums.join(" · ") })
+        ]);
+        if (CT_KEY[key] && idx.length) totRow.appendChild(btn("Đối soát theo nhân viên", "", function () {
           moneyInputReview(key, idx.map(function (i) { return db[key][i]; }), nameOf);
         }));
+        pcTot.appendChild(totRow);
       }
       if (isCat && cedit(key) && cedit(key).mode === "new") idx.unshift(-1);
       cnt.textContent = idx.length + " dòng" + (theoKy ? " (kỳ " + st.thang + "/" + st.nam + ")" : "") + (qq ? " · đang lọc \"" + st.qs[key] + "\"" : "");
@@ -275,8 +278,10 @@
         var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : (NUMCOLS.test(c) && !DATECOLS.test(c) ? "r" : "");
         if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
         if (key === "sanluong" && c === "Ngày cân") trh.appendChild(h("th", { text: "Ngày cân gốc", style: "min-width:110px" }));
-        var th = h("th", { class: cls, text: isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : key === "sanluong" && c === "Ngày cân" ? "Ngày phân bổ" : c });
-        if (COLW[c]) th.style.minWidth = COLW[c] + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
+        var dispCol = isDay ? String(+c) : key === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : key === "sanluong" && c === "Ngày cân" ? "Ngày phân bổ" : c;
+        var th = h("th", { class: cls, text: dispCol });
+        var colW = COLW[c] || COLW[dispCol];
+        if (colW) th.style.minWidth = colW + "px"; else if (MONEYCOLS.test(c)) th.style.minWidth = "120px";
         trh.appendChild(th);
         if (c === "Mã NV" && def.showName) trh.appendChild(h("th", { text: "Họ tên", style: "min-width:150px" }));
       });
@@ -377,6 +382,9 @@
               else { inp.style.outline = ""; if (!lkc) inp.title = ""; }
             };
             paint(); inp.addEventListener("input", paint); inp.addEventListener("change", function () { setTimeout(paint, 0); });
+          } else if (!DATECOLS.test(c) && c !== "KL hàng (Tấn)") {
+            var syncTitle = function () { inp.title = inp.value || ""; };
+            syncTitle(); inp.addEventListener("input", syncTitle); inp.addEventListener("change", function () { setTimeout(syncTitle, 0); });
           }
           if ((key === "sanluong" || key === "bandam") && c === "KL hàng (Tấn)") {
             var paintKl = function () {
