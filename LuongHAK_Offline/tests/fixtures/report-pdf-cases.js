@@ -8,13 +8,13 @@ const IPAY = require("../../core/reporting/internal-payroll.js"), RH = require("
 const grp = (s) => s.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const int = (v) => (v < 0 ? "-" : "") + grp(String(Math.abs(Math.round(v))));
 const dec = (v) => { const r = Math.round(Math.abs(v) * 1000) / 1000, [a, b] = String(r).split("."); return (v < 0 ? "-" : "") + grp(a) + (b ? "," + b : ""); };
-const cellText = (v) => (v == null || v === "" ? null : typeof v === "number" ? (v === 0 ? null : Number.isInteger(v) ? int(v) : dec(v)) : String(v));
+const cellText = (v, col) => (v == null || v === "" ? null : typeof v === "number" ? (v === 0 ? null : Number.isInteger(v) ? int(v) : dec(v)) : (/^Ngày/.test(String(col || "").trim()) && /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v).slice(8, 10) + "/" + String(v).slice(5, 7) + "/" + String(v).slice(0, 4) : String(v)));
 
 /** Một bảng (như app truyền cho exportSheetsPdf: { name, cols?, rows }) → HTML in thật + dòng mong đợi theo ĐÚNG thứ tự cột của bảng. */
 function fromRows(name, title, rows, extra) {
   const cols = (extra && extra.cols) || Object.keys(rows[0] || {}).filter((k) => k.charAt(0) !== "_");
   const html = RH.sheets({ title, ky: "Kỳ 2026-09", congTy: "CÔNG TY TEST", loc: (extra && extra.loc) || [], sheets: [{ name: "S", cols, rows }] }, {});
-  const expect = rows.map((r) => cols.map((c) => cellText(r[c])).filter((x) => x != null));
+  const expect = rows.map((r) => cols.map((c) => cellText(r[c], c)).filter((x) => x != null));
   return { name, title, html, expect, wide: cols.length > 16 };
 }
 

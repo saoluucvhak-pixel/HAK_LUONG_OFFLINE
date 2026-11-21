@@ -125,16 +125,16 @@
 
   function exportPayrollBundlePdf(r, ky) {
     if (!need("export", "in bộ báo cáo kỳ")) return;
-    var bundle = payrollBundle(r, ky);
-    var tam = /chưa chốt|tính tạm/i.test(bundle.info.trangThai || "") ? "_TAM" : "";
+    var b = payrollBundle(r, ky), sign = ["Người lập biểu", "Kế toán trưởng", "Giám đốc"];
+    var tam = /chưa chốt|tính tạm/i.test(b.info.trangThai || "") ? "_TAM" : "";
     exportSheetsPdf({
-      title: "Bộ báo cáo kỳ lương", ky: bundle.info.kyText, congTy: bundle.info.congTy,
-      trangThai: bundle.info.trangThai, sheets: bundle.sheets.map(function (sheet) {
-        var ids = ["STT", "Mã NV", "Họ và tên"].filter(function (key) { return sheet.cols.indexOf(key) >= 0; });
-        var cols = ids.concat(sheet.cols.filter(function (key) { return ids.indexOf(key) < 0; }));
-        return Object.assign({}, sheet, { name: sheet.title || sheet.name, cols: cols, repeatColumns: ids.length });
+      title: "Bộ báo cáo kỳ lương", ky: b.info.kyText, congTy: b.info.congTy,
+      trangThai: b.info.trangThai, sheets: b.sheets.map(function (sh) {
+        var ids = ["STT", "Mã NV", "Họ và tên"].filter(function (k) { return sh.cols.indexOf(k) >= 0; });
+        var cols = ids.concat(sh.cols.filter(function (k) { return ids.indexOf(k) < 0; }));
+        return Object.assign({}, sh, { name: sh.title || sh.name, cols: cols, repeatColumns: ids.length, chuKy: sh.name === "ThongTinKy" ? [] : sign });
       })
-    }, "KyLuong_" + ky + tam + ".pdf", { sectionPages: true, period: ky });
+    }, "KyLuong_" + ky + tam + ".pdf", { sectionPages: true, period: ky, chuKy: sign });
   }
 
   function exportAll(r, ky) {
@@ -258,7 +258,7 @@
     // core/integrity.js đã tự xác định là tiền bị CỘNG TRÙNG (phiếu cân / số chứng từ trùng khóa
     // → sản lượng, thưởng, tạm ứng bị tính 2 lần) — khớp đúng BLOCKER "sản lượng/chấm công bị cộng
     // trùng" của mục IV.2, dù mức integrity.js gán là High (ảnh hưởng tiền trực tiếp như Critical).
-    var critIssues = INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN)/.test(i.msg); });
+    var critIssues = INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN|DỒN)/.test(i.msg); });
     // 1 người 2 Mã NV (CCCD trùng giữa các nhân viên CÓ TRONG BẢNG LƯƠNG kỳ này) = trả lương 2 lần → chặn cứng như Mã NV trùng (core/identity.js)
     ID.payrollDuplicates(db, HRM.staffForPayroll(db, st.nam, st.thang).list.map(function (x) { return x["Mã nhân viên"]; })).forEach(function (d) { critIssues.push({ level: "Critical", msg: d.msg }); });
     if (critIssues.length) {
