@@ -4,7 +4,7 @@
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
 ## [2.0.58] — 20/11/2026
-- **Sửa lỗi Full Backup có mật khẩu mà mã hóa lỗi (T-06):** khi mã hóa lỗi, trả `ok:false`, trạng thái `FAILED`, xóa sạch bản rõ và không chép sang thư mục dự phòng. Chi tiết: `docs/releases/v2.0.58.md`.
+- **Mốc "sao lưu ra ngoài máy" (T-11):** gửi JSON vào thư mục mặc định (cùng máy) không còn được tính là ngoài máy. Chi tiết: `docs/releases/v2.0.58.md`. Chi tiết: `docs/releases/v2.0.58.md`.
 
 ## [2.0.57] — 20/11/2026
 - **Sửa biểu ngữ kiểm tra sao lưu (T-01, rà soát 5 agent):** có bản sao lưu hỏng thì cảnh báo, không còn báo xanh. Chi tiết: `docs/releases/v2.0.57.md`. Chi tiết: `docs/releases/v2.0.57.md`.
