@@ -6,49 +6,49 @@ Vai trò: **Admin** = Quản trị; **NS** = Nhân sự; **KTL** = Kế toán l�
 
 ## 1. Màn (mục menu bên trái) × vai trò thấy được × kết quả kiểm bố cục tự động
 
-Cột kết quả: 1366×768 / 1920×1080 / 1024×768 — `Đạt` hoặc danh sách nhóm lỗi (chi tiết ở `docs/UI_ISSUES.md`).
+Cột kết quả: 1366×768 / 1920×1080 / 1024×768 — **Hiện trạng (từ v2.0.53):** toàn bộ 4 nhóm lỗi ghi nhận ban đầu (`UI-001` thanh trên xuống hàng v2.0.48, `UI-002` ít dòng nhìn thấy v2.0.45, `UI-003` tương phản chữ dưới AA v2.0.52, `UI-004` hai thanh cuộn dọc lồng nhau v2.0.53) đã được xử lý và kiểm PASS/FAIL trong `tests/e2e/layout-audit.cjs` + `tests/e2e/input-filter-dept.cjs` (0 lỗi cứng ở 117 màn × cỡ, chi tiết ở `docs/UI_ISSUES.md`).
 
 | Nhóm menu | Mã màn (`data-k`) | Tên hiển thị | Vai trò thấy | 1366×768 | 1920×1080 | 1024×768 |
 |---|---|---|---|---|---|---|
-| Tổng Quan | `home` | Tổng quan | Admin, NS, KTL, KTTT, TBP, PD, XBC | Đạt | Đạt | thanh trên xuống hàng |
-| Nhân Sự | `nhansu` | Danh sách nhân viên & hồ sơ | Admin, NS, KTL, KTTT, TBP, PD | tương phản dưới AA | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Nhân Sự | `nvns` | Nghiệp vụ nhân sự | Admin, NS, KTL, KTTT, TBP, PD | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Nhân Sự | `capphat` | Cấp phát | Admin, NS, KTL, KTTT, TBP, PD | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Chấm Công | `chamcong` | Bảng chấm công | Admin, NS, KTL, TBP, PD | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Chấm Công | `ocr` | Đọc ảnh chấm công | Admin, KTL, TBP | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Chấm Công | `ocrlib` | Thư viện mẫu OCR | Admin, NS, KTL, TBP, PD | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Sản Lượng | `sanluong` | Sản lượng | Admin, NS, KTL, TBP, PD | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Sản Lượng | `bandam` | Ban dăm xuất hàng | Admin, NS, KTL, TBP, PD | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Sản Lượng | `rp_sl` | Phiếu gốc sản lượng | Admin, NS, KTL, TBP, PD | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Sản Lượng | `rp_bd` | Phiếu gốc Ban dăm xuất hàng | Admin, NS, KTL, TBP, PD | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Nghiệp Vụ Tiền Lương | `psluong` | Thưởng / Trừ | Admin, NS, KTL, TBP, PD | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Nghiệp Vụ Tiền Lương | `ungluong` | Tạm ứng | Admin, NS, KTL, TBP, PD | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Nghiệp Vụ Tiền Lương | `tiencom` | Suất cơm | Admin, NS, KTL, TBP, PD | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Tính Lương | `luong` | Tính lương theo kỳ | Admin, KTL, KTTT, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Tính Lương | `ktbl` | Kiểm tra bảng lương | Admin, KTL, KTTT, PD, XBC | thanh trên xuống hàng; ít dòng nhìn thấy | Đạt | thanh trên xuống hàng; ít dòng nhìn thấy |
-| Tính Lương | `kyluong` | Kỳ lương đã chốt | Admin, KTL, KTTT, PD, XBC | Đạt | Đạt | thanh trên xuống hàng |
-| Tính Lương | `doichieu` | Đối chiếu Excel | Admin, KTL, KTTT, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Thanh Toán Lương | `rp_thanhtoan` | Bảng thanh toán lương | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Thanh Toán Lương | `rp_cttt` | Chi tiết thanh toán | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Thanh Toán Lương | `rp_soct` | Sổ chứng từ thanh toán | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Thanh Toán Lương | `rp_ck` | Bảng kê chuyển khoản | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Thanh Toán Lương | `rp_tm` | Thanh toán tiền mặt | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Báo Cáo Lương | `bangtinh` | Bảng tính lương | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Báo Cáo Lương | `rp_tonghop` | Bảng tổng hợp lương | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Báo Cáo Lương | `rp_ctnv` | Tổng hợp chi tiết nhân viên | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Báo Cáo Lương | `slips` | Phiếu lương chi tiết | Admin, KTL, KTTT, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Báo Cáo Lương | `rp_tncn` | Khấu trừ thuế TNCN | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Báo Cáo Khác | `rp_pb` | Tổng hợp theo phòng ban | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Báo Cáo Khác | `baocaoluong` | Báo cáo lương khác | Admin, KTL, KTTT, PD, XBC | tương phản dưới AA; thanh trên xuống hàng | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng; ít dòng nhìn thấy |
-| Báo Cáo Khác | `baocao` | Báo cáo nhân sự | Admin, NS, KTL, TBP, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Báo Cáo Nghiệp Vụ | `rp_ns` | Danh sách nhân sự | Admin, NS, KTL, KTTT, TBP, PD | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Báo Cáo Nghiệp Vụ | `rp_th` | Bảng kê thưởng / trừ | Admin, KTL, KTTT, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng; ít dòng nhìn thấy |
-| Báo Cáo Nghiệp Vụ | `rp_tu` | Bảng kê tạm ứng | Admin, KTL, KTTT, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Báo Cáo Nghiệp Vụ | `rp_com` | Tổng hợp suất cơm | Admin, NS, KTL, TBP, PD | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Danh Mục | `dm` | Danh mục | Admin, NS, KTL, KTTT, TBP, PD, XBC | tương phản dưới AA | tương phản dưới AA | tương phản dưới AA; thanh trên xuống hàng |
-| Cài Đặt | `caidat` | Công thức & phương pháp | Admin, KTL, KTTT, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
-| Cài Đặt | `backup` | Công ty & Sao lưu | Admin | Đạt | Đạt | thanh trên xuống hàng |
-| Cài Đặt | `huongdan` | Hướng dẫn & Quy chế | Admin, NS, KTL, KTTT, TBP, PD, XBC | thanh trên xuống hàng | Đạt | thanh trên xuống hàng |
+| Tổng Quan | `home` | Tổng quan | Admin, NS, KTL, KTTT, TBP, PD, XBC | Đạt | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Nhân Sự | `nhansu` | Danh sách nhân viên & hồ sơ | Admin, NS, KTL, KTTT, TBP, PD | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Nhân Sự | `nvns` | Nghiệp vụ nhân sự | Admin, NS, KTL, KTTT, TBP, PD | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Nhân Sự | `capphat` | Cấp phát | Admin, NS, KTL, KTTT, TBP, PD | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Chấm Công | `chamcong` | Bảng chấm công | Admin, NS, KTL, TBP, PD | Đạt (UI-001..004 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..004 đã sửa) |
+| Chấm Công | `ocr` | Đọc ảnh chấm công | Admin, KTL, TBP | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Chấm Công | `ocrlib` | Thư viện mẫu OCR | Admin, NS, KTL, TBP, PD | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Sản Lượng | `sanluong` | Sản lượng | Admin, NS, KTL, TBP, PD | Đạt (UI-001..004 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..004 đã sửa) |
+| Sản Lượng | `bandam` | Ban dăm xuất hàng | Admin, NS, KTL, TBP, PD | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Sản Lượng | `rp_sl` | Phiếu gốc sản lượng | Admin, NS, KTL, TBP, PD | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Sản Lượng | `rp_bd` | Phiếu gốc Ban dăm xuất hàng | Admin, NS, KTL, TBP, PD | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Nghiệp Vụ Tiền Lương | `psluong` | Thưởng / Trừ | Admin, NS, KTL, TBP, PD | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Nghiệp Vụ Tiền Lương | `ungluong` | Tạm ứng | Admin, NS, KTL, TBP, PD | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Nghiệp Vụ Tiền Lương | `tiencom` | Suất cơm | Admin, NS, KTL, TBP, PD | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Tính Lương | `luong` | Tính lương theo kỳ | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Tính Lương | `ktbl` | Kiểm tra bảng lương | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001/002 đã sửa) | Đạt | Đạt (UI-001/002 đã sửa) |
+| Tính Lương | `kyluong` | Kỳ lương đã chốt | Admin, KTL, KTTT, PD, XBC | Đạt | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Tính Lương | `doichieu` | Đối chiếu Excel | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Thanh Toán Lương | `rp_thanhtoan` | Bảng thanh toán lương | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001..003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Thanh Toán Lương | `rp_cttt` | Chi tiết thanh toán | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001..003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Thanh Toán Lương | `rp_soct` | Sổ chứng từ thanh toán | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Thanh Toán Lương | `rp_ck` | Bảng kê chuyển khoản | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Thanh Toán Lương | `rp_tm` | Thanh toán tiền mặt | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Báo Cáo Lương | `bangtinh` | Bảng tính lương | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Báo Cáo Lương | `rp_tonghop` | Bảng tổng hợp lương | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001..003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Báo Cáo Lương | `rp_ctnv` | Tổng hợp chi tiết nhân viên | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001..003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Báo Cáo Lương | `slips` | Phiếu lương chi tiết | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Báo Cáo Lương | `rp_tncn` | Khấu trừ thuế TNCN | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001..003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Báo Cáo Khác | `rp_pb` | Tổng hợp theo phòng ban | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Báo Cáo Khác | `baocaoluong` | Báo cáo lương khác | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001/003 đã sửa) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001..003 đã sửa) |
+| Báo Cáo Khác | `baocao` | Báo cáo nhân sự | Admin, NS, KTL, TBP, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Báo Cáo Nghiệp Vụ | `rp_ns` | Danh sách nhân sự | Admin, NS, KTL, KTTT, TBP, PD | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Báo Cáo Nghiệp Vụ | `rp_th` | Bảng kê thưởng / trừ | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001/002 đã sửa) |
+| Báo Cáo Nghiệp Vụ | `rp_tu` | Bảng kê tạm ứng | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Báo Cáo Nghiệp Vụ | `rp_com` | Tổng hợp suất cơm | Admin, NS, KTL, TBP, PD | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Danh Mục | `dm` | Danh mục | Admin, NS, KTL, KTTT, TBP, PD, XBC | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-003 đã sửa v2.0.52) | Đạt (UI-001/003 đã sửa) |
+| Cài Đặt | `caidat` | Công thức & phương pháp | Admin, KTL, KTTT, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Cài Đặt | `backup` | Công ty & Sao lưu | Admin | Đạt | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
+| Cài Đặt | `huongdan` | Hướng dẫn & Quy chế | Admin, NS, KTL, KTTT, TBP, PD, XBC | Đạt (UI-001 đã sửa v2.0.48) | Đạt | Đạt (UI-001 đã sửa v2.0.48) |
 
 ## 2. Hộp thoại đã kiểm tự động (ví dụ tiêu biểu, ở 3 cỡ)
 
