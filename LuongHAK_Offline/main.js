@@ -11,6 +11,16 @@ const { createVault } = require("./main/documents");
 const fullBackup = require("./main/fullbackup");
 const { createGuard } = require("./main/ipc-guard");
 const { createPolicy, fileSig } = require("./main/write-policy");
+// OUTSIDE-DATA-BEGIN
+/** T-11: thư mục `dir` có nằm NGOÀI thư mục dữ liệu `base` (userData) không — trùng hoặc nằm trong = cùng nơi với dữ liệu, không tính là "ngoài máy". Windows: không phân biệt hoa/thường. */
+function outsideDataDir(dir, base, P, plat) {
+  P = P || require("path"); plat = plat || process.platform;
+  let a = P.resolve(String(dir || "")), b = P.resolve(String(base || ""));
+  if (plat === "win32") { a = a.toLowerCase(); b = b.toLowerCase(); }
+  const rel = P.relative(b, a);
+  return !!rel && (rel === ".." || rel.startsWith(".." + P.sep) || P.isAbsolute(rel));
+}
+// OUTSIDE-DATA-END
 const payGate = require("./main/payroll-gate");
 const cryptoNode = require("crypto"), fsNode = require("fs");
 const PERMCORE = require("./core/permissions.js");
@@ -77,6 +87,9 @@ function registerIpc() {
   const wl = (fn) => async (e, ...a) => (yearBusy ? {ok:false,error:"Đang xử lý hồ sơ năm — vui lòng chờ hoàn tất"} : fbJob ? { ok: false, error: "Đang sao lưu Full Backup — chờ sao lưu xong (hoặc bấm Hủy) rồi thử lại" } : restorer && restorer.busy() ? { ok: false, error: "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" } : fn(e, ...a)); // khóa ghi trong lúc COMMIT khôi phục
   const guardedW = (perm, fn) => guarded(perm, wl(fn)); // lệnh GHI: bị chặn trong lúc COMMIT khôi phục
   const guarded = (perm, fn) => async (e, ...a) => { const d = guard.deny(e, perm); return d ? { ok: false, error: d, problems: [d] } : fn(e, ...a); };
+  const syncGuard = (e, perm) => guard.deny(e, perm) || "";
+  const syncWriteBusy = () => (yearBusy ? "Đang xử lý hồ sơ năm — vui lòng chờ hoàn tất" : fbJob ? "Đang sao lưu Full Backup — chờ sao lưu xong (hoặc bấm Hủy) rồi thử lại" : restorer && restorer.busy() ? "Đang khôi phục dữ liệu — vui lòng chờ khôi phục kết thúc rồi thử lại" : "");
+  const inRecovery = () => { try { const ld = storage.load(); return !ld || !ld.ok || !!(storage.needsRecovery && storage.needsRecovery()); } catch (err) { return true; } };
   // V9: phiên do TIẾN TRÌNH CHÍNH tạo sau khi tự kiểm mật khẩu với tài khoản trên đĩa; renderer không gửi được danh sách quyền
   ipcMain.on("auth-login", (e, name, pw) => { e.returnValue = guard.login(e, name, pw); });
   ipcMain.on("auth-logout", (e) => { e.returnValue = guard.logout(e); });
@@ -127,13 +140,15 @@ function registerIpc() {
       e.returnValue = r;
     } catch (err) { e.returnValue = "Lỗi kiểm tra quyền ghi: " + String(err && err.message || err); }
   });
+  // store-info / store-has-data-file: màn khởi động & màn khôi phục cần đọc trước khi đăng nhập
   ipcMain.on("store-info", (e) => { e.returnValue = storage.info(); });
-  ipcMain.on("store-backup", (e, tag) => { try { e.returnValue = storage.backup(tag); } catch (err) { e.returnValue = null; } });
+  ipcMain.on("store-backup", (e, tag) => { if (tag !== "truoc-nang-cap" && syncGuard(e, "backup.restore")) { e.returnValue = null; return; } if (syncWriteBusy()) { e.returnValue = null; return; } try { e.returnValue = storage.backup(tag); } catch (err) { e.returnValue = null; } });
   ipcMain.on("store-has-data-file", (e) => { try { e.returnValue = storage.hasDataFile(); } catch (err) { e.returnValue = false; } });
-  ipcMain.on("store-list", (e) => { try { e.returnValue = storage.list(); } catch (err) { e.returnValue = []; } });
-  ipcMain.on("store-verify", (e) => { try { e.returnValue = storage.verifyAll(); } catch (err) { e.returnValue = []; } });
-  ipcMain.on("store-read", (e, name) => { try { e.returnValue = storage.readBackup(name); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
+  ipcMain.on("store-list", (e) => { if (!inRecovery() && syncGuard(e, "backup.restore")) { e.returnValue = []; return; } try { e.returnValue = storage.list(); } catch (err) { e.returnValue = []; } });
+  ipcMain.on("store-verify", (e) => { if (syncGuard(e, "backup.restore")) { e.returnValue = []; return; } try { e.returnValue = storage.verifyAll(); } catch (err) { e.returnValue = []; } });
+  ipcMain.on("store-read", (e, name) => { if (!inRecovery()) { const d = syncGuard(e, "backup.restore"); if (d) { e.returnValue = { ok: false, error: d }; return; } } try { e.returnValue = storage.readBackup(name); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
   // Khôi phục từ bản chụp SQLite: CHỈ khi kho không mở được (màn hình khôi phục, chưa đăng nhập — cùng quy ước với khôi phục từ file khi dữ liệu hỏng); kho đang mở bình thường thì từ chối
+  // store-snapshot-status / store-snapshot-info: màn khôi phục gọi trước khi đăng nhập
   ipcMain.on("store-snapshot-status", (e) => { try { e.returnValue = storage.snapshotStatus ? storage.snapshotStatus() : null; } catch (err) { e.returnValue = { lastError: String(err && err.message || err), history: [] }; } }); // quy trình sao lưu SQLite: bản chụp mới nhất, lịch sử, lỗi gần nhất
   ipcMain.on("store-snapshot-info", (e) => { try { e.returnValue = storage.snapshotInfo ? storage.snapshotInfo() : { exists: false, ok: false, error: "Chế độ lưu này không có bản chụp SQLite." }; } catch (err) { e.returnValue = { exists: false, ok: false, error: String(err.message || err) }; } });
   ipcMain.on("store-restore-snapshot", (e) => {
@@ -154,7 +169,7 @@ function registerIpc() {
       const r = storage.restoreFromPackage(f, "(màn hình khôi phục, chưa đăng nhập)", { tmpDir: app.getPath("userData") }); wpol = null; e.returnValue = r;
     } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
   });
-  ipcMain.on("store-quarantine", (e) => { if(yearBusy){e.returnValue=null;return;} try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
+  ipcMain.on("store-quarantine", (e) => { if (!inRecovery() && syncGuard(e, "backup.restore")) { e.returnValue = null; return; } if (syncWriteBusy()) { e.returnValue = null; return; } try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
   // Xuất PDF báo cáo: giao diện gửi HTML (đã escape) + TÊN file; đường dẫn lưu do tiến trình chính quyết (thư mục xuất, không ghi đè)
   ipcMain.handle("report-pdf", guarded("export", async (e, payload) => {
     try {
@@ -217,6 +232,34 @@ function registerIpc() {
   // Cài đặt lưu trữ: 4 thư mục (chứng từ gốc, thư viện mẫu OCR, sao lưu chính, sao lưu dự phòng). Chuyển = chép + kiểm SHA-256, KHÔNG xóa nguồn.
   const SP = require("./main/storage-paths");
   const spCur = () => SP.resolve(app.getPath("userData"), storage.readSettings(), exportsDir.dir());
+  /* @pure:isNestedOrSame */
+  function isNestedOrSame(a, b, pathMod, platform) {
+    const p = pathMod || path;
+    const plat = platform || process.platform;
+    if (!a || !b) return false;
+    const norm = (x) => { const r = p.resolve(String(x)); return plat === "win32" ? r.toLowerCase() : r; };
+    const na = norm(a), nb = norm(b);
+    const inside = (rel) => rel === "" || (!!rel && !rel.startsWith("..") && !p.isAbsolute(rel));
+    return inside(p.relative(na, nb)) || inside(p.relative(nb, na));
+  }
+  /* @end:isNestedOrSame */
+  const checkDirConflict = (target, excludeKind) => {
+    const t = String(target || "");
+    if (!t || !path.isAbsolute(t)) return "cần đường dẫn đầy đủ";
+    const userDataDir = app.getPath("userData");
+    if (isNestedOrSame(t, userDataDir)) return "không được đặt trong hoặc chứa thư mục dữ liệu ứng dụng (userData)";
+    const autoBackupDir = storage.info().backupDir;
+    if (autoBackupDir && isNestedOrSame(t, autoBackupDir)) return "không được đặt trong hoặc chứa thư mục sao lưu tự động (backups)";
+    const expDir = exportsDir.dir();
+    if (excludeKind !== "export" && expDir && isNestedOrSame(t, expDir)) return "trùng hoặc lồng với thư mục xuất file (" + expDir + ")";
+    const jDir = jsonDirOf();
+    if (excludeKind !== "json" && jDir && isNestedOrSame(t, jDir)) return "trùng hoặc lồng với thư mục sao lưu JSON (" + jDir + ")";
+    const cur = spCur();
+    for (const k of SP.KINDS) {
+      if (k !== excludeKind && cur[k] && isNestedOrSame(t, cur[k])) return "trùng hoặc lồng với thư mục " + SP.LABEL[k] + " (" + cur[k] + ")";
+    }
+    return "";
+  };
   ipcMain.handle("paths-get", guarded("backup.restore", async () => ({ ok: true, paths: spCur(), defaults: SP.defaults(app.getPath("userData"), exportsDir.dir()), labels: SP.LABEL, custom: Object.fromEntries(SP.KINDS.map((k) => [k, !!storage.readSettings()[SP.KEY[k]]])) })));
   ipcMain.handle("paths-pick", guarded("backup.restore", async (e, kind) => {
     if (process.env.HAK_PICK_DIR) return { ok: true, dir: process.env.HAK_PICK_DIR };
@@ -242,7 +285,10 @@ function registerIpc() {
   }));
   ipcMain.handle("paths-move", guardedW("backup.restore", async (e, kind, dir) => {
     try {
-      return SP.move({ kind: String(kind), dir: String(dir || ""), userData: app.getPath("userData"), settings: storage.readSettings(), exportsDir: exportsDir.dir(), writeSettings: storage.writeSettings,
+      const k = String(kind), target = String(dir || "");
+      const conflict = checkDirConflict(target, k);
+      if (conflict) return { ok: false, error: conflict, state: "INVALID_TARGET" };
+      return SP.move({ kind: k, dir: target, userData: app.getPath("userData"), settings: storage.readSettings(), exportsDir: exportsDir.dir(), writeSettings: storage.writeSettings,
         verifyStore: (k, d) => { // mở thử kho ở thư mục MỚI trước khi đổi cấu hình
           if (k === "docs") { const bad = createVault(d).verify().filter((x) => x.status !== "ok"); return bad.length ? bad.length + " chứng từ lỗi/mất" : ""; }
           if (k === "ocrLib") { const v = require("./main/ocr-library").createStore(d, { spoolDir: path.join(require("os").tmpdir(), "hak-verify-spool") }).verify(); return v.ok ? "" : v.bad.length + " ảnh mẫu lỗi, " + v.corruptLines + " dòng nhật ký hỏng"; }
@@ -261,10 +307,10 @@ function registerIpc() {
   }));
   ipcMain.handle("json-set-dir", guardedW("backup.restore", async (e, dir) => {
     try {
-      const fs2 = require("fs"), cur = spCur(), target = String(dir || ""), old = jsonDirOf();
-      if (!target || !path.isAbsolute(target)) return { ok: false, error: "cần đường dẫn đầy đủ" };
-      for (const k of SP.KINDS) if (cur[k] && (SP.inside(cur[k], target) || SP.inside(target, cur[k]))) return { ok: false, error: "trùng hoặc lồng với thư mục " + SP.LABEL[k] + " (" + cur[k] + ")" };
-      if (SP.inside(old, target) || SP.inside(target, old)) return { ok: false, error: SP.inside(old, target) && SP.inside(target, old) ? "Thư mục mới trùng thư mục hiện tại" : "Thư mục mới nằm trong / chứa thư mục JSON hiện tại — chép sẽ tự lồng vào chính nó" };
+      const fs2 = require("fs"), target = String(dir || ""), old = jsonDirOf();
+      const conflict = checkDirConflict(target, "json");
+      if (conflict) return { ok: false, error: conflict };
+      if (isNestedOrSame(old, target)) return { ok: false, error: SP.inside(old, target) && SP.inside(target, old) ? "Thư mục mới trùng thư mục hiện tại" : "Thư mục mới nằm trong / chứa thư mục JSON hiện tại — chép sẽ tự lồng vào chính nó" };
       try { fs2.mkdirSync(target, { recursive: true }); const t = path.join(target, ".hak-write-test-" + process.pid); fs2.writeFileSync(t, "ok"); fs2.unlinkSync(t); } catch (err) { return { ok: false, error: "không ghi được vào thư mục: " + (err.message || err) }; }
       const r = SP.copyVerified(old, target, (rel) => JSON_NAME.test(rel), { previouslyUsed: false });
       if (!r.ok) return { ok: false, error: "Chép các bản JSON cũ không thành công — giữ nguyên thư mục cũ: " + r.problems.slice(0, 5).join("; ") };
@@ -282,7 +328,7 @@ function registerIpc() {
       const file = path.join(d, name), tmp = file + ".tmp" + process.pid; require("./main/restore").writeTextDurable(tmp, ld.text); // ghi + fsync TRƯỚC rename: mất điện không để lại tệp rỗng mang tên hợp lệ
       const sha = crypto2.createHash("sha256").update(fs2.readFileSync(tmp)).digest("hex"), want = crypto2.createHash("sha256").update(Buffer.from(ld.text, "utf8")).digest("hex");
       if (sha !== want) { try { fs2.unlinkSync(tmp); } catch (err) { /* tệp tạm */ } return { ok: false, error: "Ghi file JSON không khớp SHA-256 — đã hủy, không để lại file" }; }
-      fs2.renameSync(tmp, file); try { if (storage.noteExternal) storage.noteExternal(); } catch (err) { /* chỉ ghi nhận mốc sao lưu */ }
+      fs2.renameSync(tmp, file); try { if (storage.noteExternal && outsideDataDir(d, app.getPath("userData"))) storage.noteExternal(); } catch (err) { /* chỉ ghi nhận mốc sao lưu */ } // T-11: thư mục mặc định (trong userData) KHÔNG phải "ngoài máy"
       return { ok: true, name, dir: d, size: Buffer.byteLength(ld.text, "utf8"), sha256: sha };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
@@ -318,7 +364,9 @@ function registerIpc() {
           r.file = encF; r.name = path.basename(encF); r.size = en.size; r.sha256 = en.sha256; r.encrypted = true;
         } catch (err) {
           try { await fsp0.unlink(encF); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(chk); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(encF + ".sha256"); } catch (x) { /* chưa tạo */ }
-          (r.warnings = r.warnings || []).push("KHÔNG mã hóa được (" + (err.message || err) + ") — gói giữ nguyên dạng KHÔNG mã hóa: " + path.basename(plain));
+          try { await fsp0.unlink(plain); } catch (x) { /* dọn bản rõ */ } try { await fsp0.unlink(plain + ".sha256"); } catch (x) { /* dọn bản rõ */ }
+          r.ok = false; r.status = "FAILED"; r.error = "KHÔNG mã hóa được (" + (err.message || err) + ") — đã hủy, không lưu bản rõ";
+          return r;
         }
       }
       let mirrored = "";
@@ -382,12 +430,12 @@ function registerIpc() {
       return await withPlain(f, opt.password, async (pf) => { const r = restorer.stage(pf, { acceptPartial: opt.acceptPartial === true }); r.label = path.basename(f); return r; });
     } catch (err) { return { ok: false, error: String(err && err.message || err), phases: [] }; }
   }));
-  ipcMain.handle("rs-commit", guarded("backup.restore", async (e, rid) => { try { return restorer.commitAssets(String(rid || "")); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } }));
+  ipcMain.handle("rs-commit", guardedW("backup.restore", async (e, rid) => { try { return restorer.commitAssets(String(rid || "")); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } }));
   ipcMain.handle("rs-postcheck", guarded("backup.restore", async (e, rid) => { try { return restorer.postcheck(String(rid || "")); } catch (err) { return { ok: false, checks: [{ name: "postcheck", ok: false, detail: String(err && err.message || err) }] }; } }));
   ipcMain.handle("rs-rollback", guarded("backup.restore", async (e, rid) => { try { return restorer.rollback(String(rid || "")); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } }));
   ipcMain.handle("rs-finish", guarded("backup.restore", async (e, rid) => { try { return restorer.finish(String(rid || "")); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } }));
   ipcMain.handle("rs-discard", guarded("backup.restore", async (e, rid) => { try { return restorer.discard(String(rid || "")); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } }));
-  ipcMain.on("open-data-folder", () => { shell.openPath(path.dirname(storage.dataFile)); });
+  ipcMain.on("open-data-folder", (e) => { if (!guard.userOf(e) || syncGuard(e)) { e.returnValue = false; return; } shell.openPath(path.dirname(storage.dataFile)); e.returnValue = true; });
   // File xuất (2.0-α16): giao diện chỉ gửi TÊN file — đường dẫn ghép trong thư mục xuất (main/exports.js)
   // OCR bảng chấm công (α20): giao diện gửi ẢNH Ô đã cắt (xám, nhỏ) — không gửi đường dẫn file; chạy offline
   ipcMain.handle("ocr-batch", guarded("input.edit", async (e, items) => {
@@ -414,32 +462,38 @@ function registerIpc() {
   ipcMain.handle("ocr-selftest", guarded("input.edit", async () => { try { const r = await ocrSvc().selfTest(); r.umi = await ocrControl.probe(); return r; } catch (err) { return { ok: false, error: String(err.message || err) }; } }));
   // Lịch sao lưu (α17) — cấu hình của máy này (settings.json)
   ipcMain.on("backup-schedule-get", (e) => { try { e.returnValue = Object.assign({ ok: true }, storage.getSchedule()); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
-  ipcMain.on("backup-schedule-set", (e, o) => { try { e.returnValue = storage.setSchedule(o && typeof o === "object" ? { everyHours: o.everyHours, onClose: o.onClose, keepDaily: o.keepDaily } : {}); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
+  ipcMain.on("backup-schedule-set", (e, o) => { const d = syncGuard(e, "backup.restore") || syncWriteBusy(); if (d) { e.returnValue = { ok: false, error: d }; return; } try { e.returnValue = storage.setSchedule(o && typeof o === "object" ? { everyHours: o.everyHours, onClose: o.onClose, keepDaily: o.keepDaily } : {}); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
   ipcMain.on("files-info", (e) => { try { e.returnValue = { ok: true, dir: exportsDir.dir(), openAfterDownload: exportsDir.openAfter(), files: exportsDir.list(100), lastShell }; } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
-  ipcMain.on("files-open", (e, name) => { const f = exportsDir.resolve(name); if (f) shellDo("open", f); e.returnValue = !!f; });
-  ipcMain.on("files-show", (e, name) => { const f = exportsDir.resolve(name); if (f) shellDo("show", f); e.returnValue = !!f; });
-  ipcMain.on("files-open-dir", (e) => { try { const d = exportsDir.dir(); require("fs").mkdirSync(d, { recursive: true }); shellDo("open", d); e.returnValue = true; } catch (err) { e.returnValue = false; } });
+  ipcMain.on("files-open", (e, name) => { if (!guard.userOf(e) || syncGuard(e)) { e.returnValue = false; return; } const f = exportsDir.resolve(name); if (f) shellDo("open", f); e.returnValue = !!f; });
+  ipcMain.on("files-show", (e, name) => { if (!guard.userOf(e) || syncGuard(e)) { e.returnValue = false; return; } const f = exportsDir.resolve(name); if (f) shellDo("show", f); e.returnValue = !!f; });
+  ipcMain.on("files-open-dir", (e) => { if (!guard.userOf(e) || syncGuard(e)) { e.returnValue = false; return; } try { const d = exportsDir.dir(); require("fs").mkdirSync(d, { recursive: true }); shellDo("open", d); e.returnValue = true; } catch (err) { e.returnValue = false; } });
   ipcMain.on("files-choose-dir", (e) => {
+    const d = syncGuard(e); if (d || !guard.userOf(e)) { e.returnValue = { ok: false, error: d || "Chưa đăng nhập" }; return; }
     try {
       const w = BrowserWindow.fromWebContents(e.sender);
       const r = dialog.showOpenDialogSync(w, { title: "Chọn thư mục lưu file Excel / báo cáo", defaultPath: exportsDir.dir(), properties: ["openDirectory", "createDirectory"] });
       e.returnValue = r && r[0] ? exportsDir.setDir(r[0]) : { ok: false, cancelled: true };
     } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
   });
-  ipcMain.on("files-reset-dir", (e) => { try { e.returnValue = exportsDir.setDir(null); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
-  ipcMain.on("files-open-after", (e, on) => { try { e.returnValue = exportsDir.setOpenAfter(on); } catch (err) { e.returnValue = { ok: false }; } });
+  ipcMain.on("files-reset-dir", (e) => { const d = syncGuard(e); if (d || !guard.userOf(e)) { e.returnValue = { ok: false, error: d || "Chưa đăng nhập" }; return; } try { e.returnValue = exportsDir.setDir(null); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
+  ipcMain.on("files-open-after", (e, on) => { const d = syncGuard(e); if (d || !guard.userOf(e)) { e.returnValue = { ok: false, error: d || "Chưa đăng nhập" }; return; } try { e.returnValue = exportsDir.setOpenAfter(on); } catch (err) { e.returnValue = { ok: false }; } });
   // Thư mục sao lưu thứ hai: người dùng CHỌN bằng hộp thoại của Windows ở tiến trình chính (giao diện không gửi đường dẫn tùy ý)
   ipcMain.on("backup-mirror-choose", (e) => {
+    const d = syncGuard(e, "backup.restore") || syncWriteBusy(); if (d) { e.returnValue = { ok: false, error: d }; return; }
     try {
       const w = BrowserWindow.fromWebContents(e.sender);
       const r = dialog.showOpenDialogSync(w, { title: "Chọn thư mục sao lưu thứ hai (USB / ổ mạng / thư mục Google Drive)", properties: ["openDirectory", "createDirectory"] });
-      e.returnValue = r && r[0] ? storage.setMirror(r[0]) : { ok: false, cancelled: true };
+      if (!r || !r[0]) { e.returnValue = { ok: false, cancelled: true }; return; }
+      const conflict = checkDirConflict(r[0], "mirror");
+      if (conflict) { e.returnValue = { ok: false, error: conflict }; return; }
+      e.returnValue = storage.setMirror(r[0]);
     } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
   });
-  ipcMain.on("backup-mirror-clear", (e) => { try { e.returnValue = storage.setMirror(null); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
-  ipcMain.on("backup-mirror-sync", (e) => { try { e.returnValue = storage.syncMirror(); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
+  ipcMain.on("backup-mirror-clear", (e) => { const d = syncGuard(e, "backup.restore") || syncWriteBusy(); if (d) { e.returnValue = { ok: false, error: d }; return; } try { e.returnValue = storage.setMirror(null); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
+  ipcMain.on("backup-mirror-sync", (e) => { const d = syncGuard(e, "backup.restore") || syncWriteBusy(); if (d) { e.returnValue = { ok: false, error: d }; return; } try { e.returnValue = storage.syncMirror(); } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; } });
+  // backup-status: màn khởi động / cảnh báo sao lưu có thể đọc trước khi đăng nhập
   ipcMain.on("backup-status", (e) => { try { e.returnValue = storage.backupStatus(); } catch (err) { e.returnValue = null; } });
-  ipcMain.on("backup-note-external", (e) => { try { storage.noteExternal(); e.returnValue = true; } catch (err) { e.returnValue = false; } });
+  ipcMain.on("backup-note-external", (e) => { if (syncGuard(e, "backup.restore") || syncWriteBusy()) { e.returnValue = false; return; } try { storage.noteExternal(); e.returnValue = true; } catch (err) { e.returnValue = false; } });
   // Băm mật khẩu ở tiến trình chính (PBKDF2-SHA256) — giao diện không tự xử lý thuật toán; so sánh chống đo thời gian
   const crypto = require("crypto"), { Buffer } = require("buffer");
   const kdf = (pw, salt, iter) => crypto.pbkdf2Sync(String(pw), Buffer.from(String(salt), "hex"), Math.min(Math.max(+iter || 210000, 100000), 2000000), 32, "sha256");
@@ -522,7 +576,7 @@ app.whenReady().then(() => {
   try { require("./main/storage-paths").markUsed(app.getPath("userData"), storage.readSettings(), "", storage.writeSettings); } catch (e) { /* không chặn khởi động */ }
   try { const rc = restorer.recover(); if (rc.note) { const st0 = storage.readSettings(); st0.lastRestoreNote = rc.note; storage.writeSettings(st0); } } catch (e) { /* không chặn khởi động */ }
   exportsDir = createExports({ readSettings: storage.readSettings, writeSettings: storage.writeSettings, defaultDir: path.join(app.getPath("documents"), "Tinh Luong HAK", "File xuat"), fixedDir: process.env.HAK_DOWNLOAD_DIR || "" });
-  try { storage.backup("startup"); } catch (e) { /* lần đầu chưa có dữ liệu */ }
+  try { if (!storage.changedSinceBackup || storage.changedSinceBackup()) storage.backup("startup"); } catch (e) { /* lần đầu chưa có dữ liệu */ }
   registerIpc();
   createWindow();
   // Sao lưu định kỳ khi app đang mở (kiểm tra mỗi phút; chỉ sao lưu khi đến giờ VÀ dữ liệu đã đổi). HAK_SCHEDULE_TICK_MS: kiểm thử tự động
@@ -532,4 +586,4 @@ app.on("before-quit", e => {if(yearBusy)e.preventDefault();});
 app.on("window-all-closed", () => app.quit());
 // Lịch sao lưu (α17): cửa sổ đã đóng (giao diện đã lưu lần cuối ở beforeunload) → sao lưu "khi-dong" nếu dữ liệu đã đổi.
 // will-quit chạy cả khi bấm ✕ lẫn khi app.quit() (tắt máy / cài bản mới).
-app.on("will-quit", () => { if (shadow) shadow.close(); if (storage && storage.close) storage.close(); if (storage) storage.backupOnClose(); if (ocr) ocr.terminate().catch(() => {}); });
+app.on("will-quit", () => { if (shadow) shadow.close(); if (storage && storage.backupOnClose) storage.backupOnClose(); if (storage && storage.close) storage.close(); if (ocr) ocr.terminate().catch(() => {}); });

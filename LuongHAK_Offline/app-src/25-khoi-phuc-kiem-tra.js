@@ -63,9 +63,9 @@
     c.appendChild(h("div", { class: "hint", text: "Luôn có: sao lưu mỗi lần mở app, đầu mỗi ngày, trước thao tác lớn, sau chốt kỳ. Thêm dưới đây (chỉ khi dữ liệu ĐÃ THAY ĐỔI so với bản sao lưu gần nhất, không tạo bản trùng). App chạy offline nên chỉ sao lưu được khi app đang mở. Có thư mục thứ hai thì bản mới cũng tự chép sang." }));
     var set = function (o, msg) { var r = store.scheduleSet(o); if (r && r.ok) { audit("Đổi lịch sao lưu", msg); toast("Đã lưu lịch sao lưu: " + msg); } else alert("⚠ " + ((r && r.error) || "Không lưu được")); render(); };
     var sel = function (vals, cur, lab, on) { var s0 = h("select", { class: "i" }); vals.forEach(function (v) { var o = h("option", { value: String(v), text: lab(v) }); if (v === cur) o.selected = true; s0.appendChild(o); }); s0.disabled = !admin; s0.addEventListener("change", function () { on(+s0.value); }); return s0; };
-    var hLab = function (v) { return v ? "Mỗi " + v + " giờ" : "Tắt"; }, dLab = function (v) { return v + " ngày"; };
+    var hLab = function (v) { return v ? "Mỗi " + v + " giờ" : "Tắt"; }, dLab = function (v) { return v + " bản đầu ngày"; };
     var every = sel([0, 1, 2, 4, 8], sc.everyHours, hLab, function (v) { set({ everyHours: v }, "định kỳ " + hLab(v).toLowerCase()); });
-    var keep = sel([30, 60, 90, 180, 365], sc.keepDaily, dLab, function (v) { set({ keepDaily: v }, "giữ bản đầu ngày " + dLab(v)); });
+    var keep = sel([30, 60, 90, 180, 365], sc.keepDaily, dLab, function (v) { set({ keepDaily: v }, "giữ " + dLab(v)); });
     var cb = h("input", { type: "checkbox" }); cb.checked = !!sc.onClose; cb.disabled = !admin;
     cb.addEventListener("change", function () { set({ onClose: cb.checked }, cb.checked ? "sao lưu khi đóng app" : "không sao lưu khi đóng app"); });
     var g = h("div", { class: "schedg" }, [
@@ -98,13 +98,26 @@
   }
   /** Full Backup (GĐ5): 1 gói ZIP gồm dữ liệu + chứng từ gốc + manifest SHA-256. Khôi phục qua bước kiểm tra, chứng từ chỉ thêm không ghi đè. */
   var STG = { data: null, busy: false, msg: null };
+  // STG-MSG-BEGIN
+  function formatStorageMoveMsg(r) {
+    if (!r || !r.ok) return { bad: true, text: "⚠ " + ((r && r.error) || "không chuyển được") + " — giữ nguyên thư mục cũ" };
+    var note = String(r.note || "");
+    var emptyOld = !r.from || /còn nguyên ở\s+\(app không tự xóa\)/.test(note);
+    if (emptyOld) {
+      note = note.replace(/Dữ liệu cũ vẫn còn nguyên ở\s+\(app không tự xóa\)[^.]*\.\s*/g, "").trim();
+      if (Number(r.files) === 0) return { bad: false, text: "✓ Đã chọn thư mục mới: " + r.to + " (chưa có file cũ cần chuyển)." + (note ? " " + note : "") };
+      return { bad: false, text: "✓ Đã chuyển " + r.files + " file sang " + r.to + " (đã kiểm SHA-256)." + (note ? " " + note : "") };
+    }
+    return { bad: false, text: "✓ Đã chuyển " + r.files + " file sang " + r.to + " (đã kiểm SHA-256)." + (note ? " " + note : "") };
+  }
+  // STG-MSG-END
   /** Cài đặt "Lưu trữ & Sao lưu": 4 thư mục. Đổi = chép + kiểm SHA-256 rồi mới chuyển; không xóa dữ liệu cũ. */
   function cardStorage() {
     var c = h("div", { class: "card", "data-card": "storage" });
     c.appendChild(h("h3", { text: "4 · 🗂 Thư mục sao lưu & lưu trữ (một bảng duy nhất)" }));
     if (!window.hakPaths) { c.appendChild(h("div", { class: "hint", text: "Chỉ có trong bản cài (.exe)." })); return c; }
     if (!STG.data) { window.hakPaths.get().then(function (r) { if (r && r.ok) { STG.data = r; if (st.tab === "backup") render(); } }); c.appendChild(h("div", { class: "hint", text: "Đang đọc cấu hình…" })); return c; }
-    c.appendChild(h("div", { class: "hint", text: "Bấm \"Đổi…\" để chọn thư mục mới. App chép toàn bộ dữ liệu sang thư mục mới, kiểm tra SHA-256 từng file, chỉ khi đạt mới chuyển; dữ liệu cũ KHÔNG bị xóa. Chỉ Admin / người có quyền khôi phục thao tác được." }));
+    c.appendChild(h("div", { class: "hint", text: "Bấm \"Chọn / Chuyển…\" để chọn thư mục mới. App chép toàn bộ dữ liệu sang thư mục mới, kiểm tra SHA-256 từng file, chỉ khi đạt mới chuyển; dữ liệu cũ KHÔNG bị xóa. Chỉ Admin / người có quyền khôi phục thao tác được." }));
     if (!STG.json && window.hakJson) { window.hakJson.get().then(function (r) { if (r && r.ok) { STG.json = r; if (st.tab === "backup") render(); } }); }
     if (!STG.info) { window.hakPaths.info().then(function (r) { if (r && r.ok) { STG.info = r.info; STG.exportDir = r.exportDir; if (st.tab === "backup") render(); } }); }
     var fmtB = function (n) { return n >= 1073741824 ? (n / 1073741824).toFixed(2) + " GB" : n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.ceil(n / 1024) + " KB"; };
@@ -124,7 +137,7 @@
             (k === "json" ? window.hakJson.setDir(p.dir) : window.hakPaths.move(k, p.dir)).then(function (r) {
               if (k === "mirror" && r && r.ok && store && store.mirrorSync) { var ms = store.mirrorSync(); if (ms && ms.ok) r.note = (r.note || "") + " Đã chép " + (ms.copied || 0) + " bản sao lưu sang thư mục dự phòng."; }
               STG.busy = false; STG.data = null; STG.info = null; STG.ver = null; STG.json = null;
-              STG.msg = r && r.ok ? { bad: false, text: "✓ Đã chuyển " + r.files + " file sang " + r.to + " (đã kiểm SHA-256). " + r.note } : { bad: true, text: "⚠ " + ((r && r.error) || "không chuyển được") + " — giữ nguyên thư mục cũ" };
+              STG.msg = formatStorageMoveMsg(r);
               audit("Đổi thư mục lưu trữ", k + " → " + p.dir + " · " + (r && r.ok ? "đạt" : "không đạt")); render();
             });
           });
@@ -356,7 +369,7 @@
       c.appendChild(h("div", { class: "bar" }, [kb, h("label", { class: "schk" }, [cbP, h("span", { text: "Đặt mật khẩu (.hakenc)" })])]));
       c.appendChild(h("div", { class: "hint", text: "Gói kỳ (.zip): chấm công, sản lượng, bán dăm, phát sinh, tạm ứng, tiền cơm, kết quả và bản chốt của kỳ + TOÀN BỘ nhân sự, danh mục, công thức lúc sao lưu. Đổi kỳ ở thanh trên." }));
     }
-    c.appendChild(h("div", { class: "hint", text: "Trước khi cài lại Windows / đổi máy: sao lưu rồi cất file sang USB/Drive (thư mục dự phòng ở mục 4 tự chép giúp). Sang máy mới: cài app rồi Khôi phục ở mục 2. Sao lưu theo KỲ LƯƠNG: chưa có (làm ở bước 012-B)." }));
+    c.appendChild(h("div", { class: "hint", text: "Trước khi cài lại Windows / đổi máy: sao lưu rồi cất file sang USB/Drive (thư mục dự phòng ở mục 4 tự chép giúp). Sang máy mới: cài app rồi Khôi phục ở mục 2." }));
     return c;
   }
   /** Khu 2 — KHÔI PHỤC (012-A): một nút, chọn loại. Luôn có bước kiểm tra + xác nhận, tự sao lưu bản hiện tại trước khi ghi. */
@@ -371,7 +384,7 @@
     go.setAttribute("data-restore-now", "1");
     c.appendChild(h("div", { class: "bar" }, [sel, go]));
     if (window.hakPeriod) { var kr = btn("🗓 Khôi phục kỳ lương…", "", function () { periodRestore("", ""); }, "Chọn gói kỳ (.zip / .hakenc) → kiểm tra → xem trước từng thay đổi → xác nhận"); kr.setAttribute("data-ky-restore", "1"); c.appendChild(h("div", { class: "bar" }, [kr])); }
-    c.appendChild(h("div", { class: "hint", text: "Muốn khôi phục từ một bản SQLite hoặc JSON đã có trên máy: bấm \"Khôi phục\" ở dòng đó trong danh sách (mục 5). Luôn có bước kiểm tra và xác nhận; app sao lưu bản hiện tại trước khi ghi. Khôi phục theo KỲ LƯƠNG: chưa có (012-B)." }));
+    c.appendChild(h("div", { class: "hint", text: "Muốn khôi phục từ một bản JSON đã có trên máy: bấm \"Khôi phục\" ở dòng đó trong danh sách (mục 5). Bản chụp .sqlite dùng khi data.sqlite hỏng (màn hình khôi phục tự hiện khi mở app). Luôn có bước kiểm tra và xác nhận; app sao lưu bản hiện tại trước khi ghi." }));
     return c;
   }
   /** Một chỗ duy nhất hiện kết quả sao lưu/khôi phục (Full Backup, JSON). */
