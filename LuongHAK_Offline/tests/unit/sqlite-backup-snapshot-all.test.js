@@ -26,11 +26,18 @@ test("U-SNAP-01 sao lưu ĐỊNH KỲ (tickSchedule) cũng tạo bản chụp .s
   assert.ok(snaps(s.backupDir).some((x) => /_dinh-ky\.sqlite$/.test(x)), "lịch sử có bản chụp dinh-ky: " + snaps(s.backupDir).join(","));
 });
 
-test("U-SNAP-02 sao lưu KHI ĐÓNG APP cũng tạo bản chụp .sqlite (nhãn khi-dong)", () => {
+test("U-SNAP-02 sao lưu KHI ĐÓNG APP cũng tạo bản chụp .sqlite (nhãn khi-dong) theo thứ tự thực tế", () => {
   const { s } = fresh();
   assert.equal(s.save(JSON.stringify(doc())), true);
+  // Mô phỏng thứ tự will-quit thực tế trong main.js
+  // Nếu storage.close() gọi trước storage.backupOnClose(), kho đóng rồi sẽ không snapshot được
+  const src = fs.readFileSync(path.join(__dirname, "../../main.js"), "utf8");
+  const wq = src.slice(src.indexOf('app.on("will-quit"'));
+  assert.match(wq, /storage\.backupOnClose\(\).*storage\.close\(\)/, "backupOnClose() phải gọi trước close() khi will-quit");
+
   assert.ok(s.backupOnClose(), "khi đóng app (mặc định bật) phải sao lưu");
   assert.ok(snaps(s.backupDir).some((x) => /_khi-dong\.sqlite$/.test(x)), snaps(s.backupDir).join(","));
+  if (s.close) s.close();
 });
 
 test("U-SNAP-03 bản chụp mới nhất luôn KHỚP dữ liệu vừa sao lưu (số dòng records bằng kho đang chạy)", () => {
