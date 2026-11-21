@@ -51,7 +51,7 @@
     });
     breaks.forEach(function (row) { ws.getRow(row).addPageBreak(); });
     ws.pageSetup = { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } };
-    ws.headerFooter = { oddFooter: "&L" + (vm.congTy || "") + "&RTrang &P / &N" };
+    ws.headerFooter = { oddFooter: "&L" + String(vm.congTy || "").replace(/&/g, "&&") + "&RTrang &P / &N" };
     // sheet dữ liệu thô — để đối chiếu / lọc
     var raw = wb.addWorksheet(o.rawName || "Dữ liệu");
     var cols = vm.rawCols || [];

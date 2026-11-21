@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.90] — 21/11/2026
+- **[A6-06 + A6-16 + A6-21] [A6-06] Bổ sung Ngày lập/Người lập/Đơn vị tính, giữ dấu & và tăng cỡ chữ chân trang PDF/Excel (P4.6):** tests/unit/pdf-footer.test.js (Đỏ → Xanh 3/3, 93/93 report tests pass). Chi tiết: `docs/releases/v2.0.90.md`.
+
 ## [2.0.89] — 21/11/2026
 - **(điền tên việc, mã handoff, issue):** (điền nội dung). Chi tiết: `docs/releases/v2.0.89.md`.
 

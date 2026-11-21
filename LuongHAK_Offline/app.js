@@ -4529,10 +4529,19 @@
     };
     var m = sfUi.mount(cfg); m.cfg = cfg; return m.el;
   }
+  function pdfMetaDefaults() {
+    return {
+      congTy: congTy()["Tên công ty"] || "",
+      ngayLap: new Date().toLocaleDateString("vi-VN"),
+      nguoiLap: (typeof session !== "undefined" && session && session.hoTen) || (typeof currentUser === "function" ? currentUser() : ""),
+      donVi: "Đồng (VND)"
+    };
+  }
   /** Xuất PDF: bản cài (.exe) → file PDF thật trong thư mục xuất; chạy bằng trình duyệt → hộp thoại In (chọn "Lưu thành PDF"). */
   function exportPdf(vm, fileName, opt) {
     if (!need("export", "xuất PDF")) return;
     if (formulaErrorsBlock((fileName || "") + " " + (vm && vm.title || ""), opt && opt.period)) return;
+    vm = Object.assign(pdfMetaDefaults(), vm);
     var html = RH.table(vm, opt);
     if (!window.hakReport) { pdfFallbackPrint(html); toast("Bản chạy bằng trình duyệt: chọn “Lưu thành PDF” trong hộp thoại In"); return; }
     toast("Đang tạo PDF…");
@@ -4545,7 +4554,7 @@
   function exportSheetsPdf(vm, fileName, opt) {
     if (!need("export", "xuất PDF")) return;
     if (formulaErrorsBlock((fileName || "") + " " + (vm && vm.title || ""))) return;
-    vm = Object.assign({ congTy: congTy()["Tên công ty"] || "" }, vm);
+    vm = Object.assign(pdfMetaDefaults(), vm);
     if (!vm.sheets.some(function (x) { return x.rows && x.rows.length; })) { toast("Không có dữ liệu để xuất PDF"); return; }
     var html = RH.sheets(vm, opt || {});
     if (!window.hakReport) { pdfFallbackPrint(html); toast("Bản chạy bằng trình duyệt: chọn “Lưu thành PDF” trong hộp thoại In"); return; }

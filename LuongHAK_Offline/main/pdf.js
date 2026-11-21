@@ -24,11 +24,11 @@ async function renderPdf(electron, payload) {
     win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     win.webContents.session.webRequest.onBeforeRequest((d, cb) => cb({ cancel: !/^data:/i.test(d.url) }));
     await win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(payload.html));
-    const footer = String(payload.footer || "").replace(/[<>&]/g, "");
+    const footer = String(payload.footer || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     return await win.webContents.printToPDF({
       pageSize: "A4", landscape: payload.landscape !== false, printBackground: true, preferCSSPageSize: true, displayHeaderFooter: true,
       headerTemplate: "<span></span>",
-      footerTemplate: "<div style=\"font-size:7px;width:100%;padding:0 10mm;display:flex;justify-content:space-between\"><span>" + footer + "</span><span>Trang <span class=\"pageNumber\"></span>/<span class=\"totalPages\"></span></span></div>"
+      footerTemplate: "<div style=\"font-size:8px;width:100%;padding:0 10mm;display:flex;justify-content:space-between\"><span>" + footer + "</span><span>Trang <span class=\"pageNumber\"></span>/<span class=\"totalPages\"></span></span></div>"
     });
   } finally { if (!win.isDestroyed()) win.destroy(); }
 }
