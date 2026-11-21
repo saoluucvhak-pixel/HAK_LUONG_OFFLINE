@@ -126,14 +126,16 @@
   function exportPayrollBundlePdf(r, ky) {
     if (!need("export", "in bộ báo cáo kỳ")) return;
     var bundle = payrollBundle(r, ky);
+    var signRoles = ["Người lập biểu", "Kế toán trưởng", "Giám đốc"];
     exportSheetsPdf({
       title: "Bộ báo cáo kỳ lương", ky: bundle.info.kyText, congTy: bundle.info.congTy,
       trangThai: bundle.info.trangThai, sheets: bundle.sheets.map(function (sheet) {
         var ids = ["STT", "Mã NV", "Họ và tên"].filter(function (key) { return sheet.cols.indexOf(key) >= 0; });
         var cols = ids.concat(sheet.cols.filter(function (key) { return ids.indexOf(key) < 0; }));
-        return Object.assign({}, sheet, { name: sheet.title || sheet.name, cols: cols, repeatColumns: ids.length });
+        var isInfo = sheet.name === "ThongTinKy";
+        return Object.assign({}, sheet, { name: sheet.title || sheet.name, cols: cols, repeatColumns: ids.length, chuKy: isInfo ? [] : signRoles });
       })
-    }, "KyLuong_" + ky + ".pdf", { sectionPages: true, period: ky });
+    }, "KyLuong_" + ky + ".pdf", { sectionPages: true, period: ky, chuKy: signRoles });
   }
 
   function exportAll(r, ky) {

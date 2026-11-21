@@ -3439,14 +3439,16 @@
   function exportPayrollBundlePdf(r, ky) {
     if (!need("export", "in bộ báo cáo kỳ")) return;
     var bundle = payrollBundle(r, ky);
+    var signRoles = ["Người lập biểu", "Kế toán trưởng", "Giám đốc"];
     exportSheetsPdf({
       title: "Bộ báo cáo kỳ lương", ky: bundle.info.kyText, congTy: bundle.info.congTy,
       trangThai: bundle.info.trangThai, sheets: bundle.sheets.map(function (sheet) {
         var ids = ["STT", "Mã NV", "Họ và tên"].filter(function (key) { return sheet.cols.indexOf(key) >= 0; });
         var cols = ids.concat(sheet.cols.filter(function (key) { return ids.indexOf(key) < 0; }));
-        return Object.assign({}, sheet, { name: sheet.title || sheet.name, cols: cols, repeatColumns: ids.length });
+        var isInfo = sheet.name === "ThongTinKy";
+        return Object.assign({}, sheet, { name: sheet.title || sheet.name, cols: cols, repeatColumns: ids.length, chuKy: isInfo ? [] : signRoles });
       })
-    }, "KyLuong_" + ky + ".pdf", { sectionPages: true, period: ky });
+    }, "KyLuong_" + ky + ".pdf", { sectionPages: true, period: ky, chuKy: signRoles });
   }
 
   function exportAll(r, ky) {
@@ -4909,7 +4911,11 @@
     bar.appendChild(btn("⬇ Xuất PDF…", "", function () {
       var pick = excelSheets(r, r.ky || kyStr()), ds = [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]];
       var which = st.pdfPick || "bl"; var o = ds.filter(function (x) { return x[1] === which; })[0] || ds[0], m = pick[o[1]];
-      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + (r.ky || kyStr()), trangThai: (kqKy(st.nam, st.thang).chot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [{ name: o[0], cols: o[1] === "bl" ? (st.compact ? COLS_COMPACT : COLS_FULL) : m.cols, rows: m ? m.rows : [] }] }, m.name + "_" + (r.ky || kyStr()) + ".pdf");
+      var pdfCols = o[1] === "bl" ? (st.compact ? COLS_COMPACT : ["Mã NV", "Họ và tên"].concat(COLS_FULL.filter(function (c) { return c !== "Mã NV" && c !== "Họ và tên"; }))) : m.cols;
+      var pdfRows = o[1] === "bl" && m && m.rows && m.rows.length ? addTotal(m.rows) : (m ? m.rows : []);
+      var shObj = { name: o[0], cols: pdfCols, rows: pdfRows };
+      if (o[1] === "bl" && !st.compact) shObj.repeatColumns = 2;
+      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + (r.ky || kyStr()), trangThai: (kqKy(st.nam, st.thang).chot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [shObj] }, m.name + "_" + (r.ky || kyStr()) + ".pdf");
     }, "PDF của bảng lương đang xem (theo bộ lọc)"));
     var pm = h("select", { "aria-label": "Loại PDF", style: "min-width:140px" });
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { pm.appendChild(h("option", { value: o[1], text: o[0] })); });
