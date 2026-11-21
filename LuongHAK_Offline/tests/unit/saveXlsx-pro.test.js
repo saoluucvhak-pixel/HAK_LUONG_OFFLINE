@@ -102,7 +102,8 @@ test("P4.8 saveXlsx kind='pro' giữ nguyên tên và thứ tự cột chứng t
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(ctx.downloads[0].buf);
   const ws = wb.worksheets[0];
-  const headerRow = ws.getRow(7).values.slice(1);
+  const hr = ws.views && ws.views[0] && ws.views[0].ySplit ? ws.views[0].ySplit : 5;
+  const headerRow = ws.getRow(hr).values.slice(1);
   assert.deepEqual(headerRow, cols);
 });
 
