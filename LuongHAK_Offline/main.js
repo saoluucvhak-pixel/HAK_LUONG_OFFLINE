@@ -11,6 +11,16 @@ const { createVault } = require("./main/documents");
 const fullBackup = require("./main/fullbackup");
 const { createGuard } = require("./main/ipc-guard");
 const { createPolicy, fileSig } = require("./main/write-policy");
+// OUTSIDE-DATA-BEGIN
+/** T-11: thư mục `dir` có nằm NGOÀI thư mục dữ liệu `base` (userData) không — trùng hoặc nằm trong = cùng nơi với dữ liệu, không tính là "ngoài máy". Windows: không phân biệt hoa/thường. */
+function outsideDataDir(dir, base, P, plat) {
+  P = P || require("path"); plat = plat || process.platform;
+  let a = P.resolve(String(dir || "")), b = P.resolve(String(base || ""));
+  if (plat === "win32") { a = a.toLowerCase(); b = b.toLowerCase(); }
+  const rel = P.relative(b, a);
+  return !!rel && (rel === ".." || rel.startsWith(".." + P.sep) || P.isAbsolute(rel));
+}
+// OUTSIDE-DATA-END
 const payGate = require("./main/payroll-gate");
 const cryptoNode = require("crypto"), fsNode = require("fs");
 const PERMCORE = require("./core/permissions.js");
@@ -282,7 +292,7 @@ function registerIpc() {
       const file = path.join(d, name), tmp = file + ".tmp" + process.pid; require("./main/restore").writeTextDurable(tmp, ld.text); // ghi + fsync TRƯỚC rename: mất điện không để lại tệp rỗng mang tên hợp lệ
       const sha = crypto2.createHash("sha256").update(fs2.readFileSync(tmp)).digest("hex"), want = crypto2.createHash("sha256").update(Buffer.from(ld.text, "utf8")).digest("hex");
       if (sha !== want) { try { fs2.unlinkSync(tmp); } catch (err) { /* tệp tạm */ } return { ok: false, error: "Ghi file JSON không khớp SHA-256 — đã hủy, không để lại file" }; }
-      fs2.renameSync(tmp, file); try { if (storage.noteExternal) storage.noteExternal(); } catch (err) { /* chỉ ghi nhận mốc sao lưu */ }
+      fs2.renameSync(tmp, file); try { if (storage.noteExternal && outsideDataDir(d, app.getPath("userData"))) storage.noteExternal(); } catch (err) { /* chỉ ghi nhận mốc sao lưu */ } // T-11: thư mục mặc định (trong userData) KHÔNG phải "ngoài máy"
       return { ok: true, name, dir: d, size: Buffer.byteLength(ld.text, "utf8"), sha256: sha };
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
@@ -318,7 +328,9 @@ function registerIpc() {
           r.file = encF; r.name = path.basename(encF); r.size = en.size; r.sha256 = en.sha256; r.encrypted = true;
         } catch (err) {
           try { await fsp0.unlink(encF); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(chk); } catch (x) { /* chưa tạo */ } try { await fsp0.unlink(encF + ".sha256"); } catch (x) { /* chưa tạo */ }
-          (r.warnings = r.warnings || []).push("KHÔNG mã hóa được (" + (err.message || err) + ") — gói giữ nguyên dạng KHÔNG mã hóa: " + path.basename(plain));
+          try { await fsp0.unlink(plain); } catch (x) { /* dọn bản rõ */ } try { await fsp0.unlink(plain + ".sha256"); } catch (x) { /* dọn bản rõ */ }
+          r.ok = false; r.status = "FAILED"; r.error = "KHÔNG mã hóa được (" + (err.message || err) + ") — đã hủy, không lưu bản rõ";
+          return r;
         }
       }
       let mirrored = "";
