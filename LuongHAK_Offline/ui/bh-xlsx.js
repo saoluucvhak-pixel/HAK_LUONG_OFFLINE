@@ -17,23 +17,24 @@
     });
     var wb=RX.buildMany(X,vms,{chuKy:['Người lập','Kế toán trưởng'],nguoiLap:meta.nguoiLap});
     wb.worksheets.forEach(function(ws,index){
-      var vm=vms[index],nc=vm.cols.length,hr=7,end=hr+vm.rows.length;
+      var vm=vms[index],nc=vm.cols.length,hr=(ws.views&&ws.views[0]&&ws.views[0].ySplit)||5,end=hr+vm.rows.length;
       ws.views=[{state:'frozen',ySplit:hr,showGridLines:false}];
       ws.getRow(hr).height=46;
       vm.cols.forEach(function(c,i){
-        var col=ws.getColumn(i+1);col.width=c.kind==='money'?22:/^STT$/.test(c.key)?7:/^Số người$/.test(c.key)?12:/^Mã NV$/.test(c.key)?17:/^Số sổ/.test(c.key)?22:/^Ghi chú$/.test(c.key)?38:30;
+        var col=ws.getColumn(i+1);col.width=c.kind==='money'?15:/^STT$/.test(c.key)?7:/^Số người$/.test(c.key)?12:/^Mã NV$/.test(c.key)?17:/^Số sổ/.test(c.key)?22:/^Ghi chú$/.test(c.key)?38:30;
         var h=ws.getCell(hr,i+1);h.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF17365D'}};h.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
         for(var r=hr+1;r<=end;r++){
-          var cell=ws.getCell(r,i+1);cell.font={name:'Calibri',size:11};cell.alignment={vertical:'middle',horizontal:c.kind==='text'?'left':'right',wrapText:c.kind==='text'};
+          var cell=ws.getCell(r,i+1);cell.font={name:'Calibri',size:11};
+          cell.alignment={vertical:'middle',horizontal:/^STT$/i.test(c.key)?'center':(c.kind==='text'?'left':'right'),wrapText:c.kind==='text'};
           if(r%2===0)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF1F5FA'}};
-          ws.getRow(r).height=32;
         }
         if(vm.rows.length){var t=ws.getCell(end+1,i+1);t.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFDDEBF7'}};t.font={name:'Calibri',bold:true,size:11};}
       });
       if(vm.rows.length){var stop=1;while(stop<nc&&ws.getCell(end+1,stop+1).value==null)stop++;if(stop>1)ws.mergeCells(end+1,1,end+1,stop);}
-      ws.getRow(4).height=30;
-      if(!vm.rows.length){ws.mergeCells(6,1,6,nc);ws.getCell(6,1).value='Không có dữ liệu trong phạm vi đã chọn';ws.getRow(6).height=28;}
-      ws.pageSetup.paperSize=9;ws.pageSetup.orientation='landscape';ws.pageSetup.fitToWidth=1;
+      ws.getRow(4).height=26;
+      if(!vm.rows.length){ws.mergeCells(hr+1,1,hr+1,nc);ws.getCell(hr+1,1).value='Không có dữ liệu trong phạm vi đã chọn';ws.getRow(hr+1).height=28;}
+      ws.pageSetup.paperSize=9;ws.pageSetup.orientation='landscape';ws.pageSetup.fitToWidth=nc>10?2:1;
+      if(nc>10)ws.pageSetup.printTitlesColumn='A:C';
     });
     return wb;
   }

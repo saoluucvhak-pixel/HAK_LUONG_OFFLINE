@@ -103,18 +103,28 @@
   function normCell(col, v) {
     if (/^\d{2}$/.test(col) && isNullText(v)) return { value: "" }; // ô ngày chấm công mang chữ "null" = ô trống
     if (col === KY_COL) { var k = normKy(v); return k === null ? { value: String(v), error: "Kỳ không hợp lệ (cần dạng 2026-09)" } : { value: k }; }
-    if (isDateCol(col)) { var d = normDate(v); return d === null ? { value: String(v), error: "Ngày không hợp lệ (cần dạng 2026-09-15 hoặc 15/09/2026)" } : { value: d }; }
+    if (isDateCol(col)) { var d = normDate(v); return d === null ? { value: String(v), error: "Ngày không hợp lệ — nhập ngày dạng dd/MM/yyyy, ví dụ 15/09/2026 (năm 4 chữ số)" } : { value: d }; }
     if (CAP_COLS.test(col)) {
       if (v == null || String(v).trim() === "") return { value: "" };
       var cap = parseMoney(v);
       if (!isFinite(cap) || cap < 0 || !/\d/.test(String(v))) return { value: String(v), error: "Trần lương đóng phải là số tiền không âm" };
       return { value: String(cap) };
     }
-    if (isMoneyCol(col)) { if (v === "" || v == null) return { value: "" }; var n = parseMoney(v); return isNaN(n) ? { value: String(v), error: "Số tiền không đọc được" } : { value: String(Math.round(n * 1e6) / 1e6) }; }
+    if (isMoneyCol(col)) {
+      if (v === "" || v == null) return { value: "" };
+      var n = parseMoney(v);
+      if (isNaN(n)) return { value: String(v), error: "Số tiền không đọc được" };
+      var mv = String(Math.round(n * 1e6) / 1e6);
+      return n < 0 ? { value: mv, warn: col + ": khoản âm — kiểm lại" } : { value: mv };
+    }
     if (col === "Số suất cơm") { // 009-1: chữ ("hai") bị engine.num đọc thành 0 → mất tiền cơm âm thầm; chặn khi nhập (không đổi cách tính, không đoán chữ thành số)
       if (v === "" || v == null) return { value: "" };
       var cnt = typeof v === "number" ? String(v) : String(v).trim();
-      return /^-?(?:\d+|\d+[.,]\d+|\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)$/.test(cnt) ? { value: cnt } : { value: cnt, error: "phải là số (ví dụ 2 hoặc 1,5), không nhập chữ — nhập 2 thay vì hai" };
+      if (!/^-?(?:\d+|\d+[.,]\d+|\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)$/.test(cnt)) return { value: cnt, error: "phải là số (ví dụ 2 hoặc 1,5), không nhập chữ — nhập 2 thay vì hai" };
+      var sn = parseMoney(cnt);
+      if (sn < 0) return { value: cnt, warn: "Số suất cơm âm (" + cnt + ") — kiểm lại" };
+      if (sn > MAX_SUAT_COM_NGAY) return { value: cnt, warn: cnt + " suất/ngày — vượt ngưỡng " + MAX_SUAT_COM_NGAY + " suất/ngày, kiểm lại" };
+      return { value: cnt };
     }
     if (isRateCol(col)) { var re = rateError(v); return re ? { value: String(v == null ? "" : v).trim(), error: re } : { value: String(v == null ? "" : v).trim().replace(/\s/g, "") }; }
     if (isIdCol(col)) return { value: normId(col, v) };
@@ -130,6 +140,7 @@
   // Nhãn: bắt đầu bằng chữ cái, sau đó chữ/số (VD QC, CT2). Không chấp nhận số âm, "1.5.2", ký tự lạ.
   var DAY_RE = /^(\d+(?:[.,]\d+)?)?\s*([A-Za-z\u00C0-\u1EF9][A-Za-z0-9\u00C0-\u1EF9]*)?$/;
   var MAX_CONG_NGAY = 3;
+  var MAX_SUAT_COM_NGAY = 3;
   function daysInKy(ky) { var k = normKy(ky); if (!k) return 31; var y = +k.slice(0, 4), m = +k.slice(5, 7); return new Date(y, m, 0).getDate(); }
   /**
    * Kiểm tra 1 ô ngày chấm công.
@@ -147,7 +158,25 @@
     });
     return n;
   }
-  function dayCell(day, v, ky) {
+  function hasKnownLabel(knownLabels, nhan) {
+    if (!knownLabels || !nhan) return false;
+    var u = String(nhan).trim().toUpperCase();
+    if (Array.isArray(knownLabels)) {
+      for (var i = 0; i < knownLabels.length; i++) {
+        if (String(knownLabels[i] == null ? "" : knownLabels[i]).trim().toUpperCase() === u) return true;
+      }
+      return false;
+    }
+    if (typeof Set !== "undefined" && knownLabels instanceof Set) {
+      if (knownLabels.has(u) || knownLabels.has(nhan)) return true;
+      var found = false;
+      knownLabels.forEach(function (x) { if (String(x == null ? "" : x).trim().toUpperCase() === u) found = true; });
+      return found;
+    }
+    if (typeof knownLabels === "object") return !!(knownLabels[u] || knownLabels[nhan]);
+    return false;
+  }
+  function dayCell(day, v, ky, knownLabels) {
     var res = { error: null, warn: null, soCong: 0, nhan: "" };
     if (v === "" || v == null || isNullText(v)) return res;
     var d = +day;
@@ -164,6 +193,10 @@
       res.nhan = m[2] || "";
     }
     if (res.soCong > MAX_CONG_NGAY) res.warn = "Ngày " + day + ": " + res.soCong + " công — vượt " + MAX_CONG_NGAY + " công/ngày, kiểm tra lại";
+    if (res.nhan && !hasKnownLabel(knownLabels, res.nhan)) {
+      var lblWarn = "Ngày " + day + ": nhãn \"" + res.nhan + "\" " + (knownLabels ? "chưa có trong danh mục phụ cấp" : "lạ (chưa xác định mã phụ cấp)") + " — kiểm tra lại";
+      res.warn = res.warn ? res.warn + "; " + lblWarn : lblWarn;
+    }
     return res;
   }
 
@@ -216,7 +249,7 @@
   }
 
   var api = { isNullText: isNullText, cleanNullCells: cleanNullCells, parseRate: parseRate, rateError: rateError, isRateCol: isRateCol, parseMoney: parseMoney, sameCell: sameCell, normMoney: normMoney, normDate: normDate, normKy: normKy, normId: normId, normCell: normCell,
-    dayCell: dayCell, daysInKy: daysInKy, MAX_CONG_NGAY: MAX_CONG_NGAY,
+    dayCell: dayCell, daysInKy: daysInKy, MAX_CONG_NGAY: MAX_CONG_NGAY, MAX_SUAT_COM_NGAY: MAX_SUAT_COM_NGAY,
     isMoneyCol: isMoneyCol, isDateCol: isDateCol, isIdCol: isIdCol, rowPeriod: rowPeriod, PERIOD_FIELD: PERIOD_FIELD,
     nearKey: nearKey, nearKeyOf: nearKeyOf, nearDuplicateGroups: nearDuplicateGroups, NEAR_COLS: NEAR_COLS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
