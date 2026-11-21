@@ -73,3 +73,9 @@ test("Màn khôi phục: inRecovery() kiểm tra !ld.ok để cho phép đọc s
   assert.match(mainSrc, /const inRecovery = \(\) => \{ try \{ const ld = storage\.load\(\); return !ld \|\| !ld\.ok/, "inRecovery phải kiểm tra load().ok");
 });
 
+test("Nâng cấp cấu trúc cũ: store-backup cho phép tag truoc-nang-cap trước khi đăng nhập", () => {
+  const h = handlerOf("store-backup");
+  assert.match(h, /tag\s*!==\s*"truoc-nang-cap"/, "store-backup phải cho phép truoc-nang-cap trước đăng nhập");
+});
+
+

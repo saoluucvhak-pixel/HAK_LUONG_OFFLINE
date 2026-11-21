@@ -142,7 +142,7 @@ function registerIpc() {
   });
   // store-info / store-has-data-file: màn khởi động & màn khôi phục cần đọc trước khi đăng nhập
   ipcMain.on("store-info", (e) => { e.returnValue = storage.info(); });
-  ipcMain.on("store-backup", (e, tag) => { if (syncGuard(e, "backup.restore") || syncWriteBusy()) { e.returnValue = null; return; } try { e.returnValue = storage.backup(tag); } catch (err) { e.returnValue = null; } });
+  ipcMain.on("store-backup", (e, tag) => { if (tag !== "truoc-nang-cap" && syncGuard(e, "backup.restore")) { e.returnValue = null; return; } if (syncWriteBusy()) { e.returnValue = null; return; } try { e.returnValue = storage.backup(tag); } catch (err) { e.returnValue = null; } });
   ipcMain.on("store-has-data-file", (e) => { try { e.returnValue = storage.hasDataFile(); } catch (err) { e.returnValue = false; } });
   ipcMain.on("store-list", (e) => { if (!inRecovery() && syncGuard(e, "backup.restore")) { e.returnValue = []; return; } try { e.returnValue = storage.list(); } catch (err) { e.returnValue = []; } });
   ipcMain.on("store-verify", (e) => { if (syncGuard(e, "backup.restore")) { e.returnValue = []; return; } try { e.returnValue = storage.verifyAll(); } catch (err) { e.returnValue = []; } });
