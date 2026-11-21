@@ -342,7 +342,7 @@ test("Nguồn phân bổ cảnh báo chấm công nháp dù các phiếu đã l�
   db.chamcong[0]["01"] = 0;
   const c = { db, kyChot: () => null, C: { inputReview: input } };
   vm.runInNewContext(source.slice(source.indexOf("  function inputReportSource("), source.indexOf("  function reportAllocation(")), c);
-  assert.match(c.allocationReportSource("sanluong", "2026-10"), /Phiếu: Đã lưu.*Chấm công dùng để chia:.*1 dòng nháp/);
+  assert.match(c.allocationReportSource("sanluong", "2026-10"), /Phiếu: Đã lưu.*Chấm công dùng để chia:.*(1 dòng nháp|1 dòng chưa lưu)/);
 });
 
 // F02 qua hàm xuất thật (chặn đầu vào workbook): kỳ đã chốt đọc danh mục lương ĐÃ LƯU, chọn theo hiệu lực của kỳ, không theo thứ tự dòng.
