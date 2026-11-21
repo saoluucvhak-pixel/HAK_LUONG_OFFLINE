@@ -73,7 +73,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   const nvSnap = sqliteNv(D).length;
   await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0101','Họ và tên':'Sau bản chụp'});");
   ok("Có thêm 0101 SAU bản chụp (bản chụp không có)", sqliteNv(D).includes("0101") && sqliteNv(D).length === nvSnap + 1);
-  await app.close(); await sleep(500);
+  await killHard(app); await sleep(500);
   const goodDb = fs.readFileSync(path.join(D, "data.sqlite")); fs.truncateSync(path.join(D, "data.sqlite"), 200); for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(D, "data.sqlite" + x), { force: true });
   ({ app, w, errs } = await launch(D));
   const recBtn = 'button:has-text("Khôi phục từ bản chụp SQLite")';
@@ -98,7 +98,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
   ok("Full Backup tạo thành công và có bản chụp SQLite hợp lệ trong gói (manifest.sqliteSnapshot, SHA-256, số dòng khớp data.json)", !!(fbr && fbr.ok === true) && rep.ok === true && !!rep.sqlite && rep.sqlite.ok === true, JSON.stringify(fbr).slice(0, 300) + " " + JSON.stringify(rep.sqlite));
   const nvPkg = sqliteNv(D).length;
   await saveViaIpc(w, "d.nhanvien.push({'Mã NV':'0103','Họ và tên':'Sau khi tạo gói'});");
-  await app.close(); await sleep(500);
+  await killHard(app); await sleep(500);
   fs.truncateSync(path.join(D, "data.sqlite"), 200); for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(D, "data.sqlite" + x), { force: true });
   ({ app, w, errs } = await launch(D, { HAK_FB_PICK: pkgFile }));
   const pkgBtn = 'button:has-text("Khôi phục từ gói Full Backup")';
@@ -260,7 +260,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     await w.evaluate(() => window.hakStore.scheduleSet({ keepDaily: 180 }));
     await w.click('#nav button[data-k="backup"]'); await w.waitForSelector('[data-stg="mirror"]', { timeout: 15000 });
     const txt = await w.locator("#main").innerText();
-    ok("Chữ 'giữ N ngày' theo cài đặt thật (keepDaily = 180), không ghi cứng 60 ngày", /giữ 180 ngày/.test(txt) && !/giữ 60 ngày/.test(txt), (txt.match(/giữ \d+ ngày/g) || []).join(","));
+    ok("Chữ 'giữ N ngày' theo cài đặt thật (keepDaily = 180), không ghi cứng 60 ngày", /giữ 180 (?:ngày|bản đầu ngày)/.test(txt) && !/giữ 60 (?:ngày|bản đầu ngày)/.test(txt), (txt.match(/giữ \d+ (?:ngày|bản đầu ngày)/g) || []).join(","));
     const pickers = await w.locator("#main button").evaluateAll((bs) => bs.filter((b) => /Chọn thư mục sao lưu thứ hai|Đổi thư mục/.test(b.innerText) || (/Chọn \/ Chuyển/.test(b.innerText) && b.closest('[data-stg="mirror"]'))).length);
     ok("Thư mục sao lưu dự phòng (mirrorDir) chỉ chọn được ở MỘT chỗ", pickers === 1, "số nút chọn = " + pickers);
     const one = async (sel) => (await w.locator(sel).count()) === 1;
@@ -347,6 +347,12 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       const warnTxt = await w.locator('#main .warn:has-text("bị hỏng")').allInnerTexts(), okAfter = await w.locator('#main .ok:has-text("Đã kiểm tra")').count(), rowBad = await w.locator('[data-bk-row="json"]:has-text("HỎNG")').count();
       ok("T-01: kiểm tra khi không có bản hỏng → biểu ngữ xanh 'Đã kiểm tra…'", okBanner === 1 && warnBefore === 0, "ok=" + okBanner + " warn=" + warnBefore);
       ok("T-01: có 1 bản JSON bị sửa → hàng hiện HỎNG VÀ biểu ngữ CẢNH BÁO '1 bản sao lưu bị hỏng' (không còn biểu ngữ xanh)", rowBad >= 1 && warnTxt.some((t) => /\b1 bản sao lưu bị hỏng/.test(t)) && okAfter === 0, "rowBad=" + rowBad + " warn=" + JSON.stringify(warnTxt) + " okAfter=" + okAfter + " file=" + jf);
+    }
+    { // T-11 (rà soát 5 agent): gửi JSON vào thư mục MẶC ĐỊNH (trong userData) không được tính là "đã sao lưu ra ngoài máy"
+      const ext0 = await w.evaluate(() => window.hakStore.backupStatus().lastExternal || null);
+      const jb = await w.evaluate(() => window.hakJson.backup());
+      const ext1 = await w.evaluate(() => window.hakStore.backupStatus().lastExternal || null);
+      ok("T-11: JSON vào thư mục mặc định (cùng máy) — ghi được nhưng KHÔNG đổi mốc 'ngoài máy'", !!(jb && jb.ok) && ext1 === ext0, JSON.stringify({ jb: jb && { ok: jb.ok, dir: jb.dir, error: jb.error }, ext0, ext1 }));
     }
     ok("Quy trình sao lưu SQLite: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
