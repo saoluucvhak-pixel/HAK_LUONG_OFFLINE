@@ -6058,13 +6058,13 @@
     if (!STG.json && window.hakJson) { window.hakJson.get().then(function (r) { if (r && r.ok) { STG.json = r; if (st.tab === "backup") render(); } }); }
     if (!STG.info) { window.hakPaths.info().then(function (r) { if (r && r.ok) { STG.info = r.info; STG.exportDir = r.exportDir; if (st.tab === "backup") render(); } }); }
     var fmtB = function (n) { return n >= 1073741824 ? (n / 1073741824).toFixed(2) + " GB" : n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.ceil(n / 1024) + " KB"; };
-    var t = h("table", { class: "t" });
+    var t = h("table", { class: "t bk-stg-tbl" });
     t.appendChild(h("tr", {}, ["Thư mục", "Đường dẫn hiện tại", "Dung lượng", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
     var KS = [["sqlite", "Sao lưu SQLite (các bản tự động + bấm Sao lưu)"], ["json", "Sao lưu JSON"], ["backup", "Full Backup (có chứng từ, OCR)"], ["mirror", "Dự phòng ngoài máy (USB / NAS / Drive)"], ["docs", "Chứng từ gốc"], ["ocrLib", "Thư viện mẫu OCR"], ["export", "Thư mục xuất file"]];
     KS.forEach(function (kk) {
       var k = kk[0], movable = k !== "export" && k !== "sqlite", inf = STG.info && STG.info[k];
       var verify = STG.ver && STG.ver[k];
-      var acts = h("td", {}, [h("div", { style: "display:flex;flex-wrap:wrap;gap:4px" }, [
+      var acts = h("td", { class: "t bk-act" }, [h("div", { class: "bk-acts" }, [
         movable ? btn("Chọn / Chuyển…", "ghost", function () {
           if (!need("backup.restore", "đổi thư mục lưu trữ") || STG.busy) return;
           window.hakPaths.pick(k).then(function (p) {
@@ -6086,8 +6086,9 @@
           window.hakPaths.verify(k).then(function (r) { STG.ver[k] = r && r.ok ? { good: r.good, text: r.text } : { good: false, text: (r && r.error) || "lỗi" }; render(); });
         }, "Kiểm tra toàn vẹn (chỉ đọc, không sửa gì)"),
         btn("↻ Dung lượng", "ghost", function () { STG.info = null; render(); })])]);
-      t.appendChild(h("tr", { "data-stg": k }, [h("td", { text: kk[1] }), h("td", { text: (k === "mirror" ? (STG.data.paths.mirror || "(chưa chọn)") : k === "export" ? STG.exportDir || "(thư mục xuất file mặc định)" : k === "sqlite" ? ((store && store.info && store.info().backupDir) || "…") : k === "json" ? (STG.json ? STG.json.dir : "…") : STG.data.paths[k]), style: "word-break:break-all" }),
-        h("td", { text: inf ? (inf.exists ? inf.files + " file · " + fmtB(inf.bytes) + (inf.free != null ? " · trống " + fmtB(inf.free) : "") : "chưa tạo") : "…" }),
+      var pathText = (k === "mirror" ? (STG.data.paths.mirror || "(chưa chọn)") : k === "export" ? STG.exportDir || "(thư mục xuất file mặc định)" : k === "sqlite" ? ((store && store.info && store.info().backupDir) || "…") : k === "json" ? (STG.json ? STG.json.dir : "…") : STG.data.paths[k]);
+      t.appendChild(h("tr", { "data-stg": k }, [h("td", { class: "t", text: kk[1] }), h("td", { class: "t bk-path", text: pathText, title: pathText }),
+        h("td", { class: "t", text: inf ? (inf.exists ? inf.files + " file · " + fmtB(inf.bytes) + (inf.free != null ? " · trống " + fmtB(inf.free) : "") : "chưa tạo") : "…" }),
         acts]));
       if (k === "sqlite") t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: "hint", "data-stg-note": "sqlite", text: "Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng" })])); // CEO chọn (a) ở #113: thư mục SQLite chỉ xem/mở/kiểm
       if (verify) t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: verify.good === false ? "warn" : "ok", "data-stg-verify": k, text: (verify.good === false ? "✕ " : verify.good ? "✓ " : "") + verify.text })]));
@@ -6359,13 +6360,25 @@
     var list = rowsAll.filter(function (r) { return (!st.bkYear || r.year === st.bkYear) && (!st.bkKindF || st.bkKindF === "all" || r.kind === st.bkKindF); }).slice(0, 60);
     if (st.bkVerify) { var nb = countBadBackups(list); c.appendChild(h("div", { class: nb ? "warn" : "ok", text: nb ? "⚠ " + nb + " bản sao lưu bị hỏng — không dùng để khôi phục." : "Đã kiểm tra " + list.length + " bản sao lưu gần nhất: đọc được, đủ điều kiện khôi phục." })); }
     if (!list.length) { c.appendChild(h("div", { class: "empty", text: "Chưa có bản sao lưu." })); return c; }
-    var t = h("table"), tr = h("tr"); ["Tên file", "Định dạng", "Phạm vi", "Nhãn", "Thời điểm", "Dung lượng", "Tình trạng", ""].forEach(function (x) { tr.appendChild(h("th", { text: x })); }); t.appendChild(h("thead", {}, [tr]));
+    var t = h("table", { class: "bk-list-tbl" }), tr = h("tr"); ["Tên file", "Định dạng", "Phạm vi", "Nhãn", "Thời điểm", "Dung lượng", "Tình trạng", ""].forEach(function (x) { tr.appendChild(h("th", { text: x })); }); t.appendChild(h("thead", {}, [tr]));
     var tb = h("tbody");
     list.forEach(function (r) {
       var x = h("tr", { "data-bk-row": r.kind });
-      [r.name, r.kind === "sqlite" ? "SQLite (.sqlite)" : "JSON (.json)", scopeOf(r.tag), r.tag, r.at ? fmtTime(r.at) : "—", Math.max(1, Math.round((r.size || 0) / 1024)) + " KB", r.status].forEach(function (v) { x.appendChild(h("td", { class: "t", text: v })); });
+      [
+        { cls: "t bk-name", text: r.name, title: r.name },
+        { cls: "t", text: r.kind === "sqlite" ? "SQLite (.sqlite)" : "JSON (.json)" },
+        { cls: "t", text: scopeOf(r.tag) },
+        { cls: "t bk-tag", text: r.tag, title: r.tag },
+        { cls: "t", text: r.at ? fmtTime(r.at) : "—" },
+        { cls: "t r", text: Math.max(1, Math.round((r.size || 0) / 1024)) + " KB" },
+        { cls: "t bk-status", text: r.status, title: r.status }
+      ].forEach(function (col) {
+        var opts = { class: col.cls, text: col.text };
+        if (col.title) opts.title = col.title;
+        x.appendChild(h("td", opts));
+      });
       var b = r.b;
-      x.appendChild(h("td", { style: "text-align:right" }, [r.kind === "json" ? btn("Khôi phục", "", function () { if (!need("backup.restore")) return; var rr = store.readBackup(b.name); if (!rr.ok) { alert(rr.error); return; } restoreFromText(rr.text, b.name); }) : h("span", { class: "hint", text: "dùng khi data.sqlite hỏng" })]));
+      x.appendChild(h("td", { class: "t bk-act", style: "text-align:right" }, [r.kind === "json" ? btn("Khôi phục", "", function () { if (!need("backup.restore")) return; var rr = store.readBackup(b.name); if (!rr.ok) { alert(rr.error); return; } restoreFromText(rr.text, b.name); }) : h("span", { class: "hint", text: "dùng khi data.sqlite hỏng" })]));
       tb.appendChild(x);
     });
     t.appendChild(tb); c.appendChild(h("div", { class: "tw", style: "max-height:320px" }, [t]));
