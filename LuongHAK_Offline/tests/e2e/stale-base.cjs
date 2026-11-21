@@ -44,6 +44,7 @@ const outsideWrite = (w, ma) => w.evaluate((m) => { const d = JSON.parse(window.
 
   // 1. Đường ĐÓNG cửa sổ: ghi ngoài giao diện rồi đóng → bản ghi còn nguyên; giao diện hỏi
   { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000); answer.ok = true;
+    await r.w.evaluate(() => { if (typeof window.hakMakeDirty === "function") window.hakMakeDirty(); });
     ok("Ghi ngoài giao diện (0099)", (await outsideWrite(r.w, "0099")) === true && nv(D).includes("0099"));
     await r.app.close().catch(() => {}); await sleep(2000);
     ok("ĐÓNG: 0099 CÒN NGUYÊN sau khi giao diện đóng — không bị ghi đè (trước v2.0.35: bị mất)", nv(D).includes("0099"), "sqlite: " + nv(D).slice(-3).join(","));
@@ -60,6 +61,7 @@ const outsideWrite = (w, ma) => w.evaluate((m) => { const d = JSON.parse(window.
 
   // 3. Gọi đường đóng cửa sổ trực tiếp: Hủy → giữ cửa sổ (false); OK → cho đóng (true); cả hai KHÔNG ghi đè
   { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000);
+    await r.w.evaluate(() => { if (typeof window.hakMakeDirty === "function") window.hakMakeDirty(); });
     await outsideWrite(r.w, "0101");
     answer.ok = false; const keep = await r.w.evaluate(() => window.hakFlushBeforeClose());
     ok("Hủy hộp thoại: hakFlushBeforeClose trả false (giữ cửa sổ), 0101 nguyên", keep === false && asked(r.dialogs) && nv(D).includes("0101"), String(keep));
@@ -69,6 +71,7 @@ const outsideWrite = (w, ma) => w.evaluate((m) => { const d = JSON.parse(window.
 
   // 4. Đối chứng: không có ghi ngoài giao diện → ghi của giao diện vẫn bền, KHÔNG hộp thoại 'nơi khác'
   { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000); answer.ok = true; const a0 = audit(D);
+    await r.w.evaluate(() => { if (typeof window.hakMakeDirty === "function") window.hakMakeDirty(); });
     await r.app.close().catch(() => {}); await sleep(2000);
     ok("Đối chứng: đóng bình thường → giao diện ghi bền (nhật ký tăng) và không hỏi 'nơi khác'", audit(D) > a0 && !asked(r.dialogs), "trước " + a0 + ", sau " + audit(D) + " | " + JSON.stringify(r.dialogs).slice(0, 120)); }
 
