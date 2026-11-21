@@ -300,10 +300,12 @@
           var isDay = /^\d\d$/.test(c), cls = isDay ? "day" : "";
           if (isDay) { var dt = new Date(st.nam, st.thang - 1, +c); if (dt.getMonth() === st.thang - 1 && dt.getDay() === 0) cls += " we"; }
           var nameTd;
+          var setWarn = function (msg) { inp.classList.toggle("warn-cell", !!msg); inp.style.borderColor = msg ? "#d97706" : ""; if (msg) inp.title = msg; };
           var inp = makeInput(c, r[c], function (v) {
             if (isCat) { // danh mục: chỉ cập nhật bản nháp, KHÔNG ghi dữ liệu
               if (!editing) { inp.value = r[c] == null ? "" : r[c]; return; }
               var nc = VAL.normCell(c, v); if (nc.error) { toast("⚠ " + c + ": " + nc.error); inp.value = ced.draft[c] == null ? "" : ced.draft[c]; return; }
+              setWarn(nc.warn); if (nc.warn) toast("⚠ " + nc.warn);
               ced.draft[c] = nc.value; ced.dirty = true; ced.err = ""; if (inp.value !== nc.value) inp.value = nc.value;
               var st0 = tr.querySelector("[data-cat-state]"); if (st0) { st0.textContent = "● Có thay đổi chưa lưu"; st0.setAttribute("data-cat-state", "EDITING"); }
               return;
@@ -318,6 +320,8 @@
             if (!pE.ok) { alert(pE.msg); inp.value = r[c] == null ? "" : r[c]; return; }
             var dc = isDay && key === "chamcong" ? VAL.dayCell(c, n.value, r["Kỳ"], knownPcLabels) : null;
             if (dc && dc.warn) toast("⚠ " + dc.warn);
+            if (n.warn) toast("⚠ " + n.warn);
+            setWarn(n.warn || (dc && dc.warn));
             if ((key === "sanluong" || key === "bandam") && c === "KL hàng (Tấn)") {
               var qs0 = String(n.value == null ? "" : n.value).trim(), qn0 = Number(qs0.replace(",", "."));
               if (!/^\d+(?:[.,]\d+)?$/.test(qs0) || !(qn0 > 0) || !isFinite(qn0)) {
@@ -329,6 +333,7 @@
             if (inp.value !== n.value && !isDay) inp.value = n.value;
             save(); refreshInputReview(); if (c === "Mã NV" && nameTd) nameTd.textContent = tenNV(n.value) || (n.value ? "⚠ chưa có trong Nhân sự" : ""); if (isDay) updTot();
           }, null, key);
+          if (!isDay && r[c] != null && r[c] !== "") { var nw = VAL.normCell(c, r[c]); if (nw.warn) setWarn(nw.warn); }
           if (key === "chamcong" && isDay) { var lkc = LKMAP[attRecordId("chamcong", r) + "|" + c]; if (lkc) { inp.classList.add("has-src"); inp.title = "Nguồn: " + lkc.docId + " trang " + lkc.page + " — chuột phải (hoặc Alt+bấm) để xem ảnh/PDF gốc"; inp.addEventListener("contextmenu", function (ev) { ev.preventDefault(); openCellSource(lkc); }); inp.addEventListener("click", function (ev) { if (ev.altKey) { ev.preventDefault(); openCellSource(lkc); } }); } }
           inp.addEventListener("paste", function (ev) {
             if (isCat) return; // danh mục: dán nhiều dòng không được ghi ngầm; dùng Nhập Excel (có xem trước)
