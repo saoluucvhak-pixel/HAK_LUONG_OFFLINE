@@ -147,7 +147,25 @@
     });
     return n;
   }
-  function dayCell(day, v, ky) {
+  function hasKnownLabel(knownLabels, nhan) {
+    if (!knownLabels || !nhan) return false;
+    var u = String(nhan).trim().toUpperCase();
+    if (Array.isArray(knownLabels)) {
+      for (var i = 0; i < knownLabels.length; i++) {
+        if (String(knownLabels[i] == null ? "" : knownLabels[i]).trim().toUpperCase() === u) return true;
+      }
+      return false;
+    }
+    if (typeof Set !== "undefined" && knownLabels instanceof Set) {
+      if (knownLabels.has(u) || knownLabels.has(nhan)) return true;
+      var found = false;
+      knownLabels.forEach(function (x) { if (String(x == null ? "" : x).trim().toUpperCase() === u) found = true; });
+      return found;
+    }
+    if (typeof knownLabels === "object") return !!(knownLabels[u] || knownLabels[nhan]);
+    return false;
+  }
+  function dayCell(day, v, ky, knownLabels) {
     var res = { error: null, warn: null, soCong: 0, nhan: "" };
     if (v === "" || v == null || isNullText(v)) return res;
     var d = +day;
@@ -164,6 +182,10 @@
       res.nhan = m[2] || "";
     }
     if (res.soCong > MAX_CONG_NGAY) res.warn = "Ngày " + day + ": " + res.soCong + " công — vượt " + MAX_CONG_NGAY + " công/ngày, kiểm tra lại";
+    if (res.nhan && !hasKnownLabel(knownLabels, res.nhan)) {
+      var lblWarn = "Ngày " + day + ": nhãn \"" + res.nhan + "\" " + (knownLabels ? "chưa có trong danh mục phụ cấp" : "lạ (chưa xác định mã phụ cấp)") + " — kiểm tra lại";
+      res.warn = res.warn ? res.warn + "; " + lblWarn : lblWarn;
+    }
     return res;
   }
 
