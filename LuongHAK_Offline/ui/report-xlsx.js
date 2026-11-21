@@ -74,8 +74,12 @@
     put(r, vm.congTy || "", { font: { bold: true, size: 11 } }); merge(r); r++;
     put(r, vm.title, { font: { bold: true, size: 15 }, alignment: { horizontal: "center", vertical: "middle" } }); merge(r); ws.getRow(r).height = 26; r++;
     put(r, vm.kyText || "", { font: { bold: true, size: 11 }, alignment: { horizontal: "center" } }); merge(r); r++;
-    put(r, "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""), { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++;
-    put(r, "Đơn vị tính: " + (vm.donVi || "Đồng (VND)") + (vm.ngayLap ? " · Ngày lập: " + vm.ngayLap : ""), { font: { size: 10 }, alignment: { horizontal: "center" } }); merge(r); r++;
+    var isDraft = !!(vm.trangThai && /chưa chốt|tính tạm/i.test(vm.trangThai));
+    var scopeStyle = isDraft
+      ? { font: { italic: true, bold: true, size: 10, color: { argb: "FFC0362C" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDECEA" } }, alignment: { horizontal: "center", wrapText: true } }
+      : { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } };
+    put(r, "Phạm vi: " + (vm.phamVi || "Toàn bộ") + (vm.trangThai ? " · " + vm.trangThai : ""), scopeStyle); merge(r); r++;
+    put(r, "Đơn vị tính: " + (vm.donVi || "Đồng (VND)") + (vm.ngayLap ? " · Ngày lập: " + vm.ngayLap : "") + (vm.nguoiLap ? " · Người lập: " + vm.nguoiLap : ""), { font: { size: 10 }, alignment: { horizontal: "center" } }); merge(r); r++;
     if (vm.source) { put(r, "Nguồn: " + vm.source, { font: { italic: true, size: 10 }, alignment: { horizontal: "center", wrapText: true } }); merge(r); r++; }
     r++;
     if (vm.groups && vm.groups.length) { // tiêu đề hai tầng: nhóm cột ở hàng trên
@@ -97,6 +101,7 @@
     r++;
     var q3 = function (c) { return c.kind === "qty3"; };
     var decCols = vm.cols.map(function (c) { return c.kind === "qty" && vm.rows.some(function (row) { var x = +row[c.key]; return isFinite(x) && Math.abs(x - Math.round(x)) > 1e-9; }); });
+    var hasKy = vm.cols.some(function (c) { return /^Ký nhận$/i.test(c.label); });
     var writeRow = function (row) {
       vm.cols.forEach(function (c, i) {
         var cell = ws.getCell(r, i + 1), v = row[c.key];
@@ -107,6 +112,7 @@
         else { cell.value = v === "" || v == null ? null : +v; cell.numFmt = q3(c) ? "#,##0.000" : decCols[i] ? "#,##0.00" : "#,##0"; if (/^STT$/i.test(c.label)) cell.alignment = { horizontal: "center" }; }
         cell.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
       });
+      if (hasKy) ws.getRow(r).height = Math.max(ws.getRow(r).height || 0, 28);
       r++;
     };
     var FILL_G = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF1EC" } }, FILL_S = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F4F4" } };
@@ -165,7 +171,8 @@
       margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }, printTitlesRow: (vm.groups && vm.groups.length ? (hr - 1) : hr) + ":" + hr };
     if (wide && idName >= 0) ws.pageSetup.printTitlesColumn = "A:" + colLetter(idName);
     ws.pageSetup.printArea = "A1:" + last + sigEnd;
-    ws.headerFooter = { oddFooter: "&L" + (vm.congTy || "") + " · " + vm.title + "&RTrang &P / &N" };
+    var escHF = function (s) { return String(s || "").replace(/&/g, "&&"); };
+    ws.headerFooter = { oddFooter: "&L" + escHF(vm.congTy) + " · " + escHF(vm.title) + "&RTrang &P / &N" };
     ws.views = [{ state: "frozen", xSplit: nc > 8 && idName >= 0 ? idName + 1 : 0, ySplit: hr, topLeftCell: "A" + (hr + 1) }];
     if (vm.rows.length && !(vm.nhom && vm.nhom.length)) ws.autoFilter = { from: { row: hr, column: 1 }, to: { row: lastData - (hasTotal ? 1 : 0), column: nc } };
     ws.properties.defaultRowHeight = 18;

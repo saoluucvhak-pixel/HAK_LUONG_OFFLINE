@@ -731,3 +731,14 @@ td.ot-note{background:var(--th);color:var(--mut)}
 }
 /* 005B-UI003 (issue #97): chữ gợi ý (.hint) đạt tương phản AA ≥ 4,5:1 — trộn màu phụ với màu chữ chính: đậm hơn ở giao diện sáng, sáng hơn ở giao diện tối. Không đổi bố cục. */
 .hint{color:color-mix(in srgb,var(--mut) 70%,var(--ink))}
+/* T-25: tiêu đề cột bảng (th) trên nền --th đạt tương phản WCAG AA ≥ 4,5:1 ở mọi giao diện */
+th{color:color-mix(in srgb,var(--mut) 60%,var(--ink))}
+/* T-29: bảng Thư mục lưu trữ & Danh sách sao lưu gọn trong khung 1024–1366px, không tràn/dính cột */
+.bk-stg-tbl,.bk-list-tbl{width:100%;table-layout:auto}
+.bk-stg-tbl th,.bk-stg-tbl td,.bk-list-tbl th,.bk-list-tbl td{padding:7px 9px;vertical-align:top;white-space:normal}
+.bk-path,.bk-name,.bk-tag,.bk-status{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.bk-path{min-width:160px;max-width:300px}
+.bk-name{min-width:130px;max-width:210px}
+.bk-status{min-width:110px;max-width:185px}
+.bk-act{white-space:normal;min-width:110px}
+.bk-acts{display:flex;flex-wrap:wrap;gap:4px}

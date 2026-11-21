@@ -272,7 +272,9 @@ function createPolicy(opts) {
     try { require("../core/input-review.js").validate(next); var old = oldObj(); if (old && old.schemaVersion >= 5 && !(next.schemaVersion >= 5) && !(opts && opts.restoring)) throw Error("Không được hạ cấu trúc dữ liệu lưu nhập liệu"); } catch (e) { return {ok:false,error:e.message}; }
     pending = nx;
     if (!prev || !prev.hasUsers) return { ok: true, firstRun: true }; // chưa có dữ liệu / chưa có tài khoản: thiết lập ban đầu
-    const changed = Object.keys(nx.tables).filter((k) => !sameTable(prev.tables[k], nx.tables[k])).concat(Object.keys(prev.tables).filter((k) => !(k in nx.tables)));
+    // Bảng chưa từng có trong dữ liệu cũ được ensureTables() khởi tạo rỗng [] không tính là thay đổi
+    const isNewEmptyTable = (a, b) => a === undefined && b && Array.isArray(b.rows) && b.rows.length === 0;
+    const changed = Object.keys(nx.tables).filter((k) => !sameTable(prev.tables[k], nx.tables[k]) && !isNewEmptyTable(prev.tables[k], nx.tables[k])).concat(Object.keys(prev.tables).filter((k) => !(k in nx.tables)));
     if (!changed.length) return { ok: true };
     const perms = who && who.perms || [];
     const has = (p) => perms.indexOf(p) >= 0;
