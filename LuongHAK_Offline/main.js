@@ -333,10 +333,40 @@ function registerIpc() {
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   // V9: Full Backup chạy trong worker_thread (không treo giao diện), có tiến độ + nút Hủy; trong lúc chạy các lệnh GHI chứng từ/thư viện OCR bị khóa → gói nhất quán
+// HAK_EXPORT_START:checkStrongBackupPassword
+function checkStrongBackupPassword(pwd) {
+  const s = String(pwd == null ? "" : pwd);
+  if (s.length < 12) return "Mật khẩu sao lưu phải có ít nhất 12 ký tự";
+  if ([/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(s)).length < 2) {
+    return "Mật khẩu cần kết hợp ít nhất 2 nhóm: chữ thường, chữ hoa, số, ký tự đặc biệt";
+  }
+  if (/(.)\1{4,}/.test(s)) return "Mật khẩu không được chứa chuỗi ký tự lặp lại liên tiếp (ví dụ: aaaaaa)";
+  const low = s.toLowerCase();
+  const weakWords = [
+    "password", "123456", "12345678", "123456789", "1234567890",
+    "qwerty", "qwertyuiop", "matkhau", "admin", "administrator",
+    "luonghak", "tinhluong", "saoluu", "backup", "welcome",
+    "letmein", "iloveyou", "passw0rd", "abc123", "111111", "000000"
+  ];
+  if (weakWords.some((w) => low.includes(w))) {
+    return "Mật khẩu quá yếu hoặc nằm trong danh sách từ phổ biến dễ đoán";
+  }
+  let inc = 1, dec = 1;
+  for (let i = 1; i < low.length; i++) {
+    const a = low.charCodeAt(i - 1), b = low.charCodeAt(i);
+    const sameClass = (a >= 48 && a <= 57 && b >= 48 && b <= 57) || (a >= 97 && a <= 122 && b >= 97 && b <= 122);
+    inc = sameClass && b - a === 1 ? inc + 1 : 1;
+    dec = sameClass && a - b === 1 ? dec + 1 : 1;
+    if (inc >= 6 || dec >= 6) return "Mật khẩu không được chứa chuỗi ký tự hoặc chữ số liên tiếp (ví dụ: 123456, abcdef)";
+  }
+  return "";
+}
+// HAK_EXPORT_END:checkStrongBackupPassword
+
   ipcMain.handle("fb-create", guardedW("backup.restore", async (e, info) => {
     if (fbJob) return { ok: false, error: "Đang có một lần Full Backup khác chạy — chờ nó kết thúc hoặc bấm Hủy" };
     const bcrypt = require("./main/backup-crypt"), pwd = info && info.password ? String(info.password) : "";
-    if (pwd) { const bad = bcrypt.checkPassword(pwd); if (bad) return { ok: false, error: bad }; }
+    if (pwd) { const bad = checkStrongBackupPassword(pwd) || bcrypt.checkPassword(pwd); if (bad) return { ok: false, error: bad }; }
     let dropSnap = () => {};
     try {
       const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có file dữ liệu để sao lưu" };
@@ -404,7 +434,9 @@ function registerIpc() {
     try {
       info = info || {}; const ld = storage.load(); if (!ld.ok || !ld.text) return { ok: false, error: ld.error || "Chưa có dữ liệu để sao lưu" };
       let data; try { data = JSON.parse(ld.text); } catch (err) { return { ok: false, error: "Dữ liệu hiện tại không đọc được — không tạo gói" }; }
-      return await fullBackup.createPeriodPackage({ dir: spCur().backup, ky: String(info.ky || ""), data, appVersion: app.getVersion(), user: String(info.user || ""), password: info.password ? String(info.password) : "" });
+      const kyPwd = info.password ? String(info.password) : "";
+      if (kyPwd) { const bad = checkStrongBackupPassword(kyPwd); if (bad) return { ok: false, error: bad }; }
+      return await fullBackup.createPeriodPackage({ dir: spCur().backup, ky: String(info.ky || ""), data, appVersion: app.getVersion(), user: String(info.user || ""), password: kyPwd });
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   let lastKyPick = "";
