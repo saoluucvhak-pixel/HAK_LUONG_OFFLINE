@@ -83,11 +83,32 @@
       var voucher = table === "psluong" || table === "ungluong";
       var crossPeriod = voucher && IMP.crossPeriod(table, before, after);
       if (crossPeriod) return deny("period", crossPeriod);
-      // 3. trùng khóa nghiệp vụ
-      if ((opts.checkDup || voucher) && after) {
+      // 5. kỳ đã chốt / hồi tố (kiểm tra trước trùng khóa để trả đúng mã locked khi đụng kỳ đã chốt)
+      var fpatch = null, FA = faMod();
+      if (table === FA.TABLE) {
+        var fc = FA.check(op, before, after, { can: ctx.can, user: ctx.user ? ctx.user() : "", now: ctx.now ? ctx.now() : null, db: db });
+        if (!fc.ok) return deny(fc.code, fc.msg);
+        fpatch = fc.patch;
+        if (op !== "remove") Object.keys(fpatch).forEach(function (k) { after[k] = fpatch[k]; });
+      }
+      var fHL = function (r) { return r && String(r["Trạng thái"] || "") === "Hiệu lực"; };
+      var onlyLink = table === FA.TABLE && op === "update" && Object.keys(after).concat(Object.keys(before)).every(function (k) { return FA.LINKS.indexOf(k) >= 0 || k === "Liên kết lúc" || JSON.stringify(before[k]) === JSON.stringify(after[k]); });
+      var imp = table === FA.TABLE && (onlyLink || (!fHL(before) && !fHL(after))) ? { kind: "none", periods: [] } : GRD.impactChange(db, table, before, after);
+      if (imp.kind === "locked") return deny("locked", "Không thể " + what + ": dữ liệu thuộc kỳ " + labels(imp.periods) + " đã chốt lương. Hãy mở chốt trước.", { impact: imp });
+      if (imp.kind === "retro" && !ctx.can("retro.edit"))
+        return deny("retro", "⛔ Không thể " + what + ": dữ liệu có hiệu lực trong kỳ lương đã chốt " + labels(imp.periods) + ".\nChỉ Admin được sửa dữ liệu hồi tố (Q-14).", { impact: imp });
+
+      // 3. trùng khóa nghiệp vụ (voucher hoặc chamcong hoặc có checkDup)
+      var checkDupTable = opts.checkDup || voucher || table === "chamcong";
+      if (checkDupTable && after) {
         var k = IMP.keyOf(table, after);
-        if (k && db[table].some(function (r) { return r !== target && IMP.keyOf(table, r) === k; }))
+        if (k && db[table].some(function (r) { return r !== target && IMP.keyOf(table, r) === k; })) {
+          if (table === "chamcong") {
+            var nv = String(after["Mã NV"] || "").trim(), ky = String(after["Kỳ"] || "").trim(), ht = String(after["Hình thức công"] || "BT").trim().toUpperCase();
+            return deny("dup", "Đã có dòng chấm công của NV " + nv + " kỳ " + ky + " hình thức " + ht + " — hãy sửa dòng đó hoặc dùng 'Gộp dòng chấm công trùng'.");
+          }
           return deny("dup", "Đã có bản ghi trùng (" + (IMP.KEYS[table] || []).join(" + ") + "). Hãy sửa bản ghi đó thay vì thêm mới.");
+        }
       }
       // 3b. 013-B: NGHI TRÙNG theo khóa chuẩn hóa (nv01 = NV 01 = ＮＶ01; pc-001 = PC - 001) cho mọi bảng có khóa dò (nhân sự, hợp đồng, sản lượng, ban dăm, tiền cơm, thưởng/trừ, tạm ứng). Chỉ kiểm khi khóa THAY ĐỔI/thêm mới, nên dữ liệu cũ đã lỡ trùng không chặn việc sửa ô khác.
       if (after && V.NEAR_COLS && V.NEAR_COLS[table]) {
@@ -116,20 +137,6 @@
         if (refs27.kyluong || refs27.kyluong_lichsu) return deny("frozen", "⛔ Không đổi được Mã NV " + before["Mã NV"] + ": mã này đã có trong bảng lương ĐÃ CHỐT (R-27).");
       }
       // 4b. duyệt & phiên bản công thức tiền lương (Master V5 GĐ2) — kiểm tra ở tầng ghi, không đi vòng được
-      var fpatch = null, FA = faMod();
-      if (table === FA.TABLE) {
-        var fc = FA.check(op, before, after, { can: ctx.can, user: ctx.user ? ctx.user() : "", now: ctx.now ? ctx.now() : null, db: db });
-        if (!fc.ok) return deny(fc.code, fc.msg);
-        fpatch = fc.patch;
-        if (op !== "remove") Object.keys(fpatch).forEach(function (k) { after[k] = fpatch[k]; });
-      }
-      // 5. kỳ đã chốt / hồi tố — công thức chưa "Hiệu lực" (nháp/chờ duyệt/đã duyệt/ngừng) không ảnh hưởng kỳ nào
-      var fHL = function (r) { return r && String(r["Trạng thái"] || "") === "Hiệu lực"; };
-      var onlyLink = table === FA.TABLE && op === "update" && Object.keys(after).concat(Object.keys(before)).every(function (k) { return FA.LINKS.indexOf(k) >= 0 || k === "Liên kết lúc" || JSON.stringify(before[k]) === JSON.stringify(after[k]); }); // V10.2: chỉ gán/xóa liên kết cha — không đổi cách tính nên không phải hồi tố
-      var imp = table === FA.TABLE && (onlyLink || (!fHL(before) && !fHL(after))) ? { kind: "none", periods: [] } : GRD.impactChange(db, table, before, after);
-      if (imp.kind === "locked") return deny("locked", "Không thể " + what + ": dữ liệu thuộc kỳ " + labels(imp.periods) + " đã chốt lương. Hãy mở chốt trước.", { impact: imp });
-      if (imp.kind === "retro" && !ctx.can("retro.edit"))
-        return deny("retro", "⛔ Không thể " + what + ": dữ liệu có hiệu lực trong kỳ lương đã chốt " + labels(imp.periods) + ".\nChỉ Admin được sửa dữ liệu hồi tố (Q-14).", { impact: imp });
       return Object.assign(base, { ok: true, patch: fpatch || {}, impact: imp, retro: imp.kind === "retro",
         confirmMsg: imp.kind === "retro" ? what.charAt(0).toUpperCase() + what.slice(1) + "?\n\n" + retroText(imp) + "\n\nVẫn lưu thay đổi?" : "" });
     }
@@ -325,8 +332,25 @@
       (db[t] || []).forEach(function (r) {
         if (!r) return; var k = kyOfRow(t, r);
         if (t === "kyluong" || t === "kyluong_lichsu") { if (nk(r.ky) !== ky && r.kq && (r.kq.bangluong || []).some(function (x) { return x["Mã NV"] === ma; })) set[r.ky] = 1; }
-        else if (r["Mã NV"] === ma && k && k !== ky) set[k] = 1;
+        else if ((r["Mã NV"] === ma || r.ma === ma) && k && k !== ky) set[k] = 1;
       });
+    });
+    return Object.keys(set).sort();
+  }
+  var EXTRA_EMP_TABLES = ["benefitAssignments", "benefitIssues", "benefitAdjustments"];
+  function rowUsesEmployee(r, ma) {
+    if (!r) return false;
+    if (r["Mã NV"] === ma || r.employee === ma || r.ma === ma) return true;
+    return Array.isArray(r.lines) && r.lines.some(function (l) { return l && (l.employee === ma || l["Mã NV"] === ma || l.ma === ma); });
+  }
+  /** Bảng ngoài nhóm kỳ / nhóm toàn bộ đang tham chiếu Mã NV `ma` (tránh xóa làm mồ côi nghiphep, khenthuong, benefitIssues…). */
+  function extraRefsUsingMa(db, ma) {
+    var set = {}, refs = (GRD && typeof GRD.references === "function") ? GRD.references(db, ma) : {};
+    Object.keys(refs).forEach(function (t) {
+      if (!isGlobalTable(t) && PERIOD_TABLES.indexOf(t) < 0) set[t] = 1;
+    });
+    EXTRA_EMP_TABLES.forEach(function (t) {
+      if ((db[t] || []).some(function (r) { return rowUsesEmployee(r, ma); })) set[t] = 1;
     });
     return Object.keys(set).sort();
   }
@@ -338,13 +362,19 @@
     return { kys: Object.keys(set).sort(), hd: hd };
   }
   function deleteBlock(db, ky, t, row, lookup) { // → "" nếu xóa được, ngược lại lý do tiếng Việt
-    if (row && "Mã NV" in row) { var kys = kyUsingMa(db, ky, row["Mã NV"]); if (kys.length) return "không xóa vì kỳ " + kys.join(", ") + " đang dùng Mã NV " + row["Mã NV"]; return ""; }
+    if (row && "Mã NV" in row) {
+      var ma = row["Mã NV"], kys = kyUsingMa(db, ky, ma), refs = extraRefsUsingMa(db, ma), parts = [];
+      if (kys.length) parts.push("kỳ " + kys.join(", "));
+      if (refs.length) parts.push("bảng " + refs.join(", "));
+      if (parts.length) return "không xóa vì " + parts.join(" và ") + " đang dùng Mã NV " + ma;
+      return "";
+    }
     if (/^dm_/.test(t)) { var code = String(row[Object.keys(row)[0]] == null ? "" : row[Object.keys(row)[0]]); if (!code) return ""; var u = usesOfCode(lookup, ky, code); var why = []; if (u.hd) why.push("chitiethd (" + u.hd + " dòng)"); if (u.kys.length) why.push("kỳ " + u.kys.join(", ")); if (why.length) return "không xóa vì " + why.join(" và ") + " đang dùng mã " + code; }
     return "";
   }
   function planPeriodRestore(db, payload, ky, opt) {
     opt = opt || {}; db = db || {};
-    var out = { ok: true, ky: ky, errors: [], blocked: "", period: {}, global: {}, slOther: [], otherOpenPeriods: [], warning: "", deletes: { allowed: !!opt.allowDelete, rows: [], blocked: [] }, counts: { period: 0, add: 0, change: 0, remove: 0 } };
+    var out = { ok: true, ky: ky, errors: [], blocked: "", period: {}, global: {}, slOther: [], otherOpenPeriods: [], warning: "", warnings: [], deletes: { allowed: !!opt.allowDelete, rows: [], blocked: [] }, counts: { period: 0, add: 0, change: 0, remove: 0 } };
     var fail = function (m) { out.ok = false; out.errors.push(m); };
     if (!KY_RE.test(String(ky || ""))) { fail("Kỳ '" + ky + "' sai định dạng (cần YYYY-MM)."); return out; }
     if (!payload || typeof payload !== "object" || !payload.period || typeof payload.period !== "object" || !payload.global || typeof payload.global !== "object") { fail("Gói thiếu cấu trúc (period/global) — không dùng được."); return out; }
@@ -359,7 +389,21 @@
     // gói chứa BẢN CHỐT của kỳ (lấy lúc kỳ đã chốt) mà máy đang MỞ kỳ → khôi phục sẽ chốt lại: phải cảnh báo + xác nhận riêng (CEO #123)
     out.reclose = ((payload.period.kyluong || []).some(function (r) { return inKy("kyluong", r, ky); }));
     // nhóm A
-    PERIOD_TABLES.forEach(function (t) { var cur = (db[t] || []).filter(function (r) { return inKy(t, r, ky); }), pk = payload.period[t] || []; if (!cur.length && !pk.length) return; out.period[t] = { before: cur.length, after: pk.length }; out.counts.period += pk.length; });
+    var missingPeriodTables = [];
+    PERIOD_TABLES.forEach(function (t) {
+      var hasInPkg = Object.prototype.hasOwnProperty.call(payload.period, t);
+      var cur = (db[t] || []).filter(function (r) { return inKy(t, r, ky); }), pk = payload.period[t] || [];
+      if (!hasInPkg) {
+        if (cur.length) out.warnings.push("Cảnh báo: Gói thiếu bảng nhóm kỳ '" + t + "' — khôi phục sẽ xóa " + cur.length + " dòng kỳ " + ky + " hiện có ở máy (trước " + cur.length + " -> sau 0).");
+        else missingPeriodTables.push(t);
+      }
+      if (!cur.length && !pk.length) return;
+      out.period[t] = { before: cur.length, after: pk.length };
+      out.counts.period += pk.length;
+    });
+    if (missingPeriodTables.length) {
+      out.warnings.push("Cảnh báo: Gói thiếu bảng nhóm kỳ (" + missingPeriodTables.join(", ") + ") — ở máy hiện có 0 dòng kỳ " + ky + ".");
+    }
     // sl_chuyenky: dòng source === ky (target khác) giữ nguyên; liệt kê khác biệt với gói
     var ref = (payload.refOnly && payload.refOnly.sl_chuyenky) || [], mine = (db.sl_chuyenky || []).filter(function (r) { return srcOut(r, ky); }), idOf = function (r) { return r.id != null ? String(r.id) : canon(r); }, refMap = {}, mineMap = {};
     ref.forEach(function (r) { refMap[idOf(r)] = r; }); mine.forEach(function (r) { mineMap[idOf(r)] = r; });
@@ -404,7 +448,56 @@
   }
   var period = { PERIOD_TABLES: PERIOD_TABLES, HR_TABLES: HR_TABLES, isGlobalTable: isGlobalTable, kyOfRow: kyOfRow, inKy: inKy, closedKy: closedKy, slice: periodSlice, plan: planPeriodRestore, apply: applyPeriodRestore, canon: canon };
 
-  var api = { createRepo: createRepo, permFor: permFor, retroText: retroText, identOf: identOf, HD_CHILD_DEFAULT: HD_CHILD_DEFAULT, period: period };
+  /**
+   * Cập nhật mọi tham chiếu Mã NV (cả r["Mã NV"] và các bảng đặc thù dùng employee / taxOverrides)
+   * khi đổi Mã NV. Bỏ qua nhanvien, auditlog, kyluong, kyluong_lichsu.
+   * Trả về object { [table]: count } cho các bảng có bản ghi thay đổi.
+   */
+  function renameEmployeeRefs(db, oldCode, newCode) {
+    var counts = {};
+    if (!db || typeof db !== "object" || !oldCode || !newCode || oldCode === newCode) return counts;
+    var bump = function (t) { counts[t] = (counts[t] || 0) + 1; };
+    var skip = { nhanvien: 1, auditlog: 1, kyluong: 1, kyluong_lichsu: 1 };
+    Object.keys(db).forEach(function (k) {
+      if (skip[k] || !Array.isArray(db[k])) return;
+      db[k].forEach(function (r) {
+        if (!r || typeof r !== "object") return;
+        if (r["Mã NV"] === oldCode) { r["Mã NV"] = newCode; bump(k); }
+      });
+    });
+    (db.productionAttendance || []).forEach(function (r) {
+      if (r && r.employee === oldCode) { r.employee = newCode; bump("productionAttendance"); }
+    });
+    (db.benefitAssignments || []).forEach(function (r) {
+      if (r && r.employee === oldCode) { r.employee = newCode; bump("benefitAssignments"); }
+    });
+    (db.benefitIssues || []).forEach(function (doc) {
+      if (!doc || !Array.isArray(doc.lines)) return;
+      doc.lines.forEach(function (line) {
+        if (line && line.employee === oldCode) { line.employee = newCode; bump("benefitIssues"); }
+      });
+    });
+    (db.benefitAdjustments || []).forEach(function (adj) {
+      if (!adj) return;
+      if (Array.isArray(adj.lines)) adj.lines.forEach(function (line) {
+        if (line && line.employee === oldCode) { line.employee = newCode; bump("benefitAdjustments"); }
+      });
+      if (Array.isArray(adj.to)) adj.to.forEach(function (line) {
+        if (line && line.employee === oldCode) { line.employee = newCode; bump("benefitAdjustments"); }
+      });
+    });
+    (db.sl_chuyenky || []).forEach(function (r) {
+      if (!r || !r.taxOverrides || typeof r.taxOverrides !== "object") return;
+      if (Object.prototype.hasOwnProperty.call(r.taxOverrides, oldCode)) {
+        if (!Object.prototype.hasOwnProperty.call(r.taxOverrides, newCode)) r.taxOverrides[newCode] = r.taxOverrides[oldCode];
+        delete r.taxOverrides[oldCode];
+        bump("sl_chuyenky");
+      }
+    });
+    return counts;
+  }
+
+  var api = { createRepo: createRepo, permFor: permFor, retroText: retroText, identOf: identOf, HD_CHILD_DEFAULT: HD_CHILD_DEFAULT, period: period, renameEmployeeRefs: renameEmployeeRefs };
   if (isNode) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.repo = api; }
 })(typeof window !== "undefined" ? window : this);
