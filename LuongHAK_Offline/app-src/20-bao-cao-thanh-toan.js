@@ -92,7 +92,7 @@
             return;
           }
           var cols = ["Số chứng từ", "Kỳ", "Mã NV", "Họ và tên", "Số tài khoản", "Ngân hàng", "Số tiền"];
-          saveXlsx("ChuyenKhoan_" + so + ".xlsx", [{ name: "ChuyenKhoan", cols: cols, rows: L }]);
+          saveXlsx("ChuyenKhoan_" + so + ".xlsx", [{ name: "ChuyenKhoan", cols: cols, rows: L }], "pro");
         }));
       }
       return actions;
