@@ -71,7 +71,8 @@
     moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
     trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
-    ruler: '<path d="M3 16 16 3l5 5-13 13z"/><path d="M8 11l1.5 1.5M11 8l1.5 1.5M14 5l1.5 1.5"/>'
+    ruler: '<path d="M3 16 16 3l5 5-13 13z"/><path d="M8 11l1.5 1.5M11 8l1.5 1.5M14 5l1.5 1.5"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
   };
   // Emoji/ký hiệu đứng đầu nhãn → icon
   var MAP = {
@@ -81,7 +82,7 @@
     "⚠": "warn", "✔": "check", "✓": "check", "🖨": "printer", "📂": "folder", "📁": "folder", "🗂": "folder", "🛡": "shield", "🚑": "medical", "🗑": "trash", "🏢": "building",
     "📋": "clipboard", "🧮": "money", "📒": "book", "↔": "swap", "🧾": "receipt", "🌴": "leaf", "🏖": "sun", "🤒": "thermo", "🎂": "cake",
     "🩺": "steth", "❤": "heart", "📞": "phone", "🪪": "id", "🎓": "cap", "👪": "family", "🏦": "bank", "💼": "case", "🔀": "shuffle",
-    "🏆": "award", "📝": "clip", "📃": "files", "📎": "clip", "＋": "plus", "✕": "close", "←": "left", "⛔": "stop", "👁": "eye", "🔑": "key", "📖": "book", "🖨️": "printer", "🌙": "moon", "📶": "trend", "📐": "ruler"
+    "🏆": "award", "📝": "clip", "📃": "files", "📎": "clip", "🔗": "link", "＋": "plus", "✕": "close", "←": "left", "⛔": "stop", "👁": "eye", "🔑": "key", "📖": "book", "🖨️": "printer", "🌙": "moon", "📶": "trend", "📐": "ruler"
   };
   var LEAD = /^\s*([←-⯿＋]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDC00-\uDFFF])️?\s*/;
   var NS = "http://www.w3.org/2000/svg";
