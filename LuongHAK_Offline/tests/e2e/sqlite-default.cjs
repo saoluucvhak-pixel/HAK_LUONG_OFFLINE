@@ -260,7 +260,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     await w.evaluate(() => window.hakStore.scheduleSet({ keepDaily: 180 }));
     await w.click('#nav button[data-k="backup"]'); await w.waitForSelector('[data-stg="mirror"]', { timeout: 15000 });
     const txt = await w.locator("#main").innerText();
-    ok("Chữ 'giữ N ngày' theo cài đặt thật (keepDaily = 180), không ghi cứng 60 ngày", /giữ 180 ngày/.test(txt) && !/giữ 60 ngày/.test(txt), (txt.match(/giữ \d+ ngày/g) || []).join(","));
+    ok("Chữ 'giữ N ngày' theo cài đặt thật (keepDaily = 180), không ghi cứng 60 ngày", /giữ 180 (?:ngày|bản đầu ngày)/.test(txt) && !/giữ 60 (?:ngày|bản đầu ngày)/.test(txt), (txt.match(/giữ \d+ (?:ngày|bản đầu ngày)/g) || []).join(","));
     const pickers = await w.locator("#main button").evaluateAll((bs) => bs.filter((b) => /Chọn thư mục sao lưu thứ hai|Đổi thư mục/.test(b.innerText) || (/Chọn \/ Chuyển/.test(b.innerText) && b.closest('[data-stg="mirror"]'))).length);
     ok("Thư mục sao lưu dự phòng (mirrorDir) chỉ chọn được ở MỘT chỗ", pickers === 1, "số nút chọn = " + pickers);
     const one = async (sel) => (await w.locator(sel).count()) === 1;
