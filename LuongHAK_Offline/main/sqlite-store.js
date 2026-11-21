@@ -134,6 +134,8 @@ function snapshot(db, destFile) {
     let chk, n, want;
     try { chk = t.prepare("PRAGMA integrity_check").get().integrity_check; n = t.prepare("SELECT COUNT(*) AS c FROM records").get().c; want = db.prepare("SELECT COUNT(*) AS c FROM records").get().c; } finally { t.close(); }
     if (chk !== "ok" || n !== want) { fs.rmSync(tmp, { force: true }); return { ok: false, error: "Bản chụp SQLite không đạt kiểm tra (" + chk + ", " + n + "/" + want + " dòng)" }; }
+    const fd = fs.openSync(tmp, "r+");
+    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     fs.renameSync(tmp, destFile);
     return { ok: true, records: n };
   } catch (e) { try { fs.rmSync(tmp, { force: true }); } catch (e2) { /* bỏ qua */ } return { ok: false, error: String(e && e.message || e) }; }

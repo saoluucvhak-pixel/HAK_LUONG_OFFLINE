@@ -67,7 +67,7 @@ for (const type of ["NHAN_SU", "SAN_LUONG", "BOM_DAM", "THUONG", "TAM_UNG", "SUA
       }
       // 4) HTML in dựng từ cùng dữ liệu: có từng mã dòng văn bản, và không còn dòng nào ngoài bảng
       const html = RH.sheets({ title: vm.title, ky: vm.kyText || "", loc: vm.loc || [], sheets: [{ name: "S", rows: OPS.toRows(vm) }] }, {});
-      for (const r of vm.rows) for (const c of vm.cols.filter((c) => c.kind === "text")) { const v = r[c.key]; if (v) assert.ok(html.includes(String(v).replace(/&/g, "&amp;")), type + ": '" + v + "' thiếu trong HTML in"); }
+      for (const r of vm.rows) for (const c of vm.cols.filter((c) => c.kind === "text")) { const v = r[c.key]; if (!v) continue; const exp = /^Ngày/.test(c.label) && /^\d{4}-\d\d-\d\d$/.test(String(v)) ? String(v).slice(8, 10) + "/" + String(v).slice(5, 7) + "/" + String(v).slice(0, 4) : String(v); assert.ok(html.includes(exp.replace(/&/g, "&amp;")), type + ": '" + exp + "' thiếu trong HTML in"); }
       // 5) số dòng dữ liệu trong bản xuất (trừ dòng tổng) = số dòng bảng
       const ex = OPS.toRows(vm), TRm = require("../../core/reporting/total-row.js");
       assert.equal(ex.filter((r) => !TRm.is(r)).length, vm.rows.length, type + ": số dòng xuất ≠ số dòng bảng");

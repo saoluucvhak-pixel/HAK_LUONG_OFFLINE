@@ -2,8 +2,11 @@
     var c = h("div", { class: "card" });
     c.appendChild(h("h3", { text: "Dữ liệu hiện có & nhập từ Excel" }));
     if (store) {
-      var inf = store.info(), sch0 = (store.scheduleGet && store.scheduleGet()) || {}, keepDays = sch0.keepDaily || 60;
-      c.appendChild(h("div", { class: "ok", html: "Dữ liệu tự lưu tại: <code>" + esc(inf.dataFile) + "</code><br>Bản sao lưu tự động mỗi ngày (giữ " + keepDays + " ngày theo Lịch ở mục 3): <code>" + esc(inf.backupDir) + "</code>" }));
+      var inf = store.info(), sch0 = (store.scheduleGet && store.scheduleGet()) || {}, keepDaily = sch0.keepDaily || 60;
+      var saveDesc = inf.dbFile
+        ? "Nơi lưu chính (<code>data.sqlite</code>): <code>" + esc(inf.dbFile) + "</code><br>Bản xuất JSON (<code>data.json</code> chỉ là bản xuất): <code>" + esc(inf.dataFile) + "</code>"
+        : "Nơi lưu chính là <code>data.sqlite</code>; bản xuất JSON (<code>data.json</code> chỉ là bản xuất): <code>" + esc(inf.dataFile) + "</code>";
+      c.appendChild(h("div", { class: "ok", html: saveDesc + "<br>Bản sao lưu tự động đầu ngày (giữ " + keepDaily + " bản đầu ngày theo Lịch ở mục 3): <code>" + esc(inf.backupDir) + "</code>" }));
       c.appendChild(h("div", { class: "bar", style: "margin-top:8px" }, [btn("📂 Mở thư mục dữ liệu", "", function () { store.openFolder(); })]));
     }
     var bar = h("div", { class: "bar" });

@@ -97,6 +97,7 @@
     r++;
     var q3 = function (c) { return c.kind === "qty3"; };
     var decCols = vm.cols.map(function (c) { return c.kind === "qty" && vm.rows.some(function (row) { var x = +row[c.key]; return isFinite(x) && Math.abs(x - Math.round(x)) > 1e-9; }); });
+    var hasKy = vm.cols.some(function (c) { return /^Ký nhận$/i.test(c.label); });
     var writeRow = function (row) {
       vm.cols.forEach(function (c, i) {
         var cell = ws.getCell(r, i + 1), v = row[c.key];
@@ -107,6 +108,7 @@
         else { cell.value = v === "" || v == null ? null : +v; cell.numFmt = q3(c) ? "#,##0.000" : decCols[i] ? "#,##0.00" : "#,##0"; if (/^STT$/i.test(c.label)) cell.alignment = { horizontal: "center" }; }
         cell.border = { top: BORDER, left: BORDER, bottom: BORDER, right: BORDER };
       });
+      if (hasKy) ws.getRow(r).height = Math.max(ws.getRow(r).height || 0, 28);
       r++;
     };
     var FILL_G = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF1EC" } }, FILL_S = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F4F4" } };
