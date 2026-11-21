@@ -544,4 +544,4 @@ app.on("before-quit", e => {if(yearBusy)e.preventDefault();});
 app.on("window-all-closed", () => app.quit());
 // Lịch sao lưu (α17): cửa sổ đã đóng (giao diện đã lưu lần cuối ở beforeunload) → sao lưu "khi-dong" nếu dữ liệu đã đổi.
 // will-quit chạy cả khi bấm ✕ lẫn khi app.quit() (tắt máy / cài bản mới).
-app.on("will-quit", () => { if (shadow) shadow.close(); if (storage && storage.close) storage.close(); if (storage) storage.backupOnClose(); if (ocr) ocr.terminate().catch(() => {}); });
+app.on("will-quit", () => { if (shadow) shadow.close(); if (storage && storage.backupOnClose) storage.backupOnClose(); if (storage && storage.close) storage.close(); if (ocr) ocr.terminate().catch(() => {}); });

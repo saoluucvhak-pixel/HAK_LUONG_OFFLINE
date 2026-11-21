@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.60] — 21/11/2026
+- **Bản chụp SQLite khi đóng app (T-07, N-03):** gọi `storage.backupOnClose()` trước `storage.close()` khi thoát app để tạo đủ bản chụp snapshot SQLite. Chi tiết: `docs/releases/v2.0.60.md`.
+
 ## [2.0.59] — 21/11/2026
 - **Full Backup mã hóa lỗi trả FAILED và xóa bản rõ (T-06):** có mật khẩu mà mã hóa lỗi phải trả FAILED và xóa bản rõ, không để lại tệp rõ khi người dùng đã yêu cầu đặt mật khẩu. Chi tiết: `docs/releases/v2.0.59.md`.
 
