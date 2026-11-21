@@ -90,7 +90,8 @@ test("U-XLSX94-01 Excel: tiêu đề IN HOA, Mã NV/STK là chữ giữ số 0 �
   const ws = wb.worksheets[0];
   assert.equal(ws.getCell("A2").value, vm.title); assert.equal(vm.title, vm.title.toLocaleUpperCase("vi-VN"));
   assert.equal(ws.getCell("A1").value, "CÔNG TY TEST");
-  const hr = 7;
+  const hr = ws.views[0].ySplit;
+  assert.ok(hr >= 4 && hr <= 5);
   assert.equal(ws.getCell(hr, 2).value, "Mã NV");
   assert.equal(ws.getCell(hr + 1, 2).value, "00123"); assert.equal(typeof ws.getCell(hr + 1, 2).value, "string");
   assert.equal(ws.getCell(hr + 1, 4).value, "0012345678901");

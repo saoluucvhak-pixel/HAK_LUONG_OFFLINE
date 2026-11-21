@@ -58,7 +58,7 @@
     ws.getCell(r3_, 1).value = nguoiLap || ""; ws.getCell(r3_, 1).font = { name: FONT, italic: true, size: 10 }; ws.getCell(r3_, 1).alignment = { horizontal: "center" };
     return r3_;
   }
-  function pageLand(ws) { ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 }; }
+  function pageLand(ws) { ws.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "4:4" }; }
 
   // ---------- Biểu mẫu nhập (file mẫu) ----------
   /** File mẫu phiếu cân (kind "sanluong") / bơm dăm ("bandam") — cột, ví dụ, định dạng như công cụ. App đọc lại được bằng ⬆ Nhập Excel. */
@@ -91,7 +91,7 @@
   // ---------- File kết quả ----------
   function deptSummary(wb, name, ttl, res, meta, lab) {
     lab = lab || ["Tổng khối lượng (tấn)", "Chưa phân bổ (tấn)"];
-    var cols = 5, ws = wb.addWorksheet(name); ws.pageSetup = { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    var cols = 5, ws = wb.addWorksheet(name); ws.pageSetup = { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "4:4" };
     widths(ws, [14, 28, 12, 20, 16]);
     var h = title(ws, cols, ttl, meta), hr = ws.getRow(h); hr.values = ["Mã phòng ban", "Tên phòng ban", "Số nhân sự", lab[0], lab[1]]; head(hr, cols); ws.views = [{ state: "frozen", ySplit: h }];
     var r = h + 1, g1 = 0, g2 = 0, g3 = 0;
