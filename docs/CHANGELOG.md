@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.95] — 22/11/2026
+- **[A6-13] [A6-13] Tối ưu CSS @media print cho chế độ In gọn phiếu lương đạt >= 2 phiếu/trang A4 (P4.11):** tests/unit/slip-print-compact.test.js (Đỏ → Xanh 2/2, 92/92 report tests pass). Chi tiết: `docs/releases/v2.0.95.md`.
+
 ## [2.0.94] — 21/11/2026
 - **[A6-22 + A6-23 + A6-24] [A6-22] Chuẩn hóa nhãn kỳ đệm số 0, thêm nhóm phòng ban Excel nội bộ và cột Mã NV ở Thuế TNCN (P4.10):** tests/unit/report-period-ip-tncn.test.js (Đỏ → Xanh 3/3, 93/93 report tests pass). Chi tiết: `docs/releases/v2.0.94.md`.
 
