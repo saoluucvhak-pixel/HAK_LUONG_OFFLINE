@@ -327,17 +327,28 @@
             if (!need(editPerm)) return;
             if (!theoKy && GRD.closedPeriods(db).length && !can("retro.edit")) { alert("⛔ Đã có kỳ lương chốt — chỉ Admin được dán hàng loạt vào danh mục (có thể hồi tố)."); return; }
             var lines = txt.replace(/\r/g, "").replace(/\n$/, "").split("\n"), start = def.cols.indexOf(c);
-<<<<<<< HEAD
             var overwriteCount = 0, addCount = 0;
             lines.forEach(function (_, li) { if (idx[n + li] != null) overwriteCount++; else addCount++; });
             if (overwriteCount >= 1) {
               if (!confirm("Sẽ ghi đè " + overwriteCount + " dòng hiện có, thêm " + addCount + " dòng mới. Tiếp tục?")) return;
             }
-            var bad = 0, skip = 0, retro = 0, retroKy = {}, ovApplied = 0, addApplied = 0;
+            var bad = 0, warnCnt = 0, skip = 0, retro = 0, retroKy = {}, ovApplied = 0, addApplied = 0;
             var okTxn = txn([key], function () {
               lines.forEach(function (ln, li) {
                 var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
-                ln.split("\t").forEach(function (v, k) { var col = def.cols[start + k]; if (col && col !== def.kyCol) { var nc = VAL.normCell(col, v); if (nc.error || (key === "chamcong" && /^\d\d$/.test(col) && VAL.dayCell(col, nc.value, cand["Kỳ"]).error)) { bad++; return; } cand[col] = nc.value; } });
+                ln.split("\t").forEach(function (v, k) {
+                  var col = def.cols[start + k];
+                  if (col && col !== def.kyCol) {
+                    var nc = VAL.normCell(col, v);
+                    if (nc.error) { bad++; return; }
+                    if (key === "chamcong" && /^\d\d$/.test(col)) {
+                      var dcp = VAL.dayCell(col, nc.value, cand["Kỳ"], knownPcLabels);
+                      if (dcp.error) { bad++; return; }
+                      if (dcp.warn) warnCnt++;
+                    }
+                    cand[col] = nc.value;
+                  }
+                });
                 var cur0 = tgt == null ? null : db[key][tgt]; if (ID.checkWrite(db, key, cur0, cand)) { skip++; return; } // CCCD đã thuộc người khác: không ghi dòng này
                 var pP = tgt == null ? REPO.plan("insert", key, null, cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] }) : REPO.plan("update", key, db[key][tgt], cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] });
                 var rP = pP.ok ? REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }) : pP;
@@ -349,34 +360,7 @@
               return true;
             });
             if (!okTxn) { alert("Chưa dán được: " + lastTxnError); return; }
-            draw(); toast("Đã dán " + (ovApplied + addApplied) + " dòng (đè " + ovApplied + ", thêm " + addApplied + ")" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") +
-=======
-            var bad = 0, warnCnt = 0, skip = 0, retro = 0, retroKy = {};
-            lines.forEach(function (ln, li) {
-              var tgt = idx[n + li], cand = tgt == null ? newRow() : Object.assign({}, db[key][tgt]);
-              ln.split("\t").forEach(function (v, k) {
-                var col = def.cols[start + k];
-                if (col && col !== def.kyCol) {
-                  var nc = VAL.normCell(col, v);
-                  if (nc.error) { bad++; return; }
-                  if (key === "chamcong" && /^\d\d$/.test(col)) {
-                    var dcp = VAL.dayCell(col, nc.value, cand["Kỳ"], knownPcLabels);
-                    if (dcp.error) { bad++; return; }
-                    if (dcp.warn) warnCnt++;
-                  }
-                  cand[col] = nc.value;
-                }
-              });
-              var cur0 = tgt == null ? null : db[key][tgt]; if (ID.checkWrite(db, key, cur0, cand)) { skip++; return; } // CCCD đã thuộc người khác: không ghi dòng này
-              var pP = tgt == null ? REPO.plan("insert", key, null, cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] }) : REPO.plan("update", key, db[key][tgt], cand, { what: "dán dữ liệu", checkDup: CT_KEY[key] });
-              var rP = pP.ok ? REPO.apply(pP, { audit: theoKy ? false : "retro", action: "Dán dữ liệu" }) : pP;
-              if (!rP.ok) { skip++; return; }
-              // Danh mục chồng lên kỳ đã chốt: repository đã ghi nhật ký [HỒI TỐ] từng dòng — đếm lại để cảnh báo (không chặn)
-              if (rP.retro) { retro++; rP.impact.periods.forEach(function (p) { retroKy[p] = 1; }); }
-              if (tgt == null) idx.push(db[key].length - 1);
-            });
-            save(); draw(); toast("Đã dán " + (lines.length - skip) + " dòng" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") + (warnCnt ? " · ⚠ " + warnCnt + " ô có nhãn lạ / vượt công — kiểm tra lại" : "") +
->>>>>>> origin/main
+            draw(); toast("Đã dán " + (ovApplied + addApplied) + " dòng (đè " + ovApplied + ", thêm " + addApplied + ")" + (skip ? " · bỏ qua " + skip + " dòng (thuộc kỳ đã chốt / không đủ quyền / không hợp lệ)" : "") + (bad ? " · " + bad + " ô sai định dạng / ngày không hợp lệ — KHÔNG dán, kiểm tra lại" : "") + (warnCnt ? " · ⚠ " + warnCnt + " ô có nhãn lạ / vượt công — kiểm tra lại" : "") +
               (retro ? " · ⚠ " + retro + " dòng hồi tố kỳ đã chốt " + Object.keys(retroKy).sort().map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi" : ""));
           });
           if (isDay && key === "chamcong") {
