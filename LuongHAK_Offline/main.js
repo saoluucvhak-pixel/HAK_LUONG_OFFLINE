@@ -370,7 +370,7 @@ function registerIpc() {
         }
       }
       let mirrored = "";
-      try { const md = storage.readSettings().mirrorDir; if (md) { const t = path.join(md, "FullBackup"), fsp = require("fs").promises; await fsp.mkdir(t, { recursive: true }); await fsp.copyFile(r.file, path.join(t, r.name)); await fsp.copyFile(r.file + ".sha256", path.join(t, r.name + ".sha256")); mirrored = t; } } catch (err) { r.warnings.push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
+      try { const md = storage.readSettings().mirrorDir; if (md) mirrored = fullBackup.mirrorFullBackup(r.file, md, { expectedSha256: r.sha256 }); } catch (err) { (r.warnings = r.warnings || []).push("Không chép được sang thư mục sao lưu thứ hai: " + (err.message || err)); }
       return { ok: r.ok, status: r.status, partial: !!r.partial, missing: r.missing, name: r.name, dir: path.dirname(r.file), size: r.size, sha256: r.sha256, docs: r.docs, ocrSamples: r.ocrSamples, warnings: r.warnings, mirrored, encrypted: !!r.encrypted };
     } catch (err) { fbJob = null; dropSnap(); return { ok: false, error: String(err && err.message || err) }; }
   }));
