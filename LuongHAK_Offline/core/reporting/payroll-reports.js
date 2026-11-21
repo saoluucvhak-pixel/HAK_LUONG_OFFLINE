@@ -78,13 +78,13 @@
       if (f.rows.some(function (r) { return !s(r["Phòng ban"]); })) canhbao.push("Có người chưa gán phòng ban — gộp vào '(Chưa có phòng ban)'.");
     } else if (type === "THUE_TNCN") {
       // V10.3: báo cáo khấu trừ thuế TNCN — số lấy từ bảng lương engine đã tính (không tính lại); MST lấy hồ sơ nhân viên (opt.nhanVien)
-      cols = [["STT", "qty"], ["Mã số thuế", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Chức vụ", "text"], ["Mã TNCN", "text"], ["Phương pháp thuế", "text"], ["Tổng thu nhập", "money"], ["Tiền cơm", "money", "Phụ cấp ăn ca (tiền cơm)"],
+      cols = [["STT", "qty"], ["Mã NV", "text"], ["Mã số thuế", "text"], ["Họ và tên", "text"], ["Phòng ban", "text"], ["Chức vụ", "text"], ["Mã TNCN", "text"], ["Phương pháp thuế", "text"], ["Tổng thu nhập", "money"], ["Tiền cơm", "money", "Phụ cấp ăn ca (tiền cơm)"],
         ["BH trừ NLĐ", "money", "Khấu trừ bảo hiểm"], ["KPCĐ trừ NLĐ", "money", "Khấu trừ KPCĐ"], ["Thu nhập chịu thuế", "money"], ["Giảm trừ bản thân", "money"], ["Số người phụ thuộc", "qty"], ["Giảm trừ phụ thuộc", "money", "Khấu trừ người phụ thuộc"], ["Thu nhập tính thuế", "money"], ["Thuế TNCN", "money", "Thuế TNCN khấu trừ"]];
       var nvBy = opt.nhanVien || {}, thieuMst = [];
       rows = f.rows.map(function (r, i) {
         var ct = r["_ct"] || {}, mst = s((nvBy[r["Mã NV"]] || {})["Mã số thuế"]), thue = n(r["Thuế TNCN"]);
         if (!mst && thue > 0) thieuMst.push(s(r["Mã NV"]) + " — " + s(r["Họ và tên"]));
-        return { "STT": i + 1, "Mã số thuế": mst, "Họ và tên": s(r["Họ và tên"]), "Phòng ban": s(r["Phòng ban"]), "Chức vụ": s(r["Chức vụ"]), "Mã TNCN": s(ct.maThueTNCN), "Phương pháp thuế": s(ct.phuongPhapThue), "Tổng thu nhập": n(r["Tổng thu nhập"]),
+        return { "STT": i + 1, "Mã NV": s(r["Mã NV"]), "Mã số thuế": mst, "Họ và tên": s(r["Họ và tên"]), "Phòng ban": s(r["Phòng ban"]), "Chức vụ": s(r["Chức vụ"]), "Mã TNCN": s(ct.maThueTNCN), "Phương pháp thuế": s(ct.phuongPhapThue), "Tổng thu nhập": n(r["Tổng thu nhập"]),
           "Tiền cơm": n(r["Tiền cơm"]), "BH trừ NLĐ": n(r["BH trừ NLĐ"]), "KPCĐ trừ NLĐ": n(r["KPCĐ trừ NLĐ"]), "Thu nhập chịu thuế": ct.thuNhapChiuThue, "Giảm trừ bản thân": ct.giamTruBanThan, "Số người phụ thuộc": ct.soNPT, "Giảm trừ phụ thuộc": n(ct.giamTruPhuThuoc), "Thu nhập tính thuế": ct.thuNhapTinhThue, "Thuế TNCN": thue };
       });
       if (thieuMst.length) canhbao.push(thieuMst.length + " người có khấu trừ thuế nhưng chưa có mã số thuế: " + thieuMst.slice(0, 5).join("; ") + (thieuMst.length > 5 ? "…" : ""));

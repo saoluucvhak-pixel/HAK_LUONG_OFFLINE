@@ -34,7 +34,7 @@
     if (!payExportOk(vm, type)) return;
     var tam = payTamSuffix(vm);
     if (vm.nhom) { exportPdf(Object.assign({}, vm, { groups: vm.nhom }), vm.file + "_" + vm.kyKey + tam + "_theoPhongBan.pdf", { chuKy: ["Người lập", "Kế toán trưởng", "Giám đốc"] }); return; }
-    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, sheets: [{ name: vm.title, cols: vm.cols.map(function (c) { return c.label; }), rows: PRP.toRows(vm), groups: vm.groups || null }] }, vm.file + "_" + vm.kyKey + tam + ".pdf",
+    exportSheetsPdf({ title: vm.title, ky: vm.kyText, trangThai: vm.trangThai, loc: vm.loc, ghiChu: vm.canhbao && vm.canhbao.length ? vm.canhbao : undefined, sheets: [{ name: vm.title, cols: vm.cols.map(function (c) { return c.label; }), rows: PRP.toRows(vm), groups: vm.groups || null }] }, vm.file + "_" + vm.kyKey + tam + ".pdf",
       { chuKy: type === "TIEN_MAT" || type === "THANH_TOAN" ? ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] : ["Người lập", "Kế toán trưởng", "Giám đốc"] });
   }
   function payLap(ht, src) {

@@ -69,7 +69,7 @@
     var rows = []; vm.groups.forEach(function (g) { g.rows.forEach(function (r) { rows.push(r); }); });
     rows = rows.map(function (r, i) { var o = Object.assign({}, r); o.__i = i + 1; return o; });
     return Object.assign({ title: vm.title, congTy: vm.congTy, kyText: ("THÁNG " + vm.ky).toLocaleUpperCase("vi-VN"), trangThai: vm.trangThai, phamVi: vm.loc && vm.loc.length ? vm.loc.join("; ") : "Toàn bộ",
-      donVi: "Đồng (VND)", cols: vm.cols, rows: rows, tong: vm.tong }, extra || {});
+      donVi: "Đồng (VND)", cols: vm.cols, rows: rows, nhom: vm.groups, tong: vm.tong }, extra || {});
   }
   var api = { build: build, toRows: toRows, toXlsxVm: toXlsxVm, MONEY: MONEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
