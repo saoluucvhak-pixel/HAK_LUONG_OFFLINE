@@ -3,8 +3,20 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.62] — 21/11/2026
+- **An toàn nhập liệu sản lượng hỗn hợp (T-04):** chuẩn hóa kiểm tra hợp lệ dòng sản lượng phân bổ theo tổ và trực tiếp nhân viên, hiển thị thông báo chi tiết rõ ràng. Chi tiết: `docs/releases/v2.0.62.md`.
+
+## [2.0.61] — 21/11/2026
+- **Chống trùng dòng chấm công và chặn chốt kỳ khi cộng dồn (T-03):** `repository.plan` từ chối thêm dòng chấm công trùng khóa (Kỳ + Mã NV + Hình thức công); mở rộng regex chặn chốt kỳ `/CỘNG (2 LẦN|NHIỀU LẦN|DỒN)/` để chặn dữ liệu cũ trùng khác số công. Chi tiết: `docs/releases/v2.0.61.md`.
+
+## [2.0.60] — 21/11/2026
+- **Bản chụp SQLite khi đóng app (T-07, N-03):** gọi `storage.backupOnClose()` trước `storage.close()` khi thoát app để tạo đủ bản chụp snapshot SQLite. Chi tiết: `docs/releases/v2.0.60.md`.
+
+## [2.0.59] — 21/11/2026
+- **Full Backup mã hóa lỗi trả FAILED và xóa bản rõ (T-06):** có mật khẩu mà mã hóa lỗi phải trả FAILED và xóa bản rõ, không để lại tệp rõ khi người dùng đã yêu cầu đặt mật khẩu. Chi tiết: `docs/releases/v2.0.59.md`.
+
 ## [2.0.58] — 20/11/2026
-- **Cảnh báo nhãn lạ ở ô ngày chấm công (P2.1, T-09):** `VAL.dayCell` trả cờ `warn` khi nhãn chưa có trong danh mục phụ cấp; bảng nhập liệu giữ nháp, tô viền cảnh báo và toast nhắc kiểm tra lại (kể cả khi dán). Chi tiết: `docs/releases/v2.0.58.md`.
+- **Mốc "sao lưu ra ngoài máy" (T-11):** gửi JSON vào thư mục mặc định (cùng máy) không còn được tính là ngoài máy. Chi tiết: `docs/releases/v2.0.58.md`. Chi tiết: `docs/releases/v2.0.58.md`.
 
 ## [2.0.57] — 20/11/2026
 - **Sửa biểu ngữ kiểm tra sao lưu (T-01, rà soát 5 agent):** có bản sao lưu hỏng thì cảnh báo, không còn báo xanh. Chi tiết: `docs/releases/v2.0.57.md`. Chi tiết: `docs/releases/v2.0.57.md`.
