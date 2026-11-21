@@ -313,6 +313,12 @@
             if (!pE.ok) { alert(pE.msg); inp.value = r[c] == null ? "" : r[c]; return; }
             var dc = isDay && key === "chamcong" ? VAL.dayCell(c, n.value, r["Kỳ"], knownPcLabels) : null;
             if (dc && dc.warn) toast("⚠ " + dc.warn);
+            if ((key === "sanluong" || key === "bandam") && c === "KL hàng (Tấn)") {
+              var qs0 = String(n.value == null ? "" : n.value).trim(), qn0 = Number(qs0.replace(",", "."));
+              if (!/^\d+(?:[.,]\d+)?$/.test(qs0) || !(qn0 > 0) || !isFinite(qn0)) {
+                toast("⚠ " + (key === "bandam" ? "Số xe" : "Khối lượng") + " phải là số lớn hơn 0 — kiểm tra lại các ô đỏ trước khi Lưu.");
+              }
+            }
             if (pE.retro) toast("⚠ Hồi tố: dòng này có hiệu lực trong kỳ đã chốt " + pE.impact.periods.map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi");
             if (!commit(pE, { audit: theoKy ? false : "retro", action: "Sửa danh mục" })) { inp.value = r[c] == null ? "" : r[c]; return; }
             if (inp.value !== n.value && !isDay) inp.value = n.value;
@@ -371,6 +377,15 @@
               else { inp.style.outline = ""; if (!lkc) inp.title = ""; }
             };
             paint(); inp.addEventListener("input", paint); inp.addEventListener("change", function () { setTimeout(paint, 0); });
+          }
+          if ((key === "sanluong" || key === "bandam") && c === "KL hàng (Tấn)") {
+            var paintKl = function () {
+              var qs1 = String(inp.value == null ? "" : inp.value).trim(), qn1 = Number(qs1.replace(",", "."));
+              var badKl = !/^\d+(?:[.,]\d+)?$/.test(qs1) || !(qn1 > 0) || !isFinite(qn1);
+              inp.style.outline = badKl ? "2px solid #dc2626" : "";
+              if (badKl) inp.title = "Nhập số lớn hơn 0";
+            };
+            paintKl(); inp.addEventListener("input", paintKl); inp.addEventListener("change", function () { setTimeout(paintKl, 0); });
           }
           if (rowLocked || (isCat && !editing)) inp.disabled = true; if (isCat && editing) inp.classList.add("editing");
           // Ngày không có trong tháng (VD 31/09): không cho nhập; nếu dữ liệu cũ có giá trị thì vẫn cho sửa để xóa
