@@ -196,7 +196,7 @@ function createSqliteStorage(dir, opts) {
   let snapshotError = "", snapshotLast = null;
   // Bản chụp SQLite (CEO rà quy trình sao lưu 19/11/2026 — nơi lưu CHÍNH là SQLite):
   //  · MỌI lần sao lưu (tay, định kỳ, khi đóng app, đầu ngày, đầu năm, trước thao tác lớn, sau chốt kỳ) đều tạo bản chụp .sqlite đã kiểm (VACUUM INTO + integrity_check + đối chiếu số dòng);
-  //  · data-snapshot.sqlite = bản MỚI NHẤT (giữ nguyên tên để khôi phục khi data.sqlite hỏng như trước); thêm LỊCH SỬ snap_<thời điểm>_<nhãn>.sqlite: giữ SNAP_KEEP bản thường, bản sau chốt kỳ / theo năm giữ vĩnh viễn;
+  //  · data-snapshot.sqlite = bản MỚI NHẤT (giữ nguyên tên để khôi phục khi data.sqlite hỏng như trước); thêm LỊCH SỬ snap_<thời điểm>_<nhãn>.sqlite: giữ SNAP_KEEP bản cho mỗi nhãn, bản sau chốt kỳ / theo năm giữ vĩnh viễn;
   //  · chép bản chụp sang thư mục dự phòng (nếu đã chọn), đọc lại so SHA-256;
   //  · lỗi KHÔNG chặn sao lưu JSON nhưng được ghi lại và đưa lên giao diện (snapshotStatus().lastError).
   const SNAP_KEEP = 10, SNAP_RE = /^snap_\d{8}-\d{6}-\d{3}_([a-z0-9-]+)\.sqlite$/i, MIRROR_SUB = "TinhLuongHAK-SaoLuu";
@@ -204,7 +204,26 @@ function createSqliteStorage(dir, opts) {
   const snapStamp = (d) => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + "-" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + "-" + String(d.getMilliseconds()).padStart(3, "0");
   const shaOf = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
   const listSnaps = (d) => { try { return fs.readdirSync(d).filter((x) => SNAP_RE.test(x)).sort().reverse(); } catch (e) { return []; } };
-  function pruneSnaps(d) { listSnaps(d).filter((x) => !snapPerm(x.match(SNAP_RE)[1])).slice(SNAP_KEEP).forEach((x) => { try { fs.rmSync(path.join(d, x), { force: true }); } catch (e) { /* để lần sau */ } }); }
+  function pruneSnaps(d) {
+    const all = listSnaps(d);
+    if (!all.length) return;
+    const newest = all[0]; // bản mới nhất toàn thư mục: không bao giờ xóa
+    const byTag = new Map();
+    for (const x of all) {
+      const m = x.match(SNAP_RE);
+      const tag = m ? m[1] : "";
+      if (snapPerm(tag)) continue;
+      const arr = byTag.get(tag) || [];
+      arr.push(x);
+      byTag.set(tag, arr);
+    }
+    for (const arr of byTag.values()) {
+      for (const x of arr.slice(SNAP_KEEP)) {
+        if (x === newest) continue;
+        try { fs.rmSync(path.join(d, x), { force: true }); } catch (e) { /* để lần sau */ }
+      }
+    }
+  }
   function copyVerified(src, dest) { const tmp = dest + ".tmp"; fs.copyFileSync(src, tmp); const fd = fs.openSync(tmp, "r+"); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } if (shaOf(tmp) !== shaOf(src)) { fs.rmSync(tmp, { force: true }); throw new Error("bản chép không khớp SHA-256"); } fs.renameSync(tmp, dest); }
   function snapshotNow(tag) {
     snapshotError = ""; if (!db) return null;

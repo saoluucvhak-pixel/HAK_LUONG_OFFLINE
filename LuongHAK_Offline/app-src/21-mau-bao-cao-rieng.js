@@ -77,13 +77,19 @@
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { mn.appendChild(h("option", { value: o[1], text: o[0] })); });
     mn.addEventListener("change", function () {
       var m = excelSheets(r, r.ky || kyStr())[mn.value];
-      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + ".xlsx", [m]); mn.selectedIndex = 0;
+      var tam = kqKy(st.nam, st.thang).chot ? "" : "_TAM";
+      if (m) saveXlsx(m.name + "_" + (r.ky || kyStr()) + tam + ".xlsx", [m], "pro"); mn.selectedIndex = 0;
     });
     bar.appendChild(mn);
     bar.appendChild(btn("⬇ Xuất PDF…", "", function () {
       var pick = excelSheets(r, r.ky || kyStr()), ds = [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]];
       var which = st.pdfPick || "bl"; var o = ds.filter(function (x) { return x[1] === which; })[0] || ds[0], m = pick[o[1]];
-      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + (r.ky || kyStr()), trangThai: (kqKy(st.nam, st.thang).chot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [{ name: o[0], cols: o[1] === "bl" ? (st.compact ? COLS_COMPACT : COLS_FULL) : m.cols, rows: m ? m.rows : [] }] }, m.name + "_" + (r.ky || kyStr()) + ".pdf");
+      var isChot = kqKy(st.nam, st.thang).chot;
+      var pdfCols = o[1] === "bl" ? (st.compact ? COLS_COMPACT : ["Mã NV", "Họ và tên"].concat(COLS_FULL.filter(function (c) { return c !== "Mã NV" && c !== "Họ và tên"; }))) : m.cols;
+      var pdfRows = o[1] === "bl" && m && m.rows && m.rows.length ? addTotal(m.rows) : (m ? m.rows : []);
+      var shObj = { name: o[0], cols: pdfCols, rows: pdfRows };
+      if (o[1] === "bl" && !st.compact) shObj.repeatColumns = 2;
+      exportSheetsPdf({ title: o[0] + " lương", ky: "Kỳ " + (r.ky || kyStr()), trangThai: (isChot ? "Đã chốt" : "Chưa chốt — tính tạm"), loc: RF.describe(st.rf), sheets: [shObj] }, m.name + "_" + (r.ky || kyStr()) + (isChot ? "" : "_TAM") + ".pdf");
     }, "PDF của bảng lương đang xem (theo bộ lọc)"));
     var pm = h("select", { "aria-label": "Loại PDF", style: "min-width:140px" });
     [["Bảng lương", "bl"], ["BHXH", "bh"], ["Thuế TNCN", "tn"], ["Danh sách chuyển khoản", "ck"]].forEach(function (o) { pm.appendChild(h("option", { value: o[1], text: o[0] })); });
