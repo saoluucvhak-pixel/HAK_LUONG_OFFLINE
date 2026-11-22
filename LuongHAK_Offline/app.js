@@ -2306,8 +2306,12 @@
     var cols = columns || Object.keys(rows[0]), t = h("table"), tr = h("tr");
     cols.forEach(function (c) { tr.appendChild(h("th", { text: c })); }); t.appendChild(h("thead", {}, [tr]));
     var tb = h("tbody");
-    rows.forEach(function (r) { var x = h("tr"); cols.forEach(function (c) { var v = r[c]; var cell = h("td", { class: typeof v === "number" ? "r" : "t", text: v instanceof HTMLElement ? "" : (typeof v === "number" ? qtyText(v) : (v == null ? "" : v)), style: v === "ĐÃ QUÁ HẠN" ? "color:#c0362c;font-weight:700" : "" }); if (v instanceof HTMLElement) cell.appendChild(v); x.appendChild(cell); }); tb.appendChild(x); });
-    t.appendChild(tb); return h("div", { class: "tw" }, [t]);
+    var simpleRow = function (r) { var x = h("tr"); cols.forEach(function (c) { var v = r[c]; var cell = h("td", { class: typeof v === "number" ? "r" : "t", text: v instanceof HTMLElement ? "" : (typeof v === "number" ? qtyText(v) : (v == null ? "" : v)), style: v === "ĐÃ QUÁ HẠN" ? "color:#c0362c;font-weight:700" : "" }); if (v instanceof HTMLElement) cell.appendChild(v); x.appendChild(cell); }); return x; };
+    t.appendChild(tb); // v2.1.2: bảng nhiều dòng chỉ dựng phần đang nhìn thấy (ui/virtual-table.js); ≤ 150 dòng và khi In vẫn dựng đủ như cũ
+    var twS = h("div", { class: "tw" }, [t]), VTs = window.HAKUI && window.HAKUI.virtualTable;
+    if (VTs) VTs.attach({ scroller: twS, tbody: tb, rows: rows, renderRow: simpleRow, cols: cols.length });
+    else rows.forEach(function (r) { tb.appendChild(simpleRow(r)); });
+    return twS;
   }
   /** Sổ lao động (α18): ai còn thiếu thông tin bắt buộc + nút mở đúng tab hồ sơ để bổ sung */
   var TAB_TEN = { canhan: "Thông tin cá nhân", hocvan: "Trình độ học vấn", hopdong: "Hợp đồng lao động", chitiethd: "Lương & phụ lục HĐ" };
@@ -4050,7 +4054,7 @@
   function tabBaoCaoLuong() {
     var w = h("div"), bar = h("div", { class: "bar" });
     if (!BCL.some(function (b) { return b[0] === st.bcl; })) st.bcl = "cong";
-    BCL.forEach(function (b) { bar.appendChild(btn(b[1], st.bcl === b[0] ? "pri" : "", function () { st.bcl = b[0]; render(); })); });
+    BCL.forEach(function (b) { bar.appendChild(btn(b[1], st.bcl === b[0] ? "pri" : "", function () { st.bcl = b[0]; navSwitch = true; /* đổi báo cáo con = chỉ đổi cách xem: cho phép dùng khung đã nhớ (dấu vân tay có st.bcl) */ render(); })); });
     [["rp_pb", "Tổng hợp theo phòng ban"], ["rp_soct", "Sổ chứng từ thanh toán"]].forEach(function (link) {
       if (tabAllowed(link[0])) bar.appendChild(btn(link[1] + " ↗", "ghost", function () {
         st.tab = link[0]; saveUi(); render();
