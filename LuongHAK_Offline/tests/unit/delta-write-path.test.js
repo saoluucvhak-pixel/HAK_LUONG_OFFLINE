@@ -3,6 +3,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { performance } = require("node:perf_hooks");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const { createSqliteStorage } = require("../../main/sqlite-storage.js");
 const { createRepo } = require("../../core/repository.js");
