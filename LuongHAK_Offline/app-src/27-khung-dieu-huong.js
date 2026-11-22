@@ -158,6 +158,44 @@
       if (window.console) console.error(e);
     }
   }
+  // ---------- v2.1.00: khung màn hình báo cáo đã dựng được nhớ theo dbRev + chữ ký kho + dấu vân tay trạng thái hiển thị ----------
+  // CHỈ các tab báo cáo ĐỌC-CHỈ, và CHỈ khi đổi tab bằng thanh điều hướng. Mọi lần vẽ lại do thao tác TRONG màn hình (lọc, đổi kỳ, nút…) luôn dựng mới
+  // (như trước) và ghi đè bản nhớ. Dữ liệu đổi / kho đổi từ nơi khác / đăng nhập-đăng xuất → xóa sạch. Tắt hẳn: localStorage "hak_snapshot_off" = "1".
+  var navSwitch = false;
+  var SNAP_TABS = { baocao: 1, baocaoluong: 1, rp_tonghop: 1, rp_pb: 1, rp_tncn: 1, rp_ctnv: 1, rp_thanhtoan: 1, rp_cttt: 1, rp_soct: 1, rp_ck: 1, rp_tm: 1, rp_ns: 1, rp_sl: 1, rp_bd: 1, rp_th: 1, rp_tu: 1, rp_com: 1 };
+  var screenCache = SC ? SC.create({ maxEntries: 6 }) : null;
+  var SNAP_SKIP = { tab: 0, kqVirtual: 1, authView: 1 };
+  // Chế độ tự đối chiếu (chẩn đoán/kiểm thử): mỗi lần trúng bản chụp, dựng thêm một bản mới và so HTML; lệch → báo + dùng bản mới.
+  // Chữ ký NỘI DUNG của một khung để so sánh: bỏ biểu tượng (khung đã nhớ đã được workspace đổi emoji → SVG, khung mới chưa) và MỌI khoảng trắng (khoảng trắng giữa nút đổi theo biểu tượng);
+  // mỗi bảng chỉ lấy tiêu đề + 25 dòng đầu + dòng tổng (bảng ảo hóa dựng cửa sổ khác nhau tùy chiều cao khung lúc đo).
+  var SNAP_ICON = /[\u2190-\u2BFF\uFE0F\u200D]|[\uD83C-\uD83E][\uDC00-\uDFFF]/g;
+  function snapSig(el) {
+    var norm = function (t) { return String(t || "").replace(SNAP_ICON, "").replace(/\s+/g, ""); }, c = el.cloneNode(true);
+    [].forEach.call(c.querySelectorAll("tbody"), function (tb) { tb.remove(); });
+    var parts = [norm(c.textContent)];
+    [].forEach.call(el.querySelectorAll("table"), function (t) {
+      var rows = [].filter.call(t.querySelectorAll("tbody tr"), function (r) { return !r.classList.contains("vt-pad"); }), sum = t.querySelector("tbody tr.tr-sum:last-child, tbody tr.tr-sum:last-of-type");
+      parts.push(norm(rows.slice(0, 25).map(function (r) { return r.textContent; }).join("|")) + "#" + (sum ? norm(sum.textContent) : ""));
+    });
+    return parts.join("\u2063");
+  }
+  // Chế độ tự đối chiếu (chẩn đoán/kiểm thử): mỗi lần trúng bản chụp, dựng thêm một bản mới và so chữ ký nội dung; lệch → báo + dùng bản mới.
+  if (screenCache && window) window.__hakSnapshotVerify = function (on) {
+    screenCache.setVerify(on ? { compare: function (a, b) { return snapSig(a) === snapSig(b); }, onMismatch: function (k, x, y) { var ha = snapSig(x), hb = snapSig(y), i = 0; while (i < ha.length && ha[i] === hb[i]) i++; window.__hakSnapshotMismatch = (window.__hakSnapshotMismatch || []).concat([String(k).slice(0, 24) + " @" + i + " | nhớ: …" + ha.slice(Math.max(0, i - 40), i + 80) + " | mới: …" + hb.slice(Math.max(0, i - 40), i + 80)]); } } : null);
+    window.__hakSnapshotMismatch = [];
+  };
+  function snapOff() { try { return localStorage.getItem("hak_snapshot_off") === "1"; } catch (e) { return false; } }
+  function screenSnap(build) {
+    if (!screenCache || !SNAP_TABS[st.tab] || snapOff() || loadError || !session) { navSwitch = false; return build(); }
+    var fromNav = navSwitch; navSwitch = false;
+    var fpOf = function () { return [st.tab, session.tenDangNhap, session.vaiTro, readOnly ? 1 : 0, new Date().toISOString().slice(0, 10), SC.fingerprint(st, SNAP_SKIP)].join("|"); };
+    var fp = fpOf(), rev = dbRev + "|" + storeSig();
+    var r = screenCache.get(fp, rev, build, { useCache: fromNav });
+    // Màn hình có thể điền giá trị mặc định vào st khi dựng → lần quay lại, trạng thái là bản SAU khi dựng: lưu cả dưới dấu vân tay đó
+    if (!r.hit) { var fp2 = fpOf(); if (fp2 !== fp && dbRev + "|" + storeSig() === rev) screenCache.set(fp2, rev, r.value); }
+    window.__hakSnapshot = { tab: st.tab, hit: r.hit, mismatch: !!r.mismatch, ms: Math.round(r.ms * 10) / 10 };
+    return r.value;
+  }
   function renderInner() {
     applySkin(curSkin()); applyTheme(curTheme());
     if (loadError) { $("#nav").innerHTML = ""; $("#top").innerHTML = "<h2>Khôi phục dữ liệu</h2>"; var mm = $("#main"); mm.innerHTML = ""; mm.appendChild(recoveryScreen()); return; }
@@ -213,6 +251,7 @@
         }
         st.tab = n[0];
         saveUi();
+        navSwitch = true; // chỉ khi QUAY LẠI một tab bằng thanh điều hướng mới dùng khung đã chụp (xem screenSnap)
         render();
       } } }, [h("span", { class: "ic", text: n[1] }), h("span", { text: n[2] })]);
       if (S[n[0]]) b.appendChild(h("span", { class: "n", text: countOf(n[0]) }));
@@ -238,8 +277,8 @@
     if (st.tab === "home") m.appendChild(tabHome());
     else if (st.tab === "luong") m.appendChild(tabLuong());
     else if (st.tab === "bangtinh") m.appendChild(tabBangTinhNoiBo());
-    else if (PAY_SCREENS[st.tab]) m.appendChild(tabPayReport(PAY_SCREENS[st.tab]));
-    else if (OPS_SCREENS[st.tab]) m.appendChild(tabOpsReport(OPS_SCREENS[st.tab]));
+    else if (PAY_SCREENS[st.tab]) m.appendChild(screenSnap(function () { return tabPayReport(PAY_SCREENS[st.tab]); }));
+    else if (OPS_SCREENS[st.tab]) m.appendChild(screenSnap(function () { return tabOpsReport(OPS_SCREENS[st.tab]); }));
     else if (st.tab === "slips") m.appendChild(tabSlips());
     else if (st.tab === "ocr") m.appendChild(tabOCR());
     else if (st.tab === "ocrlib") m.appendChild(tabOcrLib());
@@ -251,9 +290,9 @@
     else if (st.tab === "capphat") m.appendChild(tabCapPhat());
     else if (st.tab === "nhansu") m.appendChild(tabNhanSu());
     else if (st.tab === "nv") m.appendChild(tabNhanVien());
-    else if (st.tab === "baocao") m.appendChild(tabBaoCao());
+    else if (st.tab === "baocao") m.appendChild(screenSnap(tabBaoCao));
     else if (st.tab === "kyluong") m.appendChild(tabKyLuong());
-    else if (st.tab === "baocaoluong") m.appendChild(tabBaoCaoLuong());
+    else if (st.tab === "baocaoluong") m.appendChild(screenSnap(tabBaoCaoLuong));
     else if (st.tab === "doichieu") m.appendChild(tabDoiChieu());
     else if (st.tab === "huongdan") m.appendChild(tabHuongDan());
     else if (S[st.tab]) m.appendChild(grid(st.tab, S[st.tab]));
