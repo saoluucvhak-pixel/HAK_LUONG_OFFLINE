@@ -396,10 +396,15 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=dm]"); await w.click('button:has-text("Đồ bảo hộ lao động")');
     ok("Cấp phát: Danh mục → Cấp phát có 'Đồ bảo hộ lao động' và 'Tiêu chuẩn phúc lợi'", await w.locator('main button:has-text("Tiêu chuẩn phúc lợi")').count() > 0 && /Đồ bảo hộ lao động/.test(await cpText()));
     for (const item of [{ code: "GIAY", name: "Giày bảo hộ", group: "Giày", unit: "đôi", sizes: "39, 40, 41" }, { code: "MUBH", name: "Mũ bảo hộ", group: "Mũ", unit: "cái", sizes: "" }]) {
+      await w.evaluate(() => { const m = document.getElementById("modal"); if (m && !m.classList.contains("hide") && !m.querySelector(".dlg")) { m.className = "hide"; m.innerHTML = ""; } });
       await w.click('button:has-text("Thêm vật tư")'); await w.waitForSelector(".dlg");
       await w.fill('.dlg [aria-label="Mã vật tư"]', item.code); await w.fill('.dlg [aria-label="Tên vật tư"]', item.name);
       await w.selectOption('.dlg select[aria-label="Nhóm hàng"]', item.group); await w.fill('.dlg [aria-label="Đơn vị tính"]', item.unit);
-      await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', item.sizes); await w.click('.dlg button:has-text("Lưu vật tư")'); await w.waitForTimeout(250);
+      await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', item.sizes); await w.click('.dlg button:has-text("Lưu vật tư")');
+      await w.waitForSelector(".dlg", { state: "detached", timeout: 4000 }).catch(async () => {
+        await w.evaluate(() => { const m = document.getElementById("modal"); if (m) { m.className = "hide"; m.innerHTML = ""; } });
+      });
+      await w.waitForTimeout(200);
     }
     ok("Cấp phát: thêm 2 vật tư bảo hộ (giày có cỡ, mũ không cỡ) vào danh mục", /Giày bảo hộ/.test(await cpText()) && /Mũ bảo hộ/.test(await cpText()), (await cpText()).slice(0, 200));
     await shotOf(w, "cp-01-danh-muc-bao-ho");
@@ -1763,4 +1768,4 @@ async function launch(dataDir, opt) {
   fs.writeFileSync(path.join(__dirname, "last-e2e-result.json"), JSON.stringify({ at: new Date().toISOString(), electron: ELECTRON, results }, null, 2));
   console.log("\nE2E: " + (results.length - fail) + "/" + results.length + " đạt");
   process.exit(fail ? 1 : 0);
-})().catch((e) => { console.error("E2E LỖI:", e); process.exit(2); });
+})().catch((e) => { console.error("E2E LỖI:", e, "Dialogs:", dialogs); process.exit(2); });

@@ -203,7 +203,18 @@
         for (var k = i; k >= 0 && NAV[k][0] !== "grp"; k--) if (NAV[k][0] === activeNav) activeInGroup = true;
         if (!activeInGroup) return;
       }
-      var b = h("button", { class: activeNav === n[0] ? "on" : "", "data-k": n[0], on: { click: function () { if (!leaveOk()) return; if (st.kqFull) { st.kq = st.kqFull; st.kqFull = null; } st.tab = n[0]; saveUi(); render(); } } }, [h("span", { class: "ic", text: n[1] }), h("span", { text: n[2] })]);
+      var b = h("button", { class: activeNav === n[0] ? "on" : "", "data-k": n[0], on: { click: function () {
+        if (!leaveOk()) return;
+        if (st.kqFull) { st.kq = st.kqFull; st.kqFull = null; }
+        var mModal = $("#modal");
+        if (mModal && !mModal.classList.contains("hide") && !mModal.classList.contains("drawer")) {
+          mModal.className = "hide";
+          mModal.innerHTML = "";
+        }
+        st.tab = n[0];
+        saveUi();
+        render();
+      } } }, [h("span", { class: "ic", text: n[1] }), h("span", { text: n[2] })]);
       if (S[n[0]]) b.appendChild(h("span", { class: "n", text: countOf(n[0]) }));
       if (n[0] === "kyluong") b.appendChild(h("span", { class: "n", text: db.kyluong.length }));
       if (n[0] === "nhansu") b.appendChild(h("span", { class: "n", text: db.nhanvien.filter(function (r) { return r["Trạng thái"] !== "Đã nghỉ việc"; }).length }));
