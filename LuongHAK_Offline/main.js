@@ -3,7 +3,8 @@ const path = require("path");
 const os = require("os");
 const { createStorage } = require("./main/storage");
 const { createExports } = require("./main/exports");
-const { createOcrService, sanitizeOcrItems } = require("./main/ocr-service");
+const { sanitizeOcrItems } = require("./main/ocr-service");
+const { createOcrPool } = require("./ocr/ocr-worker");
 const { createUmiClient } = require("./main/umi-ocr");
 const { createOcrControl } = require("./main/ocr-control");
 const pdfSvc = require("./main/pdf");
@@ -62,7 +63,7 @@ let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, 
 // Tắt: HAK_UMI_OCR=0 · cổng khác: HAK_UMI_OCR=<cổng>. Umi không chạy → tự bỏ qua (ngắt mạch 30 giây).
 const umi = process.env.HAK_UMI_OCR === "0" ? null : createUmiClient({ port: /^\d+$/.test(process.env.HAK_UMI_OCR || "") ? +process.env.HAK_UMI_OCR : 1224 });
 const ocrControl = createOcrControl(umi), ocrJobs = new Map();
-const ocrSvc = () => ocr || (ocr = createOcrService({ appDir: __dirname, secondOpinion: ocrControl, tesseract: require("./ocr/tesseract-compat.js")(require("tesseract.js")) })); // nạp Tesseract khi dùng lần đầu
+const ocrSvc = () => ocr || (ocr = createOcrPool({ appDir: __dirname, secondOpinion: ocrControl })); // v2.0.99: bể luồng phụ (ocr/ocr-worker.js), mỗi luồng nạp Tesseract khi dùng lần đầu
 const NO_SHELL = !!process.env.HAK_NO_SHELL; // kiểm thử tự động: không mở Explorer thật, chỉ ghi lại thao tác
 let lastShell = null;
 function shellDo(kind, f) { lastShell = { kind, name: path.basename(f) }; if (NO_SHELL) return; if (kind === "show") shell.showItemInFolder(f); else shell.openPath(f); }
@@ -596,14 +597,12 @@ function checkStrongBackupPassword(pwd) {
     const job = { cancelled: false }, safe = sanitizeOcrItems(items), out = [];
     ocrJobs.set(e.sender.id, job);
     try {
-      for (const item of safe) {
-        if (job.cancelled || e.sender.isDestroyed()) throw new Error("OCR_CANCELLED");
-        const result = await ocrSvc().batch([item]);
-        if (job.cancelled) throw new Error("OCR_CANCELLED");
-        out.push(result[0]);
-        if (!e.sender.isDestroyed()) e.sender.send("ocr-progress", { done: out.length, total: safe.length });
-      }
-      return out; // giữ nguyên thứ tự, không trả lô dở dang khi hủy
+      // Các ô chạy song song trên bể luồng phụ; kết quả giữ ĐÚNG thứ tự gửi vào. Hủy: ngừng giao ô mới, ô đang đọc dở xong rồi báo OCR_CANCELLED.
+      const gone = () => job.cancelled || e.sender.isDestroyed();
+      const res = await ocrSvc().batch(safe, { shouldCancel: gone, onProgress: (done, total) => { if (!e.sender.isDestroyed()) e.sender.send("ocr-progress", { done, total }); } });
+      if (gone()) throw new Error("OCR_CANCELLED");
+      out.push(...res);
+      return out; // không trả lô dở dang khi hủy
     } finally { ocrJobs.delete(e.sender.id); }
   }));
   ipcMain.handle("ocr-cancel", guarded("input.edit", async (e) => { const j = ocrJobs.get(e.sender.id); if (j) j.cancelled = true; return { ok: true }; }));

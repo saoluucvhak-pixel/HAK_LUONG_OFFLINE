@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.99] — 22/11/2026
+- **[V11.4] Bể luồng OCR `ocr/ocr-worker.js` (PROMPT 4):** OCR chạy song song trên luồng phụ (worker_threads), kết quả giữ đúng thứ tự, hủy/tiến độ giữ nguyên, tự chạy trực tiếp nếu không khởi động được luồng. Đo Tesseract thật, 428 ô: tuần tự 6,5 s → 2 luồng 3,9 s (−41%) → 3 luồng 3,2 s (−51%), kết quả GIỐNG HỆT. tests/unit/ocr-worker.test.js (13 ca) + tests/integration/ocr-pool.test.js (3 ca). Chi tiết: `docs/releases/v2.0.99.md`.
+
 ## [2.0.98] — 22/11/2026
 - **[V11.3] Bảng ảo hóa `ui/virtual-table.js` cho bảng lương kết quả (PROMPT 3):** bảng lương > 150 dòng chỉ dựng các dòng đang nhìn thấy (đo trên Electron thật 5.000 NV: DOM 73.738 → 7.256 phần tử, tính + vẽ 2,7 s → 1,1 s, cuộn 60 fps); tests/unit/virtual-table.test.js (I-VT-01..09). Chấm công và các bảng báo cáo CHƯA tích hợp. Chi tiết: `docs/releases/v2.0.98.md`.
 
