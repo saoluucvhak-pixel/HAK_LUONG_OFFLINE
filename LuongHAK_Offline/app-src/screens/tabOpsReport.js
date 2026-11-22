@@ -49,7 +49,7 @@
     if (vm.loi.length) card.appendChild(h("div", { class: "warn", "data-ops-errors": String(vm.loi.length), html: "<b>⛔ " + vm.loi.length + " lỗi dữ liệu — chặn xuất file:</b><br>" + vm.loi.slice(0, 8).map(esc).join("<br>") + (vm.loi.length > 8 ? "<br>…" : "") }));
     if (vm.canhbao.length) card.appendChild(h("div", { class: "hint", "data-ops-warns": String(vm.canhbao.length), html: "⚠ " + vm.canhbao.slice(0, 6).map(esc).join(" · ") + (vm.canhbao.length > 6 ? " · … (" + vm.canhbao.length + " cảnh báo)" : "") }));
     if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào" + (T.theoKy ? " trong kỳ " + vm.ky : "") + (vm.loc.length ? " theo bộ lọc hiện tại." : ".") }));
-    card.appendChild(h("div", { class: "tw" }, [opsTable(type, type, vm.cols, vm.groups, vm.rows, vm.tong, vm.tongNhan)]));
-    (vm.extras || []).forEach(function (e) { card.appendChild(h("div", { class: "fh", text: e.title })); card.appendChild(h("div", { class: "tw" }, [opsTable(type + "_" + e.name, type, e.cols, null, e.rows, e.tong, null)])); });
+    var twMain = h("div", { class: "tw" }); twMain.appendChild(opsTable(type, type, vm.cols, vm.groups, vm.rows, vm.tong, vm.tongNhan, twMain)); card.appendChild(twMain);
+    (vm.extras || []).forEach(function (e) { card.appendChild(h("div", { class: "fh", text: e.title })); var twX = h("div", { class: "tw" }); twX.appendChild(opsTable(type + "_" + e.name, type, e.cols, null, e.rows, e.tong, null, twX)); card.appendChild(twX); });
     w.appendChild(card); return w;
   }

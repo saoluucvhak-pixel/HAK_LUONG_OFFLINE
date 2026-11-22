@@ -1,5 +1,9 @@
   // ---------- BÁO CÁO LƯƠNG ----------
   // Kết quả lương của 1 kỳ: kỳ đã chốt lấy bản đã lưu, chưa chốt thì tính tạm
+  // v2.1.00: nhớ NHIỀU kỳ (trước: chỉ 1 kỳ nên báo cáo 12 tháng / so sánh tính lại engine mỗi lần). Gắn với dbRev + chữ ký kho: dữ liệu đổi là bỏ hết.
+  var SC = window.HAKUI && window.HAKUI.snapshotCache;
+  var kqCache = SC ? SC.create({ maxEntries: 13, maxWeight: 30000, weigh: function (v) { return (v && v.bangluong ? v.bangluong.length : 0) + 1; } }) : null;
+  function storeSig() { try { return store && store.sig ? String(store.sig()) : ""; } catch (e) { return "?" + Date.now(); } } // lỗi đọc chữ ký → không bao giờ trùng → không dùng bản nhớ
   var kqMemo = null;
   function kqKy(nam, thang) {
     var c = kyChot(kyKey(nam, thang));
@@ -7,6 +11,7 @@
     if (!db.nhanvien.length) return { kq: { bangluong: [], bhxh: [], tncn: [], canhbao: [] }, chot: false };
     // V9.4: đổi bộ lọc / tab báo cáo KHÔNG tính lại engine — chỉ tính lại khi dữ liệu, quy chế hoặc cách bù đổi
     var mk = [nam, thang, dbRev, st.bu, quyChe()].join("|");
+    if (kqCache) return { kq: kqCache.get([nam, thang, st.bu, quyChe()].join("|"), dbRev + "|" + storeSig(), function () { return tinhLuong(nam, thang); }).value, chot: false };
     if (!kqMemo || kqMemo.key !== mk) kqMemo = { key: mk, val: tinhLuong(nam, thang) };
     return { kq: kqMemo.val, chot: false };
   }

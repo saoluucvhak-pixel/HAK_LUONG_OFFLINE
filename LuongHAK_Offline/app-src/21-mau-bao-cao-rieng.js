@@ -43,15 +43,19 @@
   function opsRowsVm(title, rows, file) {
     return OPS.fromRows(title, rows, { tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", file: file, kyKey: HRM.today(), kyText: "Tính đến ngày " + new Date().toLocaleDateString("vi-VN") });
   }
-  function opsTable(attr, type, cols, groups, rows, tong, tongNhan) {
+  function opsTable(attr, type, cols, groups, rows, tong, tongNhan, tw) {
     var t = h("table", { "data-ops-report": attr }), hr = h("tr");
     cols.forEach(function (c) { hr.appendChild(h("th", { class: c.kind === "text" ? "" : "r", text: c.label })); });
     var head = [];
     if (groups) head.push(h("tr", {}, groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), class: "th-grp", text: g.label }); })));
     head.push(hr); t.appendChild(h("thead", {}, head));
     var tb = h("tbody");
-    rows.forEach(function (r) { tb.appendChild(h("tr", {}, cols.map(function (c) { return h("td", { class: c.kind === "text" ? "t" : "r", text: opsFmtCell(c, r[c.key]) }); }))); });
-    if (rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })));
+    var opsRow = function (r) { return h("tr", {}, cols.map(function (c) { return h("td", { class: c.kind === "text" ? "t" : "r", text: opsFmtCell(c, r[c.key]) }); })); };
+    var opsSum = rows.length ? h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })) : null;
+    // v2.1.00: bảng báo cáo vận hành nhiều dòng qua bảng ảo hóa (cần khung cuộn `tw`); không có khung / thiếu module → dựng đủ như cũ
+    var VTo = window.HAKUI && window.HAKUI.virtualTable;
+    if (VTo && tw) VTo.attach({ scroller: tw, tbody: tb, rows: rows, renderRow: opsRow, cols: cols.length, tail: opsSum ? [opsSum] : [] });
+    else { rows.forEach(function (r) { tb.appendChild(opsRow(r)); }); if (opsSum) tb.appendChild(opsSum); }
     t.appendChild(tb); return t;
   }
   // @screen tabOpsReport

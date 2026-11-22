@@ -3878,6 +3878,10 @@
   }
   // ---------- BÁO CÁO LƯƠNG ----------
   // Kết quả lương của 1 kỳ: kỳ đã chốt lấy bản đã lưu, chưa chốt thì tính tạm
+  // v2.1.00: nhớ NHIỀU kỳ (trước: chỉ 1 kỳ nên báo cáo 12 tháng / so sánh tính lại engine mỗi lần). Gắn với dbRev + chữ ký kho: dữ liệu đổi là bỏ hết.
+  var SC = window.HAKUI && window.HAKUI.snapshotCache;
+  var kqCache = SC ? SC.create({ maxEntries: 13, maxWeight: 30000, weigh: function (v) { return (v && v.bangluong ? v.bangluong.length : 0) + 1; } }) : null;
+  function storeSig() { try { return store && store.sig ? String(store.sig()) : ""; } catch (e) { return "?" + Date.now(); } } // lỗi đọc chữ ký → không bao giờ trùng → không dùng bản nhớ
   var kqMemo = null;
   function kqKy(nam, thang) {
     var c = kyChot(kyKey(nam, thang));
@@ -3885,6 +3889,7 @@
     if (!db.nhanvien.length) return { kq: { bangluong: [], bhxh: [], tncn: [], canhbao: [] }, chot: false };
     // V9.4: đổi bộ lọc / tab báo cáo KHÔNG tính lại engine — chỉ tính lại khi dữ liệu, quy chế hoặc cách bù đổi
     var mk = [nam, thang, dbRev, st.bu, quyChe()].join("|");
+    if (kqCache) return { kq: kqCache.get([nam, thang, st.bu, quyChe()].join("|"), dbRev + "|" + storeSig(), function () { return tinhLuong(nam, thang); }).value, chot: false };
     if (!kqMemo || kqMemo.key !== mk) kqMemo = { key: mk, val: tinhLuong(nam, thang) };
     return { kq: kqMemo.val, chot: false };
   }
@@ -4787,17 +4792,23 @@
     head.push(hr); t.appendChild(h("thead", {}, head)); var tb = h("tbody");
     var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : c.kind === "qty" ? qtyText(v) : (v == null ? "" : String(v)) }); }));
       if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
-      tb.appendChild(trw); };
-    if (vm.nhom) vm.nhom.forEach(function (g) {
-      tb.appendChild(h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: g.ten + " (" + g.rows.length + " người)" })]));
-      g.rows.forEach(drawRow);
-      var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
-      tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: c.kind === "text" || c.kind === "qty" ? "t" : "r", text: i === iN ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })));
-    }); else vm.rows.forEach(drawRow);
-    if (vm.rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })));
+      return trw; };
+    // v2.1.00: dòng (nhóm / dòng / cộng nhóm) đi qua bảng ảo hóa — bảng nhiều dòng chỉ dựng phần đang nhìn thấy; ≤ 150 dòng và khi In vẫn đủ như cũ
+    var items = [];
+    if (vm.nhom) vm.nhom.forEach(function (g) { items.push({ gh: g }); g.rows.forEach(function (r) { items.push({ r: r }); }); items.push({ gs: g }); }); else vm.rows.forEach(function (r) { items.push({ r: r }); });
+    var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
+    var mkItem = function (it) {
+      if (it.gh) return h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: it.gh.ten + " (" + it.gh.rows.length + " người)" })]);
+      if (it.gs) { var g = it.gs; return h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: c.kind === "text" || c.kind === "qty" ? "t" : "r", text: i === iN ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })); }
+      return drawRow(it.r);
+    };
+    var totalTr = vm.rows.length ? h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })) : null;
     t.appendChild(tb);
     if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào cần thanh toán theo bộ lọc hiện tại." }));
-    card.appendChild(h("div", { class: "tw" }, [t])); w.appendChild(card);
+    var twr = h("div", { class: "tw" }, [t]), VTb = window.HAKUI && window.HAKUI.virtualTable;
+    if (VTb) VTb.attach({ scroller: twr, tbody: tb, rows: items, renderRow: mkItem, cols: vm.cols.length, tail: totalTr ? [totalTr] : [] });
+    else { items.forEach(function (it) { tb.appendChild(mkItem(it)); }); if (totalTr) tb.appendChild(totalTr); }
+    card.appendChild(twr); w.appendChild(card);
     if (["CHUYEN_KHOAN", "TIEN_MAT", "THANH_TOAN", "CHI_TIET_TT"].indexOf(type) >= 0) {
       tools.appendChild(btn("Mở sổ chứng từ", "ghost", function () { st.tab = "rp_soct"; saveUi(); render(); }));
     }
@@ -4849,15 +4860,19 @@
   function opsRowsVm(title, rows, file) {
     return OPS.fromRows(title, rows, { tenCongTy: congTy()["Tên công ty"] || "", ngay: new Date().toLocaleDateString("vi-VN"), nguoiLap: session ? session.hoTen : "", file: file, kyKey: HRM.today(), kyText: "Tính đến ngày " + new Date().toLocaleDateString("vi-VN") });
   }
-  function opsTable(attr, type, cols, groups, rows, tong, tongNhan) {
+  function opsTable(attr, type, cols, groups, rows, tong, tongNhan, tw) {
     var t = h("table", { "data-ops-report": attr }), hr = h("tr");
     cols.forEach(function (c) { hr.appendChild(h("th", { class: c.kind === "text" ? "" : "r", text: c.label })); });
     var head = [];
     if (groups) head.push(h("tr", {}, groups.map(function (g) { return h("th", { colspan: String(g.to - g.from + 1), class: "th-grp", text: g.label }); })));
     head.push(hr); t.appendChild(h("thead", {}, head));
     var tb = h("tbody");
-    rows.forEach(function (r) { tb.appendChild(h("tr", {}, cols.map(function (c) { return h("td", { class: c.kind === "text" ? "t" : "r", text: opsFmtCell(c, r[c.key]) }); }))); });
-    if (rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })));
+    var opsRow = function (r) { return h("tr", {}, cols.map(function (c) { return h("td", { class: c.kind === "text" ? "t" : "r", text: opsFmtCell(c, r[c.key]) }); })); };
+    var opsSum = rows.length ? h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })) : null;
+    // v2.1.00: bảng báo cáo vận hành nhiều dòng qua bảng ảo hóa (cần khung cuộn `tw`); không có khung / thiếu module → dựng đủ như cũ
+    var VTo = window.HAKUI && window.HAKUI.virtualTable;
+    if (VTo && tw) VTo.attach({ scroller: tw, tbody: tb, rows: rows, renderRow: opsRow, cols: cols.length, tail: opsSum ? [opsSum] : [] });
+    else { rows.forEach(function (r) { tb.appendChild(opsRow(r)); }); if (opsSum) tb.appendChild(opsSum); }
     t.appendChild(tb); return t;
   }
   function tabOpsReport(type) {
@@ -4911,8 +4926,8 @@
     if (vm.loi.length) card.appendChild(h("div", { class: "warn", "data-ops-errors": String(vm.loi.length), html: "<b>⛔ " + vm.loi.length + " lỗi dữ liệu — chặn xuất file:</b><br>" + vm.loi.slice(0, 8).map(esc).join("<br>") + (vm.loi.length > 8 ? "<br>…" : "") }));
     if (vm.canhbao.length) card.appendChild(h("div", { class: "hint", "data-ops-warns": String(vm.canhbao.length), html: "⚠ " + vm.canhbao.slice(0, 6).map(esc).join(" · ") + (vm.canhbao.length > 6 ? " · … (" + vm.canhbao.length + " cảnh báo)" : "") }));
     if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào" + (T.theoKy ? " trong kỳ " + vm.ky : "") + (vm.loc.length ? " theo bộ lọc hiện tại." : ".") }));
-    card.appendChild(h("div", { class: "tw" }, [opsTable(type, type, vm.cols, vm.groups, vm.rows, vm.tong, vm.tongNhan)]));
-    (vm.extras || []).forEach(function (e) { card.appendChild(h("div", { class: "fh", text: e.title })); card.appendChild(h("div", { class: "tw" }, [opsTable(type + "_" + e.name, type, e.cols, null, e.rows, e.tong, null)])); });
+    var twMain = h("div", { class: "tw" }); twMain.appendChild(opsTable(type, type, vm.cols, vm.groups, vm.rows, vm.tong, vm.tongNhan, twMain)); card.appendChild(twMain);
+    (vm.extras || []).forEach(function (e) { card.appendChild(h("div", { class: "fh", text: e.title })); var twX = h("div", { class: "tw" }); twX.appendChild(opsTable(type + "_" + e.name, type, e.cols, null, e.rows, e.tong, null, twX)); card.appendChild(twX); });
     w.appendChild(card); return w;
   }
   function tabBangTinhNoiBo() {
@@ -6912,6 +6927,44 @@
       if (window.console) console.error(e);
     }
   }
+  // ---------- v2.1.00: khung màn hình báo cáo đã dựng được nhớ theo dbRev + chữ ký kho + dấu vân tay trạng thái hiển thị ----------
+  // CHỈ các tab báo cáo ĐỌC-CHỈ, và CHỈ khi đổi tab bằng thanh điều hướng. Mọi lần vẽ lại do thao tác TRONG màn hình (lọc, đổi kỳ, nút…) luôn dựng mới
+  // (như trước) và ghi đè bản nhớ. Dữ liệu đổi / kho đổi từ nơi khác / đăng nhập-đăng xuất → xóa sạch. Tắt hẳn: localStorage "hak_snapshot_off" = "1".
+  var navSwitch = false;
+  var SNAP_TABS = { baocao: 1, baocaoluong: 1, rp_tonghop: 1, rp_pb: 1, rp_tncn: 1, rp_ctnv: 1, rp_thanhtoan: 1, rp_cttt: 1, rp_soct: 1, rp_ck: 1, rp_tm: 1, rp_ns: 1, rp_sl: 1, rp_bd: 1, rp_th: 1, rp_tu: 1, rp_com: 1 };
+  var screenCache = SC ? SC.create({ maxEntries: 6 }) : null;
+  var SNAP_SKIP = { tab: 0, kqVirtual: 1, authView: 1 };
+  // Chế độ tự đối chiếu (chẩn đoán/kiểm thử): mỗi lần trúng bản chụp, dựng thêm một bản mới và so HTML; lệch → báo + dùng bản mới.
+  // Chữ ký NỘI DUNG của một khung để so sánh: bỏ biểu tượng (khung đã nhớ đã được workspace đổi emoji → SVG, khung mới chưa) và MỌI khoảng trắng (khoảng trắng giữa nút đổi theo biểu tượng);
+  // mỗi bảng chỉ lấy tiêu đề + 25 dòng đầu + dòng tổng (bảng ảo hóa dựng cửa sổ khác nhau tùy chiều cao khung lúc đo).
+  var SNAP_ICON = /[\u2190-\u2BFF\uFE0F\u200D]|[\uD83C-\uD83E][\uDC00-\uDFFF]/g;
+  function snapSig(el) {
+    var norm = function (t) { return String(t || "").replace(SNAP_ICON, "").replace(/\s+/g, ""); }, c = el.cloneNode(true);
+    [].forEach.call(c.querySelectorAll("tbody"), function (tb) { tb.remove(); });
+    var parts = [norm(c.textContent)];
+    [].forEach.call(el.querySelectorAll("table"), function (t) {
+      var rows = [].filter.call(t.querySelectorAll("tbody tr"), function (r) { return !r.classList.contains("vt-pad"); }), sum = t.querySelector("tbody tr.tr-sum:last-child, tbody tr.tr-sum:last-of-type");
+      parts.push(norm(rows.slice(0, 25).map(function (r) { return r.textContent; }).join("|")) + "#" + (sum ? norm(sum.textContent) : ""));
+    });
+    return parts.join("\u2063");
+  }
+  // Chế độ tự đối chiếu (chẩn đoán/kiểm thử): mỗi lần trúng bản chụp, dựng thêm một bản mới và so chữ ký nội dung; lệch → báo + dùng bản mới.
+  if (screenCache && window) window.__hakSnapshotVerify = function (on) {
+    screenCache.setVerify(on ? { compare: function (a, b) { return snapSig(a) === snapSig(b); }, onMismatch: function (k, x, y) { var ha = snapSig(x), hb = snapSig(y), i = 0; while (i < ha.length && ha[i] === hb[i]) i++; window.__hakSnapshotMismatch = (window.__hakSnapshotMismatch || []).concat([String(k).slice(0, 24) + " @" + i + " | nhớ: …" + ha.slice(Math.max(0, i - 40), i + 80) + " | mới: …" + hb.slice(Math.max(0, i - 40), i + 80)]); } } : null);
+    window.__hakSnapshotMismatch = [];
+  };
+  function snapOff() { try { return localStorage.getItem("hak_snapshot_off") === "1"; } catch (e) { return false; } }
+  function screenSnap(build) {
+    if (!screenCache || !SNAP_TABS[st.tab] || snapOff() || loadError || !session) { navSwitch = false; return build(); }
+    var fromNav = navSwitch; navSwitch = false;
+    var fpOf = function () { return [st.tab, session.tenDangNhap, session.vaiTro, readOnly ? 1 : 0, new Date().toISOString().slice(0, 10), SC.fingerprint(st, SNAP_SKIP)].join("|"); };
+    var fp = fpOf(), rev = dbRev + "|" + storeSig();
+    var r = screenCache.get(fp, rev, build, { useCache: fromNav });
+    // Màn hình có thể điền giá trị mặc định vào st khi dựng → lần quay lại, trạng thái là bản SAU khi dựng: lưu cả dưới dấu vân tay đó
+    if (!r.hit) { var fp2 = fpOf(); if (fp2 !== fp && dbRev + "|" + storeSig() === rev) screenCache.set(fp2, rev, r.value); }
+    window.__hakSnapshot = { tab: st.tab, hit: r.hit, mismatch: !!r.mismatch, ms: Math.round(r.ms * 10) / 10 };
+    return r.value;
+  }
   function renderInner() {
     applySkin(curSkin()); applyTheme(curTheme());
     if (loadError) { $("#nav").innerHTML = ""; $("#top").innerHTML = "<h2>Khôi phục dữ liệu</h2>"; var mm = $("#main"); mm.innerHTML = ""; mm.appendChild(recoveryScreen()); return; }
@@ -6967,6 +7020,7 @@
         }
         st.tab = n[0];
         saveUi();
+        navSwitch = true; // chỉ khi QUAY LẠI một tab bằng thanh điều hướng mới dùng khung đã chụp (xem screenSnap)
         render();
       } } }, [h("span", { class: "ic", text: n[1] }), h("span", { text: n[2] })]);
       if (S[n[0]]) b.appendChild(h("span", { class: "n", text: countOf(n[0]) }));
@@ -6992,8 +7046,8 @@
     if (st.tab === "home") m.appendChild(tabHome());
     else if (st.tab === "luong") m.appendChild(tabLuong());
     else if (st.tab === "bangtinh") m.appendChild(tabBangTinhNoiBo());
-    else if (PAY_SCREENS[st.tab]) m.appendChild(tabPayReport(PAY_SCREENS[st.tab]));
-    else if (OPS_SCREENS[st.tab]) m.appendChild(tabOpsReport(OPS_SCREENS[st.tab]));
+    else if (PAY_SCREENS[st.tab]) m.appendChild(screenSnap(function () { return tabPayReport(PAY_SCREENS[st.tab]); }));
+    else if (OPS_SCREENS[st.tab]) m.appendChild(screenSnap(function () { return tabOpsReport(OPS_SCREENS[st.tab]); }));
     else if (st.tab === "slips") m.appendChild(tabSlips());
     else if (st.tab === "ocr") m.appendChild(tabOCR());
     else if (st.tab === "ocrlib") m.appendChild(tabOcrLib());
@@ -7005,9 +7059,9 @@
     else if (st.tab === "capphat") m.appendChild(tabCapPhat());
     else if (st.tab === "nhansu") m.appendChild(tabNhanSu());
     else if (st.tab === "nv") m.appendChild(tabNhanVien());
-    else if (st.tab === "baocao") m.appendChild(tabBaoCao());
+    else if (st.tab === "baocao") m.appendChild(screenSnap(tabBaoCao));
     else if (st.tab === "kyluong") m.appendChild(tabKyLuong());
-    else if (st.tab === "baocaoluong") m.appendChild(tabBaoCaoLuong());
+    else if (st.tab === "baocaoluong") m.appendChild(screenSnap(tabBaoCaoLuong));
     else if (st.tab === "doichieu") m.appendChild(tabDoiChieu());
     else if (st.tab === "huongdan") m.appendChild(tabHuongDan());
     else if (S[st.tab]) m.appendChild(grid(st.tab, S[st.tab]));

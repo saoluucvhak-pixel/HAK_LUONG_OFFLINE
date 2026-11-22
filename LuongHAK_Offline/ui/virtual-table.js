@@ -31,8 +31,23 @@
     return { start: start, end: end, padTop: start * rowH, padBottom: (total - end) * rowH };
   }
 
+  // Registry In dùng chung: MỘT cặp beforeprint/afterprint cho mọi bảng; giữ bảng bằng WeakRef nên bảng đã bỏ (bị thay khi vẽ lại) được thu gom,
+  // không rò rỉ lắng nghe. Bảng đang nằm trong bộ nhớ đệm màn hình (không gắn vào trang) bị bỏ qua khi In; gắn lại thì tự đúng.
+  var reg = new Set(), hooked = new WeakSet();
+  function register(win, handlers) {
+    var ref = typeof WeakRef === "function" ? new WeakRef(handlers) : { deref: function () { return handlers; } };
+    handlers._ref = ref; reg.add(ref);
+    if (reg.size > 200) reg.forEach(function (r) { if (!r.deref()) reg.delete(r); });
+    if (win.addEventListener && !hooked.has(win)) {
+      hooked.add(win);
+      win.addEventListener("beforeprint", function () { reg.forEach(function (r) { var x = r.deref(); if (!x) reg.delete(r); else x.before(); }); });
+      win.addEventListener("afterprint", function () { reg.forEach(function (r) { var x = r.deref(); if (x) x.after(); }); });
+    }
+  }
+  function unregister(handlers) { if (handlers._ref) reg.delete(handlers._ref); }
+
   /** Gắn bảng ảo hóa.
-   *  opts: { scroller (div.tw cuộn), tbody, rows (mảng), renderRow(row, index) → <tr>, cols (số cột, cho dòng đệm),
+   *  opts: { scroller (div.tw cuộn), tbody, rows (mảng), renderRow(row, index) → <tr>, cols (số cột, cho dòng đệm), tail? (mảng <tr> cố định cuối bảng, VD dòng TỔNG),
    *          rowHeight?, overscan?, minRows? }
    *  Trả { refresh(), destroy(), renderAll(), stats() }. stats().rendered = số <tr> dữ liệu đang có trong DOM. */
   function attach(opts) {
@@ -40,7 +55,7 @@
     var doc = tbody.ownerDocument, overscan = opts.overscan >= 0 ? opts.overscan : DEFAULTS.overscan;
     var minRows = opts.minRows >= 0 ? opts.minRows : DEFAULTS.minRows;
     var rowH = opts.rowHeight > 0 ? opts.rowHeight : DEFAULTS.rowHeight;
-    var cols = opts.cols || 1, measured = false, all = false, rendered = 0, raf = 0, last = null;
+    var handlers = null, tails = opts.tail || [], cols = opts.cols || 1, measured = false, all = false, rendered = 0, raf = 0, last = null;
     var win = scroller.ownerDocument.defaultView || {};
 
     function spacer(kind) {
@@ -57,7 +72,7 @@
       if (!ok) {
         var frag = doc.createDocumentFragment();
         for (var i = from; i < to; i++) frag.appendChild(opts.renderRow(rows[i], i));
-        tbody.textContent = ""; tbody.appendChild(top); tbody.appendChild(frag); tbody.appendChild(bottom);
+        tbody.textContent = ""; tbody.appendChild(top); tbody.appendChild(frag); tbody.appendChild(bottom); tails.forEach(function (tr) { tbody.appendChild(tr); });
       } else {
         var k;
         for (k = last.start; k < Math.min(from, last.end); k++) tbody.removeChild(top.nextSibling);
@@ -77,7 +92,7 @@
       all = true; tbody.textContent = "";
       var frag = doc.createDocumentFragment();
       for (var i = 0; i < rows.length; i++) frag.appendChild(opts.renderRow(rows[i], i));
-      tbody.appendChild(frag); rendered = rows.length; last = { start: 0, end: rows.length, full: true };
+      tbody.appendChild(frag); tails.forEach(function (tr) { tbody.appendChild(tr); }); rendered = rows.length; last = { start: 0, end: rows.length, full: true };
     }
     function measure() {
       if (measured || !rendered) return;
@@ -96,22 +111,22 @@
       draw(r.start, r.end); measure();
     }
     function onScroll() { if (raf) return; raf = (win.requestAnimationFrame ? win.requestAnimationFrame.bind(win) : function (f) { return setTimeout(f, 16); })(function () { raf = 0; refresh(false); }); }
-    function onBeforePrint() { renderAll(); }
-    function onAfterPrint() { if (rows.length > minRows) { all = false; refresh(true); } }
+    function onBeforePrint() { if (scroller.isConnected !== false) renderAll(); }
+    function onAfterPrint() { if (scroller.isConnected !== false && all && rows.length > minRows) { all = false; refresh(true); } }
 
     if (rows.length <= minRows) { renderAll(); all = true; }
     else {
       all = false; refresh(true);
       scroller.addEventListener("scroll", onScroll, { passive: true });
-      if (win.addEventListener) { win.addEventListener("beforeprint", onBeforePrint); win.addEventListener("afterprint", onAfterPrint); }
+      handlers = { before: onBeforePrint, after: onAfterPrint }; scroller.__hakVt = handlers; // giữ mạnh theo phần tử cuộn: bảng còn thì lắng nghe còn, bảng bị bỏ thì thu gom
+      register(win, handlers); // bộ lắng nghe In DÙNG CHUNG (xem registry) — không gắn thêm lắng nghe vào cửa sổ cho mỗi bảng
     }
     return {
       refresh: function () { refresh(true); },
       renderAll: renderAll,
       stats: function () { return { total: rows.length, rendered: rendered, virtual: rows.length > minRows && !all, rowHeight: rowH }; },
       destroy: function () {
-        scroller.removeEventListener("scroll", onScroll);
-        if (win.removeEventListener) { win.removeEventListener("beforeprint", onBeforePrint); win.removeEventListener("afterprint", onAfterPrint); }
+        scroller.removeEventListener("scroll", onScroll); if (handlers) unregister(handlers);
       }
     };
   }

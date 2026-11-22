@@ -29,17 +29,23 @@
     head.push(hr); t.appendChild(h("thead", {}, head)); var tb = h("tbody");
     var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : c.kind === "qty" ? qtyText(v) : (v == null ? "" : String(v)) }); }));
       if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
-      tb.appendChild(trw); };
-    if (vm.nhom) vm.nhom.forEach(function (g) {
-      tb.appendChild(h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: g.ten + " (" + g.rows.length + " người)" })]));
-      g.rows.forEach(drawRow);
-      var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
-      tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: c.kind === "text" || c.kind === "qty" ? "t" : "r", text: i === iN ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })));
-    }); else vm.rows.forEach(drawRow);
-    if (vm.rows.length) tb.appendChild(h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })));
+      return trw; };
+    // v2.1.00: dòng (nhóm / dòng / cộng nhóm) đi qua bảng ảo hóa — bảng nhiều dòng chỉ dựng phần đang nhìn thấy; ≤ 150 dòng và khi In vẫn đủ như cũ
+    var items = [];
+    if (vm.nhom) vm.nhom.forEach(function (g) { items.push({ gh: g }); g.rows.forEach(function (r) { items.push({ r: r }); }); items.push({ gs: g }); }); else vm.rows.forEach(function (r) { items.push({ r: r }); });
+    var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
+    var mkItem = function (it) {
+      if (it.gh) return h("tr", {}, [h("td", { class: "td-grp", colspan: vm.cols.length, text: it.gh.ten + " (" + it.gh.rows.length + " người)" })]);
+      if (it.gs) { var g = it.gs; return h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: c.kind === "text" || c.kind === "qty" ? "t" : "r", text: i === iN ? "Cộng " + g.ten : (g.tong[c.key] != null ? fmt(g.tong[c.key]) : "") }); })); }
+      return drawRow(it.r);
+    };
+    var totalTr = vm.rows.length ? h("tr", { class: "tr-sum" }, vm.cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? "TỔNG CỘNG" : (vm.tong[c.key] != null ? fmt(vm.tong[c.key]) : "") }); })) : null;
     t.appendChild(tb);
     if (!vm.rows.length) card.appendChild(h("div", { class: "empty", text: "Không có dòng nào cần thanh toán theo bộ lọc hiện tại." }));
-    card.appendChild(h("div", { class: "tw" }, [t])); w.appendChild(card);
+    var twr = h("div", { class: "tw" }, [t]), VTb = window.HAKUI && window.HAKUI.virtualTable;
+    if (VTb) VTb.attach({ scroller: twr, tbody: tb, rows: items, renderRow: mkItem, cols: vm.cols.length, tail: totalTr ? [totalTr] : [] });
+    else { items.forEach(function (it) { tb.appendChild(mkItem(it)); }); if (totalTr) tb.appendChild(totalTr); }
+    card.appendChild(twr); w.appendChild(card);
     if (["CHUYEN_KHOAN", "TIEN_MAT", "THANH_TOAN", "CHI_TIET_TT"].indexOf(type) >= 0) {
       tools.appendChild(btn("Mở sổ chứng từ", "ghost", function () { st.tab = "rp_soct"; saveUi(); render(); }));
     }

@@ -1,6 +1,6 @@
 {
   "name": "luong-hak",
-  "version": "2.0.99",
+  "version": "2.1.00",
   "description": "Tính lương HAK - chạy offline",
   "main": "main.js",
   "author": "HAK",
@@ -10,6 +10,7 @@
     "sqlite:shadow": "node --no-warnings tools/sqlite-shadow.js",
     "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
     "test:e2e": "node tests/e2e/run-e2e.js",
+    "test:snapshot": "node tests/e2e/snapshot-cache.cjs",
     "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
     "test:workspace": "node tests/e2e/v104-workspace-check.js",
     "dist": "electron-builder --win nsis --x64",
