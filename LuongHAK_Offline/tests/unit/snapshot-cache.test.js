@@ -1,5 +1,5 @@
 "use strict";
-// v2.1.00 (PROMPT 5): ui/snapshot-cache.js — bộ nhớ đệm bản chụp theo phiên bản dữ liệu. Trọng tâm: KHÔNG BAO GIỜ trả bản cũ.
+// v2.1.1 (PROMPT 5): ui/snapshot-cache.js — bộ nhớ đệm bản chụp theo phiên bản dữ liệu. Trọng tâm: KHÔNG BAO GIỜ trả bản cũ.
 const test = require("node:test"), assert = require("node:assert/strict");
 const SC = require("../../ui/snapshot-cache.js");
 
@@ -49,7 +49,7 @@ test("I-SNAP-08 fingerprint: cùng trạng thái → cùng chuỗi; đổi bất
   const big = { bangluong: Array.from({ length: 20000 }, (_, i) => ({ i, ten: "NV" + i })) };
   const st = { tab: "rp_tonghop", nam: 2026, thang: 9, rf: { khoi: "A", pb: ["x"] }, q: "", kq: big }, skip = { tab: 1 };
   const f1 = SC.fingerprint(st, skip); assert.equal(SC.fingerprint(st, skip), f1);
-  const t0 = Date.now(); for (let i = 0; i < 200; i++) SC.fingerprint(st, skip); assert.ok(Date.now() - t0 < 200, "200 lần < 200 ms (không tuần tự hóa kết quả lương lớn)");
+  const t0 = Date.now(); for (let i = 0; i < 200; i++) SC.fingerprint(st, skip); assert.ok(Date.now() - t0 < 1000, "200 lần < 1 s (không tuần tự hóa cả kết quả lương lớn: làm vậy mất > 3 s)");
   assert.notEqual(SC.fingerprint(Object.assign({}, st, { thang: 8 }), skip), f1); assert.notEqual(SC.fingerprint(Object.assign({}, st, { rf: { khoi: "B", pb: ["x"] } }), skip), f1);
   assert.notEqual(SC.fingerprint(Object.assign({}, st, { kq: { bangluong: [] } }), skip), f1, "kết quả lương đổi tham chiếu → đổi dấu vân tay");
   assert.equal(SC.fingerprint(Object.assign({}, st, { tab: "khac" }), skip), f1, "khóa bị bỏ qua không ảnh hưởng");

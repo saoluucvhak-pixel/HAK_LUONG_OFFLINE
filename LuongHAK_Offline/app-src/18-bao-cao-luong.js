@@ -1,6 +1,6 @@
   // ---------- BÁO CÁO LƯƠNG ----------
   // Kết quả lương của 1 kỳ: kỳ đã chốt lấy bản đã lưu, chưa chốt thì tính tạm
-  // v2.1.00: nhớ NHIỀU kỳ (trước: chỉ 1 kỳ nên báo cáo 12 tháng / so sánh tính lại engine mỗi lần). Gắn với dbRev + chữ ký kho: dữ liệu đổi là bỏ hết.
+  // v2.1.1: nhớ NHIỀU kỳ (trước: chỉ 1 kỳ nên báo cáo 12 tháng / so sánh tính lại engine mỗi lần). Gắn với dbRev + chữ ký kho: dữ liệu đổi là bỏ hết.
   var SC = window.HAKUI && window.HAKUI.snapshotCache;
   var kqCache = SC ? SC.create({ maxEntries: 13, maxWeight: 30000, weigh: function (v) { return (v && v.bangluong ? v.bangluong.length : 0) + 1; } }) : null;
   function storeSig() { try { return store && store.sig ? String(store.sig()) : ""; } catch (e) { return "?" + Date.now(); } } // lỗi đọc chữ ký → không bao giờ trùng → không dùng bản nhớ

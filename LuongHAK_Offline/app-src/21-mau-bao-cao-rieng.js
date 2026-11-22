@@ -52,7 +52,7 @@
     var tb = h("tbody");
     var opsRow = function (r) { return h("tr", {}, cols.map(function (c) { return h("td", { class: c.kind === "text" ? "t" : "r", text: opsFmtCell(c, r[c.key]) }); })); };
     var opsSum = rows.length ? h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })) : null;
-    // v2.1.00: bảng báo cáo vận hành nhiều dòng qua bảng ảo hóa (cần khung cuộn `tw`); không có khung / thiếu module → dựng đủ như cũ
+    // v2.1.1: bảng báo cáo vận hành nhiều dòng qua bảng ảo hóa (cần khung cuộn `tw`); không có khung / thiếu module → dựng đủ như cũ
     var VTo = window.HAKUI && window.HAKUI.virtualTable;
     if (VTo && tw) VTo.attach({ scroller: tw, tbody: tb, rows: rows, renderRow: opsRow, cols: cols.length, tail: opsSum ? [opsSum] : [] });
     else { rows.forEach(function (r) { tb.appendChild(opsRow(r)); }); if (opsSum) tb.appendChild(opsSum); }

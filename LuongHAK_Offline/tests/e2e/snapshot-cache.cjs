@@ -1,5 +1,5 @@
 "use strict";
-// v2.1.00: bộ nhớ đệm báo cáo trên Electron THẬT, dữ liệu giả. Cốt lõi là AN TOÀN: không bao giờ hiện số cũ.
+// v2.1.1: bộ nhớ đệm báo cáo trên Electron THẬT, dữ liệu giả. Cốt lõi là AN TOÀN: không bao giờ hiện số cũ.
 //  - quay lại tab báo cáo bằng thanh điều hướng → trúng bản chụp, và bản chụp GIỐNG HỆT bản dựng mới (chế độ tự đối chiếu bật suốt bài)
 //  - dữ liệu đổi / đổi kỳ → trượt bản chụp (dựng mới); tắt bằng hak_snapshot_off → không bao giờ trúng
 // Chạy: PLAYWRIGHT_MODULE=playwright xvfb-run -a node tests/e2e/snapshot-cache.cjs

@@ -158,7 +158,7 @@
       if (window.console) console.error(e);
     }
   }
-  // ---------- v2.1.00: khung màn hình báo cáo đã dựng được nhớ theo dbRev + chữ ký kho + dấu vân tay trạng thái hiển thị ----------
+  // ---------- v2.1.1: khung màn hình báo cáo đã dựng được nhớ theo dbRev + chữ ký kho + dấu vân tay trạng thái hiển thị ----------
   // CHỈ các tab báo cáo ĐỌC-CHỈ, và CHỈ khi đổi tab bằng thanh điều hướng. Mọi lần vẽ lại do thao tác TRONG màn hình (lọc, đổi kỳ, nút…) luôn dựng mới
   // (như trước) và ghi đè bản nhớ. Dữ liệu đổi / kho đổi từ nơi khác / đăng nhập-đăng xuất → xóa sạch. Tắt hẳn: localStorage "hak_snapshot_off" = "1".
   var navSwitch = false;

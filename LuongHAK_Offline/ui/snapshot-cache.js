@@ -1,4 +1,4 @@
-// ===== UI / HAK SNAPSHOT CACHE (V11.5, v2.1.00) — bộ nhớ đệm bản chụp theo phiên bản dữ liệu (dbRev + chữ ký kho sigNow) =====
+// ===== UI / HAK SNAPSHOT CACHE (V11.5, v2.1.1) — bộ nhớ đệm bản chụp theo phiên bản dữ liệu (dbRev + chữ ký kho sigNow) =====
 // Dùng cho: (1) kết quả tính lương nhiều kỳ (báo cáo 12 tháng / so sánh kỳ không phải tính lại), (2) khung màn hình báo cáo đã dựng
 // (quay lại tab báo cáo gần như tức thì). Nguyên tắc AN TOÀN: mọi mục gắn với `rev` — HỄ rev đổi (dữ liệu đổi, kho đổi từ nơi khác,
 // đăng nhập/đăng xuất) là XÓA SẠCH, không bao giờ trả bản cũ. Mục còn bị loại theo LRU và theo tổng "trọng lượng" (số dòng) để không phình RAM.
