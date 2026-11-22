@@ -39,11 +39,11 @@ if (!isMainThread && workerData && workerData.__ocrWorker) {
 }
 
 // ---------- Phần ở tiến trình chính: bể luồng ----------
-/** Số luồng mặc định: HAK_OCR_THREADS (1–8) hoặc min(số nhân − 1, 3), tối thiểu 1. */
+/** Số luồng mặc định: HAK_OCR_THREADS (1–8) hoặc min(số nhân − 1, 2), tối thiểu 1. Mỗi luồng thêm ≈ 165 MB RAM (đo thật) nên mặc định thận trọng cho máy văn phòng. */
 function defaultSize() {
   const e = +process.env.HAK_OCR_THREADS;
   if (e >= 1 && e <= 8) return Math.floor(e);
-  return Math.max(1, Math.min(3, os.cpus().length - 1));
+  return Math.max(1, Math.min(2, os.cpus().length - 1));
 }
 
 /**
