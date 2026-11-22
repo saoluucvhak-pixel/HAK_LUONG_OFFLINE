@@ -31,14 +31,21 @@ function createSqliteStorage(dir, opts) {
     fs.renameSync(tmp, file);
   }
 
+  const curText = () => {
+    if (!cur) return "";
+    if (cur.text == null && cur.doc) cur.text = JSON.stringify(cur.doc);
+    return cur.text || "";
+  };
+
   /** Ghi bản xuất data.json từ trạng thái SQLite hiện tại (nếu đang trễ). Không ném lỗi ra cho người gọi sao lưu — lỗi được trả để quyết định. */
   function syncJson() {
     clearTimeout(timer); timer = null;
     if (!jsonStale || !cur) return true;
     try {
-      atomicWrite(dataFile, cur.text);
-      if (!Buffer.from(fs.readFileSync(dataFile)).equals(Buffer.from(cur.text, "utf8"))) return false;
-      setMeta("exported_sha", sha(cur.text)); jsonStale = false;
+      const txt = curText();
+      atomicWrite(dataFile, txt);
+      if (!Buffer.from(fs.readFileSync(dataFile)).equals(Buffer.from(txt, "utf8"))) return false;
+      setMeta("exported_sha", sha(txt)); jsonStale = false;
       writeNote();
       return true;
     } catch (e) { return false; }
@@ -47,8 +54,8 @@ function createSqliteStorage(dir, opts) {
   function snapshotExported() {
     if (!cur) { const r = load(); if (!r.ok || !cur) return null; }
     if (!syncJson()) return null;
-    const exp = sha(cur.text);
-    return fileSha() === exp ? { rev, sha: exp, text: cur.text } : null;
+    const txt = curText(), exp = sha(txt);
+    return fileSha() === exp ? { rev, sha: exp, text: txt } : null;
   }
   function beginExternalOp(info) { try { openDb(); setMeta("pending_op", JSON.stringify(Object.assign({ at: new Date().toISOString() }, info))); return true; } catch (e) { return false; } }
   function endExternalOp() { try { if (db) clearPendingOp(); return true; } catch (e) { return false; } }
@@ -148,17 +155,28 @@ function createSqliteStorage(dir, opts) {
   }
 
   function load() {
-    if (cur && !conflict) return { ok: true, text: cur.text };
+    if (cur && !conflict) return { ok: true, text: curText(), baseSig: "sqlite:" + rev, rev };
     if (conflict) return { ok: false, error: conflict, backups: json.list() };
     if (!opened || !cur) {
-      try { return init(); } // lỗi mở kho (schema mới hơn app, file hỏng) → báo cho giao diện, KHÔNG quay về data.json cũ một cách âm thầm
+      try {
+        const initRes = init();
+        if (initRes.ok && cur) {
+          initRes.baseSig = "sqlite:" + rev;
+          initRes.rev = rev;
+        }
+        return initRes;
+      } // lỗi mở kho (schema mới hơn app, file hỏng) → báo cho giao diện, KHÔNG quay về data.json cũ một cách âm thầm
       catch (e) { return { ok: false, error: "Không mở được kho dữ liệu SQLite: " + String(e && e.message || e), backups: json.list(), snapshot: snapshotInfo() }; }
     }
-    return { ok: true, text: cur.text };
+    return { ok: true, text: curText(), baseSig: "sqlite:" + rev, rev };
   }
 
-  function save(text, parsed, rowsHint) {
+  function save(text, parsed, rowsHint, baseSig) {
     try {
+      const currentSig = "sqlite:" + rev;
+      if (baseSig && typeof baseSig === "string" && baseSig !== currentSig) {
+        return "STALE_BASE: Bản nền đã cũ (kỳ vọng " + currentSig + ", nhận " + baseSig + ")";
+      }
       let next = null; try { next = typeof text === "string" ? (parsed && typeof parsed === "object" ? parsed : JSON.parse(text)) : null; } catch (e) { next = null; } // phân tích MỘT lần: vừa kiểm hợp lệ vừa dùng để so sánh
       if (!next || typeof next !== "object" || Array.isArray(next)) return "Dữ liệu cần lưu không hợp lệ — đã hủy ghi để bảo vệ dữ liệu hiện tại";
       if (conflict) return conflict;
@@ -171,15 +189,130 @@ function createSqliteStorage(dir, opts) {
         if (!fs.existsSync(path.join(json.backupDir, daily))) guardBackup("daily", daily); // chặn lưu nếu không bảo vệ được: giống kho JSON khi ghi file lỗi
         const y = String(now().getFullYear());
         if (yearChecked !== y) { try { if (json.yearBackups(y).length) yearChecked = y; else if (exportReady()) { const f = verifyBackup(json.backup("nam-" + y, "nam-" + y + "_" + ymd(now()) + ".json")); if (f) { yearChecked = y; snapshotNow("nam-" + y); } } } catch (e) { /* không chặn việc lưu; thử lại ở lần lưu sau, không tạo bản từ file cũ */ } }
-        const oldBytes = Buffer.byteLength(cur.text, "utf8");
+        const oldBytes = cur.text ? Buffer.byteLength(cur.text, "utf8") : 0;
         if (oldBytes > 2048 && nextBytes < oldBytes * 0.5) guardBackup("truoc-giam-du-lieu");
       }
       const cache = { prev: cur ? cur.rows : null, hint: parsed && parsed === next && rowsHint ? rowsHint : null }, cs = cset.diff(cur ? cur.doc : {}, next, cache); // 006: chuỗi từng dòng do bước kiểm quy tắc đã tính (chỉ dùng khi đúng đối tượng parsed)
-      if (cset.isEmpty(cs) && cur && cur.text === text) return true;
+      if (cset.isEmpty(cs) && cur && (cur.text === text || (cur.doc && JSON.stringify(cur.doc) === text))) return true;
       store.tx(db, () => { cset.applyToDb(db, cs); setMeta("primary", "1"); setMeta("rev", rev + 1); });
       rev++; cur = { text, doc: next, rows: cache.next }; jsonStale = true; scheduleExport();
       return true;
     } catch (e) { return String(e && e.message || e); }
+  }
+
+  function saveDelta(mutation, opts) {
+    try {
+      if (conflict) return { ok: false, conflict: true, code: "CONFLICT", error: conflict };
+      if (!cur) { const r = init(); if (!r.ok) return { ok: false, error: r.error }; }
+      openDb();
+
+      const expectedBase = (opts && opts.baseSig) || (mutation && mutation.baseSig);
+      const currentSig = "sqlite:" + rev;
+      if (expectedBase && typeof expectedBase === "string" && expectedBase !== currentSig) {
+        return { ok: false, conflict: true, code: "STALE_BASE", error: "STALE_BASE: Bản nền đã cũ (kỳ vọng " + currentSig + ", nhận " + expectedBase + ")" };
+      }
+
+      if (!mutation || typeof mutation !== "object") {
+        return { ok: false, error: "Mutation payload không hợp lệ" };
+      }
+
+      const guardBackup = (tag, file) => {
+        if (!exportReady()) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "): " + backupError);
+        const f = verifyBackup(json.backup(tag, file));
+        if (!f) throw new Error("Không tạo được bản sao lưu bảo vệ trước khi ghi (" + tag + "). " + backupError);
+        snapshotNow(tag);
+      };
+      const daily = "daily_" + ymd(now()) + ".json";
+      if (!fs.existsSync(path.join(json.backupDir, daily))) guardBackup("daily", daily);
+      const y = String(now().getFullYear());
+      if (yearChecked !== y) {
+        try {
+          if (json.yearBackups(y).length) yearChecked = y;
+          else if (exportReady()) {
+            const f = verifyBackup(json.backup("nam-" + y, "nam-" + y + "_" + ymd(now()) + ".json"));
+            if (f) { yearChecked = y; snapshotNow("nam-" + y); }
+          }
+        } catch (e) {}
+      }
+
+      const next = Object.assign({}, cur.doc);
+      const changedTables = [];
+
+      function matchTarget(row, keys) {
+        if (!row || !keys) return false;
+        if (typeof keys === "string" || typeof keys === "number") {
+          return row._id === keys || row["Mã NV"] === keys || row.id === keys;
+        }
+        return Object.keys(keys).every((k) => String(row[k]) === String(keys[k]));
+      }
+
+      function applySingle(m) {
+        if (!m || !m.table) return;
+        const tbl = m.table;
+        if (!changedTables.includes(tbl)) changedTables.push(tbl);
+        const currentList = Array.isArray(cur.doc[tbl]) ? cur.doc[tbl] : [];
+
+        if (m.action === "saveRows" || m.action === "replace") {
+          next[tbl] = Array.isArray(m.delta) ? m.delta : [];
+        } else if (m.action === "insert") {
+          const toAdd = Array.isArray(m.delta) ? m.delta : [m.delta];
+          next[tbl] = currentList.concat(toAdd);
+        } else if (m.action === "update") {
+          next[tbl] = currentList.map((r) => {
+            if (matchTarget(r, m.keys)) {
+              return Object.assign({}, r, m.delta);
+            }
+            return r;
+          });
+        } else if (m.action === "delete" || m.action === "remove") {
+          next[tbl] = currentList.filter((r) => !matchTarget(r, m.keys));
+        }
+      }
+
+      if (Array.isArray(mutation.mutations)) {
+        mutation.mutations.forEach(applySingle);
+      } else if (mutation.tables && typeof mutation.tables === "object") {
+        Object.keys(mutation.tables).forEach((tbl) => {
+          if (!changedTables.includes(tbl)) changedTables.push(tbl);
+          next[tbl] = Array.isArray(mutation.tables[tbl]) ? mutation.tables[tbl] : [];
+        });
+        if (mutation.top && typeof mutation.top === "object") {
+          Object.assign(next, mutation.top);
+        }
+        if (Array.isArray(mutation.dropTables)) {
+          mutation.dropTables.forEach((tbl) => {
+            if (!changedTables.includes(tbl)) changedTables.push(tbl);
+            delete next[tbl];
+          });
+        }
+      } else if (mutation.table) {
+        applySingle(mutation);
+      } else {
+        return { ok: false, error: "Mutation không chỉ định bảng thay đổi" };
+      }
+
+      const cache = { prev: cur ? cur.rows : null };
+      const cs = cset.diff(cur ? cur.doc : {}, next, cache);
+      if (cset.isEmpty(cs)) {
+        return { ok: true, rev, baseSig: "sqlite:" + rev, written: 0, changedTables };
+      }
+
+      let written = 0;
+      store.tx(db, () => {
+        written = cset.applyToDb(db, cs);
+        setMeta("primary", "1");
+        setMeta("rev", rev + 1);
+      });
+
+      rev++;
+      cur = { text: null, doc: next, rows: cache.next };
+      jsonStale = true;
+      scheduleExport();
+
+      return { ok: true, rev, baseSig: "sqlite:" + rev, written, changedTables };
+    } catch (e) {
+      return { ok: false, error: String(e && e.message || e) };
+    }
   }
 
   /** Bản xuất data.json phải ĐÚNG revision hiện tại trước khi mã sao lưu cũ (đọc data.json) chạy; sai thì KHÔNG sao lưu (không dùng file cũ), trả lỗi thật. */
@@ -371,7 +504,7 @@ function createSqliteStorage(dir, opts) {
   function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
 
   return Object.assign({}, json, {
-    snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, needsRecovery, load, save, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
+    snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, needsRecovery, load, save, saveDelta, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
     snapshotNow, snapshotStatus, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev,
     /** 006: bản đang lưu ĐÃ phân tích (chỉ đọc) + sig — để kiểm quy tắc / kho năm không phân tích lại toàn bộ dữ liệu sau mỗi lần lưu. */

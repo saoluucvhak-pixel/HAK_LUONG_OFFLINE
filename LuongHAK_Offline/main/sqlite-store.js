@@ -44,7 +44,7 @@ const MIGRATIONS = [
 
 function pragma(db, name) { const row = db.prepare("PRAGMA " + name).get(); return row ? Object.values(row)[0] : undefined; }
 
-/** Mở kết nối: bật foreign_keys, WAL, synchronous FULL, busy_timeout; ĐỌC LẠI để xác nhận từng PRAGMA thực sự có hiệu lực. */
+/** Mở kết nối: bật foreign_keys, WAL, synchronous NORMAL (hoặc FULL khi yêu cầu), busy_timeout; ĐỌC LẠI để xác nhận từng PRAGMA thực sự có hiệu lực. */
 function open(file, opts) {
   const { DatabaseSync } = driver(), db = new DatabaseSync(file);
   try { return configure(db, opts); }
@@ -52,10 +52,11 @@ function open(file, opts) {
 }
 function configure(db, opts) {
   const readonly = !!(opts && opts.readonly);
+  const syncMode = (opts && opts.synchronous) || process.env.HAK_SQLITE_SYNCHRONOUS || "NORMAL";
   db.exec("PRAGMA busy_timeout = " + BUSY_MS + "; PRAGMA foreign_keys = ON;");
-  if (!readonly) db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;");
+  if (!readonly) db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = " + syncMode + ";");
   const got = { foreign_keys: pragma(db, "foreign_keys"), journal_mode: String(pragma(db, "journal_mode")).toLowerCase(), synchronous: pragma(db, "synchronous"), busy_timeout: pragma(db, "busy_timeout") };
-  if (got.foreign_keys !== 1 || got.busy_timeout !== BUSY_MS || (!readonly && (got.journal_mode !== "wal" || got.synchronous !== 2))) {
+  if (got.foreign_keys !== 1 || got.busy_timeout !== BUSY_MS || (!readonly && (got.journal_mode !== "wal" || (got.synchronous !== 1 && got.synchronous !== 2)))) {
     throw new Error("PRAGMA không có hiệu lực như thiết kế: " + JSON.stringify(got));
   }
   const version = pragma(db, "user_version");

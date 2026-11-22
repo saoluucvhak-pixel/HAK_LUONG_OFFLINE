@@ -12,6 +12,7 @@ const sha16 = (s) => crypto.createHash("sha256").update(s).digest("hex").slice(0
 const isTable = (v) => Array.isArray(v);
 
 function diffRows(a, b, cache, key) {
+  if (a === b) return null;
   const sa = cache && cache.prev && cache.prev[key] && cache.prev[key].length === a.length ? cache.prev[key] : a.map(str), hb = cache && cache.hint && cache.hint[key], sb = hb && hb.length === b.length ? hb : b.map(str); // 006: dùng lại chuỗi từng dòng đã tính
   if (cache) (cache.next = cache.next || {})[key] = sb;
   let p = 0; const n = sa.length, m = sb.length;
@@ -34,6 +35,10 @@ function diff(prev, next, cache) {
   prevKeys.forEach((k) => { if (!(k in next)) { (isTable(prev[k]) ? cs.dropTables : cs.dropTop).push(k); } });
   nextKeys.forEach((k) => {
     const a = prev[k], b = next[k];
+    if (a === b) {
+      if (cache && cache.prev && cache.prev[k]) (cache.next = cache.next || {})[k] = cache.prev[k];
+      return;
+    }
     if (isTable(b)) {
       if (!isTable(a)) { if (k in prev) cs.dropTop.push(k); const d = diffRows([], b, cache, k); cs.tables[k] = d || { kind: "splice", from: 0, remove: 0, insert: [], length: 0, fresh: true }; cs.tables[k].fresh = true; }
       else { const d = diffRows(a, b, cache, k); if (d) cs.tables[k] = d; }

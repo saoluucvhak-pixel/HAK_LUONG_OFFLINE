@@ -10,7 +10,7 @@ function run(dir) {
   const step = (name, cond, extra) => { out.steps.push({ name, pass: !!cond, extra: extra || "" }); if (!cond) throw new Error("Không đạt: " + name + (extra ? " — " + extra : "")); };
   try {
     const db0 = store.open(path.join(dir, "probe.sqlite")); out.sqliteVersion = db0.prepare("select sqlite_version() v").get().v; out.pragmas = db0.pragmas; store.close(db0);
-    step("PRAGMA có hiệu lực (khóa ngoại, WAL, synchronous FULL, busy_timeout)", out.pragmas.foreign_keys === 1 && out.pragmas.journal_mode === "wal" && out.pragmas.synchronous === 2 && out.pragmas.busy_timeout === 5000, JSON.stringify(out.pragmas));
+    step("PRAGMA có hiệu lực (khóa ngoại, WAL, synchronous NORMAL/FULL, busy_timeout)", out.pragmas.foreign_keys === 1 && out.pragmas.journal_mode === "wal" && (out.pragmas.synchronous === 1 || out.pragmas.synchronous === 2) && out.pragmas.busy_timeout === 5000, JSON.stringify(out.pragmas));
     const sample = { nhanvien: [{ "Mã NV": "0005", "Họ và tên": "Nguyễn Văn Ánh" }, { "Mã NV": "0006", "Họ và tên": "Trần Thị Bé" }], chamcong: [{ "Kỳ": "2026-10", "Mã NV": "0005", "01": "1" }], cauhinh: { ky: "2026-10", n: 7 } };
     const s = createSqliteStorage(dir, { exportSync: true });
     step("hồ sơ mới đọc được (chưa có dữ liệu)", s.load().ok === true && s.load().text === null);

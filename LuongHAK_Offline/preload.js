@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld("hakYears",{
 contextBridge.exposeInMainWorld("hakStore", {
   load: () => ipcRenderer.sendSync("store-load"),          // { ok, text } | { ok:false, error, backups }
   save: (text, baseSig) => ipcRenderer.sendSync("store-save", text, baseSig), // true | "lỗi" ("STALE_BASE: …" nếu bản nền đã cũ)
+  saveDelta: (mutation, baseSig) => ipcRenderer.sendSync("store-save-delta", mutation, baseSig),
   sig: () => ipcRenderer.sendSync("store-sig"), // phiên bản hiện tại của kho; giao diện gửi lại ở lần lưu sau để main từ chối ghi đè bản cũ
   info: () => ipcRenderer.sendSync("store-info"),
   backup: (tag) => ipcRenderer.sendSync("store-backup", tag),
