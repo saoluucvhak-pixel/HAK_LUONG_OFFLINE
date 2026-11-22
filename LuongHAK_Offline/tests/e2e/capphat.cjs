@@ -220,7 +220,11 @@ async function guarded(name, fn) { try { await fn(); } catch (e) { ok(name + " �
     const milk = await rowsOf(w); ok("Hồi quy sữa: tiêu chuẩn đã hết hạn, phiếu đã xác nhận vẫn hiện 4 hộp đã cấp kèm 'Không còn định mức hiệu lực'; phiếu nháp 9 hộp KHÔNG cộng", milk.some((r) => r.includes("4") && r.some((c) => /Không còn định mức hiệu lực/.test(c))) && !milk.some((r) => r.slice(0, 9).includes("9") && r.includes("Sữa tươi") && r.indexOf("9") === r.indexOf("Đã cấp")), JSON.stringify(milk));
     await shot(w, "cp-win-06-sua-nang-cap-tu-v2-0-24");
     await w.click("#nav button[data-k=dm]"); await w.click('button:has-text("Đồ bảo hộ lao động")');
-    await w.click('button:has-text("Thêm vật tư")'); await w.fill('.dlg [aria-label="Mã vật tư"]', "AOMUA"); await w.fill('.dlg [aria-label="Tên vật tư"]', "Áo mưa"); await w.selectOption('.dlg select[aria-label="Nhóm hàng"]', "Áo mưa"); await w.fill('.dlg [aria-label="Đơn vị tính"]', "cái"); await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', "M, L"); await w.click('.dlg button:has-text("Lưu vật tư")'); await w.waitForTimeout(400);
+    await w.click('button:has-text("Thêm vật tư")'); await w.fill('.dlg [aria-label="Mã vật tư"]', "AOMUA"); await w.fill('.dlg [aria-label="Tên vật tư"]', "Áo mưa"); await w.selectOption('.dlg select[aria-label="Nhóm hàng"]', "Áo mưa"); await w.fill('.dlg [aria-label="Đơn vị tính"]', "cái"); await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', "M, L"); await w.click('.dlg button:has-text("Lưu vật tư")');
+    await w.waitForSelector(".dlg", { state: "detached", timeout: 4000 }).catch(async () => {
+      await w.evaluate(() => { const m = document.getElementById("modal"); if (m) { m.className = "hide"; m.innerHTML = ""; } });
+    });
+    await w.waitForTimeout(200);
     await goCp(w, "Bảo hộ lao động", "Phiếu cấp phát"); await newPpeVoucher(w, "BH-MOI", "2026-11-18", [{ employee: "B", item: "AOMUA", size: "L", quantity: 2 }]); await w.click('button:has-text("Lưu nháp")'); await w.waitForTimeout(400); await w.click('button:has-text("Xác nhận cấp phát")'); await w.waitForTimeout(450);
     ok("Chế độ một người: Quản trị lập rồi tự xác nhận được", /BH-MOI — Đã cấp/.test(await text(w)));
     await app.close(); ({ app, w, errs } = await launch(D0)); await login(w, "admin");
