@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.0.97] — 22/11/2026
+- **[V11.2] Nền tảng esbuild offline + sourcemap cho app-src/ (PROMPT 2, giai đoạn A):** esbuild 0.28.2 cục bộ để phân tích app.js, `app.js.map` trỏ về app-src/, tests/unit/app-esbuild.test.js (U-APP-ESB-01..05). app.js không đổi; chuyển ES Modules thật CHƯA làm (xem docs/ES_MODULES_PLAN.md). Chi tiết: `docs/releases/v2.0.97.md`.
+
 ## [2.0.96] — 22/11/2026
 - **[V11.1] Triển khai Delta Write Path, kiểm soát baseSig và tối ưu SQLite WAL (P1):** tests/unit/delta-write-path.test.js (Đỏ → Xanh 4/4 pass, p50 = 0.60 ms). Chi tiết: `docs/releases/v2.0.96.md`.
 
