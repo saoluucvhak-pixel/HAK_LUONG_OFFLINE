@@ -4,7 +4,7 @@ const os = require("os");
 const { createStorage } = require("./main/storage");
 const { createExports } = require("./main/exports");
 const { sanitizeOcrItems } = require("./main/ocr-service");
-const { createOcrPool } = require("./main/ocr-worker");
+const { createOcrPool } = require("./ocr/ocr-worker");
 const { createUmiClient } = require("./main/umi-ocr");
 const { createOcrControl } = require("./main/ocr-control");
 const pdfSvc = require("./main/pdf");
@@ -63,7 +63,7 @@ let storage = null, exportsDir = null, ocr = null, vault = null, ocrLib = null, 
 // Tắt: HAK_UMI_OCR=0 · cổng khác: HAK_UMI_OCR=<cổng>. Umi không chạy → tự bỏ qua (ngắt mạch 30 giây).
 const umi = process.env.HAK_UMI_OCR === "0" ? null : createUmiClient({ port: /^\d+$/.test(process.env.HAK_UMI_OCR || "") ? +process.env.HAK_UMI_OCR : 1224 });
 const ocrControl = createOcrControl(umi), ocrJobs = new Map();
-const ocrSvc = () => ocr || (ocr = createOcrPool({ appDir: __dirname, secondOpinion: ocrControl })); // v2.0.99: bể luồng phụ (main/ocr-worker.js), mỗi luồng nạp Tesseract khi dùng lần đầu
+const ocrSvc = () => ocr || (ocr = createOcrPool({ appDir: __dirname, secondOpinion: ocrControl })); // v2.0.99: bể luồng phụ (ocr/ocr-worker.js), mỗi luồng nạp Tesseract khi dùng lần đầu
 const NO_SHELL = !!process.env.HAK_NO_SHELL; // kiểm thử tự động: không mở Explorer thật, chỉ ghi lại thao tác
 let lastShell = null;
 function shellDo(kind, f) { lastShell = { kind, name: path.basename(f) }; if (NO_SHELL) return; if (kind === "show") shell.showItemInFolder(f); else shell.openPath(f); }

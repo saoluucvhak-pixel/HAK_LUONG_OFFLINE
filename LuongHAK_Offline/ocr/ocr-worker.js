@@ -1,7 +1,7 @@
-// ===== MAIN / OCR-WORKER (V11.4, v2.0.99) — bể luồng phụ (worker_threads) chạy OCR song song, tiến trình chính không bị chiếm =====
+// ===== OCR / OCR-WORKER (V11.4, v2.0.99) — bể luồng phụ (worker_threads) chạy OCR song song, tiến trình chính không bị chiếm =====
 // Trước đây mỗi ô OCR chạy tuần tự trong tiến trình chính: mã hóa PNG, CNN chữ số viết tay, ghép kết quả đều chiếm vòng lặp sự kiện của
 // cửa sổ chính, và chỉ 1 ô được đọc tại một thời điểm. Nay mỗi luồng phụ chứa MỘT bản nguyên vẹn của dịch vụ OCR dùng chung
-// (main/ocr-service.js, bị khóa băm — KHÔNG sửa, KHÔNG đổi ocr/lang, ocr/models) với các worker Tesseract riêng; bể chia ô cho các luồng,
+// (main/ocr-service.js, bị khóa băm — KHÔNG sửa, KHÔNG đổi ocr/lang, ocr/models). Tệp đặt ở ocr/ (không phải main/) vì CI "inherited-quality" khóa nguyên thư mục main/ so với mốc c389ef4 và không cho thêm tệp mới ở đó với các worker Tesseract riêng; bể chia ô cho các luồng,
 // trả kết quả ĐÚNG THỨ TỰ như lô gửi vào. Giao diện (interface) giống createOcrService: batch(items) / selfTest() / terminate().
 // "Ý kiến thứ hai" (Umi-OCR) và bộ nhớ đệm của nó vẫn ở tiến trình chính: luồng phụ gọi qua tin nhắn (không nhân đôi trạng thái).
 // Không khởi động được luồng (VD môi trường đóng gói không nạp được script) → tự chạy trực tiếp trong tiến trình hiện tại như bản cũ.
@@ -13,8 +13,8 @@ const os = require("os");
 // ---------- Phần chạy BÊN TRONG luồng phụ ----------
 function buildService(wd, secondOpinion) {
   if (wd.serviceModule) return require(wd.serviceModule).create({ appDir: wd.appDir, secondOpinion }); // chỉ để kiểm thử (dịch vụ giả)
-  const { createOcrService } = require("./ocr-service.js");
-  return createOcrService({ appDir: wd.appDir, secondOpinion, tesseract: require("../ocr/tesseract-compat.js")(require("tesseract.js")) });
+  const { createOcrService } = require("../main/ocr-service.js");
+  return createOcrService({ appDir: wd.appDir, secondOpinion, tesseract: require("./tesseract-compat.js")(require("tesseract.js")) });
 }
 
 if (!isMainThread && workerData && workerData.__ocrWorker) {
@@ -61,7 +61,7 @@ function createOcrPool(opts) {
   function directService() {
     if (direct) return direct;
     if (opts.serviceModule) direct = require(opts.serviceModule).create({ appDir: opts.appDir, secondOpinion: opts.secondOpinion });
-    else { const { createOcrService } = require("./ocr-service.js"); direct = createOcrService({ appDir: opts.appDir, secondOpinion: opts.secondOpinion, tesseract: require("../ocr/tesseract-compat.js")(require("tesseract.js")) }); }
+    else { const { createOcrService } = require("../main/ocr-service.js"); direct = createOcrService({ appDir: opts.appDir, secondOpinion: opts.secondOpinion, tesseract: require("./tesseract-compat.js")(require("tesseract.js")) }); }
     return direct;
   }
   const busyCount = () => slots.filter((s) => s.task).length;

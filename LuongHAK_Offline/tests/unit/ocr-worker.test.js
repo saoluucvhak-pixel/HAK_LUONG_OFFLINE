@@ -1,8 +1,8 @@
 "use strict";
-// v2.0.99 (PROMPT 4): bể luồng OCR main/ocr-worker.js — kiểm bằng dịch vụ giả (nhanh); OCR thật nằm ở tests/integration/ocr-pool.test.js.
+// v2.0.99 (PROMPT 4): bể luồng OCR ocr/ocr-worker.js — kiểm bằng dịch vụ giả (nhanh); OCR thật nằm ở tests/integration/ocr-pool.test.js.
 const test = require("node:test"), assert = require("node:assert/strict");
 const path = require("node:path");
-const { createOcrPool, defaultSize } = require("../../main/ocr-worker.js");
+const { createOcrPool, defaultSize } = require("../../ocr/ocr-worker.js");
 const FAKE = path.join(__dirname, "../fixtures/fake-ocr-service.js");
 const mk = (o) => createOcrPool(Object.assign({ appDir: path.join(__dirname, "../.."), serviceModule: FAKE, size: 3 }, o));
 const items = (n, f) => Array.from({ length: n }, (_, i) => Object.assign({ text: "T" + i }, f ? f(i) : {}));

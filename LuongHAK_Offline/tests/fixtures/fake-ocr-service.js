@@ -1,5 +1,5 @@
 "use strict";
-// Dịch vụ OCR GIẢ cho test bể luồng (main/ocr-worker.js): không nạp Tesseract, nhanh, quyết định bằng trường của ô.
+// Dịch vụ OCR GIẢ cho test bể luồng (ocr/ocr-worker.js): không nạp Tesseract, nhanh, quyết định bằng trường của ô.
 const { threadId } = require("worker_threads"), fs = require("fs");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 exports.create = function (o) {

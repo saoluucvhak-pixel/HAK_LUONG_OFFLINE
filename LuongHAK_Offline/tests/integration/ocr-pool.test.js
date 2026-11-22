@@ -1,10 +1,10 @@
-// OCR THẬT (Tesseract offline) qua bể luồng main/ocr-worker.js (v2.0.99): kết quả phải GIỐNG HỆT dịch vụ tuần tự và phân tích bảng chấm công vẫn đúng.
+// OCR THẬT (Tesseract offline) qua bể luồng ocr/ocr-worker.js (v2.0.99): kết quả phải GIỐNG HỆT dịch vụ tuần tự và phân tích bảng chấm công vẫn đúng.
 "use strict";
 const test = require("node:test"), assert = require("node:assert");
 const path = require("path");
 const { readGrayPNG, collect } = require("../perf/ocr-pool-bench.js");
 const TO = require("../../core/timesheet-ocr.js");
-const { createOcrPool } = require("../../main/ocr-worker.js");
+const { createOcrPool } = require("../../ocr/ocr-worker.js");
 const APP = path.resolve(__dirname, "../.."), FIX = path.join(APP, "tests/fixtures/ocr");
 let pool;
 test.before(() => { pool = createOcrPool({ appDir: APP, size: 2 }); });

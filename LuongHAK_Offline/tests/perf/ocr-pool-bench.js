@@ -3,7 +3,7 @@
 "use strict";
 const fs = require("fs"), path = require("path"), zlib = require("zlib"), os = require("os");
 const APP = path.resolve(__dirname, "../..");
-const TO = require(path.join(APP, "core/timesheet-ocr.js")), { createOcrService } = require(path.join(APP, "main/ocr-service.js")), { createOcrPool } = require(path.join(APP, "main/ocr-worker.js"));
+const TO = require(path.join(APP, "core/timesheet-ocr.js")), { createOcrService } = require(path.join(APP, "main/ocr-service.js")), { createOcrPool } = require(path.join(APP, "ocr/ocr-worker.js"));
 function readGrayPNG(file) {
   const b = fs.readFileSync(file); let p = 8, w = 0, h = 0; const idat = [];
   while (p < b.length) { const len = b.readUInt32BE(p), type = b.toString("ascii", p + 4, p + 8), d = b.subarray(p + 8, p + 8 + len); if (type === "IHDR") { w = d.readUInt32BE(0); h = d.readUInt32BE(4); } if (type === "IDAT") idat.push(d); p += 12 + len; }
