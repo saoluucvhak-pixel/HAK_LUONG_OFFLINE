@@ -57,6 +57,7 @@
   // @screen tabOpsReport
   // @screen tabBangTinhNoiBo
 
+  var kqVirtual = null; // bảng lương đang ảo hóa (hủy lắng nghe cuộn khi vẽ lại)
   function renderKq(box, card, bar) {
     var rAll = st.kq, rf = RF.apply(rAll.bangluong, st.rf), r = Object.assign({}, rAll, { bangluong: rf.rows }), sum = function (c) { return r.bangluong.reduce(function (a, x) { return a + (+x[c] || 0); }, 0); };
     box.appendChild(h("div", { class: "kpis" }, [
@@ -98,18 +99,23 @@
     var tw = h("div", { class: "tw" }), t = h("table"), tr = h("tr");
     cols.forEach(function (c, i) { tr.appendChild(h("th", { class: (TEXTCOLS[c] ? "" : "r") + (i === 0 ? " stk" : ""), text: c })); });
     t.appendChild(h("thead", {}, [tr])); var tb = h("tbody");
-    r.bangluong.forEach(function (row) {
+    var kqRow = function (row) {
       var x = h("tr", { class: "click", on: { click: function () { slipDialog(row); } } });
       cols.forEach(function (c, i) {
         var v = row[c], cl = (TEXTCOLS[c] ? "t" : "r") + (i === 0 ? " stk" : "");
         if (!TEXTCOLS[c] && !v) { x.appendChild(h("td", { class: cl + " z", text: "–" })); return; }
         x.appendChild(h("td", { class: cl + (c === "Thực lĩnh" ? "" : ""), style: c === "Thực lĩnh" ? "font-weight:700" : "", text: fmt(v) }));
       });
-      tb.appendChild(x);
-    });
+      return x;
+    };
+    // v2.0.98: bảng lương nhiều dòng chỉ dựng các dòng đang nhìn thấy (ui/virtual-table.js); ≤ 150 dòng và khi In vẫn dựng đủ.
+    var VT = window.HAKUI && window.HAKUI.virtualTable;
+    if (VT) { kqVirtual && kqVirtual.destroy(); kqVirtual = VT.attach({ scroller: tw, tbody: tb, rows: r.bangluong, renderRow: kqRow, cols: cols.length }); }
+    else r.bangluong.forEach(function (row) { tb.appendChild(kqRow(row)); });
     t.appendChild(tb);
     var tf = h("tr"); cols.forEach(function (c, i) { tf.appendChild(h("td", { text: i === 0 ? "TỔNG" : (TEXTCOLS[c] || c === "Công chuẩn" ? "" : fmt(Math.round(sum(c) * 1000) / 1000)), style: i === 0 ? "text-align:left;left:0" : "" })); });
     t.appendChild(h("tfoot", {}, [tf])); tw.appendChild(t); card.appendChild(tw); box.appendChild(card);
+    if (kqVirtual) setTimeout(function () { if (kqVirtual) kqVirtual.refresh(); }, 0); // đo lại sau khi bảng đã vào trang (biết chiều cao khung)
     return box;
   }
 

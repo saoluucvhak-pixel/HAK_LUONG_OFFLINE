@@ -742,3 +742,5 @@ th{color:color-mix(in srgb,var(--mut) 60%,var(--ink))}
 .bk-status{min-width:110px;max-width:185px}
 .bk-act{white-space:normal;min-width:110px}
 .bk-acts{display:flex;flex-wrap:wrap;gap:4px}
+
+tr.vt-pad:hover td{background:transparent}
