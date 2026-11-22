@@ -56,9 +56,15 @@ async function newPpeVoucher(w, id, date, lines) {
   await w.fill('[data-cp-zone=info] input[aria-label="Mã phiếu"]', id); await w.fill('[data-cp-zone=info] input[aria-label="Ngày giao"]', date); await w.fill('[data-cp-zone=info] input[aria-label="Địa điểm"]', "Kho vật tư");
   for (const l of lines) {
     await w.click('button:has-text("Thêm dòng")'); const n = await w.locator("[data-cp-lines] tbody tr").count(), row = w.locator("[data-cp-lines] tbody tr").nth(n - 1);
-    await row.locator('input[aria-label="Mã NV"]').fill(l.employee); await row.locator('input[aria-label="Mã NV"]').press("Tab"); await w.waitForTimeout(120);
-    await w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Mặt hàng"]').selectOption(l.item); await w.waitForTimeout(120);
-    if (l.size) await w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Kích cỡ"]').selectOption(l.size);
+    await row.locator('input[aria-label="Mã NV"]').fill(l.employee); await row.locator('input[aria-label="Mã NV"]').press("Tab"); await w.waitForTimeout(150);
+    const selMh = w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Mặt hàng"]');
+    await selMh.locator(`option[value="${l.item}"]`).waitFor({ state: "attached", timeout: 10000 });
+    await selMh.selectOption(l.item); await w.waitForTimeout(150);
+    if (l.size) {
+      const selSz = w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Kích cỡ"]');
+      await selSz.locator(`option[value="${l.size}"]`).waitFor({ state: "attached", timeout: 10000 });
+      await selSz.selectOption(l.size); await w.waitForTimeout(150);
+    }
     const q = w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('input[aria-label="Số lượng"]'); await q.fill(String(l.quantity)); await q.press("Tab"); await w.waitForTimeout(120);
   }
 }
@@ -221,10 +227,11 @@ async function guarded(name, fn) { try { await fn(); } catch (e) { ok(name + " �
     await shot(w, "cp-win-06-sua-nang-cap-tu-v2-0-24");
     await w.click("#nav button[data-k=dm]"); await w.click('button:has-text("Đồ bảo hộ lao động")');
     await w.click('button:has-text("Thêm vật tư")'); await w.fill('.dlg [aria-label="Mã vật tư"]', "AOMUA"); await w.fill('.dlg [aria-label="Tên vật tư"]', "Áo mưa"); await w.selectOption('.dlg select[aria-label="Nhóm hàng"]', "Áo mưa"); await w.fill('.dlg [aria-label="Đơn vị tính"]', "cái"); await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', "M, L"); await w.click('.dlg button:has-text("Lưu vật tư")');
-    await w.waitForSelector(".dlg", { state: "detached", timeout: 4000 }).catch(async () => {
+    await w.waitForSelector(".dlg", { state: "detached", timeout: 5000 }).catch(async () => {
       await w.evaluate(() => { const m = document.getElementById("modal"); if (m) { m.className = "hide"; m.innerHTML = ""; } });
     });
-    await w.waitForTimeout(200);
+    await w.waitForSelector('[data-cp-catalog="ppe"] td:has-text("AOMUA")', { timeout: 5000 }).catch(() => {});
+    await w.waitForTimeout(300);
     await goCp(w, "Bảo hộ lao động", "Phiếu cấp phát"); await newPpeVoucher(w, "BH-MOI", "2026-11-18", [{ employee: "B", item: "AOMUA", size: "L", quantity: 2 }]); await w.click('button:has-text("Lưu nháp")'); await w.waitForTimeout(400); await w.click('button:has-text("Xác nhận cấp phát")'); await w.waitForTimeout(450);
     ok("Chế độ một người: Quản trị lập rồi tự xác nhận được", /BH-MOI — Đã cấp/.test(await text(w)));
     await app.close(); ({ app, w, errs } = await launch(D0)); await login(w, "admin");
