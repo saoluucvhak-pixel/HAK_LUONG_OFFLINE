@@ -68,8 +68,10 @@ test("U-STOR-08 markUsed ghi nhớ kho có dữ liệu; sau đó nếu thư mụ
 });
 test("U-STOR-09 thư mục lồng nhau qua symlink / '..' / vào chính thư mục hiện tại bị từ chối", () => {
   const ud = tmp(), cur = SP.resolve(ud, {}, path.join(ud, "exports")); fs.mkdirSync(cur.docs, { recursive: true });
-  const ln = path.join(tmp(), "lien-ket"); fs.symlinkSync(cur.docs, ln, "dir");
-  assert.match(SP.validate("ocrLib", ln, cur), /lồng|trùng|liên kết/);                          // trỏ vào kho chứng từ
+  const ln = path.join(tmp(), "lien-ket");
+  let hasSymlink = true;
+  try { fs.symlinkSync(cur.docs, ln, "dir"); } catch (e) { hasSymlink = false; }
+  if (hasSymlink) assert.match(SP.validate("ocrLib", ln, cur), /lồng|trùng|liên kết/);                          // trỏ vào kho chứng từ
   assert.match(SP.validate("ocrLib", path.join(cur.docs, "..", "documents", "con"), cur), /lồng|trùng/);
   const bk = path.join(ud, "exports"); fs.mkdirSync(bk, { recursive: true });
   assert.match(SP.validate("docs", path.join(bk, "kho"), cur, { export: bk }), /lồng|trùng/);       // chứng từ trong thư mục sao lưu

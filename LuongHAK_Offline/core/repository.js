@@ -272,13 +272,102 @@
 
     function saveWorkflowRows(table, rows, action, detail) {
       if (!["benefitStandards", "benefitAssignments", "benefitIssues", "benefitPpeItems", "benefitAdjustments", "productionAttendance"].includes(table)) return deny("table", "Bảng nghiệp vụ không hợp lệ.");
+      if (ctx.saveDelta) {
+        var mutation = {
+          table: table,
+          action: "saveRows",
+          keys: null,
+          delta: rows,
+          baseSig: ctx.baseSig ? ctx.baseSig() : undefined
+        };
+        var res = ctx.saveDelta(mutation);
+        if (!res || res.ok === false) return res || deny("save", "Lưu delta thất bại");
+        var current = ctx.db();
+        current[table] = rows;
+        ctx.audit(action, detail);
+        return { ok: true, mutation: mutation, res: res };
+      }
       return writeBatch([table], function (current) {
         current[table] = rows;
         ctx.audit(action, detail);
       });
     }
 
-    return { saveWorkflowRows: saveWorkflowRows, plan: plan, apply: apply, importWorkbook: importWorkbook, mergeAttendance: mergeAttendance, createEmployee: createEmployee, removeEmployee: removeEmployee, permFor: permFor, retroText: retroText, identOf: identOf };
+    function insert(table, values, opts, auditOpts) {
+      var p = plan("insert", table, null, values, opts);
+      if (!p.ok) return p;
+      if (ctx.saveDelta) {
+        var row = Object.assign({ _id: ctx.uid() }, values, p.patch);
+        var mutation = {
+          table: table,
+          action: "insert",
+          keys: { _id: row._id },
+          delta: row,
+          baseSig: ctx.baseSig ? ctx.baseSig() : undefined
+        };
+        var res = ctx.saveDelta(mutation);
+        if (!res || res.ok === false) return res || deny("save", "Lưu delta thất bại");
+        var db = ctx.db();
+        db[table].push(row);
+        var mode = (auditOpts && auditOpts.audit) || "always";
+        if (mode === "always" || (mode === "retro" && p.retro)) {
+          ctx.audit((auditOpts && auditOpts.action) || "Thêm dữ liệu", tname(table) + " · " + identOf(row));
+        }
+        return { ok: true, row: row, mutation: mutation, res: res };
+      }
+      return apply(p, auditOpts);
+    }
+
+    function update(table, target, values, opts, auditOpts) {
+      var p = plan("update", table, target, values, opts);
+      if (!p.ok) return p;
+      if (ctx.saveDelta) {
+        var keys = target._id ? { _id: target._id } : target["Mã NV"] ? { "Mã NV": target["Mã NV"] } : target;
+        var delta = Object.assign({}, values, p.patch);
+        var mutation = {
+          table: table,
+          action: "update",
+          keys: keys,
+          delta: delta,
+          baseSig: ctx.baseSig ? ctx.baseSig() : undefined
+        };
+        var res = ctx.saveDelta(mutation);
+        if (!res || res.ok === false) return res || deny("save", "Lưu delta thất bại");
+        return apply(p, auditOpts);
+      }
+      return apply(p, auditOpts);
+    }
+
+    function deleteRow(table, target, opts, auditOpts) {
+      var p = plan("remove", table, target, null, opts);
+      if (!p.ok) return p;
+      if (ctx.saveDelta) {
+        var keys = target._id ? { _id: target._id } : target["Mã NV"] ? { "Mã NV": target["Mã NV"] } : target;
+        var mutation = {
+          table: table,
+          action: "delete",
+          keys: keys,
+          delta: null,
+          baseSig: ctx.baseSig ? ctx.baseSig() : undefined
+        };
+        var res = ctx.saveDelta(mutation);
+        if (!res || res.ok === false) return res || deny("save", "Lưu delta thất bại");
+        return apply(p, auditOpts);
+      }
+      return apply(p, auditOpts);
+    }
+
+    function buildMutation(table, action, keys, delta, baseSig) {
+      return {
+        table: table,
+        action: action,
+        keys: keys || null,
+        delta: delta || null,
+        baseSig: baseSig || (ctx.baseSig ? ctx.baseSig() : undefined)
+      };
+    }
+
+    return { saveWorkflowRows: saveWorkflowRows, plan: plan, apply: apply, insert: insert, update: update, delete: deleteRow, remove: deleteRow, buildMutation: buildMutation, importWorkbook: importWorkbook, mergeAttendance: mergeAttendance, createEmployee: createEmployee, removeEmployee: removeEmployee, permFor: permFor, retroText: retroText, identOf: identOf };
   }
 
   // ===== 012-B1 (issue #113): SAO LƯU / KHÔI PHỤC THEO KỲ LƯƠNG — LÕI THUẦN (không I/O, không giao diện) =====

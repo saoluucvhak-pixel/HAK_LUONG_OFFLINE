@@ -58,6 +58,8 @@
   var CT_KEY = { psluong: true, ungluong: true };
   // Mọi thêm / sửa / xóa bản ghi nghiệp vụ đi qua repository (core/repository.js): quyền → ô ngày → trùng khóa → Q-15 → kỳ chốt / hồi tố, kiểm tra xong mới sửa dữ liệu
   var REPO = RP.createRepo({ transaction: txn, db: function () { return db; }, can: function (p) { return can(p); }, audit: function (a, d) { audit(a, d); }, uid: function () { return HRM.uid(); }, user: function () { return session ? session.tenDangNhap : currentUser(); },
+    baseSig: function () { return typeof baseSig !== "undefined" ? baseSig : undefined; },
+    saveDelta: function (m) { return typeof saveDelta === "function" ? saveDelta(m) : null; },
     tableName: function (t) { return ALL[t] ? ALL[t].ten : t; }, hdChildren: HRM.HD_TABS });
   /** Ghi theo kế hoạch của repository: bị chặn → báo lý do; hồi tố + o.confirm → hỏi xác nhận (Hủy = không đổi gì). Trả kết quả hoặc null. */
   function commit(p, o) {
@@ -119,7 +121,7 @@
   // Phiên bản kho mà giao diện đã nạp/lưu gần nhất; gửi kèm mỗi lần lưu để tiến trình chính từ chối ghi đè khi kho đã đổi ở nơi khác (STALE_BASE).
   var baseSig; try { baseSig = (store && !loadError && store.sig) ? String(store.sig()) : undefined; } catch (e) { baseSig = undefined; }
   var lastSaveStale = false, staleDeclined = false, closingNow = false;
-  function isStale(r) { return typeof r === "string" && r.indexOf("STALE_BASE") === 0; }
+  function isStale(r) { return (typeof r === "string" && r.indexOf("STALE_BASE") === 0) || (r && typeof r === "object" && (r.conflict === true || r.code === "STALE_BASE")); }
   /** Kho đã đổi ở nơi khác: bản trong bộ nhớ là bản CŨ. Không ghi; hỏi tải lại (bỏ thay đổi chưa lưu ở màn hình này) hoặc giữ màn hình để xử lý tay. */
   function onStaleBase() {
     if (staleDeclined) return;
@@ -135,6 +137,40 @@
     var str = JSON.stringify(db);
     if (store) { var r; lastSaveStale = false; try { r = store.save(str, baseSig); } catch (e) { r = e && e.message || String(e); } if (r !== true) { lastSaveError = String(r && r.error || r || "Nơi lưu dữ liệu không xác nhận đã ghi thành công"); dirty = true; if (isStale(r)) { lastSaveStale = true; toast("⛔ " + lastSaveError); if (!closingNow) onStaleBase(); return false; } toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + lastSaveError); return false; } try { if (store.sig) baseSig = String(store.sig()); } catch (e) { /* giữ baseSig cũ */ } dirty = false; return true; }
     try { localStorage.setItem(KEY, str); dirty = false; return true; } catch (e) { lastSaveError = "Không ghi được bộ nhớ trình duyệt: " + (e && e.message || String(e)); dirty = true; toast("⚠ " + lastSaveError + " — hãy bấm Sao lưu ra file ngay!"); return false; }
+  }
+  function saveDelta(mutation) {
+    if (readOnly) { lastSaveError = "Đang ở chế độ khôi phục — chưa ghi dữ liệu"; toast("⚠ " + lastSaveError); return { ok: false, error: lastSaveError }; }
+    if (mutation && !mutation.baseSig && baseSig) mutation.baseSig = baseSig;
+    if (mutation && !mutation.schemaVersion && db && db.schemaVersion) {
+      if (db.schemaVersion < 5 || db._inputReviews !== undefined || mutation.table === "_inputReviews" || (mutation.tables && mutation.tables._inputReviews)) {
+        mutation.schemaVersion = db.schemaVersion;
+      }
+    }
+    if (store && store.saveDelta) {
+      var r;
+      lastSaveStale = false;
+      try { r = store.saveDelta(mutation, baseSig); } catch (e) { r = { ok: false, error: e && e.message || String(e) }; }
+      if (!r || r.ok === false) {
+        lastSaveError = String((r && (r.error || r.message)) || "Nơi lưu dữ liệu không xác nhận đã ghi delta thành công");
+        dirty = true;
+        if (isStale(r)) {
+          lastSaveStale = true;
+          toast("⛔ " + lastSaveError);
+          if (!closingNow) onStaleBase();
+          return { ok: false, conflict: true, code: "STALE_BASE", error: lastSaveError };
+        }
+        toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + lastSaveError);
+        return { ok: false, error: lastSaveError };
+      }
+      if (r.baseSig) baseSig = String(r.baseSig);
+      else if (store.sig) { try { baseSig = String(store.sig()); } catch (e) {} }
+      dirty = false;
+      dbRev++;
+      st.kqStale = true;
+      return r;
+    }
+    var ok = saveNow();
+    return { ok: ok, baseSig: baseSig, fallback: true };
   }
   var dbRev = 0; // V9.4: tăng mỗi lần dữ liệu đổi → làm hết hiệu lực bản tính lương tạm đang nhớ (kqKy)
   /** V10.1: giao dịch nhiều bước. Chụp các bảng liên quan (+ nhật ký), chạy fn; fn thất bại/ném lỗi HOẶC tiến trình chính từ chối lưu ⇒ HOÀN TÁC toàn bộ trong bộ nhớ.
@@ -6915,7 +6951,18 @@
         for (var k = i; k >= 0 && NAV[k][0] !== "grp"; k--) if (NAV[k][0] === activeNav) activeInGroup = true;
         if (!activeInGroup) return;
       }
-      var b = h("button", { class: activeNav === n[0] ? "on" : "", "data-k": n[0], on: { click: function () { if (!leaveOk()) return; if (st.kqFull) { st.kq = st.kqFull; st.kqFull = null; } st.tab = n[0]; saveUi(); render(); } } }, [h("span", { class: "ic", text: n[1] }), h("span", { text: n[2] })]);
+      var b = h("button", { class: activeNav === n[0] ? "on" : "", "data-k": n[0], on: { click: function () {
+        if (!leaveOk()) return;
+        if (st.kqFull) { st.kq = st.kqFull; st.kqFull = null; }
+        var mModal = $("#modal");
+        if (mModal && !mModal.classList.contains("hide") && !mModal.classList.contains("drawer")) {
+          mModal.className = "hide";
+          mModal.innerHTML = "";
+        }
+        st.tab = n[0];
+        saveUi();
+        render();
+      } } }, [h("span", { class: "ic", text: n[1] }), h("span", { text: n[2] })]);
       if (S[n[0]]) b.appendChild(h("span", { class: "n", text: countOf(n[0]) }));
       if (n[0] === "kyluong") b.appendChild(h("span", { class: "n", text: db.kyluong.length }));
       if (n[0] === "nhansu") b.appendChild(h("span", { class: "n", text: db.nhanvien.filter(function (r) { return r["Trạng thái"] !== "Đã nghỉ việc"; }).length }));
@@ -7471,7 +7518,8 @@
     var next = Object.assign({}, db, { [table]: rows });
     var error = C.benefits.validateChanges(table, db, next, { user: user, perms: Object.keys(PERM.PERMS).filter(can) }, C.workflowApproval.mode(db));
     if (error) { alert(error); return; }
-    if (!REPO.saveWorkflowRows(table, rows, action, detail).ok) { alert(lastTxnError); return; }
+    var res = REPO.saveWorkflowRows(table, rows, action, detail);
+    if (!res || !res.ok) { alert(lastTxnError || (res && res.error) || lastSaveError || "Lưu thất bại"); return; }
     if (done) done();
   }
   function benefitField(label, type, value) {

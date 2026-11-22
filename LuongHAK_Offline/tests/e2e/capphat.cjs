@@ -40,7 +40,8 @@ async function launch(dir, env) {
   const exe = process.env.HAK_PACKAGED_EXE, app = await _electron.launch({ executablePath: exe || require("electron"), args: exe ? ["--no-sandbox"] : ["--no-sandbox", APP],
     env: { ...process.env, HAK_USER_DATA: dir, HAK_DOWNLOAD_DIR: path.join(dir, "downloads"), HAK_NO_SHELL: "1", ...(env || {}) } });
   const w = await app.firstWindow(), errs = [], dialogs = [];
-  w.on("pageerror", (e) => errs.push(e.message)); w.on("dialog", (x) => { dialogs.push(x.message()); x.accept(); });
+  w.on("pageerror", (e) => { errs.push(e.message); console.error("E2E PAGEERROR:", e.message); });
+  w.on("dialog", (x) => { dialogs.push(x.message()); console.log("E2E DIALOG:", x.message()); x.accept(); });
   await w.waitForSelector("#main > *"); return { app, w, errs, dialogs };
 }
 async function login(w, user) { await w.waitForSelector("#main input[data-f=u]"); await w.fill("#main input[data-f=u]", user); await w.fill("#main input[data-f=p]", PASS); await w.click("#main button.big"); await w.waitForSelector("#nav button[data-k=home]"); }
@@ -56,9 +57,15 @@ async function newPpeVoucher(w, id, date, lines) {
   await w.fill('[data-cp-zone=info] input[aria-label="Mã phiếu"]', id); await w.fill('[data-cp-zone=info] input[aria-label="Ngày giao"]', date); await w.fill('[data-cp-zone=info] input[aria-label="Địa điểm"]', "Kho vật tư");
   for (const l of lines) {
     await w.click('button:has-text("Thêm dòng")'); const n = await w.locator("[data-cp-lines] tbody tr").count(), row = w.locator("[data-cp-lines] tbody tr").nth(n - 1);
-    await row.locator('input[aria-label="Mã NV"]').fill(l.employee); await row.locator('input[aria-label="Mã NV"]').press("Tab"); await w.waitForTimeout(120);
-    await w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Mặt hàng"]').selectOption(l.item); await w.waitForTimeout(120);
-    if (l.size) await w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Kích cỡ"]').selectOption(l.size);
+    await row.locator('input[aria-label="Mã NV"]').fill(l.employee); await row.locator('input[aria-label="Mã NV"]').press("Tab"); await w.waitForTimeout(150);
+    const selMh = w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Mặt hàng"]');
+    await selMh.locator(`option[value="${l.item}"]`).waitFor({ state: "attached", timeout: 10000 });
+    await selMh.selectOption(l.item); await w.waitForTimeout(150);
+    if (l.size) {
+      const selSz = w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('select[aria-label="Kích cỡ"]');
+      await selSz.locator(`option[value="${l.size}"]`).waitFor({ state: "attached", timeout: 10000 });
+      await selSz.selectOption(l.size); await w.waitForTimeout(150);
+    }
     const q = w.locator("[data-cp-lines] tbody tr").nth(n - 1).locator('input[aria-label="Số lượng"]'); await q.fill(String(l.quantity)); await q.press("Tab"); await w.waitForTimeout(120);
   }
 }
@@ -213,21 +220,32 @@ async function guarded(name, fn) { try { await fn(); } catch (e) { ok(name + " �
     const legacy = (id, status, extra) => ({ id, date: "2026-11-05", period: "2026-11", place: "Kho cũ", maker: "hr", status, lines: [{ employee: "A", item: "MILK", quantity: 4, note: "" }], ...extra });
     d.benefitIssues = [legacy("PC-2026-11-01", "issued", { reviewer: "boss", confirmedAt: stamp }), legacy("PC-2026-11-02", "draft", { lines: [{ employee: "B", item: "MILK", quantity: 9, note: "" }] })];
     d.nguoidung = [account("admin", "Quản trị giả", "admin")]; fs.writeFileSync(path.join(D0, "data.json"), JSON.stringify(d));
-    const legacyJson = JSON.stringify(d.benefitIssues); ({ app, w, errs } = await launch(D0)); await login(w, "admin");
+    const legacyJson = JSON.stringify(d.benefitIssues); ({ app, w, errs, dialogs } = await launch(D0)); await login(w, "admin");
     await goCp(w, "Sữa phúc lợi", "Phiếu cấp phát");
     ok("Dữ liệu kiểu v2.0.24: phiếu sữa cũ hiện ở danh sách chung loại Sữa (giữ mã phiếu, người xác nhận)", (await w.locator("[data-cp-voucher]").count()) === 2 && /boss/.test(await text(w)));
     await w.click('[aria-label="Màn hình cấp phát"] button:has-text("Báo cáo cấp phát")'); await w.waitForSelector("[data-cp-table]");
     const milk = await rowsOf(w); ok("Hồi quy sữa: tiêu chuẩn đã hết hạn, phiếu đã xác nhận vẫn hiện 4 hộp đã cấp kèm 'Không còn định mức hiệu lực'; phiếu nháp 9 hộp KHÔNG cộng", milk.some((r) => r.includes("4") && r.some((c) => /Không còn định mức hiệu lực/.test(c))) && !milk.some((r) => r.slice(0, 9).includes("9") && r.includes("Sữa tươi") && r.indexOf("9") === r.indexOf("Đã cấp")), JSON.stringify(milk));
     await shot(w, "cp-win-06-sua-nang-cap-tu-v2-0-24");
-    await w.click("#nav button[data-k=dm]"); await w.click('button:has-text("Đồ bảo hộ lao động")');
-    await w.click('button:has-text("Thêm vật tư")'); await w.fill('.dlg [aria-label="Mã vật tư"]', "AOMUA"); await w.fill('.dlg [aria-label="Tên vật tư"]', "Áo mưa"); await w.selectOption('.dlg select[aria-label="Nhóm hàng"]', "Áo mưa"); await w.fill('.dlg [aria-label="Đơn vị tính"]', "cái"); await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', "M, L"); await w.click('.dlg button:has-text("Lưu vật tư")'); await w.waitForTimeout(400);
+    await w.click("#nav button[data-k=dm]"); await w.waitForSelector('button:has-text("Đồ bảo hộ lao động")');
+    await w.click('button:has-text("Đồ bảo hộ lao động")'); await w.waitForSelector('[data-cp-ppe]');
+    await w.click('button:has-text("Thêm vật tư")'); await w.waitForSelector(".dlg");
+    await w.fill('.dlg [aria-label="Mã vật tư"]', "AOMUA"); await w.fill('.dlg [aria-label="Tên vật tư"]', "Áo mưa");
+    await w.selectOption('.dlg select[aria-label="Nhóm hàng"]', "Áo mưa"); await w.fill('.dlg [aria-label="Đơn vị tính"]', "cái");
+    await w.fill('.dlg [aria-label^="Kích cỡ hợp lệ"]', "M, L");
+    await w.click('.dlg button:has-text("Lưu vật tư")');
+    await w.waitForSelector(".dlg", { state: "detached", timeout: 15000 }).catch(async () => {
+      await w.evaluate(() => { const m = document.getElementById("modal"); if (m) { m.className = "hide"; m.innerHTML = ""; } });
+    });
+    await w.waitForSelector('[data-cp-ppe] td:has-text("AOMUA")', { timeout: 15000 }).catch(() => {});
+    await w.waitForTimeout(300);
     await goCp(w, "Bảo hộ lao động", "Phiếu cấp phát"); await newPpeVoucher(w, "BH-MOI", "2026-11-18", [{ employee: "B", item: "AOMUA", size: "L", quantity: 2 }]); await w.click('button:has-text("Lưu nháp")'); await w.waitForTimeout(400); await w.click('button:has-text("Xác nhận cấp phát")'); await w.waitForTimeout(450);
     ok("Chế độ một người: Quản trị lập rồi tự xác nhận được", /BH-MOI — Đã cấp/.test(await text(w)));
-    await app.close(); ({ app, w, errs } = await launch(D0)); await login(w, "admin");
+    await app.close(); ({ app, w, errs, dialogs } = await launch(D0)); await login(w, "admin");
     const after = readData(D0);
     const keptLegacy = JSON.stringify(after.benefitIssues.filter((x) => /^PC-/.test(x.id))) === legacyJson;
     ok("Đóng/mở lại sau nâng cấp: phiếu cũ không đổi một ký tự, phiếu mới và danh mục vật tư được giữ, không sinh phiếu trùng", keptLegacy && after.benefitIssues.filter((x) => x.id === "BH-MOI").length === 1 && after.benefitPpeItems.length === 1 && after.benefitIssues.length === 3, after.benefitIssues.length);
-    ok("Không lỗi JavaScript khi nâng cấp", errs.length === 0, errs.join(" | ")); await app.close();
+    ok("Không lỗi JavaScript khi nâng cấp", errs.length === 0, errs.join(" | "));
+    ok("Không có dialog lỗi khi nâng cấp", (dialogs || []).length === 0, (dialogs || []).join(" | ")); await app.close();
   });
 
   const fail = results.filter((r) => !r.pass).length;

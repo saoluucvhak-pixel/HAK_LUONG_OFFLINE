@@ -58,6 +58,8 @@
   var CT_KEY = { psluong: true, ungluong: true };
   // Mọi thêm / sửa / xóa bản ghi nghiệp vụ đi qua repository (core/repository.js): quyền → ô ngày → trùng khóa → Q-15 → kỳ chốt / hồi tố, kiểm tra xong mới sửa dữ liệu
   var REPO = RP.createRepo({ transaction: txn, db: function () { return db; }, can: function (p) { return can(p); }, audit: function (a, d) { audit(a, d); }, uid: function () { return HRM.uid(); }, user: function () { return session ? session.tenDangNhap : currentUser(); },
+    baseSig: function () { return typeof baseSig !== "undefined" ? baseSig : undefined; },
+    saveDelta: function (m) { return typeof saveDelta === "function" ? saveDelta(m) : null; },
     tableName: function (t) { return ALL[t] ? ALL[t].ten : t; }, hdChildren: HRM.HD_TABS });
   /** Ghi theo kế hoạch của repository: bị chặn → báo lý do; hồi tố + o.confirm → hỏi xác nhận (Hủy = không đổi gì). Trả kết quả hoặc null. */
   function commit(p, o) {

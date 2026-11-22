@@ -98,7 +98,13 @@ function registerIpc() {
   ipcMain.on("auth-state", (e) => { const c = guard.trusted(e) ? guard.current(e) : null; e.returnValue = c ? { ok: true, user: c.user, role: c.role, perms: c.perms } : { ok: false }; });
   // Gia hạn phiên hiện có khi người dùng thao tác; deny vẫn kiểm nguồn, hạn phiên và thu hồi quyền.
   ipcMain.on("auth-activity", (e) => { const error = guard.deny(e); e.returnValue = error ? { ok: false, error } : { ok: true }; });
-  ipcMain.on("store-load", (e) => { e.returnValue = storage.load(); });
+  ipcMain.on("store-load", (e) => {
+    const ld = storage.load();
+    if (ld && ld.ok && !ld.baseSig) {
+      ld.baseSig = String(sigNow());
+    }
+    e.returnValue = ld;
+  });
   // V9.2: main so với bản đang lưu, tìm bảng thay đổi và kiểm quyền THEO PHIÊN ĐĂNG NHẬP CỦA MAIN (không tin renderer); chốt kỳ được tính lại để chặn lỗi
   let wpol = null;
   const years = require("./main/year-archive").createYearArchive({storage,dir:app.getPath("userData")});
@@ -120,25 +126,139 @@ function registerIpc() {
   const policy = () => wpol || (wpol = createPolicy({ readText: () => { const l = storage.load(); return l && l.ok ? l.text : null; }, readObj: storage.currentDoc ? () => storage.currentDoc() : null, sigOf: storage.sig ? () => storage.sig() : fileSig(storage.dataFile), gate: payGate }));
   const sigNow = () => (storage.sig ? storage.sig() : fileSig(storage.dataFile)());
   ipcMain.on("store-sig", (e) => { try { e.returnValue = String(sigNow()); } catch (err) { e.returnValue = ""; } });
-  ipcMain.on("store-save", (e, text, baseSig) => {
+  function applyMutationToDoc(doc, mutation) {
+    const src = (doc && doc.doc && typeof doc.doc === "object" && !doc.schemaVersion) ? doc.doc : (doc || {});
+    const next = Object.assign({}, src);
+    if (src.schemaVersion && !next.schemaVersion) next.schemaVersion = src.schemaVersion;
+    if (mutation && mutation.schemaVersion) {
+      const targetVersion = Math.max(next.schemaVersion || 0, mutation.schemaVersion);
+      if (targetVersion < 5 || next._inputReviews !== undefined || mutation.table === "_inputReviews" || (mutation.tables && mutation.tables._inputReviews)) {
+        next.schemaVersion = targetVersion;
+      }
+    }
+    if (next.schemaVersion >= 5 && next._inputReviews === undefined) {
+      next.schemaVersion = (src && src.schemaVersion && src.schemaVersion < 5) ? src.schemaVersion : 4;
+    }
+    function matchTarget(row, keys) {
+      if (!row || !keys) return false;
+      if (typeof keys === "string" || typeof keys === "number") {
+        return row._id === keys || row["Mã NV"] === keys || row.id === keys;
+      }
+      return Object.keys(keys).every((k) => String(row[k]) === String(keys[k]));
+    }
+    function applySingle(m) {
+      if (!m || !m.table) return;
+      const tbl = m.table;
+      const currentList = Array.isArray(src[tbl]) ? src[tbl] : [];
+      if (m.action === "saveRows" || m.action === "replace") {
+        next[tbl] = Array.isArray(m.delta) ? m.delta : [];
+      } else if (m.action === "insert") {
+        const toAdd = Array.isArray(m.delta) ? m.delta : [m.delta];
+        next[tbl] = currentList.concat(toAdd);
+      } else if (m.action === "update") {
+        next[tbl] = currentList.map((r) => matchTarget(r, m.keys) ? Object.assign({}, r, m.delta) : r);
+      } else if (m.action === "delete" || m.action === "remove") {
+        next[tbl] = currentList.filter((r) => !matchTarget(r, m.keys));
+      }
+    }
+    if (Array.isArray(mutation.mutations)) {
+      mutation.mutations.forEach(applySingle);
+    } else if (mutation.tables && typeof mutation.tables === "object") {
+      Object.keys(mutation.tables).forEach((tbl) => {
+        next[tbl] = Array.isArray(mutation.tables[tbl]) ? mutation.tables[tbl] : [];
+      });
+      if (mutation.top && typeof mutation.top === "object") Object.assign(next, mutation.top);
+      if (Array.isArray(mutation.dropTables)) mutation.dropTables.forEach((tbl) => delete next[tbl]);
+    } else if (mutation.table) {
+      applySingle(mutation);
+    }
+    return next;
+  }
+
+  function handleDeltaSave(mutation, baseSig, e, opts) {
     try {
-      if(yearBusy){e.returnValue="Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại";return;}
+      if (yearBusy) {
+        return (opts && opts.structured)
+          ? { ok: false, error: "Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại" }
+          : "Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại";
+      }
+      const sig = String((mutation && mutation.baseSig) || baseSig || "");
+      const curSig = String(sigNow());
+      if (sig && sig !== curSig) {
+        const errObj = { ok: false, conflict: true, code: "STALE_BASE", error: "STALE_BASE: Dữ liệu đã được thay đổi ở nơi khác kể từ lần nạp/lưu gần nhất; bản đang mở là bản cũ nên KHÔNG được ghi để tránh ghi đè." };
+        return (opts && opts.structured) ? errObj : errObj.error;
+      }
+      const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
+      const rcv = guard.recoveryFor(e);
+      let curDoc = storage.currentDoc ? storage.currentDoc() : null;
+      if (curDoc && curDoc.doc && typeof curDoc.doc === "object") curDoc = curDoc.doc;
+      if (!curDoc) {
+        const ld = storage.load();
+        try { curDoc = (ld && ld.ok && ld.text) ? JSON.parse(ld.text) : {}; } catch (e2) { curDoc = {}; }
+      }
+      const nextDoc = applyMutationToDoc(curDoc, mutation);
+      const nextText = JSON.stringify(nextDoc);
+      const v = policy().check(nextText, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv, parsed: nextDoc });
+      if (!v.ok) {
+        if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n");
+        return (opts && opts.structured) ? { ok: false, error: v.error } : v.error;
+      }
+      if (storage.hasDataFile()) years.checkWrite(nextText, !!(restorer && restorer.busy()), nextDoc);
+      let r;
+      if (storage.saveDelta) {
+        r = storage.saveDelta(mutation);
+      } else {
+        const saveRes = storage.save(nextText, nextDoc, policy().rowsFor ? policy().rowsFor(nextDoc) : null);
+        r = saveRes === true ? { ok: true, written: 1, rev: 1 } : { ok: false, error: String(saveRes) };
+      }
+      if (r && r.ok) {
+        policy().commit();
+        if (rcv && !who) guard.recoveryDone(e);
+        if (c && c.touch) c.touch();
+        return (opts && opts.structured)
+          ? { ok: true, baseSig: String(sigNow()), rev: r.rev, written: r.written }
+          : true;
+      }
+      return (opts && opts.structured) ? r : (r && r.error || "Lỗi lưu delta");
+    } catch (err) {
+      const errMsg = "Lỗi lưu delta: " + String(err && err.message || err);
+      return (opts && opts.structured) ? { ok: false, error: errMsg } : errMsg;
+    }
+  }
+
+  ipcMain.on("store-save", (e, text, baseSig, opts) => {
+    try {
+      if (typeof text === "object" && text !== null && (text.table || text.tables || text.action || text.mutations)) {
+        e.returnValue = handleDeltaSave(text, baseSig, e, opts);
+        return;
+      }
+      if (yearBusy) { e.returnValue = (opts && opts.structured) ? { ok: false, error: "Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại" } : "Đang xử lý hồ sơ năm; vui lòng chờ hoàn tất rồi lưu lại"; return; }
       // Kiểm bản nền: giao diện gửi kèm phiên bản kho nó đã nạp/lưu gần nhất. Lệch ⇒ kho đã đổi ở nơi khác (khôi phục, lưu trữ năm, ghi ngoài giao diện) và bản trong
       // bộ nhớ của giao diện là bản CŨ: từ chối ghi để KHÔNG ghi đè âm thầm. Không gửi baseSig (khách cũ, kịch bản kiểm thử) ⇒ giữ hành vi cũ.
       const stale = typeof baseSig === "string" && baseSig !== String(sigNow());
       if (process.env.HAK_DEBUG_SAVE) { try { require("fs").appendFileSync(process.env.HAK_DEBUG_SAVE, JSON.stringify({ t: Date.now(), base: baseSig === undefined ? null : baseSig, now: String(sigNow()), len: String(text).length, stale }) + "\n"); } catch (err) { /* chỉ chẩn đoán */ } } // chẩn đoán kiểm thử: ghi mỗi lần lưu (bản nền, phiên bản kho, kết luận)
-      if (stale) { e.returnValue = "STALE_BASE: Dữ liệu đã được thay đổi ở nơi khác kể từ lần giao diện nạp hoặc lưu gần nhất; bản đang mở là bản cũ nên KHÔNG được ghi để tránh ghi đè."; return; }
+      if (stale) {
+        if (opts && opts.structured) {
+          e.returnValue = { ok: false, conflict: true, code: "STALE_BASE", error: "STALE_BASE: Dữ liệu đã được thay đổi ở nơi khác kể từ lần giao diện nạp hoặc lưu gần nhất; bản đang mở là bản cũ nên KHÔNG được ghi để tránh ghi đè." };
+        } else {
+          e.returnValue = "STALE_BASE: Dữ liệu đã được thay đổi ở nơi khác kể từ lần giao diện nạp hoặc lưu gần nhất; bản đang mở là bản cũ nên KHÔNG được ghi để tránh ghi đè.";
+        }
+        return;
+      }
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
       const rcv = guard.recoveryFor(e);
       let parsed = null; try { parsed = JSON.parse(text); } catch (e2) { parsed = null; } // phân tích MỘT lần cho policy, kho năm và kho dữ liệu
       const v = policy().check(text, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv, parsed });
-      if (!v.ok) { if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n"); e.returnValue = v.error; return; }
+      if (!v.ok) { if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n"); e.returnValue = (opts && opts.structured) ? { ok: false, error: v.error } : v.error; return; }
       if(storage.hasDataFile()) years.checkWrite(text,!!(restorer&&restorer.busy()),parsed);
       const r = storage.save(text, parsed, policy().rowsFor ? policy().rowsFor(parsed) : null); // 006: dùng lại chuỗi từng dòng đã tính ở bước kiểm
       if (r === true) { policy().commit(); if (rcv && !who) guard.recoveryDone(e); }
       if (c && c.touch) c.touch();
-      e.returnValue = r;
-    } catch (err) { e.returnValue = "Lỗi kiểm tra quyền ghi: " + String(err && err.message || err); }
+      e.returnValue = (opts && opts.structured && r === true) ? { ok: true, baseSig: String(sigNow()) } : r;
+    } catch (err) { e.returnValue = (opts && opts.structured) ? { ok: false, error: "Lỗi kiểm tra quyền ghi: " + String(err && err.message || err) } : "Lỗi kiểm tra quyền ghi: " + String(err && err.message || err); }
+  });
+  ipcMain.on("store-save-delta", (e, payload, baseSig) => {
+    e.returnValue = handleDeltaSave(payload, baseSig, e, { structured: true });
   });
   // store-info / store-has-data-file: màn khởi động & màn khôi phục cần đọc trước khi đăng nhập
   ipcMain.on("store-info", (e) => { e.returnValue = storage.info(); });
