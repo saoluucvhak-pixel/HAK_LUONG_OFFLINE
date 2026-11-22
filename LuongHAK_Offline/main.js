@@ -127,7 +127,10 @@ function registerIpc() {
   const sigNow = () => (storage.sig ? storage.sig() : fileSig(storage.dataFile)());
   ipcMain.on("store-sig", (e) => { try { e.returnValue = String(sigNow()); } catch (err) { e.returnValue = ""; } });
   function applyMutationToDoc(doc, mutation) {
-    const next = Object.assign({}, doc);
+    const src = (doc && doc.doc && typeof doc.doc === "object" && !doc.schemaVersion) ? doc.doc : (doc || {});
+    const next = Object.assign({}, src);
+    if (src.schemaVersion && !next.schemaVersion) next.schemaVersion = src.schemaVersion;
+    if (mutation && mutation.schemaVersion) next.schemaVersion = Math.max(next.schemaVersion || 0, mutation.schemaVersion);
     function matchTarget(row, keys) {
       if (!row || !keys) return false;
       if (typeof keys === "string" || typeof keys === "number") {
@@ -138,7 +141,7 @@ function registerIpc() {
     function applySingle(m) {
       if (!m || !m.table) return;
       const tbl = m.table;
-      const currentList = Array.isArray(doc[tbl]) ? doc[tbl] : [];
+      const currentList = Array.isArray(src[tbl]) ? src[tbl] : [];
       if (m.action === "saveRows" || m.action === "replace") {
         next[tbl] = Array.isArray(m.delta) ? m.delta : [];
       } else if (m.action === "insert") {
@@ -180,6 +183,7 @@ function registerIpc() {
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
       const rcv = guard.recoveryFor(e);
       let curDoc = storage.currentDoc ? storage.currentDoc() : null;
+      if (curDoc && curDoc.doc && typeof curDoc.doc === "object") curDoc = curDoc.doc;
       if (!curDoc) {
         const ld = storage.load();
         try { curDoc = (ld && ld.ok && ld.text) ? JSON.parse(ld.text) : {}; } catch (e2) { curDoc = {}; }

@@ -65,6 +65,7 @@
   function saveDelta(mutation) {
     if (readOnly) { lastSaveError = "Đang ở chế độ khôi phục — chưa ghi dữ liệu"; toast("⚠ " + lastSaveError); return { ok: false, error: lastSaveError }; }
     if (mutation && !mutation.baseSig && baseSig) mutation.baseSig = baseSig;
+    if (mutation && !mutation.schemaVersion && db && db.schemaVersion) mutation.schemaVersion = db.schemaVersion;
     if (store && store.saveDelta) {
       var r;
       lastSaveStale = false;
