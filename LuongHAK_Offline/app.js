@@ -3878,7 +3878,7 @@
   }
   // ---------- BÁO CÁO LƯƠNG ----------
   // Kết quả lương của 1 kỳ: kỳ đã chốt lấy bản đã lưu, chưa chốt thì tính tạm
-  // v2.1.00: nhớ NHIỀU kỳ (trước: chỉ 1 kỳ nên báo cáo 12 tháng / so sánh tính lại engine mỗi lần). Gắn với dbRev + chữ ký kho: dữ liệu đổi là bỏ hết.
+  // v2.1.1: nhớ NHIỀU kỳ (trước: chỉ 1 kỳ nên báo cáo 12 tháng / so sánh tính lại engine mỗi lần). Gắn với dbRev + chữ ký kho: dữ liệu đổi là bỏ hết.
   var SC = window.HAKUI && window.HAKUI.snapshotCache;
   var kqCache = SC ? SC.create({ maxEntries: 13, maxWeight: 30000, weigh: function (v) { return (v && v.bangluong ? v.bangluong.length : 0) + 1; } }) : null;
   function storeSig() { try { return store && store.sig ? String(store.sig()) : ""; } catch (e) { return "?" + Date.now(); } } // lỗi đọc chữ ký → không bao giờ trùng → không dùng bản nhớ
@@ -4793,7 +4793,7 @@
     var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : c.kind === "qty" ? qtyText(v) : (v == null ? "" : String(v)) }); }));
       if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
       return trw; };
-    // v2.1.00: dòng (nhóm / dòng / cộng nhóm) đi qua bảng ảo hóa — bảng nhiều dòng chỉ dựng phần đang nhìn thấy; ≤ 150 dòng và khi In vẫn đủ như cũ
+    // v2.1.1: dòng (nhóm / dòng / cộng nhóm) đi qua bảng ảo hóa — bảng nhiều dòng chỉ dựng phần đang nhìn thấy; ≤ 150 dòng và khi In vẫn đủ như cũ
     var items = [];
     if (vm.nhom) vm.nhom.forEach(function (g) { items.push({ gh: g }); g.rows.forEach(function (r) { items.push({ r: r }); }); items.push({ gs: g }); }); else vm.rows.forEach(function (r) { items.push({ r: r }); });
     var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
@@ -4869,7 +4869,7 @@
     var tb = h("tbody");
     var opsRow = function (r) { return h("tr", {}, cols.map(function (c) { return h("td", { class: c.kind === "text" ? "t" : "r", text: opsFmtCell(c, r[c.key]) }); })); };
     var opsSum = rows.length ? h("tr", { class: "tr-sum" }, cols.map(function (c, i) { return h("td", { class: i === 0 ? "t" : "r", text: i === 0 ? (tongNhan || "TỔNG CỘNG") : (tong && tong[c.key] != null ? opsFmtCell(c, tong[c.key]) : "") }); })) : null;
-    // v2.1.00: bảng báo cáo vận hành nhiều dòng qua bảng ảo hóa (cần khung cuộn `tw`); không có khung / thiếu module → dựng đủ như cũ
+    // v2.1.1: bảng báo cáo vận hành nhiều dòng qua bảng ảo hóa (cần khung cuộn `tw`); không có khung / thiếu module → dựng đủ như cũ
     var VTo = window.HAKUI && window.HAKUI.virtualTable;
     if (VTo && tw) VTo.attach({ scroller: tw, tbody: tb, rows: rows, renderRow: opsRow, cols: cols.length, tail: opsSum ? [opsSum] : [] });
     else { rows.forEach(function (r) { tb.appendChild(opsRow(r)); }); if (opsSum) tb.appendChild(opsSum); }
@@ -6927,7 +6927,7 @@
       if (window.console) console.error(e);
     }
   }
-  // ---------- v2.1.00: khung màn hình báo cáo đã dựng được nhớ theo dbRev + chữ ký kho + dấu vân tay trạng thái hiển thị ----------
+  // ---------- v2.1.1: khung màn hình báo cáo đã dựng được nhớ theo dbRev + chữ ký kho + dấu vân tay trạng thái hiển thị ----------
   // CHỈ các tab báo cáo ĐỌC-CHỈ, và CHỈ khi đổi tab bằng thanh điều hướng. Mọi lần vẽ lại do thao tác TRONG màn hình (lọc, đổi kỳ, nút…) luôn dựng mới
   // (như trước) và ghi đè bản nhớ. Dữ liệu đổi / kho đổi từ nơi khác / đăng nhập-đăng xuất → xóa sạch. Tắt hẳn: localStorage "hak_snapshot_off" = "1".
   var navSwitch = false;

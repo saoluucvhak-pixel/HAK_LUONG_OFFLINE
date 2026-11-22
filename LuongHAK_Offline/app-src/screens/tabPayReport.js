@@ -30,7 +30,7 @@
     var drawRow = function (r) { var trw = h("tr", type === "CHI_TIET_TT" ? { "data-ma": r["Mã NV"], style: "cursor:pointer", title: "Bấm để xem chi tiết thanh toán" } : {}, vm.cols.map(function (c) { var v = r[c.key]; return h("td", { class: c.kind === "text" ? "t" : "r", text: c.kind === "money" ? fmt(v) : c.kind === "qty" ? qtyText(v) : (v == null ? "" : String(v)) }); }));
       if (type === "CHI_TIET_TT") trw.addEventListener("click", function () { payDetailModal(r, src); });
       return trw; };
-    // v2.1.00: dòng (nhóm / dòng / cộng nhóm) đi qua bảng ảo hóa — bảng nhiều dòng chỉ dựng phần đang nhìn thấy; ≤ 150 dòng và khi In vẫn đủ như cũ
+    // v2.1.1: dòng (nhóm / dòng / cộng nhóm) đi qua bảng ảo hóa — bảng nhiều dòng chỉ dựng phần đang nhìn thấy; ≤ 150 dòng và khi In vẫn đủ như cũ
     var items = [];
     if (vm.nhom) vm.nhom.forEach(function (g) { items.push({ gh: g }); g.rows.forEach(function (r) { items.push({ r: r }); }); items.push({ gs: g }); }); else vm.rows.forEach(function (r) { items.push({ r: r }); });
     var iN = Math.max(0, vm.cols.map(function (c) { return c.key; }).indexOf("Họ và tên"));
