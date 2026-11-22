@@ -130,7 +130,15 @@ function registerIpc() {
     const src = (doc && doc.doc && typeof doc.doc === "object" && !doc.schemaVersion) ? doc.doc : (doc || {});
     const next = Object.assign({}, src);
     if (src.schemaVersion && !next.schemaVersion) next.schemaVersion = src.schemaVersion;
-    if (mutation && mutation.schemaVersion) next.schemaVersion = Math.max(next.schemaVersion || 0, mutation.schemaVersion);
+    if (mutation && mutation.schemaVersion) {
+      const targetVersion = Math.max(next.schemaVersion || 0, mutation.schemaVersion);
+      if (targetVersion < 5 || next._inputReviews !== undefined || mutation.table === "_inputReviews" || (mutation.tables && mutation.tables._inputReviews)) {
+        next.schemaVersion = targetVersion;
+      }
+    }
+    if (next.schemaVersion >= 5 && next._inputReviews === undefined) {
+      next.schemaVersion = (src && src.schemaVersion && src.schemaVersion < 5) ? src.schemaVersion : 4;
+    }
     function matchTarget(row, keys) {
       if (!row || !keys) return false;
       if (typeof keys === "string" || typeof keys === "number") {
