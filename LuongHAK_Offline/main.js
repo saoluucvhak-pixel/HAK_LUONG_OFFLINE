@@ -175,12 +175,33 @@ function registerIpc() {
       }
       const c = guard.current(e), who = c ? { user: c.user, perms: c.perms } : null;
       const rcv = guard.recoveryFor(e);
-      if (mutation.table) {
-        const t = mutation.table;
-        const permNeeded = /^dm_/.test(t) ? "dm.edit" : ["chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom"].includes(t) ? "input.edit" : t === "congty" ? "system.admin" : "hr.edit";
-        if (who && who.perms && !who.perms.includes(permNeeded) && !who.perms.includes("system.admin") && !who.perms.includes("*")) {
-          e.returnValue = { ok: false, error: "Bạn không có quyền ghi bảng " + t };
-          return;
+      const tablesToCheck = mutation.table ? [mutation.table] : (mutation.tables ? Object.keys(mutation.tables) : []);
+      const curDoc = (storage.currentDoc ? storage.currentDoc() : null) || {};
+      for (const t of tablesToCheck) {
+        if (t === "auditlog") continue;
+        if (["benefitStandards", "benefitAssignments", "benefitIssues", "benefitPpeItems", "benefitAdjustments"].includes(t)) {
+          const nextRows = (mutation.tables && mutation.tables[t]) || (mutation.action === "saveRows" || mutation.action === "replace" ? mutation.delta : (Array.isArray(curDoc[t]) ? curDoc[t] : []));
+          const nextDoc = Object.assign({}, curDoc, { [t]: Array.isArray(nextRows) ? nextRows : [] });
+          const workflow = require("./core/workflow-approval.js");
+          const vErr = require("./core/benefits.js").validateChanges(t, curDoc, nextDoc, who || { user: "", perms: [] }, workflow.mode(curDoc));
+          if (vErr) {
+            e.returnValue = { ok: false, error: vErr };
+            return;
+          }
+        } else if (t === "productionAttendance") {
+          const nextRows = (mutation.tables && mutation.tables[t]) || (mutation.action === "saveRows" || mutation.action === "replace" ? mutation.delta : (Array.isArray(curDoc[t]) ? curDoc[t] : []));
+          const nextDoc = Object.assign({}, curDoc, { [t]: Array.isArray(nextRows) ? nextRows : [] });
+          const vErr = require("./core/production-attendance.js").checkChanges(curDoc, nextDoc, who || { user: "", perms: [] });
+          if (vErr) {
+            e.returnValue = { ok: false, error: vErr };
+            return;
+          }
+        } else {
+          const permNeeded = /^dm_/.test(t) ? "dm.edit" : ["chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom"].includes(t) ? "input.edit" : t === "congty" ? "system.admin" : "hr.edit";
+          if (who && who.perms && !who.perms.includes(permNeeded) && !who.perms.includes("system.admin") && !who.perms.includes("*")) {
+            e.returnValue = { ok: false, error: "Bạn không có quyền ghi bảng " + t };
+            return;
+          }
         }
       }
       const r = storage.saveDelta ? storage.saveDelta(mutation) : { ok: false, error: "Kho dữ liệu không hỗ trợ lưu delta" };
