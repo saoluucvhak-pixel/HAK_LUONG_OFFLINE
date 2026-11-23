@@ -29,7 +29,7 @@ async function launch(dir) {
 (async () => {
   const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "hak-v10-screens-"));
   let { app, w, errs } = await launch(DIR);
-  await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(300);
+  await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="dl"]'); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(300);
   await app.close();
   const fb = path.join(DIR, "data.json"), db = JSON.parse(fs.readFileSync(fb, "utf8")), now = new Date(), ky = now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2);
   for (let i = 1; i <= 25; i++) {

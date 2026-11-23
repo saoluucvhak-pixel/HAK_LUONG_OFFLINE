@@ -63,7 +63,7 @@ const closeAll = async (app) => { let closed = true; try { await Promise.race([a
   ok("Nâng cấp JSON→SQLite trong bản đã cài: có data.sqlite, schema v2, đủ nhân viên", fs.existsSync(path.join(d1.D, "data.sqlite")) && userVersion(d1.D) === 2 && sqliteNv(d1.D).length === d1.n);
   // Lưu bền qua thao tác giao diện THẬT (Công ty & Sao lưu → Hồ sơ công ty → Lưu): SQLite phải thấy bản ghi NGAY (chờ theo trạng thái, tối đa 8 s) — đường ghi bền của bản đã cài.
   const uiSave = async (addr) => {
-    await s.w.click("#nav button[data-k=backup]"); await s.w.waitForSelector('.fld[data-k="Địa chỉ"] input');
+    await s.w.click("#nav button[data-k=backup]"); await s.w.click('[data-sl-tab="ct"]'); await s.w.waitForSelector('.fld[data-k="Địa chỉ"] input');
     await s.w.fill('.fld[data-k="Địa chỉ"] input', addr); await s.w.click('button:has-text("Lưu hồ sơ công ty")');
     return waitFor(() => congTyAddr(d1.D) === addr, 8000, 200);
   };

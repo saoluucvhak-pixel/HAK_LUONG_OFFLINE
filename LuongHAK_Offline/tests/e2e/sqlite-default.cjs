@@ -258,7 +258,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     createStorage(D11).save(JSON.stringify(seed()));
     ({ app, w, errs } = await launch(D11, { HAK_PICK_DIR: JD })); await login(w);
     await w.evaluate(() => window.hakStore.scheduleSet({ keepDaily: 180 }));
-    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector('[data-stg="mirror"]', { timeout: 15000 });
+    await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="mirror"]', { timeout: 15000 });
     const txt = await w.locator("#main").innerText();
     ok("Chữ 'giữ N ngày' theo cài đặt thật (keepDaily = 180), không ghi cứng 60 ngày", /giữ 180 (?:ngày|bản đầu ngày)/.test(txt) && !/giữ 60 (?:ngày|bản đầu ngày)/.test(txt), (txt.match(/giữ \d+ (?:ngày|bản đầu ngày)/g) || []).join(","));
     const pickers = await w.locator("#main button").evaluateAll((bs) => bs.filter((b) => /Chọn thư mục sao lưu thứ hai|Đổi thư mục/.test(b.innerText) || (/Chọn \/ Chuyển/.test(b.innerText) && b.closest('[data-stg="mirror"]'))).length);
@@ -271,7 +271,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Không còn các nút sao lưu trùng chức năng (Tạo bản sao lưu ngay / Tạo Full Backup / Sao lưu ra file)", (await w.locator('#main button:has-text("Tạo bản sao lưu ngay"), #main button:has-text("Tạo Full Backup"), #main button:has-text("Sao lưu ra file")').count()) === 0);
     if (await one('[data-stg="json"]')) {
       await w.locator('[data-stg="json"] button:has-text("Chọn")').click(); await w.waitForTimeout(800);
-      await w.click('#nav button[data-k="home"]'); await w.click('#nav button[data-k="backup"]'); await w.waitForSelector('[data-stg="json"]');
+      await w.click('#nav button[data-k="home"]'); await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="json"]');
       ok("Đặt thư mục sao lưu JSON → hiện đúng đường dẫn đã chọn", (await w.locator('[data-stg="json"]').innerText()).includes(JD));
     }
     if ((await one("[data-backup-kind]")) && (await one("[data-backup-now]"))) {
@@ -293,7 +293,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     const d0 = seed(); d0.chamcong = [{ "Kỳ": "2026-09", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }, { "Kỳ": "2026-10", "Mã NV": "A", "Hình thức công": "BT", "01": 1 }]; createStorage(D13).save(JSON.stringify(d0));
     ({ app, w, errs } = await launch(D13)); await login(w);
     await w.selectOption("#top select", "9"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
-    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-backup]", { timeout: 15000 });
+    await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-ky-backup]", { timeout: 15000 });
     ok("Khu Sao lưu ngay có nút 'Sao lưu kỳ 2026-09' theo kỳ đang chọn", /2026-09/.test(await w.locator("[data-ky-backup]").innerText()));
     await w.click("[data-ky-backup]"); await w.waitForSelector("[data-fb-msg]", { timeout: 20000 });
     const msg = await w.locator("[data-fb-msg]").innerText();
@@ -304,7 +304,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     await saveViaIpc(w, "d.chamcong.find(function(r){return r['Kỳ']==='2026-09'&&r['Mã NV']==='A'})['01']=0.5; d.chamcong.push({'Kỳ':'2026-09','Mã NV':'B','Hình thức công':'BT','01':1}); d.nhanvien.find(function(n){return n['Mã NV']==='A'})['Họ và tên']='Tên bị sửa';");
     await app.close();
     ({ app, w, errs } = await launch(D13, { HAK_KY_PICK: pk[0] || "" })); await login(w);
-    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-restore]", { timeout: 15000 });
+    await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-ky-restore]", { timeout: 15000 });
     await w.click("[data-ky-restore]"); await w.waitForSelector("[data-ky-preview]", { timeout: 15000 });
     const pv = await w.locator("[data-ky-preview]").innerText();
     ok("Xem trước: liệt kê thay đổi nhân sự cũ → mới, có ô xác nhận ghi đè riêng, ô 'cho phép xóa' KHÔNG bật sẵn", /Tên bị sửa → /.test(pv) && (await w.locator("[data-ky-ack-global]").count()) === 1 && (await w.locator("[data-ky-allow-delete]:checked").count()) === 0, pv.slice(0, 400));
@@ -326,7 +326,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     const D14 = fs.mkdtempSync(path.join(os.tmpdir(), "hak-snapui-")); fs.mkdirSync(path.join(D14, "downloads"));
     createStorage(D14).save(JSON.stringify(seed()));
     ({ app, w, errs } = await launch(D14)); await login(w);
-    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-backup-now]", { timeout: 15000 });
+    await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-backup-now]", { timeout: 15000 });
     ok("Loại sao lưu mặc định là SQLite và mô tả đúng (bản chụp .sqlite + JSON đối chứng)", (await w.locator("[data-backup-kind]").inputValue()) === "sqlite" && /\.sqlite đã kiểm/.test(await w.locator("[data-backup-kind] option[value=sqlite]").innerText()));
     await w.click("[data-backup-now]"); await w.waitForSelector("[data-fb-msg]", { timeout: 20000 });
     const m14 = await w.locator("[data-fb-msg]").innerText(), bdir = await w.evaluate(() => window.hakStore.info().backupDir), snapsOnDisk = fs.readdirSync(bdir).filter((x) => /^snap_.*\.sqlite$/.test(x));
@@ -370,7 +370,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     // --- máy A ---
     ({ app, w, errs } = await launch(DA)); await login(w);
     await w.selectOption("#top select", "9"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(300);
-    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-backup-kind]", { timeout: 15000 });
+    await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-backup-kind]", { timeout: 15000 });
     await w.selectOption("[data-backup-kind]", "json"); await w.waitForTimeout(300);
     ok("Máy A: mô tả loại JSON nói rõ KHÔNG có chứng từ gốc và thư viện OCR (chuyển máy đầy đủ dùng Full Backup)", /KHÔNG có chứng từ gốc và thư viện OCR/.test(await w.locator('[data-zone="now"]').innerText()));
     await w.click("[data-backup-now]"); await w.waitForTimeout(1500);
@@ -382,7 +382,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Máy A: có đúng 1 file JSON (thư mục JSON) và 1 gói kỳ .hakenc có mật khẩu", jsonA.length === 1 && pkA.length === 1, jsonA.concat(pkA).join(" | "));
     // --- máy B: khôi phục JSON qua nút Khôi phục toàn bộ ---
     ({ app, w, errs } = await launch(DB, { HAK_KY_PICK: pkA[0] || "" })); await login(w);
-    const restoreJson = async () => { await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-restore-kind]", { timeout: 15000 }); await w.selectOption("[data-restore-kind]", "json");
+    const restoreJson = async () => { await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-restore-kind]", { timeout: 15000 }); await w.selectOption("[data-restore-kind]", "json");
       const [fc] = await Promise.all([w.waitForEvent("filechooser"), w.click("[data-restore-now]")]); await fc.setFiles(jsonA[0]); await w.waitForTimeout(2500);
       if (await w.locator("#main input[data-f=u]").count()) await login(w); };
     await restoreJson();
@@ -394,7 +394,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     // --- file JSON có BẢN CHỐT BỊ LÀM GIẢ (không khớp tính lại) → tiến trình chính từ chối ghi, dữ liệu máy B không đổi ---
     { const forged = JSON.parse(fs.readFileSync(jsonA[0], "utf8")); forged.kyluong = [{ ky: "2026-08", version: 1, kq: { bangluong: [{ "Mã NV": "A", "Thực lĩnh": 999999999, "Tổng thu nhập": 999999999 }] } }];
       const ff = path.join(DB, "downloads", "LuongHAK_JSON_gia-mao.json"); fs.writeFileSync(ff, JSON.stringify(forged)); const keep = await w.evaluate(() => window.hakStore.load().text);
-      await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-restore-kind]", { timeout: 15000 }); await w.selectOption("[data-restore-kind]", "json");
+      await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-restore-kind]", { timeout: 15000 }); await w.selectOption("[data-restore-kind]", "json");
       const [fc2] = await Promise.all([w.waitForEvent("filechooser"), w.click("[data-restore-now]")]); await fc2.setFiles(ff); await w.waitForTimeout(2500);
       if (await w.locator("#main input[data-f=u]").count()) await login(w);
       ok("JSON có bản chốt kỳ bị LÀM GIẢ: tiến trình chính TỪ CHỐI ghi, dữ liệu máy B không đổi một byte", (await w.evaluate(() => window.hakStore.load().text)) === keep); }
@@ -402,7 +402,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     await saveViaIpc(w, "d.chamcong.find(function(r){return r['Kỳ']==='2026-09'})['01']=0; d.psluong=[];");
     await app.close(); ({ app, w, errs } = await launch(DB, { HAK_KY_PICK: pkA[0] || "" })); await login(w); // ghi qua IPC sau lưng giao diện → mở lại để giao diện nạp dữ liệu mới (như khối 13)
     const beforeKy = await w.evaluate(() => window.hakStore.load().text);
-    await w.click('#nav button[data-k="backup"]'); await w.waitForSelector("[data-ky-restore]", { timeout: 15000 });
+    await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-ky-restore]", { timeout: 15000 });
     await w.click("[data-ky-restore]"); await w.waitForSelector("#modal input[type=password]", { timeout: 15000 });
     await w.fill("#modal input[type=password]", "SaiMatKhau#1"); await w.click("#modal button.pri"); await w.waitForTimeout(1500);
     const wrongMsg = (await w.locator("#modal").innerText().catch(() => "")) || "", afterWrong = await w.evaluate(() => window.hakStore.load().text);
