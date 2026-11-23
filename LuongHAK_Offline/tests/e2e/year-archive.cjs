@@ -20,10 +20,10 @@ async function launch(){app=await _electron.launch({executablePath:require('elec
  db.kyluong=[C.buildSnapshot(db,'2023-01',{bangluong:[{'Mã NV':'SYN01','Họ và tên':'Synthetic Person','Thực lĩnh':1000000}],bhxh:[],tncn:[],canhbao:[]},db.nhanvien,{user:'tester'})];
  const IR=require('../../core/input-review');IR.initialize(db);IR.approve(db,'chamcong','2023-01','','Archive fixture');IR.approve(db,'chamcong','2026-01','','Archive fixture');
  const expected=JSON.stringify(db.kyluong);fs.writeFileSync(file,JSON.stringify(db));const before=fs.statSync(file).size;
- w=await launch();await w.click('#nav button[data-k=backup]');await w.waitForSelector('[data-year-archive] select');
+ w=await launch();await w.click('#nav button[data-k=backup]');await w.click('[data-sl-tab="dl"]');await w.waitForSelector('[data-year-archive] select');
  await w.selectOption('[aria-label="Năm cần lưu trữ"]','2023');
  await w.locator('[data-year-archive] button:has-text("Kiểm tra trước khi chuyển")').click();
- await w.waitForTimeout(1500);await login(w);await w.click('#nav button[data-k=backup]');
+ await w.waitForTimeout(1500);await login(w);await w.click('#nav button[data-k=backup]');await w.click('[data-sl-tab="dl"]');
  await w.waitForSelector('[data-year-archive] button:has-text("Mở hồ sơ năm")');
  let live=JSON.parse(fs.readFileSync(file,'utf8'));
  const afterArchiveBytes=fs.statSync(file).size;

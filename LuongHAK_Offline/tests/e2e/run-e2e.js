@@ -89,7 +89,7 @@ async function launch(dataDir, opt) {
   ok("Cầu nối lưu trữ (preload) hoạt động", await w.evaluate(() => !!window.hakStore && typeof window.hakStore.save === "function"));
   const ui = await w.evaluate(async () => { await document.fonts.ready; return { font: document.fonts.check('600 16px "Be Vietnam Pro"') && [...document.fonts].some((f) => f.family.replace(/"/g, "") === "Be Vietnam Pro" && f.status === "loaded"), icons: document.querySelectorAll("#nav svg.icn").length, emoji: [...document.querySelectorAll("#nav .ic")].filter((e) => e.textContent.trim()).length }; });
   ok("Giao diện: font Be Vietnam Pro đóng gói nạp được, menu dùng icon SVG", ui.font && ui.icons >= 14 && ui.emoji === 0, JSON.stringify(ui));
-  await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")');
+  await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="dl"]'); await w.click('button:has-text("Nạp danh mục chuẩn HAK")');
   // nhân viên + chấm công
   await w.click("#nav button[data-k=nhansu]"); await w.click('button:has-text("Thêm nhân viên")');
   const F = (l) => w.locator(".dlg .fld", { hasText: l }).first();
@@ -781,7 +781,7 @@ async function launch(dataDir, opt) {
 
   // ---- Phân quyền (Q-14 / Q-16) ----
   ({ app, w, errs } = await launch());
-  await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Thêm người dùng")'); await w.waitForSelector(".dlg");
+  await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="nd"]'); await w.click('button:has-text("Thêm người dùng")'); await w.waitForSelector(".dlg");
   const ins = w.locator(".dlg .fgrid input");
   await ins.nth(0).fill("ketoan1"); await ins.nth(1).fill("Kế toán Một"); await ins.nth(2).fill("Tam12345");
   await w.locator(".dlg .fgrid select").nth(0).selectOption("ketoanluong");
@@ -919,7 +919,7 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=nhansu]"); await w.waitForSelector("main thead th");
     const adminCols = await w.locator("main thead th").allInnerTexts();
-    await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Thêm người dùng")'); await w.waitForSelector(".dlg");
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="nd"]'); await w.click('button:has-text("Thêm người dùng")'); await w.waitForSelector(".dlg");
     const ui = w.locator(".dlg .fgrid input");
     await ui.nth(0).fill("tbp1"); await ui.nth(1).fill("Trưởng BP"); await ui.nth(2).fill("Tam12345");
     await w.locator(".dlg .fgrid select").nth(0).selectOption("truongbophan");
@@ -965,7 +965,7 @@ async function launch(dataDir, opt) {
     await w.click("#nav button[data-k=home]"); await w.waitForTimeout(200);
     const homeBefore = await w.locator("main").first().innerText();
     await app.evaluate(({ dialog }, p) => { dialog.showOpenDialogSync = () => [p]; }, USB); // giả lập người dùng chọn thư mục trong hộp thoại Windows
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector('[data-stg="mirror"]'); await w.click('[data-stg="mirror"] button:has-text("Chọn")'); await w.waitForTimeout(1500);
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="mirror"]'); await w.click('[data-stg="mirror"] button:has-text("Chọn")'); await w.waitForTimeout(1500);
     const card = await w.locator(".card", { has: w.locator('h3:has-text("Sao lưu ra ngoài máy")') }).innerText();
     const mir = fs.readdirSync(path.join(USB, "TinhLuongHAK-SaoLuu"));
     await w.click("#nav button[data-k=home]"); await w.waitForTimeout(200);
@@ -1168,7 +1168,7 @@ async function launch(dataDir, opt) {
   {
     const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-restart-"));
     ({ app, w, errs } = await launch(SD));
-    await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(300);
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="dl"]'); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(300);
     const addNV = async (ten, cccd, stk) => {
       await w.click("#nav button[data-k=nhansu]"); await w.click('button:has-text("Thêm nhân viên")'); await w.waitForSelector(".dlg");
       const F = (l) => w.locator(".dlg .fld", { hasText: l }).first();
@@ -1299,7 +1299,7 @@ async function launch(dataDir, opt) {
   {
     const SD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-e2e-bu-"));
     ({ app, w, errs } = await launch(SD));
-    await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(200);
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="dl"]'); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(200);
     await app.close();
     const fb = path.join(SD, "data.json"), db2 = JSON.parse(fs.readFileSync(fb, "utf8"));
     db2.nhanvien.push({ _id: "bu1", "Mã NV": "BU1", "Họ và tên": "E2E Bù SL", "Trạng thái": "Đang làm việc" });
@@ -1523,7 +1523,7 @@ async function launch(dataDir, opt) {
     const NEWD = path.join(os.tmpdir(), "e2e-ocrlib-" + Date.now());
     ({ app, w, errs } = await launch(DATA, { env: { HAK_PICK_DIR: NEWD } }));
     const n0 = await w.evaluate(async () => (await window.hakOcrLib.list({})).samples.length);
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector('[data-stg="ocrLib"]');
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="ocrLib"]');
     await w.locator('[data-stg="ocrLib"] button:has-text("Chuyển")').click(); await w.waitForSelector('[data-stg-msg]', { timeout: 30000 });
     const msg = await w.locator("[data-stg-msg]").innerText();
     const set = JSON.parse(fs.readFileSync(path.join(DATA, "settings.json"), "utf8"));
@@ -1537,7 +1537,7 @@ async function launch(dataDir, opt) {
   // α17: Lịch sao lưu — Admin đổi chu kỳ / số ngày giữ / khi đóng app; lưu vào settings.json của máy; đóng app → bản "khi-dong"
   {
     ({ app, w, errs } = await launch());
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-schedule] select");
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector("[data-schedule] select");
     const beforeSet = fs.readdirSync(path.join(DATA, "backups")).filter((f) => /^khi-dong_.*\.json$/.test(f)), before = beforeSet.length;
     await w.locator("[data-schedule] select").first().selectOption("1"); await w.waitForTimeout(200);
     await w.locator("[data-schedule] select").nth(1).selectOption("90"); await w.waitForTimeout(200);
@@ -1554,7 +1554,7 @@ async function launch(dataDir, opt) {
   {
     const FB = require(path.join(APP, "main/fullbackup.js"));
     ({ app, w, errs } = await launch());
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-fullbackup]");
     await w.selectOption('[data-backup-kind]', 'full'); await w.click('[data-backup-now]');
     await w.waitForSelector("#modal [data-pw]"); await w.click('#modal button:has-text("Tạo Full Backup")'); // V10.1: bỏ trống mật khẩu = gói không mã hóa
     await w.waitForSelector('[data-fb-msg]:has-text("ĐẦY ĐỦ")', { timeout: 30000 });
@@ -1565,14 +1565,14 @@ async function launch(dataDir, opt) {
     const bad = path.join(DL, "LuongHAK_FullBackup_hong.zip"), bb = fs.readFileSync(good); bb[45] ^= 0xFF; fs.writeFileSync(bad, bb);
     const nDocsBefore = rep.docs.length, vdir = path.join(DATA, "documents");
     ({ app, w, errs } = await launch(null, { env: { HAK_FB_PICK: bad } }));
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-fullbackup]");
     await w.selectOption('[data-restore-kind]', 'full'); await w.click('[data-restore-now]');
     await w.waitForSelector('[data-fb-msg]:has-text("KHÔNG đạt")', { timeout: 15000 });
     ok("Gói Full Backup bị sửa 1 byte: bị TỪ CHỐI trước khi ghi gì (không đổi dữ liệu, kho chứng từ nguyên vẹn)", (await w.locator("[data-fb-msg]").innerText()).includes("chưa ghi gì") && (await w.evaluate(async () => (await window.hakDocs.list()).docs.length)) === nDocsBefore);
     await app.close();
     fs.rmSync(vdir, { recursive: true, force: true }); // giả lập sang máy mới: mất kho chứng từ
     ({ app, w, errs } = await launch(null, { env: { HAK_FB_PICK: good } }));
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-fullbackup]");
     await w.selectOption('[data-restore-kind]', 'full'); await w.click('[data-restore-now]');
     for (let i = 0; i < 60; i++) { await w.waitForTimeout(500); if ((await w.evaluate(async () => (await window.hakDocs.list()).docs.length)) >= nDocsBefore) break; }
     await w.waitForTimeout(500);
@@ -1587,7 +1587,7 @@ async function launch(dataDir, opt) {
     const PW = "Mat-khau-E2E-2026", vdir = path.join(DATA, "documents");
     ({ app, w, errs } = await launch());
     const nDocs0 = await w.evaluate(async () => (await window.hakDocs.list()).docs.length);
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-fullbackup]");
     await w.selectOption('[data-backup-kind]', 'full'); await w.click('[data-backup-now]');
     await w.waitForSelector("#modal [data-pw]");
     await w.fill("#modal [data-pw]", "abc"); await w.fill("#modal [data-pw2]", "abc"); await w.click('#modal button:has-text("Tạo Full Backup")');
@@ -1605,7 +1605,7 @@ async function launch(dataDir, opt) {
     await app.close();
     fs.rmSync(vdir, { recursive: true, force: true }); // giả lập máy mới: mất kho chứng từ
     ({ app, w, errs } = await launch(null, { env: { HAK_FB_PICK: enc } }));
-    await w.click("#nav button[data-k=backup]"); await w.waitForSelector("[data-fullbackup]");
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-fullbackup]");
     await w.selectOption('[data-restore-kind]', 'full'); await w.click('[data-restore-now]');
     await w.waitForSelector("#modal [data-pw]");
     await w.fill("#modal [data-pw]", PW + "SAI"); await w.click('#modal button:has-text("Mở gói")');

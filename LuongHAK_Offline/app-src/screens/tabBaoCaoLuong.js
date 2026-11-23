@@ -75,7 +75,7 @@
         var matchingReceipts = new Set(FX(receiptRows).map(function (row) { return row.index; }));
         var fields = [["receipt", "Số phiếu"], ["plate", "Biển số xe"], ["team", "Mã tổ"], ["date", "Ngày phân bổ"]];
         if (st.bclLoai === "bandam") fields.push(["quantity", "Số lượng xe"]);
-        var filters = st.attendanceReceiptFilters || {}, controls = {}, filterBar = h("form", { class: "bar" });
+        var filters = st.attendanceReceiptFilters || {}, controls = {}, filterBar = h("form", { class: "bar ar-filter" });
         fields.forEach(function (field) {
           var input = h("input", { class: "i", type: field[0] === "date" ? "date" : field[0] === "quantity" ? "number" : "text",
             "aria-label": field[1], placeholder: field[1], value: filters[field[0]] || "" });
@@ -113,30 +113,8 @@
         card.appendChild(filterBar);
         card.appendChild(reviewFilter);
         if (Object.keys(rfSkip).length) card.appendChild(h("div", { class: "hint", text: "Tiêu chí không áp dụng cho bảng này: " + Object.keys(rfSkip).join(", ") }));
-        var actionableReview = visibleReview.map(function (row) {
-          var entry = r3.al.attendanceReview.find(function (item) {
-            return item.phieu === row["Phiếu cân"] && item.ngay === row["Ngày cân"] && item.maPB === row["Mã phòng ban"];
-          });
-          var actions = [];
-          if (tabAllowed(origin)) actions.push(btn("Mở phiếu cân", "ghost", function () {
-            st.opsReceipt = { type: originType, number: String(row["Phiếu cân"]).trim(), date: row["Ngày cân"], ky: kyKey(nam, thang) };
-            opsFReset(originType); st.tab = origin; saveUi(); render();
-          }));
-          if (!snapshot && entry && tabAllowed("chamcong")) entry.employees.forEach(function (employee) {
-            actions.push(btn("Mở công " + employee.ma, "ghost", function () {
-              st.rf = RF.normalize({ maNV: [employee.ma] });
-              st.attendanceReviewDay = row["Ngày cân"];
-              st.tab = "chamcong"; saveUi(); render();
-            }));
-          });
-          return Object.assign({}, row, { "Thao tác": h("div", { class: "bar" }, actions) });
-        });
-        var reviewTable = visibleReview.length ? simpleTable(actionableReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });
-        reviewTable.classList.add("attendance-review-table");
-        card.appendChild(reviewTable);
-        if (!snapshot && visibleReview.length && can("input.edit")) card.appendChild(btn("Xác nhận có làm", "pri", function () {
-          confirmProductionAttendance(visibleReview, r3.al, st.bclLoai);
-        }));
+        // v2.1.4: danh sách thẻ theo phiếu — xác nhận từng người (từng dòng) hoặc tích chọn nhiều phiếu rồi xác nhận một lần
+        card.appendChild(attendanceReviewPanel(visibleReview, r3.al, { snapshot: snapshot, origin: origin, originType: originType, nam: nam, thang: thang }));
         sheets.push({ name: "DoiChieuChamCong", rows: visibleReview });
       }
       var recorded = ((snapshot ? snapshot.input?.data?.productionAttendance : db.productionAttendance) || []).filter(function (row) {

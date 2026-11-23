@@ -34,7 +34,7 @@ async function launch(dir) {
 (async () => {
   const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "hak-v102-"));
   let { app, w, errs, dialogs } = await launch(DIR);
-  await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(300);
+  await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="dl"]'); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(300);
   await app.close();
   const fb = path.join(DIR, "data.json"), db = JSON.parse(fs.readFileSync(fb, "utf8")), now = new Date(), Y = now.getFullYear(), M = now.getMonth() + 1, ky = Y + "-" + ("0" + M).slice(-2);
   const ndays = new Date(Y, M, 0).getDate(), pad = (n) => ("0" + n).slice(-2);

@@ -260,7 +260,10 @@
     // trùng" của mục IV.2, dù mức integrity.js gán là High (ảnh hưởng tiền trực tiếp như Critical).
     var critIssues = INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN|DỒN)/.test(i.msg); });
     // 1 người 2 Mã NV (CCCD trùng giữa các nhân viên CÓ TRONG BẢNG LƯƠNG kỳ này) = trả lương 2 lần → chặn cứng như Mã NV trùng (core/identity.js)
-    ID.payrollDuplicates(db, HRM.staffForPayroll(db, st.nam, st.thang).list.map(function (x) { return x["Mã nhân viên"]; })).forEach(function (d) { critIssues.push({ level: "Critical", msg: d.msg }); });
+    ID.payrollDuplicates(db, staffPay(st.nam, st.thang).list.map(function (x) { return x["Mã nhân viên"]; })).forEach(function (d) { critIssues.push({ level: "Critical", msg: d.msg }); });
+    // v2.1.4: người đã nghỉ / hợp đồng hết hạn nhưng chưa có Ngày chấm dứt mà vẫn nằm trong bảng lương → chặn chốt (xem ui/leave-audit.js)
+    if (window.HAKUI && window.HAKUI.leaveAudit) window.HAKUI.leaveAudit.audit(db, st.nam, st.thang, { activeHD: HRM.activeHD, soCong: function (v) { return E.tachCong(v).soCong; } }).filter(function (x) { return x.block; })
+      .forEach(function (x) { critIssues.push({ level: "Critical", msg: x.ma + " " + x.ten + ": " + x.msg + " → " + x.goiY }); });
     if (critIssues.length) {
       alert("⛔ KHÔNG THỂ CHỐT — có " + critIssues.length + " lỗi dữ liệu NGHIÊM TRỌNG cần sửa trước:\n" +
         critIssues.slice(0, 10).map(function (i) { return "• " + i.msg; }).join("\n") + (critIssues.length > 10 ? "\n…" : "") +

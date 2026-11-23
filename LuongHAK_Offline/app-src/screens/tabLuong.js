@@ -101,7 +101,7 @@
     if (!st.kq) {
       card.appendChild(h("div", { class: "hint", text: "Kiểm tra dữ liệu kỳ " + st.thang + "/" + st.nam + " rồi bấm nút xanh. Có thể tính lại bất cứ lúc nào." }));
       var cc = db.chamcong.filter(function (r) { return r["Kỳ"] === kyStr(); }).length;
-      var sp = HRM.staffForPayroll(db, st.nam, st.thang);
+      var sp = staffPay(st.nam, st.thang);
       card.appendChild(h("div", { class: cc ? "ok" : "warn", html: "Chấm công kỳ này: <b>" + cc + "</b> dòng · Nhân viên có hợp đồng hiệu lực trong kỳ: <b>" + sp.list.length + "</b> người" + (cc ? "" : " — <b>chưa có dữ liệu chấm công kỳ này</b>.") }));
       if (sp.warn.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ Hồ sơ cần bổ sung:</b><br>" + sp.warn.map(esc).join("<br>") }));
       box.appendChild(card); return box;

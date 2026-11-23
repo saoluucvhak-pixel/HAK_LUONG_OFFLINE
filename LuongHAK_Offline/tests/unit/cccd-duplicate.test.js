@@ -62,7 +62,8 @@ test("nhập Excel: dòng làm 2 mã NV dùng chung CCCD (với dữ liệu đã
 test("app.js nối đủ 4 chỗ: chốt kỳ, sửa ô / dán, form hồ sơ, xem trước nhập Excel", () => {
   const src = fs.readFileSync(path.resolve(__dirname, "../../app.js"), "utf8");
   const chot = src.slice(src.indexOf("  function chotKy() {"), src.indexOf("var fresh = tinhLuong()", src.indexOf("  function chotKy() {")));
-  assert.match(chot, /ID\.payrollDuplicates\(db, HRM\.staffForPayroll\(db, st\.nam, st\.thang\)/);
+  assert.match(chot, /ID\.payrollDuplicates\(db, staffPay\(st\.nam, st\.thang\)/); // v2.1.4: staffPay = HRM.staffForPayroll + quy tắc hết hạn hợp đồng
+  assert.match(src, /function staffPay\(nam, thang\) \{\s*var sp = HRM\.staffForPayroll\(db, nam, thang\)/);
   assert.ok((src.match(/ID\.checkWrite\(/g) || []).length >= 3, "sửa ô, dán dữ liệu và form hồ sơ phải kiểm tra CCCD");
   assert.match(src.slice(src.indexOf("  function importPreview("), src.indexOf("  function importPreview(") + 4000), /ID\.blockImportItems\(db, p\.table, p\.items\)/);
   assert.match(fs.readFileSync(path.resolve(__dirname, "../../index.html"), "utf8"), /<script src="core\/identity\.js"><\/script>\s*\n<script src="core\/integrity\.js">/);

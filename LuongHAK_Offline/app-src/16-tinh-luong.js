@@ -34,6 +34,12 @@
   }
   function qcLabel(v) { var o = QC_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : "Cách tính cũ (trước quy chế 2026)"; }
   function buLabel(v) { var o = BU_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : (BU_LEGACY[String(v)] || String(v)); }
+  /** Nhân sự tính lương của kỳ = HRM.staffForPayroll + quy tắc "hợp đồng đã hết hạn từ trước kỳ thì không tính bảo hiểm" (ui/leave-audit.js, v2.1.4). Mọi nơi trong app dùng hàm này. */
+  function staffPay(nam, thang) {
+    var sp = HRM.staffForPayroll(db, nam, thang), LA = window.HAKUI && window.HAKUI.leaveAudit;
+    if (LA) LA.applyExpiredNoBH(db, nam, thang, sp);
+    return sp;
+  }
   function tinhLuong(nam, thang, qcDung, phuongPhapBu) {
     if (phuongPhapBu === undefined) phuongPhapBu = st.bu;
     nam = nam || st.nam; thang = thang || st.thang;
@@ -41,7 +47,7 @@
     if (invalid.length) return { ky: kyKey(nam, thang), bangluong: [], bhxh: [], tncn: [], canhbao: invalid, inputErrors: invalid };
     var reviewMessage = C.inputReview.message(db, kyKey(nam, thang));
     if (reviewMessage) return { ky: kyKey(nam, thang), bangluong: [], bhxh: [], tncn: [], canhbao: ["Còn dữ liệu Nháp: " + reviewMessage + ". Bấm Lưu để tính lương tại bảng nhập liệu."], nhapLieuChuaLuu: [reviewMessage] };
-    var sp = HRM.staffForPayroll(db, nam, thang);
+    var sp = staffPay(nam, thang);
     // α19: phiếu cân ghi Mã phòng ban → chia đều cho tổ (như công cụ phân bổ khối lượng) trước khi tính
     var slK = HRM.sanLuongKy(db, nam, thang, "sanluong"), bdK = HRM.sanLuongKy(db, nam, thang, "bandam");
     var qc = qcDung || quyChe(), carry;
