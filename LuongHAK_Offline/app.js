@@ -5956,7 +5956,7 @@
       var saveDesc = inf.dbFile
         ? "Nơi lưu chính (<code>data.sqlite</code>): <code>" + esc(inf.dbFile) + "</code><br>Bản xuất JSON (<code>data.json</code> chỉ là bản xuất): <code>" + esc(inf.dataFile) + "</code>"
         : "Nơi lưu chính là <code>data.sqlite</code>; bản xuất JSON (<code>data.json</code> chỉ là bản xuất): <code>" + esc(inf.dataFile) + "</code>";
-      c.appendChild(h("div", { class: "ok", html: saveDesc + "<br>Bản sao lưu tự động đầu ngày (giữ " + keepDaily + " bản đầu ngày theo Lịch ở mục 3): <code>" + esc(inf.backupDir) + "</code>" }));
+      c.appendChild(h("div", { class: "ok", html: saveDesc + "<br>Bản sao lưu tự động đầu ngày (giữ " + keepDaily + " bản đầu ngày theo Lịch ở tab “Lịch & thư mục sao lưu”): <code>" + esc(inf.backupDir) + "</code>" }));
       c.appendChild(h("div", { class: "bar", style: "margin-top:8px" }, [btn("📂 Mở thư mục dữ liệu", "", function () { store.openFolder(); })]));
     }
     var bar = h("div", { class: "bar" });
@@ -5980,10 +5980,22 @@
     bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; var beforeDelete = db, wasDirty = dirty; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: JSON.parse(JSON.stringify(db.auditlog || [])) }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); if (!saveNow()) { db = beforeDelete; dirty = wasDirty; alert("Chưa xóa dữ liệu: " + lastSaveError); return; } st.kq = null; render(); } }));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: "Hiện có — " + Object.keys(ALL).map(function (k) { return ALL[k].ten + ": " + countOf(k); }).join(" · ") }));
-    // 012-A: một màn, 5 khu — mỗi chức năng chỉ xuất hiện MỘT lần: 1 Sao lưu ngay · 2 Khôi phục · 3 Tự sao lưu · 4 Thư mục · 5 Danh sách & kiểm tra; sau đó "Lưu trữ năm" và các mục khác
-    var w = h("div"); w.appendChild(cardBackupNow()); w.appendChild(cardRestore()); var fbm = fbMsgBox(); if (fbm) w.appendChild(fbm);
-    w.appendChild(cardSchedule()); w.appendChild(cardStorage()); w.appendChild(cardOffsite()); w.appendChild(cardBackups()); w.appendChild(cardYearArchive());
-    w.appendChild(c); w.appendChild(cardCongTy()); if (can("system.admin")) w.appendChild(cardUsers()); w.appendChild(cardIntegrity()); w.appendChild(cardAudit());
+    // Màn chia tab cho dễ xem (v2.1.3): mỗi nhóm việc một tab; chỉ dựng nội dung tab đang mở. Chức năng và thẻ giữ nguyên, chỉ đổi cách sắp xếp.
+    var fbm = fbMsgBox();
+    var TABS = [
+      ["sl", "Sao lưu & khôi phục", function (p) { p.appendChild(cardBackupNow()); p.appendChild(cardRestore()); p.appendChild(cardBackups()); }],
+      ["tm", "Lịch & thư mục sao lưu", function (p) { p.appendChild(cardSchedule()); p.appendChild(cardStorage()); p.appendChild(cardOffsite()); }],
+      ["dl", "Dữ liệu & Excel", function (p) { p.appendChild(c); p.appendChild(cardYearArchive()); }],
+      ["ct", "Hồ sơ công ty", function (p) { p.appendChild(cardCongTy()); }]
+    ];
+    if (can("system.admin")) TABS.push(["nd", "Người dùng & phân quyền", function (p) { p.appendChild(cardUsers()); }]);
+    TABS.push(["kt", "Kiểm tra & nhật ký", function (p) { p.appendChild(cardIntegrity()); p.appendChild(cardAudit()); }]);
+    var cur = TABS.filter(function (t) { return t[0] === st.slTab; })[0] || TABS[0];
+    var w = h("div"), tabs = h("div", { class: "subtabs noprint", role: "tablist" }), panel = h("div", { "data-sl-panel": cur[0] });
+    TABS.forEach(function (t) {
+      tabs.appendChild(h("button", { class: t[0] === cur[0] ? "on" : "", role: "tab", "aria-selected": t[0] === cur[0] ? "true" : "false", "data-sl-tab": t[0], text: t[1], on: { click: function () { st.slTab = t[0]; render(); } } }));
+    });
+    w.appendChild(tabs); if (fbm) w.appendChild(fbm); cur[2](panel); w.appendChild(panel);
     return w;
   }
   function cardYearArchive(){
@@ -6117,7 +6129,7 @@
   }
   function cardOffsite() {
     var c = h("div", { class: "card" });
-    c.appendChild(h("h3", { text: "🛡 Sao lưu ra ngoài máy — trạng thái chép (thư mục chọn ở mục 4)" }));
+    c.appendChild(h("h3", { text: "🛡 Sao lưu ra ngoài máy — trạng thái chép (thư mục chọn ở tab “Lịch & thư mục sao lưu”)" }));
     if (!store || !store.backupStatus) { c.appendChild(h("div", { class: "hint", text: "Chỉ có trong bản cài (.exe). Bản chạy trình duyệt: dùng Sao lưu toàn bộ → JSON ở mục 1." })); return c; }
     var bs = store.backupStatus() || {};
     c.appendChild(h("div", { class: "hint", text: "Chọn 1 thư mục KHÁC ổ đĩa của máy này: USB, ổ cứng ngoài, ổ mạng (NAS) hoặc thư mục Google Drive đã đồng bộ. Mỗi bản sao lưu (đầu ngày, trước thao tác lớn, sau chốt kỳ…) sẽ tự chép sang thư mục con 'TinhLuongHAK-SaoLuu' và được kiểm tra SHA-256. Bản sau chốt kỳ được giữ vĩnh viễn." }));
@@ -6294,7 +6306,7 @@
     var go = function (pw) {
       if (dirty && !saveNow()) { alert("⚠ Chưa lưu được dữ liệu đang sửa — chưa tạo gói kỳ " + ky + "."); return; }
       window.hakPeriod.create({ ky: ky, user: session ? session.tenDangNhap : "", password: pw || "" }).then(function (r) {
-        if (r && r.ok) { audit("Sao lưu kỳ lương", ky + " → " + r.name + (r.encrypted ? " (có mật khẩu)" : "")); save(); st.fbMsg = { text: "✓ Đã tạo gói kỳ " + ky + ": " + r.name + " (" + Math.max(1, Math.round((r.size || 0) / 1024)) + " KB) trong thư mục Full Backup ở mục 4." }; }
+        if (r && r.ok) { audit("Sao lưu kỳ lương", ky + " → " + r.name + (r.encrypted ? " (có mật khẩu)" : "")); save(); st.fbMsg = { text: "✓ Đã tạo gói kỳ " + ky + ": " + r.name + " (" + Math.max(1, Math.round((r.size || 0) / 1024)) + " KB) trong thư mục Full Backup ở tab “Lịch & thư mục sao lưu”." }; }
         else st.fbMsg = { bad: true, text: "⚠ Không tạo được gói kỳ " + ky + ": " + ((r && r.error) || "không rõ lý do") };
         render();
       }, function (e) { st.fbMsg = { bad: true, text: "⚠ Không tạo được gói kỳ: " + String(e && e.message || e) }; render(); });
@@ -6365,9 +6377,9 @@
   function canonShort(r) { var keys = Object.keys(r || {}).slice(0, 3); return keys.map(function (k) { return shortV(r[k]); }).join(" / "); }
   function shortV(v) { var s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v); return s.length > 40 ? s.slice(0, 39) + "…" : s; }
   var BK_HINT = {
-    sqlite: "Tạo bản chụp .sqlite đã kiểm (toàn vẹn + khớp số dòng) kèm bản JSON đối chứng, ghi vào thư mục sao lưu SQLite ở mục 4. Mọi lần sao lưu tự động (định kỳ, khi đóng app, đầu ngày) cũng tạo bản chụp. Giữ 10 bản chụp gần nhất; bản sau chốt kỳ / theo năm giữ vĩnh viễn; tự chép sang thư mục dự phòng nếu đã đặt. Chỉ có DỮ LIỆU; chứng từ gốc và thư viện OCR nằm trong Full Backup.",
+    sqlite: "Tạo bản chụp .sqlite đã kiểm (toàn vẹn + khớp số dòng) kèm bản JSON đối chứng, ghi vào thư mục sao lưu SQLite ở tab “Lịch & thư mục sao lưu”. Mọi lần sao lưu tự động (định kỳ, khi đóng app, đầu ngày) cũng tạo bản chụp. Giữ 10 bản chụp gần nhất; bản sau chốt kỳ / theo năm giữ vĩnh viễn; tự chép sang thư mục dự phòng nếu đã đặt. Chỉ có DỮ LIỆU; chứng từ gốc và thư viện OCR nằm trong Full Backup.",
     full: "Một file .zip gồm TOÀN BỘ dữ liệu + chứng từ gốc + thư viện mẫu OCR + bảng kê SHA-256, có thể mã hóa (.hakenc). Dùng khi đổi máy / cài lại Windows. Gói được kiểm tra lại ngay sau khi tạo.",
-    json: "File .json chỉ có DỮ LIỆU (nhân sự, hợp đồng, danh mục, công thức, cài đặt, người dùng, nhật ký) — KHÔNG có chứng từ gốc và thư viện OCR. Ghi vào thư mục sao lưu JSON ở mục 4."
+    json: "File .json chỉ có DỮ LIỆU (nhân sự, hợp đồng, danh mục, công thức, cài đặt, người dùng, nhật ký) — KHÔNG có chứng từ gốc và thư viện OCR. Ghi vào thư mục sao lưu JSON ở tab “Lịch & thư mục sao lưu”."
   };
   /** Khu 1 — SAO LƯU NGAY (012-A): một nút, chọn loại. Phạm vi "Toàn bộ" = mọi bảng. */
   function cardBackupNow() {
@@ -6390,7 +6402,7 @@
       // Nơi lưu chính là SQLite: báo rõ có bản chụp .sqlite hay không (lỗi bản chụp không được im lặng)
       if (ss) st.fbMsg = ss.lastError ? { bad: true, text: "⚠ Đã tạo bản JSON " + n + " nhưng: " + ss.lastError } : ss.latest ? { text: "✓ Đã sao lưu: bản chụp " + ss.latest.name + " (" + ss.latest.records + " dòng, đã kiểm) + bản JSON " + n } : null;
       render();
-    }, "Sao lưu theo loại đã chọn, ghi vào thư mục ở mục 4");
+    }, "Sao lưu theo loại đã chọn, ghi vào thư mục ở tab “Lịch & thư mục sao lưu”");
     go.setAttribute("data-backup-now", "1");
     var bar = h("div", { class: "bar" }, [sel, go]);
     if (st.fbBusy) bar.appendChild(btn("✕ Hủy sao lưu", "", function () { window.hakFull.cancel().then(function (r) { toast(r && r.ok ? "Đang hủy…" : (r && r.error) || "Không hủy được"); }); }, "Dừng đóng gói; file tạm được xóa, dữ liệu không đổi"));
@@ -6408,7 +6420,7 @@
       c.appendChild(h("div", { class: "bar" }, [kb, h("label", { class: "schk" }, [cbP, h("span", { text: "Đặt mật khẩu (.hakenc)" })])]));
       c.appendChild(h("div", { class: "hint", text: "Gói kỳ (.zip): chấm công, sản lượng, bán dăm, phát sinh, tạm ứng, tiền cơm, kết quả và bản chốt của kỳ + TOÀN BỘ nhân sự, danh mục, công thức lúc sao lưu. Đổi kỳ ở thanh trên." }));
     }
-    c.appendChild(h("div", { class: "hint", text: "Trước khi cài lại Windows / đổi máy: sao lưu rồi cất file sang USB/Drive (thư mục dự phòng ở mục 4 tự chép giúp). Sang máy mới: cài app rồi Khôi phục ở mục 2." }));
+    c.appendChild(h("div", { class: "hint", text: "Trước khi cài lại Windows / đổi máy: sao lưu rồi cất file sang USB/Drive (thư mục dự phòng ở tab “Lịch & thư mục sao lưu” tự chép giúp). Sang máy mới: cài app rồi Khôi phục ở mục 2." }));
     return c;
   }
   /** Khu 2 — KHÔI PHỤC (012-A): một nút, chọn loại. Luôn có bước kiểm tra + xác nhận, tự sao lưu bản hiện tại trước khi ghi. */
@@ -6423,7 +6435,7 @@
     go.setAttribute("data-restore-now", "1");
     c.appendChild(h("div", { class: "bar" }, [sel, go]));
     if (window.hakPeriod) { var kr = btn("🗓 Khôi phục kỳ lương…", "", function () { periodRestore("", ""); }, "Chọn gói kỳ (.zip / .hakenc) → kiểm tra → xem trước từng thay đổi → xác nhận"); kr.setAttribute("data-ky-restore", "1"); c.appendChild(h("div", { class: "bar" }, [kr])); }
-    c.appendChild(h("div", { class: "hint", text: "Muốn khôi phục từ một bản JSON đã có trên máy: bấm \"Khôi phục\" ở dòng đó trong danh sách (mục 5). Bản chụp .sqlite dùng khi data.sqlite hỏng (màn hình khôi phục tự hiện khi mở app). Luôn có bước kiểm tra và xác nhận; app sao lưu bản hiện tại trước khi ghi." }));
+    c.appendChild(h("div", { class: "hint", text: "Muốn khôi phục từ một bản JSON đã có trên máy: bấm \"Khôi phục\" ở dòng đó trong danh sách (tab “Sao lưu & khôi phục”). Bản chụp .sqlite dùng khi data.sqlite hỏng (màn hình khôi phục tự hiện khi mở app). Luôn có bước kiểm tra và xác nhận; app sao lưu bản hiện tại trước khi ghi." }));
     return c;
   }
   /** Một chỗ duy nhất hiện kết quả sao lưu/khôi phục (Full Backup, JSON). */
@@ -6458,7 +6470,7 @@
     rowsAll.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
     var KINDS = { all: "Tất cả định dạng", sqlite: "SQLite (.sqlite)", json: "JSON (.json)" }, kSel = h("select", { class: "i", "data-bk-kind-filter": "1", "aria-label": "Lọc theo định dạng" }, Object.keys(KINDS).map(function (k) { return h("option", { value: k, text: KINDS[k] }); }));
     kSel.value = st.bkKindF || "all"; kSel.addEventListener("change", function () { st.bkKindF = kSel.value; render(); });
-    c.appendChild(h("div", { class: "bar" }, [kSel, h("span", { class: "hint", text: "Bản chụp .sqlite dùng khi data.sqlite hỏng (màn hình khôi phục tự hiện). Gói Full Backup và gói kỳ nằm ở thư mục Full Backup (mục 4 → Mở), khôi phục ở mục 2." })]));
+    c.appendChild(h("div", { class: "bar" }, [kSel, h("span", { class: "hint", text: "Bản chụp .sqlite dùng khi data.sqlite hỏng (màn hình khôi phục tự hiện). Gói Full Backup và gói kỳ nằm ở thư mục Full Backup (tab “Lịch & thư mục sao lưu” → Mở), khôi phục ở mục 2." })]));
     var list = rowsAll.filter(function (r) { return (!st.bkYear || r.year === st.bkYear) && (!st.bkKindF || st.bkKindF === "all" || r.kind === st.bkKindF); }).slice(0, 60);
     if (st.bkVerify) { var nb = countBadBackups(list); c.appendChild(h("div", { class: nb ? "warn" : "ok", text: nb ? "⚠ " + nb + " bản sao lưu bị hỏng — không dùng để khôi phục." : "Đã kiểm tra " + list.length + " bản sao lưu gần nhất: đọc được, đủ điều kiện khôi phục." })); }
     if (!list.length) { c.appendChild(h("div", { class: "empty", text: "Chưa có bản sao lưu." })); return c; }

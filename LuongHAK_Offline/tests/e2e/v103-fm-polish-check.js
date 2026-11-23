@@ -19,7 +19,7 @@ const ok = (n, c, x) => { if (!c) fails++; console.log((c ? "PASS " : "FAIL ") +
     for (const [k, v] of [["u", ADMIN.u], ["n", ADMIN.n], ["p", ADMIN.p], ["p2", ADMIN.p]]) await w.fill("#main input[data-f=" + k + "]", v);
     await w.click("#main button.big"); await w.waitForSelector("[data-recovery]"); await w.click(".dlg footer button.pri"); await w.waitForSelector("#nav button[data-k=home]");
   }
-  await w.click("#nav button[data-k=backup]"); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(500);
+  await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="dl"]'); await w.click('button:has-text("Nạp danh mục chuẩn HAK")'); await w.waitForTimeout(500);
   await w.click("#nav button[data-k=dm]");
   // --- Tăng ca
   await w.click('#main button:has-text("Tăng ca")'); await w.waitForSelector("[data-ot-table]");

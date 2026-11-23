@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.3] — 23/11/2026
+- **Màn "Công ty & Sao lưu" chia tab (chủ yêu cầu 23/11/2026):** 12 thẻ xếp dọc nay chia 6 tab (Sao lưu & khôi phục · Lịch & thư mục sao lưu · Dữ liệu & Excel · Hồ sơ công ty · Người dùng & phân quyền · Kiểm tra & nhật ký). Chỉ đổi cách sắp xếp, chức năng giữ nguyên. Chi tiết: `docs/releases/v2.1.3.md`.
+
 ## [2.1.2] — 22/11/2026
 - **[V11.6] Ảo hóa bảng báo cáo con + cập nhật khung ứng dụng tại chỗ (việc 1 và 2 sau PROMPT 5, kèm sửa điều kiện đua tiến độ OCR):** đổi tab bằng thanh điều hướng không dựng lại thanh điều hướng / thanh trên khi chúng không đổi (hết hiệu lực khi dữ liệu, người dùng, kỳ, giao diện, nhóm thu gọn đổi; tắt: `hak_shell_off`); JS của lần chuyển tab trúng bản nhớ ≈ 2–4 ms. Việc 1: `simpleTable` (hàm dựng bảng dùng chung) đi qua bảng ảo hóa nên mọi báo cáo con và báo cáo nhân sự nhiều dòng chỉ dựng phần đang nhìn thấy; đổi báo cáo con cho phép dùng khung đã nhớ. Đo 1.000 NV: tổng hợp công 267 → 18–60 ms, so sánh kỳ 181 → 27–38 ms, bảo hiểm 404 → 107–155 ms. E2E bộ nhớ đệm 16/16. Chi tiết: `docs/releases/v2.1.2.md`.
 
