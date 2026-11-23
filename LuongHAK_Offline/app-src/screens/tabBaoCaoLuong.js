@@ -114,6 +114,13 @@
         card.appendChild(reviewFilter);
         if (Object.keys(rfSkip).length) card.appendChild(h("div", { class: "hint", text: "Tiêu chí không áp dụng cho bảng này: " + Object.keys(rfSkip).join(", ") }));
         // v2.1.4: danh sách thẻ theo phiếu — xác nhận từng người (từng dòng) hoặc tích chọn nhiều phiếu rồi xác nhận một lần
+        if (can("export")) {
+          var exportCtx = { snapshot: snapshot, nam: nam, thang: thang, loai: st.bclLoai, allocation: r3.al };
+          card.appendChild(h("div", { class: "bar ar-export" }, [
+            btn("⬇ Xuất Excel danh sách cần xác nhận", "", function () { exportAttendanceReview(exportCtx, visibleReview); }, "Mỗi dòng = 1 người × 1 phiếu, theo bộ lọc phiếu đang xem; có cột chủ / trưởng bộ phận ký"),
+            btn("⬇ Xuất tất cả (bỏ lọc)", "ghost", function () { exportAttendanceReview(exportCtx, null); }, "Toàn bộ phiếu cần xác nhận của kỳ, không áp dụng bộ lọc")
+          ]));
+        }
         card.appendChild(attendanceReviewPanel(visibleReview, r3.al, { snapshot: snapshot, origin: origin, originType: originType, nam: nam, thang: thang }));
         sheets.push({ name: "DoiChieuChamCong", rows: visibleReview });
       }

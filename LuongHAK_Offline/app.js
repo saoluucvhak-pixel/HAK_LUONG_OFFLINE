@@ -4008,6 +4008,28 @@
     wrap.appendChild(list); sync();
     return wrap;
   }
+  /** v2.1.6: Excel danh sách PHẲNG người × phiếu cần xác nhận chấm công (rà soát / ký). visibleRows = các dòng đang hiện (null = tất cả, bỏ lọc). */
+  function exportAttendanceReview(ctx, visibleRows) {
+    if (!need("export", "xuất dữ liệu ra Excel")) return;
+    var X = window.HAKUi && window.HAKUi.attendanceReviewExport, R = window.HAKUi && window.HAKUi.reportXlsx;
+    if (!window.ExcelJS || !X || !R || !R.buildMany) { alert("Thiếu thư viện Excel báo cáo"); return; }
+    var ky = kyKey(ctx.nam, ctx.thang), snap = ctx.snapshot, src = snap ? snap.input : null, dm = snap ? (src && src.danhmuc || {}) : db;
+    var keys = visibleRows ? new Set(visibleRows.map(function (row) { return X.reviewKey(row["Phiếu cân"], row["Ngày cân"], row["Mã phòng ban"]); })) : null;
+    var plates = {}; (ctx.allocation.raw || []).forEach(function (row) { plates[X.reviewKey(row["Phiếu cân"], VAL.normDate(row["Ngày cân"]), row["Mã phòng ban"])] = row["Biển số"] || ""; });
+    var data = X.build({ allocation: ctx.allocation, loai: ctx.loai, ky: ky, visibleKeys: keys, plates: plates,
+      confirmed: (snap ? src && src.data && src.data.productionAttendance : db.productionAttendance) || [],
+      chamcong: snap ? (src && src.data && Array.isArray(src.data.chamcong) ? src.data.chamcong : null) : db.chamcong,
+      deptName: function (ma) { return HRM.refName(dm, "dm_phongban", ma) || ma; } });
+    if (!data.detail.length) { toast("Không có người nào cần xác nhận theo phạm vi đã chọn"); return; }
+    var draft = !snap, d = new Date(), p2 = function (n) { return ("0" + n).slice(-2); };
+    var vms = X.toViewModels(data, { loai: ctx.loai, ky: ky, congTy: congTy()["Tên công ty"] || "", kyText: "Kỳ làm việc: " + p2(ctx.thang) + "/" + ctx.nam,
+      phamVi: keys ? (RF.describe(st.rf).concat(["Bộ lọc phiếu đang xem"]).join("; ")) : "Toàn bộ (bỏ lọc)", trangThai: draft ? "Chưa chốt — tính tạm" : "Đã chốt",
+      ngayLap: p2(d.getDate()) + "/" + p2(d.getMonth() + 1) + "/" + d.getFullYear(), nguoiLap: currentUser() });
+    R.buildMany(window.ExcelJS, vms, { chuKy: ["Người lập", "Trưởng bộ phận xác nhận", "Chủ sở hữu"], nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
+      download(X.filename(ctx.loai, ky, draft), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
+      audit("Xuất Excel danh sách cần xác nhận chấm công", ky + " · " + data.counts.people + " dòng");
+    }, function (e) { alert("Không xuất được Excel: " + (e.message || e)); });
+  }
   function confirmProductionAttendance(visible, allocation, selectedTable, opts) {
     opts = opts || {};
     if (!need("input.edit") || kyChot(kyStr())) return;
@@ -4238,6 +4260,13 @@
         card.appendChild(reviewFilter);
         if (Object.keys(rfSkip).length) card.appendChild(h("div", { class: "hint", text: "Tiêu chí không áp dụng cho bảng này: " + Object.keys(rfSkip).join(", ") }));
         // v2.1.4: danh sách thẻ theo phiếu — xác nhận từng người (từng dòng) hoặc tích chọn nhiều phiếu rồi xác nhận một lần
+        if (can("export")) {
+          var exportCtx = { snapshot: snapshot, nam: nam, thang: thang, loai: st.bclLoai, allocation: r3.al };
+          card.appendChild(h("div", { class: "bar ar-export" }, [
+            btn("⬇ Xuất Excel danh sách cần xác nhận", "", function () { exportAttendanceReview(exportCtx, visibleReview); }, "Mỗi dòng = 1 người × 1 phiếu, theo bộ lọc phiếu đang xem; có cột chủ / trưởng bộ phận ký"),
+            btn("⬇ Xuất tất cả (bỏ lọc)", "ghost", function () { exportAttendanceReview(exportCtx, null); }, "Toàn bộ phiếu cần xác nhận của kỳ, không áp dụng bộ lọc")
+          ]));
+        }
         card.appendChild(attendanceReviewPanel(visibleReview, r3.al, { snapshot: snapshot, origin: origin, originType: originType, nam: nam, thang: thang }));
         sheets.push({ name: "DoiChieuChamCong", rows: visibleReview });
       }
