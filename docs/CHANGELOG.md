@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.2] — 22/11/2026
+- **[V11.6] Ảo hóa bảng báo cáo con + cập nhật khung ứng dụng tại chỗ (việc 1 và 2 sau PROMPT 5, kèm sửa điều kiện đua tiến độ OCR):** đổi tab bằng thanh điều hướng không dựng lại thanh điều hướng / thanh trên khi chúng không đổi (hết hiệu lực khi dữ liệu, người dùng, kỳ, giao diện, nhóm thu gọn đổi; tắt: `hak_shell_off`); JS của lần chuyển tab trúng bản nhớ ≈ 2–4 ms. Việc 1: `simpleTable` (hàm dựng bảng dùng chung) đi qua bảng ảo hóa nên mọi báo cáo con và báo cáo nhân sự nhiều dòng chỉ dựng phần đang nhìn thấy; đổi báo cáo con cho phép dùng khung đã nhớ. Đo 1.000 NV: tổng hợp công 267 → 18–60 ms, so sánh kỳ 181 → 27–38 ms, bảo hiểm 404 → 107–155 ms. E2E bộ nhớ đệm 16/16. Chi tiết: `docs/releases/v2.1.2.md`.
+
 ## [2.1.1] — 22/11/2026
 - **[V11.5] Bộ nhớ đệm báo cáo theo dbRev + chữ ký kho, bảng báo cáo ảo hóa (PROMPT 5):** `ui/snapshot-cache.js` nhớ kết quả tính lương nhiều kỳ và khung màn hình báo cáo đọc-chỉ (chỉ dùng khi quay lại tab bằng thanh điều hướng; dữ liệu/kho/kỳ/trạng thái đổi là dựng mới; có chế độ tự đối chiếu); bảng thanh toán và báo cáo vận hành đi qua bảng ảo hóa. Đo 1.000 NV: chuyển tab báo cáo 120–650 ms → 45–60 ms (CHƯA đạt mục tiêu < 5 ms). Xuất Excel 5.000 dòng đo 0,93 s / 170 MB, không cần streaming. tests/unit/snapshot-cache.test.js + tests/e2e/snapshot-cache.cjs. Chi tiết: `docs/releases/v2.1.1.md`.
 

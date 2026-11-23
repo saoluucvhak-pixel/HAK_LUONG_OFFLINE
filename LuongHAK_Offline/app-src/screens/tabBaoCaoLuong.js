@@ -1,7 +1,7 @@
   function tabBaoCaoLuong() {
     var w = h("div"), bar = h("div", { class: "bar" });
     if (!BCL.some(function (b) { return b[0] === st.bcl; })) st.bcl = "cong";
-    BCL.forEach(function (b) { bar.appendChild(btn(b[1], st.bcl === b[0] ? "pri" : "", function () { st.bcl = b[0]; render(); })); });
+    BCL.forEach(function (b) { bar.appendChild(btn(b[1], st.bcl === b[0] ? "pri" : "", function () { st.bcl = b[0]; navSwitch = true; /* đổi báo cáo con = chỉ đổi cách xem: cho phép dùng khung đã nhớ (dấu vân tay có st.bcl) */ render(); })); });
     [["rp_pb", "Tổng hợp theo phòng ban"], ["rp_soct", "Sổ chứng từ thanh toán"]].forEach(function (link) {
       if (tabAllowed(link[0])) bar.appendChild(btn(link[1] + " ↗", "ghost", function () {
         st.tab = link[0]; saveUi(); render();
