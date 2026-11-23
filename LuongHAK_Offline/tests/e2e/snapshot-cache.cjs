@@ -49,6 +49,27 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
   const scrolled = await w.evaluate(async () => { const tw = [...document.querySelectorAll("#main .tw")].find((x) => x.querySelector("tbody tr:not(.vt-pad)")), first0 = tw.querySelector("tbody tr:not(.vt-pad)").textContent; tw.scrollTop = tw.scrollHeight; await new Promise((r) => setTimeout(r, 400)); const rows = [...tw.querySelectorAll("tbody tr:not(.vt-pad)")]; return { first0: first0.slice(0, 50), firstNow: rows[0].textContent.slice(0, 50), n: rows.length, hasPadTop: !!tw.querySelector('[data-vt-pad="top"]') }; });
   ok("bảng ảo hóa: cuộn xuống cuối thì dòng đổi (không chỉ hiện đầu bảng)", scrolled.firstNow !== scrolled.first0 && scrolled.n > 0 && scrolled.n < 120 && scrolled.hasPadTop, JSON.stringify(scrolled));
   await go("home"); await go("rp_tonghop"); // quay về tab tổng hợp lương cho phần kiểm đổi kỳ bên dưới
+  // Khung ứng dụng (thanh điều hướng + thanh trên): đổi tab bằng thanh điều hướng cập nhật TẠI CHỖ và kết quả phải GIỐNG HỆT khi dựng lại cả khung
+  const shell = () => w.evaluate(() => ({ mode: window.__hakShell, nav: document.querySelector("#nav").outerHTML, top: document.querySelector("#top").outerHTML, on: [...document.querySelectorAll("#nav button.on")].map((b) => b.getAttribute("data-k")) }));
+  let allSame = true, allFast = true, diffInfo = "";
+  for (const k of ["rp_ctnv", "rp_ns", "baocao", "luong", "chamcong"]) {
+    await go("home"); await go(k); const fast = await shell();
+    await w.evaluate(() => localStorage.setItem("hak_shell_off", "1")); await go("home"); await go(k); const full = await shell(); await w.evaluate(() => localStorage.removeItem("hak_shell_off"));
+    if (fast.mode !== "tai-cho") allFast = false;
+    if (fast.nav !== full.nav || fast.top !== full.top || JSON.stringify(fast.on) !== JSON.stringify(full.on) || full.mode !== "dung-lai") { allSame = false; diffInfo += k + ": " + fast.mode + "/" + full.mode + " on=" + fast.on + "/" + full.on + "; "; }
+  }
+  ok("khung: đổi tab bằng thanh điều hướng cập nhật TẠI CHỖ (không dựng lại khung)", allFast, "có tab dựng lại khung");
+  ok("khung: nội dung thanh điều hướng + thanh trên cập nhật tại chỗ GIỐNG HỆT bản dựng lại cả khung, tab đang chọn đúng", allSame, diffInfo);
+  await w.selectOption("#top select", "9"); const afterPeriod = await w.evaluate(() => window.__hakShell);
+  ok("khung: đổi kỳ (thao tác trong màn hình) dựng lại khung như trước", afterPeriod === "dung-lai", afterPeriod);
+  // Nhóm menu thu gọn → luôn dựng lại như trước (mục hiện/ẩn theo tab đang chọn)
+  await go("home"); await w.evaluate(() => document.querySelector("#nav .hak-nav-group").click()); await w.evaluate(() => new Promise((r) => setTimeout(r, 300)));
+  await go("rp_ctnv"); const collapsedMode = await w.evaluate(() => window.__hakShell);
+  ok("khung: có nhóm menu thu gọn → dựng lại như trước, không lỗi", collapsedMode === "dung-lai", collapsedMode);
+  await w.evaluate(() => { document.querySelector("#nav .hak-nav-group").click(); }); await w.evaluate(() => new Promise((r) => setTimeout(r, 300)));
+  await go("home"); await go("rp_ns"); await go("home"); const back = await go("rp_ns"); void back;
+  ok("khung: bỏ thu gọn rồi đổi tab → lại cập nhật tại chỗ", (await w.evaluate(() => window.__hakShell)) === "tai-cho", await w.evaluate(() => window.__hakShell));
+  await w.selectOption("#top select", "9"); await go("home"); await go("rp_tonghop"); // về lại kỳ 9, tab tổng hợp lương cho phần kiểm đổi kỳ bên dưới
   // Đổi kỳ: không bao giờ hiện bản chụp của kỳ KHÁC (bản chụp gắn với kỳ trong dấu vân tay)
   const periodText = () => w.evaluate(() => document.querySelector("#main").innerText.slice(0, 600));
   const t9 = await periodText();

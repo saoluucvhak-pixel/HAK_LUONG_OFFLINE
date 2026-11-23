@@ -6934,7 +6934,33 @@
   // ---------- v2.1.1: khung màn hình báo cáo đã dựng được nhớ theo dbRev + chữ ký kho + dấu vân tay trạng thái hiển thị ----------
   // CHỈ các tab báo cáo ĐỌC-CHỈ, và CHỈ khi đổi tab bằng thanh điều hướng. Mọi lần vẽ lại do thao tác TRONG màn hình (lọc, đổi kỳ, nút…) luôn dựng mới
   // (như trước) và ghi đè bản nhớ. Dữ liệu đổi / kho đổi từ nơi khác / đăng nhập-đăng xuất → xóa sạch. Tắt hẳn: localStorage "hak_snapshot_off" = "1".
-  var navSwitch = false;
+  var navSwitch = false, renderFromNav = false; // navSwitch: do nút điều hướng / báo cáo con đặt, render() lấy rồi xóa → chỉ đúng lần vẽ đó mới được dùng bản nhớ
+  // ---------- v2.1.3: đổi tab bằng thanh điều hướng KHÔNG dựng lại cả khung ứng dụng (thanh điều hướng, thanh trên, chân bên) khi chúng không đổi ----------
+  // Khung chỉ cập nhật tại chỗ (tô tab đang chọn + tiêu đề) nếu MỌI thứ ảnh hưởng tới khung đều giữ nguyên: người dùng/vai trò/quyền hiển thị tab, kỳ, giao diện,
+  // dbRev (số đếm trên menu), nhóm menu thu gọn, và việc có ô "Kỳ lương" hay không. Khác một thứ là dựng lại đủ như trước. Tắt: localStorage "hak_shell_off" = "1".
+  var shellState = null, NO_PERIOD_TABS = ["nhansu", "nv", "dm", "caidat", "backup", "kyluong"];
+  function needPeriodBox() { return NO_PERIOD_TABS.indexOf(st.tab) < 0; }
+  function collapsedRaw() { try { return localStorage.getItem(KEY + "_nav_collapsed") || ""; } catch (e) { return "?" + Date.now(); } }
+  function shellSig() {
+    var allowed = NAV.filter(function (n) { return n[0] !== "grp" && tabAllowed(n[0]); }).map(function (n) { return n[0]; }).join(",");
+    return [session.tenDangNhap, session.vaiTro, session.hoTen, readOnly ? 1 : 0, curSkin(), curTheme(), dbRev, st.nam, st.thang, congTy()["Tên công ty"] || "", FILES ? 1 : 0, store ? 1 : 0, collapsedRaw(), allowed].join("|");
+  }
+  function shellOff() { try { return localStorage.getItem("hak_shell_off") === "1"; } catch (e) { return false; } }
+  function canFastShell() {
+    if (!renderFromNav || !shellState || shellOff() || loadError || !session) return false;
+    if (/true/.test(collapsedRaw())) return false; // có nhóm thu gọn: mục hiện/ẩn theo tab đang chọn → dựng lại như trước
+    if (needPeriodBox() !== shellState.period || shellState.sig !== shellSig()) return false;
+    var nv = $("#nav"), tp = $("#top"); return !!(nv && nv.firstChild && tp && tp.querySelector("h2") && tp.querySelector(".who"));
+  }
+  function topTitleEl() {
+    var title = TITLES[st.tab] || (S[st.tab] && S[st.tab].ten) || "";
+    return h("h2", { title: title, text: ["bangtinh", "rp_tonghop", "rp_pb", "rp_tncn", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_soct", "rp_ck", "rp_tm", "slips", "baocaoluong", "rp_ns", "rp_sl", "rp_bd", "rp_th", "rp_tu", "rp_com"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title });
+  }
+  function fastShellUpdate() {
+    var activeNav = st.tab === "slips" && st.kqFull ? "luong" : (st.tab === "nv" ? "nhansu" : st.tab);
+    [].forEach.call($("#nav").querySelectorAll("button[data-k]"), function (b) { b.classList.toggle("on", b.getAttribute("data-k") === activeNav); });
+    var top = $("#top"), old = top.querySelector("h2"); top.replaceChild(topTitleEl(), old);
+  }
   var SNAP_TABS = { baocao: 1, baocaoluong: 1, rp_tonghop: 1, rp_pb: 1, rp_tncn: 1, rp_ctnv: 1, rp_thanhtoan: 1, rp_cttt: 1, rp_soct: 1, rp_ck: 1, rp_tm: 1, rp_ns: 1, rp_sl: 1, rp_bd: 1, rp_th: 1, rp_tu: 1, rp_com: 1 };
   var screenCache = SC ? SC.create({ maxEntries: 6 }) : null;
   var SNAP_SKIP = { tab: 0, kqVirtual: 1, authView: 1 };
@@ -6959,8 +6985,8 @@
   };
   function snapOff() { try { return localStorage.getItem("hak_snapshot_off") === "1"; } catch (e) { return false; } }
   function screenSnap(build) {
-    if (!screenCache || !SNAP_TABS[st.tab] || snapOff() || loadError || !session) { navSwitch = false; return build(); }
-    var fromNav = navSwitch; navSwitch = false;
+    if (!screenCache || !SNAP_TABS[st.tab] || snapOff() || loadError || !session) return build();
+    var fromNav = renderFromNav;
     var fpOf = function () { return [st.tab, session.tenDangNhap, session.vaiTro, readOnly ? 1 : 0, new Date().toISOString().slice(0, 10), SC.fingerprint(st, SNAP_SKIP)].join("|"); };
     var fp = fpOf(), rev = dbRev + "|" + storeSig();
     var r = screenCache.get(fp, rev, build, { useCache: fromNav });
@@ -6970,9 +6996,11 @@
     return r.value;
   }
   function renderInner() {
+    renderFromNav = navSwitch; navSwitch = false;
     applySkin(curSkin()); applyTheme(curTheme());
-    if (loadError) { $("#nav").innerHTML = ""; $("#top").innerHTML = "<h2>Khôi phục dữ liệu</h2>"; var mm = $("#main"); mm.innerHTML = ""; mm.appendChild(recoveryScreen()); return; }
+    if (loadError) { shellState = null; $("#nav").innerHTML = ""; $("#top").innerHTML = "<h2>Khôi phục dữ liệu</h2>"; var mm = $("#main"); mm.innerHTML = ""; mm.appendChild(recoveryScreen()); return; }
     if (!session) {
+      shellState = null;
       // Chưa đăng nhập: không hiện menu, không hiện dữ liệu nào
       $("#nav").innerHTML = ""; var t0 = $("#top"); t0.innerHTML = ""; t0.appendChild(h("h2", { text: !(db.nguoidung || []).length ? "Thiết lập ban đầu" : "Đăng nhập" }));
       var m0 = $("#main"); m0.innerHTML = "";
@@ -6981,6 +7009,10 @@
     }
     if (!readOnly && can("input.edit")) C.inputReview.initialize(db);
     if (!tabAllowed(st.tab)) st.tab = "home";
+    var fastShell = canFastShell();
+    window.__hakShell = fastShell ? "tai-cho" : "dung-lai"; // chẩn đoán/kiểm thử: lần vẽ khung này cập nhật tại chỗ hay dựng lại
+    if (fastShell) fastShellUpdate();
+    else {
     var nav = $("#nav"); nav.innerHTML = "";
     var activeNav = st.tab === "slips" && st.kqFull ? "luong" : (st.tab === "nv" ? "nhansu" : st.tab);
     // Navigation accordion: persistent presentation preference, no payroll/database mutation.
@@ -7035,16 +7067,17 @@
     sideFoot(store ? "Tự lưu ra file trên máy" : "Dữ liệu lưu trong trình duyệt");
     var bb = $(".brand small"); if (bb) bb.textContent = congTy()["Tên công ty"] || "Chạy offline";
     var top = $("#top"); top.innerHTML = "";
-    var title = TITLES[st.tab] || (S[st.tab] && S[st.tab].ten) || "";
-    top.appendChild(h("h2", { title: title, text: ["bangtinh", "rp_tonghop", "rp_pb", "rp_tncn", "rp_ctnv", "rp_thanhtoan", "rp_cttt", "rp_soct", "rp_ck", "rp_tm", "slips", "baocaoluong", "rp_ns", "rp_sl", "rp_bd", "rp_th", "rp_tu", "rp_com"].indexOf(st.tab) >= 0 ? String(title).toLocaleUpperCase("vi-VN") : title }));
+    top.appendChild(topTitleEl());
     top.appendChild(h("button", { class: "topbtn srch", type: "button", "aria-label": "Tìm kiếm", title: "Tìm nhanh màn hình, nhân viên, báo cáo (Ctrl+K)", on: { click: quickSearch } }, ["🔍 Tìm kiếm", h("kbd", { text: "Ctrl K" })]));
-    if (["nhansu", "nv", "dm", "caidat", "backup", "kyluong"].indexOf(st.tab) < 0) top.appendChild(periodBox());
+    if (needPeriodBox()) top.appendChild(periodBox());
     if (FILES) top.appendChild(h("button", { class: "topbtn", type: "button", "data-files": "1", title: "Xem / mở các file Excel, báo cáo đã tải", "aria-label": "File đã tải", on: { click: filesDrawer } }, ["📂", h("span", { class: "lbl", text: " File đã tải" })])); // 005B-UI001: chữ ẩn khi hẹp, giữ biểu tượng
     var roleName = (PERM.ROLES[session.vaiTro] || {}).ten || "vai trò không hợp lệ — liên hệ Admin";
     top.appendChild(h("span", { class: "who", text: roleName, title: session.hoTen + " · " + roleName, "data-user": session.tenDangNhap }));
     top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi mật khẩu của " + session.hoTen, "aria-label": "Đổi mật khẩu", on: { click: function () { changePassword(false); } } }, ["🔑"]));
     top.appendChild(h("button", { class: "topbtn", type: "button", "data-logout": "1", title: "Đăng xuất", "aria-label": "Đăng xuất", on: { click: function () { logout(); } } }, ["⏻", h("span", { class: "lbl", text: " Đăng xuất" })]));
     top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi giao diện sáng / tối", "aria-label": "Đổi giao diện sáng / tối", on: { click: toggleTheme } }, [curTheme() === "dark" ? "🏖" : "🌙"]));
+    shellState = { sig: shellSig(), period: needPeriodBox() };
+    } // hết nhánh dựng lại cả khung
     var m = $("#main"); m.innerHTML = ""; refreshNVList();
     if((db._yearArchives||[]).some(function(r){return r.active&&r.year===Number(st.nam);})&&st.tab!=="backup")m.appendChild(h("div",{class:"warn","data-archived-year-notice":"1"},[document.createTextNode("Hồ sơ năm "+st.nam+" đã nằm trong kho riêng. Dữ liệu năm này không được tải vào vùng đang làm. "),btn("Mở kho hồ sơ năm","",function(){st.tab="backup";saveUi();render();})]));
     if (st.tab === "home") m.appendChild(tabHome());
