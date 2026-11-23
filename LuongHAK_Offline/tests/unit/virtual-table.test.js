@@ -102,3 +102,10 @@ test("I-VT-09 tích hợp: bảng lương dùng ui/virtual-table.js; index.html 
   assert.ok(require(path.join(root, "package.json")).build.files.includes("ui/**"));
   assert.match(app, /Bấm vào một dòng để xem chi tiết/, "giữ nguyên lời hướng dẫn và dòng bấm mở phiếu (slipDialog)");
 });
+test("I-VT-10 tích hợp: simpleTable (bảng dùng chung của các báo cáo con) và bảng thanh toán / vận hành đi qua bảng ảo hóa", () => {
+  const fs = require("node:fs"), path = require("node:path"), app = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
+  assert.match(app, /VTs\.attach\(\{ scroller: twS, tbody: tb, rows: rows, renderRow: simpleRow/);
+  assert.match(app, /VTb\.attach\(\{ scroller: twr, tbody: tb, rows: items, renderRow: mkItem/);
+  assert.match(app, /VTo\.attach\(\{ scroller: tw, tbody: tb, rows: rows, renderRow: opsRow/);
+  assert.match(app, /st\.bcl = b\[0\]; navSwitch = true;/);
+});

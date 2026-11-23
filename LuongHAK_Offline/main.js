@@ -600,6 +600,8 @@ function checkStrongBackupPassword(pwd) {
       // Các ô chạy song song trên bể luồng phụ; kết quả giữ ĐÚNG thứ tự gửi vào. Hủy: ngừng giao ô mới, ô đang đọc dở xong rồi báo OCR_CANCELLED.
       const gone = () => job.cancelled || e.sender.isDestroyed();
       const res = await ocrSvc().batch(safe, { shouldCancel: gone, onProgress: (done, total) => { if (!e.sender.isDestroyed()) e.sender.send("ocr-progress", { done, total }); } });
+      // Các ô xong gần cùng lúc (chạy song song) → sự kiện tiến độ cuối và phản hồi được gửi liền nhau; thứ tự giữa hai kênh IPC không được đảm bảo nên sự kiện cuối có thể tới giao diện SAU phản hồi và bị mất. Chờ một nhịp ngắn (25 ms, rất nhỏ so với thời gian OCR) cho các sự kiện tiến độ tới nơi.
+      await new Promise((resolve) => setTimeout(resolve, 25));
       if (gone()) throw new Error("OCR_CANCELLED");
       out.push(...res);
       return out; // không trả lô dở dang khi hủy
