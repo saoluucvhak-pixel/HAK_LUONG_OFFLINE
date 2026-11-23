@@ -1,7 +1,7 @@
   function tabHome() {
     var w = h("div", { class: "hak-dashboard" }), go = function (tab, extra) { return function () { st.tab = tab; if (extra) extra(); saveUi(); render(); }; };
     var chot = kyChot(kyStr()), ky = "tháng " + st.thang + "/" + st.nam;
-    var sp = tabAllowed("luong") ? HRM.staffForPayroll(db, st.nam, st.thang) : null;
+    var sp = tabAllowed("luong") ? staffPay(st.nam, st.thang) : null;
     var iss = INT.check(db).filter(function (i) { return i.level === "Critical" || i.level === "High"; });
     var het = tabAllowed("baocao") || can("hr.view") ? HRM.reports(db).hethan(30) : [];
     // Banner

@@ -447,6 +447,33 @@
     t.appendChild(tb); c.appendChild(h("div", { class: "tw", style: "max-height:320px" }, [t]));
     return c;
   }
+  /** Rà soát nghỉ việc & hết hạn hợp đồng của kỳ (v2.1.4): liệt kê người cần xử lý trước khi chốt — mỗi dòng có nút lập phiếu nghỉ việc / mở hồ sơ. Chỉ ĐỌC dữ liệu. */
+  function cardRaSoatNghi() {
+    var c = h("div", { class: "card", "data-leave-audit": "1" }), LA = window.HAKUI && window.HAKUI.leaveAudit;
+    c.appendChild(h("h3", { text: "Rà soát nghỉ việc & hết hạn hợp đồng" }));
+    c.appendChild(h("div", { class: "hint", text: "Tìm người đã nghỉ hoặc hợp đồng đã hết hạn nhưng chưa có Ngày chấm dứt mà vẫn nằm trong bảng lương. Dòng đỏ CHẶN chốt kỳ. Hợp đồng đã hết hạn từ trước kỳ thì không trừ bảo hiểm. Chỉ xem — không tự sửa dữ liệu." }));
+    var mSel = h("select", { "data-la-thang": "1" }), yIn = h("input", { type: "number", "data-la-nam": "1", value: String(st.nam), style: "width:90px" });
+    for (var m = 1; m <= 12; m++) { var o = h("option", { value: String(m), text: "Tháng " + m }); if (m === +st.thang) o.selected = true; mSel.appendChild(o); }
+    mSel.addEventListener("change", function () { st.thang = +mSel.value; render(); });
+    yIn.addEventListener("change", function () { if (+yIn.value > 2000) { st.nam = +yIn.value; render(); } });
+    c.appendChild(h("div", { class: "bar" }, [h("span", { text: "Kỳ rà soát:" }), mSel, yIn]));
+    if (!LA) return c;
+    var list = LA.audit(db, st.nam, st.thang, { activeHD: HRM.activeHD, soCong: function (v) { return E.tachCong(v).soCong; } });
+    if (!list.length) { c.appendChild(h("div", { class: "ok", text: "Không có người nào cần xử lý ở kỳ " + st.thang + "/" + st.nam + "." })); return c; }
+    var nb = list.filter(function (x) { return x.block; }).length;
+    c.appendChild(h("div", { class: nb ? "warnbox" : "hint", text: nb + " dòng chặn chốt kỳ · " + (list.length - nb) + " dòng cảnh báo" }));
+    c.appendChild(btn("Xuất Excel danh sách rà soát", "ghost", function () {
+      saveXlsx("RaSoat_NghiViec_" + st.nam + "-" + (st.thang < 10 ? "0" : "") + st.thang, [{ name: "Rà soát", cols: ["Mã NV", "Họ và tên", "Số HĐLĐ", "Ngày hết hạn", "Mức", "Vấn đề", "Gợi ý xử lý"],
+        rows: list.map(function (x) { return { "Mã NV": x.ma, "Họ và tên": x.ten, "Số HĐLĐ": x.soHD, "Ngày hết hạn": x.ngayHetHan, "Mức": x.block ? "Chặn chốt" : "Cảnh báo", "Vấn đề": x.msg, "Gợi ý xử lý": x.goiY }; }) }]);
+    }));
+    c.appendChild(simpleTable(list.map(function (x) {
+      return { "Mã NV": x.ma, "Họ và tên": x.ten, "Số HĐLĐ": x.soHD, "Hết hạn": LA.dmy(x.ngayHetHan), "Mức": x.block ? "Chặn chốt" : "Cảnh báo", "Vấn đề": x.msg + " → " + x.goiY,
+        "Xử lý": h("span", { style: "white-space:nowrap" }, [
+          can("hr.edit") ? btn("Lập phiếu nghỉ việc", "", function () { nvnsForm(null, { "Mã NV": x.ma, "Loại nghiệp vụ": "Nghỉ việc", "Từ ngày": x.ngayGoiY || "" }); }) : null,
+          btn("Mở hồ sơ", "ghost", function () { st.tab = "nv"; st.nv = x.ma; st.nvTab = "hopdong"; saveUi(); render(); })]) };
+    })));
+    return c;
+  }
   function cardIntegrity() {
     var c = h("div", { class: "card" }), issues = INT.check(db);
     var sch = SCH.validate(db, { tables: Object.keys(ALL), hrTables: Object.keys(HRT) });

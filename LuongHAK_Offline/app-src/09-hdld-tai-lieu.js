@@ -189,6 +189,8 @@
         if (!need("hr.edit", "sửa thông tin nhân viên")) return;
         var d = get(), miss = missingReq(HR.nhanvien.f, d);
         if (miss.length) { alert("Cần nhập: " + miss.join(", ")); return; }
+        // v2.1.4: "Đã nghỉ việc" chỉ đặt qua phiếu Nghỉ việc (ghi Ngày chấm dứt vào hợp đồng + trạng thái cùng lúc) — sửa tay làm bảng lương vẫn tính người đã nghỉ
+        if (d["Trạng thái"] === "Đã nghỉ việc" && nv["Trạng thái"] !== "Đã nghỉ việc") { alert("Không đặt tay trạng thái 'Đã nghỉ việc'.\nDùng nút \"Đề nghị nghỉ việc\" (phiếu có ngày nghỉ) — khi duyệt, app ghi Ngày chấm dứt vào hợp đồng và đổi trạng thái cùng lúc, để bảng lương dừng tính đúng tháng."); return; }
         // NV có trong bảng lương đã chốt → hỏi xác nhận hồi tố TRƯỚC khi ghi bất cứ gì (như hrForm / sửa ô / xóa dòng); Hủy = không lưu, không ghi nhật ký
         var aNV = Object.assign({}, nv, d);
         if (GRD.changedFields(nv, aNV).length && !guardChange("nhanvien", nv, aNV, "sửa thông tin cơ bản của " + (nv["Họ và tên"] || nv["Mã NV"]))) return;

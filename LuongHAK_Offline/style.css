@@ -744,3 +744,28 @@ th{color:color-mix(in srgb,var(--mut) 60%,var(--ink))}
 .bk-acts{display:flex;flex-wrap:wrap;gap:4px}
 
 tr.vt-pad:hover td{background:transparent}
+
+/* v2.1.4 — danh sách thẻ "Phiếu cần đối chiếu chấm công" (Báo cáo lương → Phân bổ sản lượng) */
+.ar-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:10px 0 12px}
+.ar-chips{display:flex;gap:8px;flex-wrap:wrap}
+.ar-chip{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--th);color:var(--ink);border:1px solid var(--line)}
+.ar-chip.warn{background:var(--amberSoft,#fff3d6);border-color:var(--amber,#e0b24a)}
+.ar-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-left:auto}
+.ar-all{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.ar-count{color:var(--mut);font-size:13px}
+.ar-list{display:grid;gap:12px}
+.ar-card{border:1px solid var(--line);border-radius:12px;background:var(--card,#fff);padding:12px 14px;display:grid;gap:10px}
+.ar-card.sel{border-color:var(--brand);box-shadow:0 0 0 2px var(--brandSoft,rgba(0,0,0,.06))}
+.ar-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ar-title{display:grid;gap:2px}.ar-title b{font-size:15px}.ar-title span{color:var(--mut);font-size:13px}
+.ar-top input[type=checkbox],.ar-all input{width:18px;height:18px}
+.ar-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 16px}
+.ar-m small{display:block;color:var(--mut);font-size:12px}.ar-m span{font-size:13px;overflow-wrap:anywhere}
+.ar-who{border-top:1px dashed var(--line);padding-top:8px;display:grid;gap:6px}
+.ar-who-h{font-size:12px;color:var(--mut);text-transform:none}
+.ar-emp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;border-radius:8px;background:var(--th)}
+.ar-name{display:grid}.ar-name span{color:var(--mut);font-size:12px}
+@media print{.ar-bulk,.ar-emp button{display:none!important}}
+.ar-chip{white-space:nowrap;flex:none}
+.ar-filter{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px}.ar-filter .fld{min-width:150px}
+.ar-pickrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin:0 0 6px;cursor:pointer}.ar-pickrow small{display:block;color:var(--mut);font-size:12px}.ar-pickrow input{width:18px;height:18px;flex:none}.ar-reason{width:100%;min-height:72px}

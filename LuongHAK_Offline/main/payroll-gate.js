@@ -18,6 +18,7 @@ function computeKy(db, ky, opts) {
   ["nhanvien", "hopdong", "chitiethd", "nhanthan", "thanhtoan", "canhan", "chamcong", "sanluong", "bandam", "psluong", "ungluong", "tiencom", "kyluong", "kyluong_lichsu", "nghiphep", "nghiom", "congtac"].forEach((k) => { if (db[k] === undefined || db[k] === null) db[k] = []; else if (!Array.isArray(db[k])) throw new Error("Bảng '" + k + "' sai cấu trúc (không phải danh sách) — không tính được kỳ"); });
   require("../core/input-review.js").assertReady(db, ky);
   const sp = HRM.staffForPayroll(db, p.nam, p.thang);
+  require("../ui/leave-audit.js").applyExpiredNoBH(db, p.nam, p.thang, sp); // v2.1.4: hợp đồng đã hết hạn từ trước kỳ → không tính bảo hiểm (cùng quy tắc với app, xem ui/leave-audit.js)
   const slK = HRM.sanLuongKy(db, p.nam, p.thang, "sanluong"), bdK = HRM.sanLuongKy(db, p.nam, p.thang, "bandam");
   const carry = CARRY.prepare(db, ky, sp.list, slK.rows, opts.bu, { quyChe: opts.quyChe || "2026" });
   const kq = E.tinhBangLuong(Object.assign({}, carry.data, { bandam: bdK.rows }), p.nam, p.thang, opts.bu === undefined ? false : opts.bu, { quyChe: opts.quyChe || "2026", suppressProduction: carry.suppress });
@@ -40,6 +41,10 @@ function computeKy(db, ky, opts) {
     } catch (e) { allocErr.push(ten + ": " + String(e && e.message || e)); } // V10.1: FAIL-CLOSED — không phân bổ được thì CHẶN, không bỏ qua điều kiện
   });
   const extra = [];
+  { // v2.1.4: cùng quy tắc chặn chốt như màn hình (người nghỉ / hợp đồng hết hạn chưa có Ngày chấm dứt mà vẫn nằm trong bảng lương)
+    const bad = require("../ui/leave-audit.js").audit(db, p.nam, p.thang, { activeHD: HRM.activeHD, soCong: (v) => E.tachCong(v).soCong }).filter((x) => x.block);
+    if (bad.length) extra.push({ code: "NGHI_VIEC_CHUA_CHAM_DUT", ten: "Nghỉ việc / hết hạn hợp đồng chưa có Ngày chấm dứt mà vẫn có trong bảng lương", items: bad.map((x) => x.ma + " " + x.ten + ": " + x.msg) });
+  }
   if (unalloc.length) extra.push({ code: "SAN_LUONG_CHUA_PHAN_BO", ten: "Sản lượng chưa phân bổ hết", items: unalloc });
   if (allocErr.length) extra.push({ code: "PRODUCTION_ALLOCATION_ERROR", ten: "Không kiểm tra được phân bổ sản lượng (lỗi nguồn dữ liệu)", items: allocErr });
   return { kq, extra };
