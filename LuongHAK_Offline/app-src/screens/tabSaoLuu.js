@@ -39,7 +39,7 @@
       ["ct", "Hồ sơ công ty", function (p) { p.appendChild(cardCongTy()); }]
     ];
     if (can("system.admin")) TABS.push(["nd", "Người dùng & phân quyền", function (p) { p.appendChild(cardUsers()); }]);
-    TABS.push(["kt", "Kiểm tra & nhật ký", function (p) { p.appendChild(cardIntegrity()); p.appendChild(cardAudit()); }]);
+    TABS.push(["kt", "Kiểm tra & nhật ký", function (p) { p.appendChild(cardRaSoatNghi()); p.appendChild(cardIntegrity()); p.appendChild(cardAudit()); }]);
     var cur = TABS.filter(function (t) { return t[0] === st.slTab; })[0] || TABS[0];
     var w = h("div"), tabs = h("div", { class: "subtabs noprint", role: "tablist" }), panel = h("div", { "data-sl-panel": cur[0] });
     TABS.forEach(function (t) {

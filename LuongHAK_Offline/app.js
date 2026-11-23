@@ -1983,6 +1983,8 @@
         if (!need("hr.edit", "sửa thông tin nhân viên")) return;
         var d = get(), miss = missingReq(HR.nhanvien.f, d);
         if (miss.length) { alert("Cần nhập: " + miss.join(", ")); return; }
+        // v2.1.4: "Đã nghỉ việc" chỉ đặt qua phiếu Nghỉ việc (ghi Ngày chấm dứt vào hợp đồng + trạng thái cùng lúc) — sửa tay làm bảng lương vẫn tính người đã nghỉ
+        if (d["Trạng thái"] === "Đã nghỉ việc" && nv["Trạng thái"] !== "Đã nghỉ việc") { alert("Không đặt tay trạng thái 'Đã nghỉ việc'.\nDùng nút \"Đề nghị nghỉ việc\" (phiếu có ngày nghỉ) — khi duyệt, app ghi Ngày chấm dứt vào hợp đồng và đổi trạng thái cùng lúc, để bảng lương dừng tính đúng tháng."); return; }
         // NV có trong bảng lương đã chốt → hỏi xác nhận hồi tố TRƯỚC khi ghi bất cứ gì (như hrForm / sửa ô / xóa dòng); Hủy = không lưu, không ghi nhật ký
         var aNV = Object.assign({}, nv, d);
         if (GRD.changedFields(nv, aNV).length && !guardChange("nhanvien", nv, aNV, "sửa thông tin cơ bản của " + (nv["Họ và tên"] || nv["Mã NV"]))) return;
@@ -3318,6 +3320,12 @@
   }
   function qcLabel(v) { var o = QC_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : "Cách tính cũ (trước quy chế 2026)"; }
   function buLabel(v) { var o = BU_OPTS.filter(function (x) { return x[0] === String(v); })[0]; return o ? o[1] : (BU_LEGACY[String(v)] || String(v)); }
+  /** Nhân sự tính lương của kỳ = HRM.staffForPayroll + quy tắc "hợp đồng đã hết hạn từ trước kỳ thì không tính bảo hiểm" (ui/leave-audit.js, v2.1.4). Mọi nơi trong app dùng hàm này. */
+  function staffPay(nam, thang) {
+    var sp = HRM.staffForPayroll(db, nam, thang), LA = window.HAKUI && window.HAKUI.leaveAudit;
+    if (LA) LA.applyExpiredNoBH(db, nam, thang, sp);
+    return sp;
+  }
   function tinhLuong(nam, thang, qcDung, phuongPhapBu) {
     if (phuongPhapBu === undefined) phuongPhapBu = st.bu;
     nam = nam || st.nam; thang = thang || st.thang;
@@ -3325,7 +3333,7 @@
     if (invalid.length) return { ky: kyKey(nam, thang), bangluong: [], bhxh: [], tncn: [], canhbao: invalid, inputErrors: invalid };
     var reviewMessage = C.inputReview.message(db, kyKey(nam, thang));
     if (reviewMessage) return { ky: kyKey(nam, thang), bangluong: [], bhxh: [], tncn: [], canhbao: ["Còn dữ liệu Nháp: " + reviewMessage + ". Bấm Lưu để tính lương tại bảng nhập liệu."], nhapLieuChuaLuu: [reviewMessage] };
-    var sp = HRM.staffForPayroll(db, nam, thang);
+    var sp = staffPay(nam, thang);
     // α19: phiếu cân ghi Mã phòng ban → chia đều cho tổ (như công cụ phân bổ khối lượng) trước khi tính
     var slK = HRM.sanLuongKy(db, nam, thang, "sanluong"), bdK = HRM.sanLuongKy(db, nam, thang, "bandam");
     var qc = qcDung || quyChe(), carry;
@@ -3625,7 +3633,10 @@
     // trùng" của mục IV.2, dù mức integrity.js gán là High (ảnh hưởng tiền trực tiếp như Critical).
     var critIssues = INT.check(db).filter(function (i) { return i.level === "Critical" || /CỘNG (2 LẦN|NHIỀU LẦN|DỒN)/.test(i.msg); });
     // 1 người 2 Mã NV (CCCD trùng giữa các nhân viên CÓ TRONG BẢNG LƯƠNG kỳ này) = trả lương 2 lần → chặn cứng như Mã NV trùng (core/identity.js)
-    ID.payrollDuplicates(db, HRM.staffForPayroll(db, st.nam, st.thang).list.map(function (x) { return x["Mã nhân viên"]; })).forEach(function (d) { critIssues.push({ level: "Critical", msg: d.msg }); });
+    ID.payrollDuplicates(db, staffPay(st.nam, st.thang).list.map(function (x) { return x["Mã nhân viên"]; })).forEach(function (d) { critIssues.push({ level: "Critical", msg: d.msg }); });
+    // v2.1.4: người đã nghỉ / hợp đồng hết hạn nhưng chưa có Ngày chấm dứt mà vẫn nằm trong bảng lương → chặn chốt (xem ui/leave-audit.js)
+    if (window.HAKUI && window.HAKUI.leaveAudit) window.HAKUI.leaveAudit.audit(db, st.nam, st.thang, { activeHD: HRM.activeHD, soCong: function (v) { return E.tachCong(v).soCong; } }).filter(function (x) { return x.block; })
+      .forEach(function (x) { critIssues.push({ level: "Critical", msg: x.ma + " " + x.ten + ": " + x.msg + " → " + x.goiY }); });
     if (critIssues.length) {
       alert("⛔ KHÔNG THỂ CHỐT — có " + critIssues.length + " lỗi dữ liệu NGHIÊM TRỌNG cần sửa trước:\n" +
         critIssues.slice(0, 10).map(function (i) { return "• " + i.msg; }).join("\n") + (critIssues.length > 10 ? "\n…" : "") +
@@ -3920,7 +3931,7 @@
     var pbOf = function (ma, d) { var key = ma + "\u0001" + d; if (!(key in cache)) { var hh = HRM.hienHanh(db, ma, d); cache[key] = hh.pb || ""; } return cache[key]; };
     var tenPB = function (pb) { return HRM.refName(db, "dm_phongban", pb) || ""; };
     var al = PA.withDirect(k.alloc, k.direct.map(function (r) { return { phieu: r["Phiếu cân"] || "", ngay: String(r["Ngày cân"] || "").slice(0, 10), kl: r["KL hàng (Tấn)"], ma: r["Mã NV"] }; }), pbOf, tenNV, tenPB);
-    var sp = HRM.staffForPayroll(db, nam, thang), cnt = {};
+    var sp = staffPay(nam, thang), cnt = {};
     sp.list.forEach(function (x) { if (x["Mã PB"]) cnt[x["Mã PB"]] = (cnt[x["Mã PB"]] || 0) + 1; });
     al.empCount = cnt; al.chuaGan = k.chuaGan; al.raw = (db[loai] || []).filter(function (r) { return VAL.rowPeriod(loai, r) === kyKey(nam, thang); });
     return al;
@@ -4018,7 +4029,7 @@
     // Master Prompt V3 mục XVII: chi tiết bù lương Đại Hiệp theo NGÀY bậc thang (chỉ khi đúng cơ chế này)
     var daihiepDetail = null;
     if (!snapshot && coChe === "daihiep") {
-      var sp2 = HRM.staffForPayroll(db, nam, thang), slK2 = HRM.sanLuongKy(db, nam, thang, "sanluong");
+      var sp2 = staffPay(nam, thang), slK2 = HRM.sanLuongKy(db, nam, thang, "sanluong");
       var chiTiet = E.chiTietBuNgayDaiHiep(Object.assign({}, db, { nhansu: sp2.list, sanluong: slK2.rows }), nam, thang);
       if (chiTiet.length) daihiepDetail = chiTiet.map(function (x) { return Object.assign({ tenPB: HRM.refName(db, "dm_phongban", x.maPB) || x.maPB }, x); });
     }
@@ -4517,7 +4528,7 @@
     if (!st.kq) {
       card.appendChild(h("div", { class: "hint", text: "Kiểm tra dữ liệu kỳ " + st.thang + "/" + st.nam + " rồi bấm nút xanh. Có thể tính lại bất cứ lúc nào." }));
       var cc = db.chamcong.filter(function (r) { return r["Kỳ"] === kyStr(); }).length;
-      var sp = HRM.staffForPayroll(db, st.nam, st.thang);
+      var sp = staffPay(st.nam, st.thang);
       card.appendChild(h("div", { class: cc ? "ok" : "warn", html: "Chấm công kỳ này: <b>" + cc + "</b> dòng · Nhân viên có hợp đồng hiệu lực trong kỳ: <b>" + sp.list.length + "</b> người" + (cc ? "" : " — <b>chưa có dữ liệu chấm công kỳ này</b>.") }));
       if (sp.warn.length) card.appendChild(h("div", { class: "warn", html: "<b>⚠ Hồ sơ cần bổ sung:</b><br>" + sp.warn.map(esc).join("<br>") }));
       box.appendChild(card); return box;
@@ -5874,7 +5885,7 @@
   function tabHome() {
     var w = h("div", { class: "hak-dashboard" }), go = function (tab, extra) { return function () { st.tab = tab; if (extra) extra(); saveUi(); render(); }; };
     var chot = kyChot(kyStr()), ky = "tháng " + st.thang + "/" + st.nam;
-    var sp = tabAllowed("luong") ? HRM.staffForPayroll(db, st.nam, st.thang) : null;
+    var sp = tabAllowed("luong") ? staffPay(st.nam, st.thang) : null;
     var iss = INT.check(db).filter(function (i) { return i.level === "Critical" || i.level === "High"; });
     var het = tabAllowed("baocao") || can("hr.view") ? HRM.reports(db).hethan(30) : [];
     // Banner
@@ -5989,7 +6000,7 @@
       ["ct", "Hồ sơ công ty", function (p) { p.appendChild(cardCongTy()); }]
     ];
     if (can("system.admin")) TABS.push(["nd", "Người dùng & phân quyền", function (p) { p.appendChild(cardUsers()); }]);
-    TABS.push(["kt", "Kiểm tra & nhật ký", function (p) { p.appendChild(cardIntegrity()); p.appendChild(cardAudit()); }]);
+    TABS.push(["kt", "Kiểm tra & nhật ký", function (p) { p.appendChild(cardRaSoatNghi()); p.appendChild(cardIntegrity()); p.appendChild(cardAudit()); }]);
     var cur = TABS.filter(function (t) { return t[0] === st.slTab; })[0] || TABS[0];
     var w = h("div"), tabs = h("div", { class: "subtabs noprint", role: "tablist" }), panel = h("div", { "data-sl-panel": cur[0] });
     TABS.forEach(function (t) {
@@ -6496,6 +6507,33 @@
       tb.appendChild(x);
     });
     t.appendChild(tb); c.appendChild(h("div", { class: "tw", style: "max-height:320px" }, [t]));
+    return c;
+  }
+  /** Rà soát nghỉ việc & hết hạn hợp đồng của kỳ (v2.1.4): liệt kê người cần xử lý trước khi chốt — mỗi dòng có nút lập phiếu nghỉ việc / mở hồ sơ. Chỉ ĐỌC dữ liệu. */
+  function cardRaSoatNghi() {
+    var c = h("div", { class: "card", "data-leave-audit": "1" }), LA = window.HAKUI && window.HAKUI.leaveAudit;
+    c.appendChild(h("h3", { text: "Rà soát nghỉ việc & hết hạn hợp đồng" }));
+    c.appendChild(h("div", { class: "hint", text: "Tìm người đã nghỉ hoặc hợp đồng đã hết hạn nhưng chưa có Ngày chấm dứt mà vẫn nằm trong bảng lương. Dòng đỏ CHẶN chốt kỳ. Hợp đồng đã hết hạn từ trước kỳ thì không trừ bảo hiểm. Chỉ xem — không tự sửa dữ liệu." }));
+    var mSel = h("select", { "data-la-thang": "1" }), yIn = h("input", { type: "number", "data-la-nam": "1", value: String(st.nam), style: "width:90px" });
+    for (var m = 1; m <= 12; m++) { var o = h("option", { value: String(m), text: "Tháng " + m }); if (m === +st.thang) o.selected = true; mSel.appendChild(o); }
+    mSel.addEventListener("change", function () { st.thang = +mSel.value; render(); });
+    yIn.addEventListener("change", function () { if (+yIn.value > 2000) { st.nam = +yIn.value; render(); } });
+    c.appendChild(h("div", { class: "bar" }, [h("span", { text: "Kỳ rà soát:" }), mSel, yIn]));
+    if (!LA) return c;
+    var list = LA.audit(db, st.nam, st.thang, { activeHD: HRM.activeHD, soCong: function (v) { return E.tachCong(v).soCong; } });
+    if (!list.length) { c.appendChild(h("div", { class: "ok", text: "Không có người nào cần xử lý ở kỳ " + st.thang + "/" + st.nam + "." })); return c; }
+    var nb = list.filter(function (x) { return x.block; }).length;
+    c.appendChild(h("div", { class: nb ? "warnbox" : "hint", text: nb + " dòng chặn chốt kỳ · " + (list.length - nb) + " dòng cảnh báo" }));
+    c.appendChild(btn("Xuất Excel danh sách rà soát", "ghost", function () {
+      saveXlsx("RaSoat_NghiViec_" + st.nam + "-" + (st.thang < 10 ? "0" : "") + st.thang, [{ name: "Rà soát", cols: ["Mã NV", "Họ và tên", "Số HĐLĐ", "Ngày hết hạn", "Mức", "Vấn đề", "Gợi ý xử lý"],
+        rows: list.map(function (x) { return { "Mã NV": x.ma, "Họ và tên": x.ten, "Số HĐLĐ": x.soHD, "Ngày hết hạn": x.ngayHetHan, "Mức": x.block ? "Chặn chốt" : "Cảnh báo", "Vấn đề": x.msg, "Gợi ý xử lý": x.goiY }; }) }]);
+    }));
+    c.appendChild(simpleTable(list.map(function (x) {
+      return { "Mã NV": x.ma, "Họ và tên": x.ten, "Số HĐLĐ": x.soHD, "Hết hạn": LA.dmy(x.ngayHetHan), "Mức": x.block ? "Chặn chốt" : "Cảnh báo", "Vấn đề": x.msg + " → " + x.goiY,
+        "Xử lý": h("span", { style: "white-space:nowrap" }, [
+          can("hr.edit") ? btn("Lập phiếu nghỉ việc", "", function () { nvnsForm(null, { "Mã NV": x.ma, "Loại nghiệp vụ": "Nghỉ việc", "Từ ngày": x.ngayGoiY || "" }); }) : null,
+          btn("Mở hồ sơ", "ghost", function () { st.tab = "nv"; st.nv = x.ma; st.nvTab = "hopdong"; saveUi(); render(); })]) };
+    })));
     return c;
   }
   function cardIntegrity() {
