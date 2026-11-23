@@ -12,16 +12,23 @@
   function round3(v) { return Math.round((+v || 0) * 1000) / 1000; }
   function confirmKey(date, team, employee) { return JSON.stringify([date, team, employee]); }
 
+  /** Chỉ mục chấm công theo Mã NV của kỳ (1 lần) để tra từng người không phải quét cả bảng. */
+  function indexChamcong(chamcong, ky) {
+    if (!Array.isArray(chamcong)) return null;
+    var idx = {};
+    chamcong.forEach(function (r) {
+      if (!r || String(r["Kỳ"] || "").slice(0, 7) !== ky) return;
+      if (KHONG_DI_LAM[String(r["Hình thức công"] || "BT").trim().toUpperCase()]) return;
+      (idx[String(r["Mã NV"])] = idx[String(r["Mã NV"])] || []).push(r);
+    });
+    return idx;
+  }
   /** "0" nếu ô ngày của hình thức công đi làm ghi 0; "Trống" nếu không có ô / để trống; null nếu không có dữ liệu chấm công để kiểm. */
   function dayStatus(chamcong, ky, ma, ngay) {
-    if (!Array.isArray(chamcong)) return null;
+    var idx = Array.isArray(chamcong) ? indexChamcong(chamcong, ky) : chamcong;
+    if (!idx) return null;
     var day = ("0" + String(ngay).slice(8, 10)).slice(-2), zero = false;
-    chamcong.forEach(function (r) {
-      if (!r || String(r["Kỳ"] || "").slice(0, 7) !== ky || String(r["Mã NV"]) !== String(ma)) return;
-      if (KHONG_DI_LAM[String(r["Hình thức công"] || "BT").trim().toUpperCase()]) return;
-      var v = r[day];
-      if (v !== "" && v != null && Number(v) === 0) zero = true;
-    });
+    (idx[String(ma)] || []).forEach(function (r) { var v = r[day]; if (v !== "" && v != null && Number(v) === 0) zero = true; });
     return zero ? "0" : "Trống";
   }
 
@@ -34,7 +41,7 @@
     var al = input.allocation || {}, review = al.attendanceReview || [], loai = input.loai === "bandam" ? "bandam" : "sanluong", ky = String(input.ky || ""),
       deptName = input.deptName || function (ma) { return ma; }, plates = input.plates || {}, confirmed = input.confirmed || [], visible = input.visibleKeys || null;
     var done = new Map(confirmed.map(function (row) { return [confirmKey(row.date, row.team, row.employee), row]; }));
-    var detail = [], teamAgg = {}, stt = 0, receipts = 0;
+    var detail = [], teamAgg = {}, stt = 0, receipts = 0, ccIndex = indexChamcong(input.chamcong, ky);
     review.forEach(function (rc) {
       var key = reviewKey(rc.phieu, rc.ngay, rc.maPB);
       if (visible && !visible.has(key)) return;
@@ -46,7 +53,7 @@
         detail.push({
           "STT": stt, "Kỳ": ky, "Loại": loaiLabel(loai), "Ngày cân": rc.ngay, "Số phiếu": rc.phieu, "Biển số xe": plates[key] || "",
           "Mã tổ": rc.maPB, "Tên tổ": deptName(rc.maPB) || rc.maPB, "KL (tấn) / Số xe": rc.kl, "Mã NV": e.ma, "Họ và tên": e.hoTen,
-          "Phòng ban": deptName(rc.maPB) || rc.maPB, "Tình trạng chấm công ngày đó": dayStatus(input.chamcong, ky, e.ma, rc.ngay) || "0 hoặc trống",
+          "Phòng ban": deptName(rc.maPB) || rc.maPB, "Tình trạng chấm công ngày đó": dayStatus(ccIndex, ky, e.ma, rc.ngay) || "0 hoặc trống",
           "Có trong NV vắng của phiếu?": "Không", "Số người được chia": rc.soNguoi, "Phần mỗi người": share,
           "Trạng thái xác nhận": c ? "Đã xác nhận có làm" : "Chưa xác nhận", "Người xác nhận": c ? c.user || "" : "", "Lý do": c ? c.reason || "" : "",
           "Chủ/Trưởng bộ phận xác nhận (ký)": ""
@@ -73,11 +80,11 @@
   /** View-model cho ui/report-xlsx.js buildMany: sheet đầu = danh sách phẳng (tiêu đề, đóng băng, lọc, tổng ở chân), sheet 2 = đã xác nhận, sheet 3 = tổng hợp theo tổ. */
   function toViewModels(data, info) {
     info = info || {};
-    var base = { congTy: info.congTy || "", kyText: info.kyText || "", phamVi: info.phamVi || "Toàn bộ", ngayLap: info.ngayLap || "", nguoiLap: info.nguoiLap || "", trangThai: info.trangThai || "", donVi: "Số liệu theo từng phiếu cân" };
+    var base = { congTy: info.congTy || "", kyText: info.kyText || "", phamVi: info.phamVi || "Toàn bộ", ngayLap: info.ngayLap || "", nguoiLap: info.nguoiLap || "", trangThai: info.trangThai || "", donVi: "Người / phiếu cân" };
     var d = Object.assign({}, base, {
       sheetName: "CanXacNhan", title: "DANH SÁCH CẦN XÁC NHẬN CHẤM CÔNG — " + loaiLabel(info.loai).toLocaleUpperCase("vi-VN"),
       cols: DETAIL_COLS.map(function (l) { return col(l, /^(STT|Số người được chia)$/.test(l) ? "qty" : /^(KL|Phần mỗi người)/.test(l) ? "qty3" : "text", /^(Lý do|Họ và tên)$/.test(l)); }),
-      rows: data.detail, tong: {}, tongNhan: "TỔNG: " + data.counts.people + " người-phiếu · " + data.counts.receipts + " phiếu"
+      rows: data.detail, tong: {}, rowHeight: 24, tongNhan: "TỔNG: " + data.counts.people + " người-phiếu · " + data.counts.receipts + " phiếu"
     });
     var c = Object.assign({}, base, {
       sheetName: "DaXacNhanCoLam", title: "ĐÃ XÁC NHẬN CÓ LÀM (KỲ " + (info.ky || "") + ")",
@@ -87,7 +94,7 @@
     var t = Object.assign({}, base, {
       sheetName: "TongHopTheoTo", title: "TỔNG HỢP THEO TỔ",
       cols: ["STT", "Mã tổ", "Tên tổ", "Số người cần xác nhận", "Số phiếu cần xác nhận", "Số dòng chưa xác nhận"].map(function (l) { return col(l, /^(STT|Số)/.test(l) ? "qty" : "text"); }),
-      rows: data.teams, tong: {}, tongNhan: "TỔNG: " + data.teams.length + " tổ"
+      rows: data.teams, tong: {}, tongNhan: "TỔNG"
     });
     t.tong = { "Số người cần xác nhận": data.teams.reduce(function (s, r) { return s + r["Số người cần xác nhận"]; }, 0), "Số phiếu cần xác nhận": data.teams.reduce(function (s, r) { return s + r["Số phiếu cần xác nhận"]; }, 0), "Số dòng chưa xác nhận": data.teams.reduce(function (s, r) { return s + r["Số dòng chưa xác nhận"]; }, 0) };
     return [d, c, t];

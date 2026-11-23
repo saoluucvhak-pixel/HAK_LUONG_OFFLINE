@@ -76,3 +76,22 @@ test("U-ARX-07 tên tệp: loại + kỳ, hậu tố _TAM khi chưa chốt", () 
   assert.equal(X.filename("sanluong", "2026-10", false), "DoiChieuChamCong_SanLuong_2026-10.xlsx");
   assert.equal(X.filename("bandam", "2026-10", true), "DoiChieuChamCong_BanDam_2026-10_TAM.xlsx");
 });
+
+test("U-ARX-08 chỗ ký: cột ký rộng, dòng đủ cao; Mã NV 0 đầu giữ nguyên chữ; chuỗi như công thức bị khiên", () => {
+  const al = { attendanceReview: [{ phieu: "PC-9", ngay: "2026-10-05", maPB: "T1", kl: 5, soNguoi: 1, vang: "", recipients: [emp("X", "X")], excluded: [], employees: [emp("00123", "=HYPERLINK(\"http://x\")")] }] };
+  const vms = X.toViewModels(X.build(Object.assign({}, base, { allocation: al })), { loai: "sanluong", ky: "2026-10" });
+  const ws = RX.buildMany(ExcelJS, vms, {}).worksheets[0], hr = ws.views[0].ySplit;
+  const signCol = X.DETAIL_COLS.indexOf("Chủ/Trưởng bộ phận xác nhận (ký)") + 1, maCol = X.DETAIL_COLS.indexOf("Mã NV") + 1, nameCol = X.DETAIL_COLS.indexOf("Họ và tên") + 1;
+  assert.ok(ws.getColumn(signCol).width >= 28, "cột ký đủ rộng: " + ws.getColumn(signCol).width);
+  assert.ok(ws.getRow(hr + 1).height >= 24, "dòng đủ cao để ký");
+  assert.equal(ws.getCell(hr + 1, maCol).value, "00123"); assert.equal(ws.getCell(hr + 1, maCol).numFmt, "@");
+  assert.match(String(ws.getCell(hr + 1, nameCol).value), /^'=HYPERLINK/, "khiên công thức");
+});
+
+test("U-ARX-09 hiệu năng: 100.000 dòng người × phiếu dựng < 2 s (có chỉ mục chấm công)", () => {
+  const N = 5000, people = [], cc = [];
+  for (let i = 0; i < N; i++) { people.push(emp("E" + i, "N" + i)); cc.push({ "Kỳ": "2026-10", "Mã NV": "E" + i, "Hình thức công": "BT", "05": 0 }); }
+  const al = { attendanceReview: Array.from({ length: 20 }, (_, p) => ({ phieu: "P" + p, ngay: "2026-10-05", maPB: "T", kl: 30, soNguoi: 10, vang: "", recipients: people.slice(0, 10), excluded: [], employees: people })) };
+  const t = Date.now(), d = X.build({ allocation: al, loai: "sanluong", ky: "2026-10", chamcong: cc, confirmed: [], deptName: (m) => m, plates: {} });
+  assert.equal(d.detail.length, 100000); assert.ok(Date.now() - t < 2000, "mất " + (Date.now() - t) + " ms");
+});

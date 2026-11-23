@@ -14,6 +14,7 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
   const team = pbOf(cands[0]["Mã NV"]), same = cands.filter((r) => pbOf(r["Mã NV"]) === team); same.forEach((r) => { r["05"] = 1; r["06"] = 1; }); same[0]["05"] = 0; same[0]["06"] = 0;
   const who = same[0]["Mã NV"];
   db.sanluong.push({ "Phiếu cân": "PC-AR-01", "Ngày cân": "2026-10-05", "KL hàng (Tấn)": "30", "Mã phòng ban": team }, { "Phiếu cân": "PC-AR-02", "Ngày cân": "2026-10-06", "KL hàng (Tấn)": "20", "Mã phòng ban": team });
+  db.bandam.push({ "Phiếu cân": "BD-AR-01", "Ngày cân": "2026-10-05", "KL hàng (Tấn)": "2", "Mã phòng ban": team }); // Ban dăm: cùng khuôn phiếu
   fs.writeFileSync(path.join(D, "data.json"), JSON.stringify(db));
   const app = await _electron.launch({ executablePath: require(path.join(APP, "node_modules/electron")), args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: D, HAK_DOWNLOAD_DIR: path.join(D, "downloads"), HAK_NO_SHELL: "1" }) });
   const w = await app.firstWindow(); w.on("dialog", (d) => d.accept()); await w.setViewportSize({ width: 1440, height: 1000 }).catch(() => {});
@@ -43,6 +44,14 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
     ok("3 sheet; đóng băng + bộ lọc; kỳ chưa chốt có 'tính tạm'", wbX.worksheets.length === 3 && !!ws.autoFilter && /tính tạm|NHÁP/i.test(JSON.stringify(ws.getSheetValues())));
   }
   await w.click('.ar-export button:has-text("Xuất tất cả")'); const wbAll = await getXlsx(); ok("Xuất tất cả (bỏ lọc) cũng tải được", !!wbAll);
+  // Ban dăm xuất hàng: cùng danh sách, tên tệp BanDam, cột Loại đúng
+  await w.selectOption("#main .card .bar select", "bandam"); await w.waitForSelector("[data-attendance-review] .ar-card", { timeout: 15000 });
+  await w.click('.ar-export button:has-text("Xuất Excel danh sách cần xác nhận")');
+  let bdName = null; for (let i = 0; i < 60 && !bdName; i++) { await w.waitForTimeout(300); bdName = fs.readdirSync(DLD).find((n) => /^DoiChieuChamCong_BanDam_2026-10_TAM\.xlsx$/.test(n)); }
+  ok("Ban dăm: tải được DoiChieuChamCong_BanDam_2026-10_TAM.xlsx", !!bdName);
+  if (bdName) { await w.waitForTimeout(300); const wbB = new ExcelJS.Workbook(); await wbB.xlsx.load(fs.readFileSync(path.join(DLD, bdName))); const wsB = wbB.worksheets[0], hrB = wsB.views[0].ySplit, hB = []; wsB.getRow(hrB).eachCell((c) => hB.push(String(c.value))); const lc = hB.indexOf("Loại") + 1;
+    ok("Ban dăm: cột Loại = 'Ban dăm xuất hàng' và có ≥ 1 người", wsB.getRow(hrB + 1).getCell(lc).value === "Ban dăm xuất hàng" && /BAN DĂM/.test(JSON.stringify(wsB.getSheetValues()))); fs.unlinkSync(path.join(DLD, bdName)); }
+  await w.selectOption("#main .card .bar select", "sanluong"); await w.waitForSelector("[data-attendance-review] .ar-card", { timeout: 15000 });
   // xác nhận TỪNG DÒNG: phiếu 1, người `who`
   await w.locator(".ar-card").first().locator('.ar-emp button:has-text("Xác nhận có làm")').first().click(); await w.waitForSelector(".ar-pickrow");
   ok("Xác nhận từng dòng: hộp chỉ liệt kê đúng 1 người, đã tích sẵn", (await w.locator(".ar-pickrow").count()) === 1 && (await w.locator(".ar-pickrow input").isChecked()));

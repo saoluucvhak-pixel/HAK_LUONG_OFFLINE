@@ -157,7 +157,7 @@
     vm.cols.forEach(function (c, i) {
       var mx = String(c.label).length; vm.rows.forEach(function (row) { var v = row[c.key]; var L = v == null ? 0 : (c.kind === "money" ? String(Math.round(+v || 0)).length + 3 : String(v).length); if (L > mx) mx = L; });
       var isWrap = c.wrap || c.label === "Nội dung" || c.label === "Họ và tên";
-      ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(isWrap ? 48 : 32, mx + 2));
+      ws.getColumn(i + 1).width = /^Ký nhận$/i.test(c.label) ? 20 : /\(ký\)$/i.test(c.label) ? 30 : Math.max(/^STT$/i.test(c.label) ? 6 : 9, Math.min(isWrap ? 48 : 32, mx + 2));
     });
     if (vm.cols.some(function (c) { return c.wrap || c.label === "Nội dung" || c.label === "Họ và tên"; }) && !vm.nhom) {
       vm.rows.forEach(function (row, i) {
@@ -167,6 +167,8 @@
         if (lines > 1) ws.getRow(hr + 1 + i).height = 17 * lines;
       });
     }
+    // v2.1.6: bảng cần chỗ ký tay (vm.rowHeight, điểm): dòng đủ cao để ký/ghi chú
+    if (vm.rowHeight && !(vm.nhom && vm.nhom.length)) vm.rows.forEach(function (row, i) { var rr = ws.getRow(hr + 1 + i); rr.height = Math.max(rr.height || 0, vm.rowHeight); });
     // Bảng > 20 cột: KHÔNG ép vào 1 trang (chữ sẽ quá nhỏ) → A3 ngang, chia ~18 cột/trang, lặp cột nhận diện (Mã NV, Họ tên) ở mọi trang
     var wide = nc > 20, pagesW = wide ? Math.ceil(nc / 18) : 1, idName = -1;
     vm.cols.forEach(function (c, i) { if (idName < 0 && /^Họ và tên$/i.test(c.label)) idName = i; });
