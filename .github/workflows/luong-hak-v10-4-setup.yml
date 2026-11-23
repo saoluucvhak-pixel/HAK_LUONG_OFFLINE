@@ -164,6 +164,8 @@ jobs:
           npm install --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
       - name: Run full Electron suite with isolated synthetic data
         run: xvfb-run -a npm run test:e2e
+      - name: Verify report snapshot cache and app-shell update (never show stale numbers)
+        run: xvfb-run -a npm run test:snapshot
       - name: Measure shared OCR per-cell accuracy
         run: xvfb-run -a npm run test:ocr-eval
         env:
