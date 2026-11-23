@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.6] — 23/11/2026
+- **Excel danh sách người cần xác nhận chấm công (chủ yêu cầu 23/11/2026):** ở Báo cáo lương → Phân bổ sản lượng / Ban dăm, mục "Phiếu cần đối chiếu chấm công" có 2 nút xuất Excel (theo bộ lọc đang xem / tất cả). Mỗi dòng = 1 người × 1 phiếu, có tình trạng công ngày đó, trạng thái xác nhận và cột ký; thêm sheet "Đã xác nhận có làm" và "Tổng hợp theo tổ". Không đổi quy tắc phân bổ (`core/production-alloc.js`). Chi tiết: `docs/releases/v2.1.6.md`.
+
 ## [2.1.5] — 23/11/2026
 - **Thư mục sao lưu SQLite chọn được (chủ yêu cầu 23/11/2026):** dòng "Sao lưu SQLite" ở tab "Lịch & thư mục sao lưu" có nút "Chọn / Chuyển…" và "Về mặc định". Bản chụp vẫn ghi trong thư mục dữ liệu trước, rồi chép có kiểm SHA-256 sang thư mục đã chọn; lỗi chép (USB chưa cắm…) được báo, không mất bản gốc. Không sửa `main/storage.js` / `storage-paths.js` / workflow. Chi tiết: `docs/releases/v2.1.5.md`.
 

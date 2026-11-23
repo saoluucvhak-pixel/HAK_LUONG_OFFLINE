@@ -14,8 +14,9 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
   const team = pbOf(cands[0]["Mã NV"]), same = cands.filter((r) => pbOf(r["Mã NV"]) === team); same.forEach((r) => { r["05"] = 1; r["06"] = 1; }); same[0]["05"] = 0; same[0]["06"] = 0;
   const who = same[0]["Mã NV"];
   db.sanluong.push({ "Phiếu cân": "PC-AR-01", "Ngày cân": "2026-10-05", "KL hàng (Tấn)": "30", "Mã phòng ban": team }, { "Phiếu cân": "PC-AR-02", "Ngày cân": "2026-10-06", "KL hàng (Tấn)": "20", "Mã phòng ban": team });
+  db.bandam.push({ "Phiếu cân": "BD-AR-01", "Ngày cân": "2026-10-05", "KL hàng (Tấn)": "2", "Mã phòng ban": team }); // Ban dăm: cùng khuôn phiếu
   fs.writeFileSync(path.join(D, "data.json"), JSON.stringify(db));
-  const app = await _electron.launch({ executablePath: require(path.join(APP, "node_modules/electron")), args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: D, HAK_NO_SHELL: "1" }) });
+  const app = await _electron.launch({ executablePath: require(path.join(APP, "node_modules/electron")), args: ["--no-sandbox", APP], env: Object.assign({}, process.env, { HAK_USER_DATA: D, HAK_DOWNLOAD_DIR: path.join(D, "downloads"), HAK_NO_SHELL: "1" }) });
   const w = await app.firstWindow(); w.on("dialog", (d) => d.accept()); await w.setViewportSize({ width: 1440, height: 1000 }).catch(() => {});
   await w.waitForSelector("#main > *"); await w.fill("#main input[data-f=u]", "admin"); await w.fill("#main input[data-f=p]", PASS); await w.click("#main button.big"); await w.waitForSelector("#nav button[data-k=home]");
   await w.selectOption("#top select", "10"); await w.fill("#top input[type=number]", "2026"); await w.dispatchEvent("#top input[type=number]", "change"); await w.waitForTimeout(400);
@@ -29,6 +30,28 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
   ok("Tích chọn phiếu → nút hàng loạt mở, đếm 1 phiếu", !(await w.locator(".ar-bulk button.pri").isDisabled()) && /1 phiếu đã chọn/.test(await w.locator(".ar-count").innerText()));
   await w.locator(".ar-all input").check(); ok("Chọn tất cả → mọi thẻ được chọn", (await w.locator(".ar-card.sel").count()) === cards);
   await w.locator(".ar-all input").uncheck(); ok("Bỏ chọn tất cả → không thẻ nào được chọn", (await w.locator(".ar-card.sel").count()) === 0);
+  // v2.1.6: Excel danh sách phẳng người × phiếu (kỳ chưa chốt → hậu tố _TAM)
+  const ExcelJS = require(path.join(APP, "exceljs.min.js")), DLD = path.join(D, "downloads"), empLines = await w.locator(".ar-card .ar-emp").count();
+  const getXlsx = async () => { let f = null; for (let i = 0; i < 60 && !f; i++) { await w.waitForTimeout(300); f = fs.existsSync(DLD) ? fs.readdirSync(DLD).find((n) => /^DoiChieuChamCong_SanLuong_2026-10_TAM\.xlsx$/.test(n)) : null; } if (!f) return null; await w.waitForTimeout(300); const wb = new ExcelJS.Workbook(); await wb.xlsx.load(fs.readFileSync(path.join(DLD, f))); fs.unlinkSync(path.join(DLD, f)); return wb; };
+  ok("Có 2 nút xuất Excel danh sách cần xác nhận (theo lọc / tất cả)", (await w.locator('.ar-export button').count()) === 2);
+  await w.click('.ar-export button:has-text("Xuất Excel danh sách cần xác nhận")');
+  const wbX = await getXlsx(); ok("Tải được DoiChieuChamCong_SanLuong_2026-10_TAM.xlsx", !!wbX);
+  if (wbX) {
+    const ws = wbX.worksheets[0], hr = ws.views[0].ySplit, head = []; ws.getRow(hr).eachCell((c) => head.push(String(c.value)));
+    ok("Sheet 1 có đủ cột: Số phiếu, Mã NV, Họ và tên, Tình trạng chấm công, Có trong NV vắng, Trạng thái xác nhận, cột ký", ["Số phiếu", "Mã NV", "Họ và tên", "Tình trạng chấm công ngày đó", "Có trong NV vắng của phiếu?", "Trạng thái xác nhận", "Chủ/Trưởng bộ phận xác nhận (ký)"].every((c) => head.includes(c)), head.join("|"));
+    let n = 0; for (let r = hr + 1; r <= ws.rowCount; r++) { const v = ws.getRow(r).getCell(head.indexOf("Mã NV") + 1).value; if (v && /\S/.test(String(v)) && typeof ws.getRow(r).getCell(1).value === "number") n++; }
+    ok("Số dòng = số người cần xác nhận đang hiện trên màn (" + empLines + ")", n === empLines && n >= 2, n + " vs " + empLines);
+    ok("3 sheet; đóng băng + bộ lọc; kỳ chưa chốt có 'tính tạm'", wbX.worksheets.length === 3 && !!ws.autoFilter && /tính tạm|NHÁP/i.test(JSON.stringify(ws.getSheetValues())));
+  }
+  await w.click('.ar-export button:has-text("Xuất tất cả")'); const wbAll = await getXlsx(); ok("Xuất tất cả (bỏ lọc) cũng tải được", !!wbAll);
+  // Ban dăm xuất hàng: cùng danh sách, tên tệp BanDam, cột Loại đúng
+  await w.selectOption("#main .card .bar select", "bandam"); await w.waitForSelector("[data-attendance-review] .ar-card", { timeout: 15000 });
+  await w.click('.ar-export button:has-text("Xuất Excel danh sách cần xác nhận")');
+  let bdName = null; for (let i = 0; i < 60 && !bdName; i++) { await w.waitForTimeout(300); bdName = fs.readdirSync(DLD).find((n) => /^DoiChieuChamCong_BanDam_2026-10_TAM\.xlsx$/.test(n)); }
+  ok("Ban dăm: tải được DoiChieuChamCong_BanDam_2026-10_TAM.xlsx", !!bdName);
+  if (bdName) { await w.waitForTimeout(300); const wbB = new ExcelJS.Workbook(); await wbB.xlsx.load(fs.readFileSync(path.join(DLD, bdName))); const wsB = wbB.worksheets[0], hrB = wsB.views[0].ySplit, hB = []; wsB.getRow(hrB).eachCell((c) => hB.push(String(c.value))); const lc = hB.indexOf("Loại") + 1;
+    ok("Ban dăm: cột Loại = 'Ban dăm xuất hàng' và có ≥ 1 người", wsB.getRow(hrB + 1).getCell(lc).value === "Ban dăm xuất hàng" && /BAN DĂM/.test(JSON.stringify(wsB.getSheetValues()))); fs.unlinkSync(path.join(DLD, bdName)); }
+  await w.selectOption("#main .card .bar select", "sanluong"); await w.waitForSelector("[data-attendance-review] .ar-card", { timeout: 15000 });
   // xác nhận TỪNG DÒNG: phiếu 1, người `who`
   await w.locator(".ar-card").first().locator('.ar-emp button:has-text("Xác nhận có làm")').first().click(); await w.waitForSelector(".ar-pickrow");
   ok("Xác nhận từng dòng: hộp chỉ liệt kê đúng 1 người, đã tích sẵn", (await w.locator(".ar-pickrow").count()) === 1 && (await w.locator(".ar-pickrow input").isChecked()));
