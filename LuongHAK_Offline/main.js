@@ -371,6 +371,8 @@ function registerIpc() {
     if (isNestedOrSame(t, userDataDir)) return "không được đặt trong hoặc chứa thư mục dữ liệu ứng dụng (userData)";
     const autoBackupDir = storage.info().backupDir;
     if (autoBackupDir && isNestedOrSame(t, autoBackupDir)) return "không được đặt trong hoặc chứa thư mục sao lưu tự động (backups)";
+    const sqDir = (storage.readSettings() || {}).sqliteDir;
+    if (excludeKind !== "sqlite" && sqDir && isNestedOrSame(t, sqDir)) return "trùng hoặc lồng với thư mục sao lưu SQLite (" + sqDir + ")";
     const expDir = exportsDir.dir();
     if (excludeKind !== "export" && expDir && isNestedOrSame(t, expDir)) return "trùng hoặc lồng với thư mục xuất file (" + expDir + ")";
     const jDir = jsonDirOf();
@@ -389,8 +391,8 @@ function registerIpc() {
   }));
   // Quản lý 5 thư mục: mở / dung lượng / kiểm tra toàn vẹn (chỉ đọc)
   const spKinds = SP.KINDS.concat(["export", "json", "sqlite"]); // 012-A: json = thư mục sao lưu JSON (jsonDir) · sqlite = nơi ghi các bản tự động (chỉ xem/mở/kiểm)
-  const dirOfKind = (k) => (k === "export" ? exportsDir.dir() : k === "json" ? jsonDirOf() : k === "sqlite" ? storage.info().backupDir : spCur()[k]);
-  ipcMain.handle("paths-info", guarded("backup.restore", async () => { const p = spCur(), out = {}; SP.KINDS.forEach((k) => { out[k] = p[k] ? SP.info(p[k]) : { exists: false, files: 0, bytes: 0, free: null }; }); out.export = SP.info(exportsDir.dir()); out.json = SP.info(jsonDirOf()); out.sqlite = SP.info(storage.info().backupDir); return { ok: true, info: out, exportDir: exportsDir.dir() }; }));
+  const dirOfKind = (k) => (k === "export" ? exportsDir.dir() : k === "json" ? jsonDirOf() : k === "sqlite" ? sqliteDirOf() : spCur()[k]);
+  ipcMain.handle("paths-info", guarded("backup.restore", async () => { const p = spCur(), out = {}; SP.KINDS.forEach((k) => { out[k] = p[k] ? SP.info(p[k]) : { exists: false, files: 0, bytes: 0, free: null }; }); out.export = SP.info(exportsDir.dir()); out.json = SP.info(jsonDirOf()); out.sqlite = SP.info(sqliteDirOf()); return { ok: true, info: out, exportDir: exportsDir.dir() }; }));
   ipcMain.handle("paths-open", guarded("backup.restore", async (e, kind) => { const k = String(kind); if (spKinds.indexOf(k) < 0) return { ok: false, error: "loại thư mục không hợp lệ" }; const d = dirOfKind(k); if (!d || !require("fs").existsSync(d)) return { ok: false, error: "Thư mục chưa tồn tại" }; if (process.env.HAK_NO_SHELL) return { ok: true, dir: d }; const er = await shell.openPath(d); return er ? { ok: false, error: er } : { ok: true, dir: d }; }));
   ipcMain.handle("paths-verify", guarded("backup.restore", async (e, kind) => {
     try {
@@ -420,6 +422,23 @@ function registerIpc() {
   }));
   // 012-A (issue #113): thư mục sao lưu JSON — khóa cài đặt MỚI `jsonDir` (chỉ thêm; cấu hình cũ vẫn đọc được). KHÔNG sửa main/storage-paths.js (tệp kế thừa bị CI khóa): dùng lại validate/copy kiểm SHA-256 của nó.
   const jsonDirOf = () => { const s0 = storage.readSettings() || {}; return s0.jsonDir ? String(s0.jsonDir) : path.join(app.getPath("userData"), "json_backups"); };
+  // v2.1.5: thư mục sao lưu SQLite chọn được — khóa cài đặt MỚI `sqliteDir` (chỉ thêm). Các bản chụp vẫn ghi trong thư mục dữ liệu (backups) TRƯỚC, rồi chép có kiểm SHA-256 sang thư mục này (xem main/sqlite-storage.js snapshotNow).
+  const sqliteDirOf = () => { const s0 = storage.readSettings() || {}; return s0.sqliteDir ? String(s0.sqliteDir) : storage.info().backupDir; };
+  const SNAP_NAME = /^(data-snapshot\.sqlite|snap_\d{8}-\d{6}-\d{3}_[a-z0-9-]+\.sqlite)$/i;
+  ipcMain.handle("sqlite-get", guarded("backup.restore", async () => { const d = sqliteDirOf(); return { ok: true, dir: d, custom: !!(storage.readSettings() || {}).sqliteDir, info: SP.info(d) }; }));
+  ipcMain.handle("sqlite-set-dir", guardedW("backup.restore", async (e, dir) => {
+    try {
+      const fs2 = require("fs"), target = String(dir || ""), old = sqliteDirOf(), local = storage.info().backupDir;
+      const conflict = target && isNestedOrSame(target, local) ? "không được đặt trong hoặc chứa thư mục dữ liệu / sao lưu tự động của app" : checkDirConflict(target, "sqlite");
+      if (conflict) return { ok: false, error: conflict };
+      try { fs2.mkdirSync(target, { recursive: true }); const t = path.join(target, ".hak-write-test-" + process.pid); fs2.writeFileSync(t, "ok"); fs2.unlinkSync(t); } catch (err) { return { ok: false, error: "không ghi được vào thư mục: " + (err.message || err) }; }
+      const r = SP.copyVerified(local, target, (rel) => SNAP_NAME.test(rel), { previouslyUsed: false });
+      if (!r.ok) return { ok: false, error: "Chép các bản chụp SQLite hiện có không thành công — giữ nguyên cấu hình cũ: " + r.problems.slice(0, 5).join("; ") };
+      storage.writeSettings(Object.assign({}, storage.readSettings() || {}, { sqliteDir: target }));
+      return { ok: true, from: old, to: target, files: r.files, note: "Các bản chụp SQLite vẫn được ghi trong thư mục dữ liệu và chép thêm sang thư mục này sau mỗi lần sao lưu (có kiểm SHA-256). Bản cũ trong " + local + " không bị xóa." };
+    } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+  }));
+  ipcMain.handle("sqlite-clear-dir", guardedW("backup.restore", async () => { const s0 = Object.assign({}, storage.readSettings() || {}); delete s0.sqliteDir; storage.writeSettings(s0); return { ok: true }; }));
   const JSON_NAME = /^LuongHAK_JSON_\d{8}_\d{6}(-\d+)?\.json$/;
   ipcMain.handle("json-get", guarded("backup.restore", async () => { const d = jsonDirOf(); return { ok: true, dir: d, custom: !!(storage.readSettings() || {}).jsonDir, info: SP.info(d) }; }));
   ipcMain.handle("json-list", guarded("backup.restore", async () => {
