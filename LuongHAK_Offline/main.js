@@ -290,6 +290,18 @@ function registerIpc() {
       const r = storage.restoreFromPackage(f, "(màn hình khôi phục, chưa đăng nhập)", { tmpDir: app.getPath("userData") }); wpol = null; e.returnValue = r;
     } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
   });
+  // v2.1.7: khôi phục từ bản chụp SQLite ở THƯ MỤC SAO LƯU ĐÃ CHỌN (sqliteDir) hoặc thư mục dữ liệu. Đồng bộ (ipcMain.on) vì màn khôi phục chạy TRƯỚC đăng nhập. Renderer chỉ gửi `id` trong danh sách do main liệt kê — KHÔNG nhận đường dẫn tùy ý.
+  const noCand = { ok: false, error: "Chế độ lưu này không có bản chụp SQLite." };
+  ipcMain.on("store-restore-candidates", (e) => { try { e.returnValue = storage.listRestoreCandidates ? storage.listRestoreCandidates() : noCand; } catch (err) { e.returnValue = { ok: false, error: String(err && err.message || err) }; } });
+  ipcMain.on("store-inspect-candidate", (e, id) => { try { e.returnValue = storage.inspectCandidate ? storage.inspectCandidate(String(id)) : noCand; } catch (err) { e.returnValue = { ok: false, error: String(err && err.message || err) }; } });
+  ipcMain.on("store-find-best-candidate", (e) => { try { e.returnValue = storage.findBestCandidate ? storage.findBestCandidate() : noCand; } catch (err) { e.returnValue = { ok: false, error: String(err && err.message || err) }; } });
+  ipcMain.on("store-restore-candidate", (e, id) => {
+    try {
+      if (yearBusy || fbJob || (restorer && restorer.busy())) { e.returnValue = { ok: false, error: "Đang có thao tác dữ liệu khác; vui lòng chờ" }; return; }
+      if (!storage.restoreCandidate || !storage.needsRecovery()) { e.returnValue = { ok: false, error: "Chỉ khôi phục từ bản chụp khi kho dữ liệu không mở được." }; return; }
+      const r = storage.restoreCandidate("(màn hình khôi phục, chưa đăng nhập)", String(id)); wpol = null; e.returnValue = r;
+    } catch (err) { e.returnValue = { ok: false, error: String(err.message || err) }; }
+  });
   ipcMain.on("store-quarantine", (e) => { if (!inRecovery() && syncGuard(e, "backup.restore")) { e.returnValue = null; return; } if (syncWriteBusy()) { e.returnValue = null; return; } try { e.returnValue = storage.quarantineCorrupt(); } catch (err) { e.returnValue = null; } });
   // Xuất PDF báo cáo: giao diện gửi HTML (đã escape) + TÊN file; đường dẫn lưu do tiến trình chính quyết (thư mục xuất, không ghi đè)
   ipcMain.handle("report-pdf", guarded("export", async (e, payload) => {
@@ -401,6 +413,7 @@ function registerIpc() {
       if (k === "ocrLib") { const v = ocrLib.verify(); return { ok: true, good: v.ok, total: v.samples, bad: v.bad.slice(0, 20), text: (v.samples - v.bad.length) + "/" + v.samples + " mẫu có ảnh nguyên vẹn" + (v.corruptLines ? ", " + v.corruptLines + " dòng nhật ký hỏng" : "") }; }
       if (k === "backup" || k === "export") { const d = k === "export" ? exportsDir.dir() : p.backup, fs2 = require("fs"); const zips = fs2.existsSync(d) ? fs2.readdirSync(d).filter((n) => /^LuongHAK_(Full|Partial)Backup_.*\.zip$/i.test(n)) : []; return { ok: true, good: true, total: zips.length, text: zips.length + " gói sao lưu trong thư mục" }; }
       if (k === "json") { const d = jsonDirOf(), fs2 = require("fs"), names = fs2.existsSync(d) ? fs2.readdirSync(d).filter((n) => JSON_NAME.test(n)) : []; const bad = names.filter((n) => { try { JSON.parse(fs2.readFileSync(path.join(d, n), "utf8")); return false; } catch (err) { return true; } }); return { ok: true, good: bad.length === 0, total: names.length, bad: bad.slice(0, 20), text: (names.length - bad.length) + "/" + names.length + " file JSON đọc được" + (bad.length ? " — HỎNG: " + bad.slice(0, 5).join(", ") : "") }; }
+      if (k === "sqlite" && (storage.readSettings() || {}).sqliteDir && storage.verifyExternal) { const ex = storage.verifyExternal(), v0 = storage.verifyAll() || [], b0 = v0.filter((x) => x.status === "mismatch" || x.status === "invalid"); return { ok: true, good: ex.good && b0.length === 0, total: (ex.total || 0) + v0.length, bad: (ex.bad || []).concat(b0).slice(0, 20), text: "Thư mục đã chọn: " + ex.text + " · Thư mục dữ liệu: " + (v0.length - b0.length) + "/" + v0.length + " bản sao lưu tự động đọc được" }; } // v2.1.7: kiểm cả thư mục SQLite đã chọn
       if (k === "sqlite") { const v = storage.verifyAll() || [], bad = v.filter((x) => x.status === "mismatch" || x.status === "invalid"); return { ok: true, good: bad.length === 0, total: v.length, bad: bad.slice(0, 20), text: (v.length - bad.length) + "/" + v.length + " bản sao lưu tự động đọc được" + (bad.length ? " — HỎNG: " + bad.slice(0, 5).map((x) => x.name).join(", ") : "") }; }
       if (k === "mirror") { if (!p.mirror) return { ok: true, good: true, total: 0, text: "Chưa chọn thư mục sao lưu dự phòng" }; const bad = require("./main/storage-paths").validate("mirror", p.mirror, Object.assign({}, p, { mirror: "" })); return { ok: true, good: !bad, total: 0, text: bad ? "Không dùng được: " + bad : "Ghi được, không lồng thư mục khác" }; }
       return { ok: false, error: "loại thư mục không hợp lệ" };
@@ -425,6 +438,7 @@ function registerIpc() {
   // v2.1.5: thư mục sao lưu SQLite chọn được — khóa cài đặt MỚI `sqliteDir` (chỉ thêm). Các bản chụp vẫn ghi trong thư mục dữ liệu (backups) TRƯỚC, rồi chép có kiểm SHA-256 sang thư mục này (xem main/sqlite-storage.js snapshotNow).
   const sqliteDirOf = () => { const s0 = storage.readSettings() || {}; return s0.sqliteDir ? String(s0.sqliteDir) : storage.info().backupDir; };
   const SNAP_NAME = /^(data-snapshot\.sqlite|snap_\d{8}-\d{6}-\d{3}_[a-z0-9-]+\.sqlite)$/i;
+  ipcMain.handle("sqlite-external", guarded("backup.restore", async () => { try { return storage.externalStatus ? storage.externalStatus() : { ok: true, configured: false }; } catch (err) { return { ok: false, error: String(err && err.message || err) }; } })); // v2.1.7: bản ngoài máy gần nhất (đọc từ thư mục thật, có thời hạn chờ)
   ipcMain.handle("sqlite-get", guarded("backup.restore", async () => { const d = sqliteDirOf(); return { ok: true, dir: d, custom: !!(storage.readSettings() || {}).sqliteDir, info: SP.info(d) }; }));
   ipcMain.handle("sqlite-set-dir", guardedW("backup.restore", async (e, dir) => {
     try {
