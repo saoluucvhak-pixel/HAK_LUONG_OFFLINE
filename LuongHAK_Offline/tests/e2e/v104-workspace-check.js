@@ -32,7 +32,7 @@ async function fits(selector, name) {
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   try {
-    await launch(); await nav('backup'); await w.getByRole('button', { name: 'Nạp danh mục chuẩn HAK', exact: false }).click(); await app.close();
+    await launch(); await nav('backup'); if (await w.locator('[data-sl-tab="dl"]').count()) await w.locator('[data-sl-tab="dl"]').click(); /* v2.1.3: màn chia tab; bản V10.3 đối chiếu chưa có tab */ await w.getByRole('button', { name: 'Nạp danh mục chuẩn HAK', exact: false }).click(); await app.close();
     const file = path.join(DATA, 'data.json'), db = JSON.parse(fs.readFileSync(file, 'utf8'));
     const department = db.dm_phongban[0]['Mã phòng ban'];
     ['Nguyễn Minh An', 'Trần Thị Bình', 'Lê Văn Hòa', 'Đặng Thu Hà'].forEach((name, i) => {
