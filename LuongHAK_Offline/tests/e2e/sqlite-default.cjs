@@ -269,7 +269,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Khu 'Khôi phục': đúng 1 nút Khôi phục toàn bộ + 1 ô chọn loại", (await one("[data-restore-now]")) && (await one("[data-restore-kind]")));
     await w.click('[data-sl-tab="tm"]');
     ok("Bảng thư mục có đủ dòng: SQLite (tự động), JSON, Full Backup, dự phòng, chứng từ, OCR", (await w.locator("[data-stg]").evaluateAll((r) => r.map((x) => x.getAttribute("data-stg")).sort().join())) === "backup,docs,export,json,mirror,ocrLib,sqlite");
-    ok("Dòng thư mục SQLite có ghi chú cố định (CEO chọn (a)): 'Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng'", (await w.locator('[data-stg-note="sqlite"]').count()) === 1 && (await w.locator('[data-stg-note="sqlite"]').innerText()).trim() === "Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng" && (await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').count()) === 0);
+    ok("Dòng thư mục SQLite (v2.1.5, chủ yêu cầu chọn được): có nút 'Chọn / Chuyển…' và ghi chú mặc định nằm trong thư mục dữ liệu", (await w.locator('[data-stg-note="sqlite"]').count()) === 1 && /^Mặc định trong thư mục dữ liệu/.test((await w.locator('[data-stg-note="sqlite"]').innerText()).trim()) && (await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').count()) === 1);
     await w.click('[data-sl-tab="sl"]');
     ok("Không còn các nút sao lưu trùng chức năng (Tạo bản sao lưu ngay / Tạo Full Backup / Sao lưu ra file)", (await w.locator('#main button:has-text("Tạo bản sao lưu ngay"), #main button:has-text("Tạo Full Backup"), #main button:has-text("Sao lưu ra file")').count()) === 0);
     await w.click('[data-sl-tab="tm"]');

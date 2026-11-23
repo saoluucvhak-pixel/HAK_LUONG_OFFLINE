@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.5] — 23/11/2026
+- **Thư mục sao lưu SQLite chọn được (chủ yêu cầu 23/11/2026):** dòng "Sao lưu SQLite" ở tab "Lịch & thư mục sao lưu" có nút "Chọn / Chuyển…" và "Về mặc định". Bản chụp vẫn ghi trong thư mục dữ liệu trước, rồi chép có kiểm SHA-256 sang thư mục đã chọn; lỗi chép (USB chưa cắm…) được báo, không mất bản gốc. Không sửa `main/storage.js` / `storage-paths.js` / workflow. Chi tiết: `docs/releases/v2.1.5.md`.
+
 ## [2.1.4] — 23/11/2026
 - **Nghỉ việc / hết hạn hợp đồng không trừ BH nhầm + màn "Phiếu cần đối chiếu chấm công" làm lại (chủ yêu cầu 23/11/2026):** hợp đồng đã hết hạn từ trước kỳ thì không tính bảo hiểm (tháng hết hạn vẫn tính); thẻ "Rà soát nghỉ việc" và chặn chốt kỳ khi người đã nghỉ / hết hạn chưa có Ngày chấm dứt mà vẫn có trong bảng lương; không đặt tay trạng thái "Đã nghỉ việc"; danh sách phiếu cần đối chiếu chấm công dạng thẻ, xác nhận từng dòng hoặc theo phiếu đã chọn. Chi tiết: `docs/releases/v2.1.4.md`.
 
