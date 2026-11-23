@@ -198,6 +198,51 @@
     })]));
     return c;
   }
+  /** v2.1.7: khối "Bản chụp SQLite tìm thấy" ở màn khôi phục: liệt kê bản ở thư mục dữ liệu VÀ thư mục SQLite đã chọn; nguồn không truy cập được nêu rõ đường dẫn + nguyên nhân; kiểm từng bản theo yêu cầu (đắt trên ổ chậm); khôi phục theo id. */
+  function snapshotCandidatesPanel() {
+    var wrap = h("div", { class: "card", "data-snapshot-candidates": "1", style: "margin-top:10px" });
+    function load() {
+      wrap.innerHTML = ""; var l = store.restoreCandidates();
+      wrap.appendChild(h("div", { class: "fh", text: "Bản chụp SQLite tìm thấy" }));
+      if (!l || !l.ok) { wrap.appendChild(h("div", { class: "warn", text: "Không liệt kê được bản chụp: " + ((l && l.error) || "không rõ lý do") })); return; }
+      l.sources.forEach(function (src) {
+        if (src.reachable) wrap.appendChild(h("div", { class: "hint", text: src.label + ": " + src.count + " bản (" + src.dir + ")" }));
+        else wrap.appendChild(h("div", { class: "warn", "data-source-error": src.source, html: "<b>" + esc(src.label) + " không đọc được.</b> " + esc(src.error) + "<br>Cắm lại USB / kiểm tra ổ mạng rồi bấm “Quét lại”. Các bản ở nguồn còn lại vẫn dùng được." }));
+      });
+      (l.warnings || []).forEach(function (m) { wrap.appendChild(h("div", { class: "warn", text: m })); });
+      var bar = h("div", { class: "bar" }); wrap.appendChild(bar);
+      bar.appendChild(btn("Quét lại", "ghost", load));
+      var info = {};
+      bar.appendChild(btn("Tìm bản hợp lệ mới nhất", "", function () {
+        var r = store.findBestCandidate(); if (!r || !r.ok) { alert("Không kiểm được: " + ((r && r.error) || "")); return; }
+        (r.checked || []).forEach(function (c) { info[c.id] = c.ok ? { ok: true, records: c.records } : { ok: false, error: c.error }; });
+        if (r.best) info[r.best.id] = { ok: true, records: r.best.records, best: true };
+        paintRows(); alert(r.best ? "Bản hợp lệ mới nhất: " + r.best.name + " (" + (r.best.source === "chosen" ? "thư mục đã chọn" : "thư mục dữ liệu") + ", " + fmtTime(new Date(r.best.mtimeMs).toISOString()) + ", " + r.best.records + " dòng).\nChưa khôi phục gì — bấm “Khôi phục từ bản này” nếu đồng ý." : "Không có bản nào hợp lệ. Xem lý do ở cột Trạng thái.");
+      }));
+      if (!l.candidates.length) { wrap.appendChild(h("div", { class: "empty", text: "Không thấy bản chụp SQLite nào." })); return; }
+      var tb = h("tbody"), t = h("table"), tr = h("tr"); ["Nguồn", "Tên", "Thời điểm", "Dung lượng", "Trạng thái", ""].forEach(function (x) { tr.appendChild(h("th", { text: x })); }); t.appendChild(h("thead", {}, [tr])); t.appendChild(tb);
+      function check(c) { var r = store.inspectCandidate(c.id); info[c.id] = r && r.ok ? { ok: true, records: r.records } : { ok: false, error: (r && r.error) || "không rõ lý do" }; paintRows(); return info[c.id]; }
+      function paintRows() {
+        tb.innerHTML = "";
+        l.candidates.forEach(function (c) {
+          var st = info[c.id], x = h("tr", { "data-candidate": c.id });
+          [c.source === "chosen" ? "Thư mục đã chọn" : "Thư mục dữ liệu", c.name === "data-snapshot.sqlite" ? "Bản mới nhất (data-snapshot.sqlite)" : c.name, fmtTime(new Date(c.mtimeMs).toISOString()), Math.round(c.size / 1024) + " KB"].forEach(function (v) { x.appendChild(h("td", { class: "t", text: v })); });
+          x.appendChild(h("td", { class: "t", "data-cand-status": st ? (st.ok ? "ok" : "bad") : "unknown", text: !st ? (c.shaConflict ? "chưa kiểm — cùng tên nhưng nội dung KHÁC bản ở nguồn kia" : "chưa kiểm") : st.ok ? "hợp lệ, " + st.records + " dòng" + (st.best ? " (mới nhất hợp lệ)" : "") : "KHÔNG dùng được: " + st.error }));
+          var act = h("td", {}); act.appendChild(btn("Kiểm tra", "ghost", function () { check(c); }));
+          if (!st || st.ok) act.appendChild(btn("Khôi phục từ bản này", "pri", function () {
+            var s0 = info[c.id] || check(c); if (!s0.ok) { alert("Bản này không dùng được: " + s0.error); return; }
+            if (!confirm("KHÔI PHỤC từ " + (c.source === "chosen" ? "thư mục SQLite đã chọn" : "thư mục dữ liệu") + ":\n" + c.name + "\nThời điểm: " + fmtTime(new Date(c.mtimeMs).toISOString()) + ", " + s0.records + " dòng.\n\nDữ liệu thay đổi SAU thời điểm này sẽ không có. File hiện tại KHÔNG bị xóa: được cất cạnh với tên 'data.sqlite.truoc-khoi-phuc-…' và 'data.json.truoc-khoi-phuc-…'. Bản nguồn không bị sửa. Tiếp tục?")) return;
+            var r = store.restoreCandidate(c.id);
+            if (r && r.ok) { alert("Đã khôi phục: " + r.records + " dòng (trước đó: " + (r.before == null ? "không đọc được" : r.before) + "). File cũ được cất: " + (r.kept || []).join(", ")); window.location.reload(); }
+            else alert("Không khôi phục được: " + ((r && r.error) || "không rõ lý do"));
+          }));
+          x.appendChild(act); tb.appendChild(x);
+        });
+      }
+      paintRows(); wrap.appendChild(h("div", { class: "tw" }, [t]));
+    }
+    load(); return wrap;
+  }
   function recoveryScreen() {
     var w = h("div"), c = h("div", { class: "card" });
     c.appendChild(h("h3", { text: "⚠ Không mở được file dữ liệu" }));
@@ -214,6 +259,7 @@
         else alert("Không khôi phục được: " + ((r && r.error) || "không rõ lý do"));
       }));
     }
+    if (store && store.restoreCandidates) { var cp0 = snapshotCandidatesPanel(); c.appendChild(cp0); }
     if (store && store.restorePackageSnapshot) bar.appendChild(btn("⬆ Khôi phục từ gói Full Backup (bản chụp SQLite)…", "", function () {
       if (!confirm("Chọn một gói Full Backup (.zip) có bản chụp SQLite (gói tạo từ bản 2.0.38 trở lên).\n\nDữ liệu thay đổi SAU thời điểm tạo gói sẽ không có. File dữ liệu hiện tại KHÔNG bị xóa: được cất cạnh với tên có 'truoc-khoi-phuc'. Tiếp tục?")) return;
       var r = store.restorePackageSnapshot();

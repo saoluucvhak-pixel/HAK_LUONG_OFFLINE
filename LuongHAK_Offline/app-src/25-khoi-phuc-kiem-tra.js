@@ -118,6 +118,7 @@
     if (!window.hakPaths) { c.appendChild(h("div", { class: "hint", text: "Chỉ có trong bản cài (.exe)." })); return c; }
     if (!STG.data) { window.hakPaths.get().then(function (r) { if (r && r.ok) { STG.data = r; if (st.tab === "backup") render(); } }); c.appendChild(h("div", { class: "hint", text: "Đang đọc cấu hình…" })); return c; }
     c.appendChild(h("div", { class: "hint", text: "Bấm \"Chọn / Chuyển…\" để chọn thư mục mới. App chép toàn bộ dữ liệu sang thư mục mới, kiểm tra SHA-256 từng file, chỉ khi đạt mới chuyển; dữ liệu cũ KHÔNG bị xóa. Chỉ Admin / người có quyền khôi phục thao tác được." }));
+    if (STG.sqlite && STG.sqlite.custom && !STG.sqliteExt && window.hakSqlite && window.hakSqlite.external) { STG.sqliteExt = { loading: true }; window.hakSqlite.external().then(function (r) { STG.sqliteExt = r || { ok: false, error: "không rõ" }; if (st.tab === "backup") render(); }); } // v2.1.7: bản ngoài máy gần nhất đọc từ thư mục thật (không phải RAM)
     if (!STG.sqlite && window.hakSqlite) { window.hakSqlite.get().then(function (r) { if (r && r.ok) { STG.sqlite = r; if (st.tab === "backup") render(); } }); }
     if (!STG.json && window.hakJson) { window.hakJson.get().then(function (r) { if (r && r.ok) { STG.json = r; if (st.tab === "backup") render(); } }); }
     if (!STG.info) { window.hakPaths.info().then(function (r) { if (r && r.ok) { STG.info = r.info; STG.exportDir = r.exportDir; if (st.tab === "backup") render(); } }); }
@@ -137,7 +138,7 @@
             STG.busy = true; toast("Đang chép và kiểm tra dữ liệu…");
             (k === "json" ? window.hakJson.setDir(p.dir) : k === "sqlite" ? window.hakSqlite.setDir(p.dir) : window.hakPaths.move(k, p.dir)).then(function (r) {
               if (k === "mirror" && r && r.ok && store && store.mirrorSync) { var ms = store.mirrorSync(); if (ms && ms.ok) r.note = (r.note || "") + " Đã chép " + (ms.copied || 0) + " bản sao lưu sang thư mục dự phòng."; }
-              STG.busy = false; STG.data = null; STG.info = null; STG.ver = null; STG.json = null; STG.sqlite = null;
+              STG.busy = false; STG.data = null; STG.info = null; STG.ver = null; STG.json = null; STG.sqlite = null; STG.sqliteExt = null;
               STG.msg = formatStorageMoveMsg(r);
               audit("Đổi thư mục lưu trữ", k + " → " + p.dir + " · " + (r && r.ok ? "đạt" : "không đạt")); render();
             });
@@ -147,7 +148,7 @@
         k === "mirror" && STG.data.paths.mirror && can("system.admin") ? btn("Bỏ thư mục dự phòng", "ghost", function () { if (!confirm("Bỏ thư mục sao lưu dự phòng? (Các bản đã chép ở đó vẫn giữ nguyên)")) return; store.mirrorClear(); audit("Bỏ thư mục sao lưu dự phòng", STG.data.paths.mirror); STG.data = null; STG.info = null; render(); }, "Ngừng chép sang thư mục dự phòng") : null,
         btn("Mở", "ghost", function () { window.hakPaths.open(k).then(function (r) { if (!r || !r.ok) toast("⚠ " + ((r && r.error) || "không mở được")); }); }, "Mở thư mục trong Windows Explorer"),
         btn("Kiểm tra", "ghost", function () {
-          STG.ver = STG.ver || {}; STG.ver[k] = { text: "Đang kiểm tra…" }; render();
+          STG.ver = STG.ver || {}; STG.ver[k] = { text: "Đang kiểm tra…" }; if (k === "sqlite") STG.sqliteExt = null; render();
           window.hakPaths.verify(k).then(function (r) { STG.ver[k] = r && r.ok ? { good: r.good, text: r.text } : { good: false, text: (r && r.error) || "lỗi" }; render(); });
         }, "Kiểm tra toàn vẹn (chỉ đọc, không sửa gì)"),
         btn("↻ Dung lượng", "ghost", function () { STG.info = null; render(); })])]);
@@ -156,6 +157,7 @@
         h("td", { class: "t", text: inf ? (inf.exists ? inf.files + " file · " + fmtB(inf.bytes) + (inf.free != null ? " · trống " + fmtB(inf.free) : "") : "chưa tạo") : "…" }),
         acts]));
       if (k === "sqlite") t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: "hint", "data-stg-note": "sqlite", text: STG.sqlite && STG.sqlite.custom ? "Các bản chụp vẫn ghi trong thư mục dữ liệu trước, rồi chép thêm sang thư mục đã chọn (kiểm SHA-256). Lỗi chép (USB chưa cắm…) được báo ở mục Danh sách bản sao lưu; bản trong thư mục dữ liệu luôn còn." : "Mặc định trong thư mục dữ liệu. Bấm \"Chọn / Chuyển…\" để chọn thêm nơi lưu (ổ khác, USB, NAS): app chép sang đó sau mỗi lần sao lưu, có kiểm SHA-256." })])); // v2.1.5: thư mục SQLite chọn được (khóa cài đặt sqliteDir)
+      if (k === "sqlite" && STG.sqlite && STG.sqlite.custom) { var ex = STG.sqliteExt; t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: ex && ex.ok && ex.reachable ? "hint" : (ex && !ex.loading ? "warn" : "hint"), "data-stg-ext": "sqlite", text: !ex || ex.loading ? "Đang đọc thư mục đã chọn…" : !ex.ok ? "Không đọc được trạng thái thư mục đã chọn: " + (ex.error || "") : !ex.reachable ? "Thư mục SQLite đã chọn KHÔNG truy cập được: " + ex.error + " Bản sao lưu mới chưa được chép ra ngoài máy; cắm lại rồi bấm Sao lưu." : ex.latest ? "Bản ngoài máy gần nhất: " + fmtTime(new Date(ex.latest.mtimeMs).toISOString()) + " (" + ex.count + " bản trong thư mục đã chọn). Bấm “Kiểm tra” để xác minh SHA-256 từng bản." : "Thư mục đã chọn chưa có bản chụp nào." })])); }
       if (verify) t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: verify.good === false ? "warn" : "ok", "data-stg-verify": k, text: (verify.good === false ? "✕ " : verify.good ? "✓ " : "") + verify.text })]));
     });
     c.appendChild(h("div", { style: "overflow-x:auto;max-width:100%" }, [t])); // cửa sổ hẹp: bảng cuộn ngang, không tràn khỏi khung

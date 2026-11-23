@@ -450,6 +450,114 @@ function createSqliteStorage(dir, opts) {
       return restoreFromSnapshot(actor, { file: tmp, source: "gói " + path.basename(pkgFile), expectRecords: ex.rows });
     } finally { rmDb(tmp); }
   }
+  // ===== v2.1.7: khôi phục từ bản chụp SQLite ở THƯ MỤC SAO LƯU ĐÃ CHỌN (sqliteDir) =====
+  // Nguồn đọc-chỉ: không sửa/xóa/dọn bản ở đó. Luôn chép về tệp tạm cục bộ + kiểm SHA-256 rồi mới mở (không mở SQLite trực tiếp trên USB/ổ mạng). Khôi phục thật vẫn đi qua restoreFromSnapshot (marker, cất bản cũ, kiểm toán).
+  const CAND_NAME = /^(data-snapshot\.sqlite|snap_\d{8}-\d{6}-\d{3}_[a-z0-9-]+\.sqlite)$/i, SCAN_MS = (opts && opts.scanTimeoutMs) || 6000;
+  const lowerPath = (x) => { const r = path.resolve(String(x)); return process.platform === "win32" ? r.toLowerCase() : r; };
+  const nestedOrSame = (a, b) => { const x = lowerPath(a), y = lowerPath(b), sep = path.sep; return x === y || x.startsWith(y + sep) || y.startsWith(x + sep); };
+  const chosenDir = () => { try { const v = (json.readSettings() || {}).sqliteDir; return v ? String(v) : ""; } catch (e) { return ""; } };
+  const describeFsError = (d, e) => { const c = e && e.code || ""; return c === "ENOENT" || c === "ENOTDIR" ? "Không tìm thấy thư mục " + d + " (USB chưa cắm / ổ mạng mất kết nối?)" : c === "EACCES" || c === "EPERM" ? "Không có quyền đọc thư mục " + d + " (" + c + ")" : "Không đọc được thư mục " + d + ": " + String(e && e.message || e); };
+  /** Liệt kê tệp bản chụp trong 1 thư mục (đồng bộ). Thư mục ngoài máy chạy trong worker và CHỜ tối đa SCAN_MS: ổ mạng treo thì trả "quá thời gian chờ" thay vì đóng băng cửa sổ khôi phục. */
+  function scanSnapDir(d, timed) {
+    if (opts && opts.scanImpl && timed) return opts.scanImpl(d, SCAN_MS);
+    if (!timed) { try { return { ok: true, items: fs.readdirSync(d).filter((n) => CAND_NAME.test(n)).map((n) => { const st = fs.statSync(path.join(d, n)); return st.isFile() ? { name: n, size: st.size, mtimeMs: st.mtimeMs } : null; }).filter(Boolean) }; } catch (e) { return { ok: false, error: describeFsError(d, e) }; } }
+    let w;
+    try {
+      const { Worker, MessageChannel, receiveMessageOnPort } = require("worker_threads"), flag = new Int32Array(new SharedArrayBuffer(4)), ch = new MessageChannel();
+      const src = 'const { workerData } = require("worker_threads"), fs = require("fs"), path = require("path"), f = new Int32Array(workerData.sab); let out; try { out = { ok: true, items: [] }; for (const n of fs.readdirSync(workerData.dir)) { if (!new RegExp(workerData.re, "i").test(n)) continue; try { const st = fs.statSync(path.join(workerData.dir, n)); if (st.isFile()) out.items.push({ name: n, size: st.size, mtimeMs: st.mtimeMs }); } catch (e) { /* bỏ qua tệp lỗi */ } } } catch (e) { out = { ok: false, code: e && e.code || "", error: String(e && e.message || e) }; } workerData.port.postMessage(out); Atomics.store(f, 0, 1); Atomics.notify(f, 0);';
+      w = new Worker(src, { eval: true, workerData: { dir: d, re: CAND_NAME.source, sab: flag.buffer, port: ch.port2 }, transferList: [ch.port2] }); w.on("error", () => {}); w.unref();
+      if (Atomics.wait(flag, 0, 0, SCAN_MS) === "timed-out") return { ok: false, error: "Quá thời gian chờ (" + Math.round(SCAN_MS / 1000) + " giây) khi đọc thư mục " + d + " (ổ mạng/USB chậm hoặc mất kết nối)", timeout: true };
+      const m = receiveMessageOnPort(ch.port1); try { ch.port1.close(); } catch (e) { /* bỏ qua */ } if (!m) return { ok: false, error: "Không đọc được thư mục " + d };
+      const r = m.message; return r.ok ? r : { ok: false, error: describeFsError(d, { code: r.code, message: r.error }) };
+    } catch (e) { return { ok: false, error: describeFsError(d, e) }; }
+    finally { if (w) { try { w.terminate().catch(() => {}); } catch (e) { /* bỏ qua */ } } }
+  }
+  const tagOf = (name) => { const m = name.match(SNAP_RE); return m ? m[1] : "moi-nhat"; };
+  /** Danh sách ứng viên khôi phục từ 2 nguồn: thư mục dữ liệu (backups) và thư mục SQLite đã chọn. Không kiểm nội dung (đắt trên ổ chậm) — dùng inspectCandidate. Nguồn lỗi KHÔNG ném: trả reachable:false kèm nguyên nhân. */
+  function listRestoreCandidates() {
+    const sources = [], cands = [], chosen = chosenDir();
+    const add = (source, label, d, res) => {
+      sources.push({ source, label, dir: d, reachable: !!res.ok, error: res.ok ? "" : res.error, count: res.ok ? res.items.length : 0 });
+      if (res.ok) res.items.forEach((it) => cands.push({ id: source + ":" + it.name, source, dir: d, name: it.name, tag: tagOf(it.name), mtimeMs: it.mtimeMs, size: it.size }));
+    };
+    add("local", "Thư mục dữ liệu", json.backupDir, scanSnapDir(json.backupDir, false));
+    if (chosen) {
+      if (nestedOrSame(chosen, dir) || nestedOrSame(chosen, json.backupDir)) sources.push({ source: "chosen", label: "Thư mục SQLite đã chọn", dir: chosen, reachable: false, error: "Bỏ qua: thư mục đã chọn trùng/lồng với thư mục dữ liệu của app (cấu hình sai).", count: 0 });
+      else add("chosen", "Thư mục SQLite đã chọn", chosen, scanSnapDir(chosen, true));
+    }
+    cands.sort((a, b) => b.mtimeMs - a.mtimeMs || (a.source < b.source ? -1 : 1));
+    // cùng tên ở 2 nguồn nhưng nội dung khác = dấu hiệu ghi dở / USB lỗi: cảnh báo, để chủ chọn
+    const byName = {}; cands.forEach((c) => { (byName[c.name] = byName[c.name] || []).push(c); });
+    Object.keys(byName).forEach((n) => { const g = byName[n]; if (g.length < 2) return; try { const shas = g.map((c) => shaOf(path.join(c.dir, c.name))); g.forEach((c, i) => { c.sha256 = shas[i]; c.shaConflict = new Set(shas).size > 1; }); } catch (e) { /* không đọc được: bỏ qua so sánh */ } });
+    return { ok: true, sources, candidates: cands, chosenDir: chosen, warnings: cands.filter((c) => c.shaConflict).map((c) => "Hai bản cùng tên " + c.name + " nhưng nội dung khác nhau (" + c.source + ") — kiểm tra kỹ trước khi chọn.") };
+  }
+  const resolveCandidate = (id) => {
+    const m = /^(local|chosen):([^\\/]+)$/.exec(String(id || "")); if (!m || !CAND_NAME.test(m[2])) return { ok: false, error: "Bản chụp không hợp lệ (id lạ)." };
+    const c = listRestoreCandidates().candidates.find((x) => x.id === id); if (!c) return { ok: false, error: "Không thấy bản chụp này trong danh sách (đã bị xóa / ổ chưa cắm)." };
+    return { ok: true, cand: c, file: path.join(c.dir, c.name) };
+  };
+  /** Chép ứng viên về tệp tạm cục bộ và kiểm SHA-256 (đọc lại nguồn lần 2 để bắt lỗi đọc giữa chừng). Mọi lỗi → dọn tệp tạm, KHÔNG đụng dữ liệu. */
+  function copyCandidateLocal(src, dest, label) {
+    try {
+      const before = shaOf(src); rmDb(dest); fs.copyFileSync(src, dest); if (opts && opts.copyHook) opts.copyHook(dest);
+      if (shaOf(dest) !== before || shaOf(src) !== before) throw Object.assign(new Error("không ổn định"), { code: "HAK_UNSTABLE" });
+      return { ok: true, sha256: before };
+    } catch (e) {
+      rmDb(dest);
+      const c = e && e.code || "";
+      if (c === "ENOSPC") return { ok: false, error: "Không đủ chỗ trống ở " + path.dirname(dest) + " để chép bản chụp về kiểm tra." };
+      return { ok: false, error: "Đọc từ " + label + " không ổn định (USB/mạng) hoặc bị mất kết nối giữa chừng — thử lại hoặc dùng bản khác. Chi tiết: " + String(e && e.message || e) };
+    }
+  }
+  const inspectTmp = () => dbFile + ".kiem-ung-vien", restoreTmp = () => dbFile + ".nguon-ung-vien";
+  /** Kiểm một ứng viên (chép về tệp tạm → checkSnapshotDb). Luôn dọn tệp tạm. */
+  function inspectCandidate(id) {
+    const r = resolveCandidate(id); if (!r.ok) return r;
+    const tmp = inspectTmp(), label = r.cand.source === "chosen" ? "thư mục đã chọn" : "thư mục dữ liệu";
+    const out = { ok: false, id, name: r.cand.name, source: r.cand.source, mtimeMs: r.cand.mtimeMs, size: r.cand.size };
+    try {
+      const c = copyCandidateLocal(r.file, tmp, label); if (!c.ok) { out.error = c.error; return out; }
+      out.sha256 = c.sha256;
+      const t = store.open(tmp); try { const chk = checkSnapshotDb(t); out.ok = true; out.records = chk.records; out.schema = Number(store.pragma(t, "user_version")); } finally { try { store.close(t); } catch (e) { /* đã đóng */ } }
+    } catch (e) { out.error = String(e && e.message || e); }
+    finally { rmDb(tmp); }
+    return out;
+  }
+  /** Tìm bản dùng được MỚI NHẤT: duyệt theo thời gian giảm dần, kiểm từng bản cho tới khi gặp bản hợp lệ; bản mới hơn mà hỏng bị bỏ qua kèm lý do. KHÔNG tự khôi phục. */
+  function findBestCandidate() {
+    const l = listRestoreCandidates(), checked = []; let best = null;
+    for (const c of l.candidates) { const r = inspectCandidate(c.id); checked.push({ id: c.id, ok: r.ok, error: r.error || "", records: r.records }); if (r.ok) { best = Object.assign({}, r); break; } }
+    return { ok: true, best, checked, sources: l.sources };
+  }
+  /** Khôi phục từ 1 ứng viên theo id (id phải nằm trong danh sách — không nhận đường dẫn tùy ý). Chỉ khi kho không mở được. */
+  function restoreCandidate(actor, id) {
+    if (!needsRecovery()) return { ok: false, error: "Chỉ khôi phục khi kho dữ liệu không mở được — kho đang mở bình thường nên không khôi phục để tránh ghi đè dữ liệu tốt." };
+    const r = resolveCandidate(id); if (!r.ok) return r;
+    const tmp = restoreTmp(), label = r.cand.source === "chosen" ? "thư mục đã chọn" : "thư mục dữ liệu";
+    try {
+      const c = copyCandidateLocal(r.file, tmp, label); if (!c.ok) return { ok: false, error: c.error + " Dữ liệu không đổi." };
+      return restoreFromSnapshot(actor, { file: tmp, source: (r.cand.source === "chosen" ? "thư mục SQLite đã chọn: " : "thư mục dữ liệu: ") + path.join(r.cand.dir, r.cand.name) });
+    } finally { rmDb(tmp); }
+  }
+  /** Trạng thái bản ngoài máy (đọc từ thư mục thật, không phải RAM): bản mới nhất + số bản. Có thời hạn chờ. */
+  function externalStatus() {
+    const d = chosenDir(); if (!d) return { ok: true, configured: false };
+    if (nestedOrSame(d, dir) || nestedOrSame(d, json.backupDir)) return { ok: true, configured: true, dir: d, reachable: false, error: "Thư mục đã chọn trùng/lồng với thư mục dữ liệu của app." };
+    const r = scanSnapDir(d, true); if (!r.ok) return { ok: true, configured: true, dir: d, reachable: false, error: r.error };
+    const items = r.items.slice().sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return { ok: true, configured: true, dir: d, reachable: true, count: items.length, latest: items[0] || null };
+  }
+  /** Kiểm các bản ở thư mục đã chọn: SHA-256 đối chiếu bản cùng tên trong thư mục dữ liệu; bản mới nhất còn kiểm đầy đủ (integrity_check, số dòng). */
+  function verifyExternal() {
+    const d = chosenDir(); if (!d) return { ok: true, good: true, total: 0, text: "Chưa chọn thư mục SQLite riêng" };
+    if (nestedOrSame(d, dir) || nestedOrSame(d, json.backupDir)) return { ok: true, good: false, total: 0, text: "Thư mục đã chọn trùng/lồng với thư mục dữ liệu", bad: [] };
+    const r = scanSnapDir(d, true); if (!r.ok) return { ok: true, good: false, total: 0, text: r.error, bad: [] };
+    const items = r.items.slice().sort((a, b) => b.mtimeMs - a.mtimeMs), bad = [];
+    items.forEach((it) => { try { const loc = path.join(json.backupDir, it.name); if (fs.existsSync(loc) && shaOf(loc) !== shaOf(path.join(d, it.name))) bad.push({ name: it.name, status: "khác bản trong thư mục dữ liệu" }); } catch (e) { bad.push({ name: it.name, status: "không đọc được: " + String(e && e.message || e) }); } });
+    let latestText = "";
+    if (items[0]) { const ins = inspectCandidate("chosen:" + items[0].name); if (!ins.ok) bad.push({ name: items[0].name, status: ins.error }); else latestText = " Bản mới nhất " + items[0].name + ": " + ins.records + " dòng, đạt kiểm tra đầy đủ."; }
+    return { ok: true, good: bad.length === 0, total: items.length, bad: bad.slice(0, 20), text: (items.length - bad.length) + "/" + items.length + " bản ở thư mục đã chọn khớp/đọc được" + (bad.length ? " — LỖI: " + bad.slice(0, 3).map((x) => x.name + " (" + x.status + ")").join("; ") : "") + latestText };
+  }
   const stamp = () => { const d = now(); return ymd(d) + "-" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()); };
   /** Hoàn tất (idempotent) việc thay data.sqlite bằng ứng viên đã kiểm; chạy lại được sau mọi lần bị ngắt. Marker xóa CUỐI CÙNG. */
   function finishRestore(m) {
@@ -511,7 +619,7 @@ function createSqliteStorage(dir, opts) {
   function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
 
   return Object.assign({}, json, {
-    snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, needsRecovery, load, save, saveDelta, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
+    snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, listRestoreCandidates, inspectCandidate, findBestCandidate, restoreCandidate, externalStatus, verifyExternal, needsRecovery, load, save, saveDelta, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
     snapshotNow, snapshotStatus, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev,
     /** 006: bản đang lưu ĐÃ phân tích (chỉ đọc) + sig — để kiểm quy tắc / kho năm không phân tích lại toàn bộ dữ liệu sau mỗi lần lưu. */

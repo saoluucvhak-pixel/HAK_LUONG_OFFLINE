@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld("hakStore", {
   snapshotInfo: () => ipcRenderer.sendSync("store-snapshot-info"),         // { exists, ok, mtime, size, records, error }
   restoreSnapshot: () => ipcRenderer.sendSync("store-restore-snapshot"),   // { ok, records, before, kept } | { ok:false, error }
   restorePackageSnapshot: () => ipcRenderer.sendSync("store-restore-package-snapshot"), // { ok, records, before, kept } | { ok:false, cancelled?, error }
+  restoreCandidates: () => ipcRenderer.sendSync("store-restore-candidates"),                      // v2.1.7 { ok, sources:[{source,label,dir,reachable,error}], candidates:[{id,source,name,mtimeMs,size,shaConflict}], warnings }
+  inspectCandidate: (id) => ipcRenderer.sendSync("store-inspect-candidate", id),                // { ok, records, schema, sha256 } | { ok:false, error }
+  findBestCandidate: () => ipcRenderer.sendSync("store-find-best-candidate"),                  // { ok, best, checked }
+  restoreCandidate: (id) => ipcRenderer.sendSync("store-restore-candidate", id),                // { ok, records, before, kept } | { ok:false, error }
   openFolder: () => ipcRenderer.send("open-data-folder"),
   mirrorChoose: () => ipcRenderer.sendSync("backup-mirror-choose"), // { ok, copied?, error?, cancelled? }
   mirrorClear: () => ipcRenderer.sendSync("backup-mirror-clear"),
@@ -91,7 +95,7 @@ contextBridge.exposeInMainWorld("hakJson", { // 012-A: sao lưu JSON vào thư m
   get: () => ipcRenderer.invoke("json-get"), list: () => ipcRenderer.invoke("json-list"), setDir: (dir) => ipcRenderer.invoke("json-set-dir", dir), backup: () => ipcRenderer.invoke("json-backup")
 });
 contextBridge.exposeInMainWorld("hakSqlite", { // v2.1.5: thư mục sao lưu SQLite chọn được
-  get: () => ipcRenderer.invoke("sqlite-get"), setDir: (dir) => ipcRenderer.invoke("sqlite-set-dir", dir), clearDir: () => ipcRenderer.invoke("sqlite-clear-dir")
+  get: () => ipcRenderer.invoke("sqlite-get"), setDir: (dir) => ipcRenderer.invoke("sqlite-set-dir", dir), clearDir: () => ipcRenderer.invoke("sqlite-clear-dir"), external: () => ipcRenderer.invoke("sqlite-external")
 });
 contextBridge.exposeInMainWorld("hakDocs", {
   add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }
