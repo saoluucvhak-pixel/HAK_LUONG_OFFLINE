@@ -11,6 +11,7 @@
     "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
     "test:e2e": "node tests/e2e/run-e2e.js",
     "test:snapshot": "node tests/e2e/snapshot-cache.cjs",
+    "test:attendance-review": "node tests/e2e/attendance-review.cjs",
     "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",
     "test:workspace": "node tests/e2e/v104-workspace-check.js",
     "dist": "electron-builder --win nsis --x64",
