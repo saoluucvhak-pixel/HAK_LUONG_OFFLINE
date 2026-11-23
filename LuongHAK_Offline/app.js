@@ -3952,24 +3952,84 @@
     if (!snapshot) return pbAlloc(nam, thang, loai);
     return snapshot.input?.payrollReports?.production?.find(function (g) { return g.type === loai; })?.allocation || null;
   }
-  function confirmProductionAttendance(visible, allocation, selectedTable) {
+
+  /** Danh sách "Phiếu cần đối chiếu chấm công" dạng thẻ: mỗi phiếu một thẻ, mỗi người cần xác nhận một dòng có nút riêng; tích chọn nhiều phiếu → xác nhận một lần. */
+  function attendanceReviewPanel(rows, allocation, ctx) {
+    var wrap = h("div", { class: "ar-wrap", "data-attendance-review": "1" });
+    if (!rows.length) { wrap.appendChild(h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." })); return wrap; }
+    st.arSel = st.arSel || {};
+    var canConfirm = !ctx.snapshot && can("input.edit"), items = rows.map(function (row) {
+      var entry = allocation.attendanceReview.find(function (it) { return it.phieu === row["Phiếu cân"] && it.ngay === row["Ngày cân"] && it.maPB === row["Mã phòng ban"]; });
+      return { row: row, entry: entry, key: [row["Phiếu cân"], row["Ngày cân"], row["Mã phòng ban"]].join("|") };
+    });
+    var people = items.reduce(function (n, it) { return n + (it.entry ? it.entry.employees.length : 0); }, 0);
+    var head = h("div", { class: "ar-head" }), cntSel = h("span", { class: "ar-count" }), btnSel = btn("Xác nhận có làm cho phiếu đã chọn", "pri", function () {
+      var chosen = items.filter(function (it) { return st.arSel[it.key]; }).map(function (it) { return it.row; });
+      if (chosen.length) confirmProductionAttendance(chosen, allocation, st.bclLoai, { checkAll: true });
+    }), allBox = h("input", { type: "checkbox", "aria-label": "Chọn tất cả phiếu đang hiện" });
+    function sync() {
+      var n = items.filter(function (it) { return st.arSel[it.key]; }).length;
+      cntSel.textContent = n ? n + " phiếu đã chọn" : "Chưa chọn phiếu nào"; btnSel.disabled = !n; allBox.checked = n === items.length && n > 0; allBox.indeterminate = n > 0 && n < items.length;
+      wrap.querySelectorAll(".ar-card").forEach(function (c) { c.classList.toggle("sel", !!st.arSel[c.getAttribute("data-key")]); });
+    }
+    head.appendChild(h("div", { class: "ar-chips" }, [h("span", { class: "ar-chip", text: items.length + " phiếu" }), h("span", { class: "ar-chip warn", text: people + " người cần xác nhận chấm công" })]));
+    if (canConfirm) {
+      allBox.addEventListener("change", function () { items.forEach(function (it) { if (allBox.checked) st.arSel[it.key] = 1; else delete st.arSel[it.key]; }); wrap.querySelectorAll(".ar-card input.ar-pick").forEach(function (b) { b.checked = allBox.checked; }); sync(); });
+      head.appendChild(h("div", { class: "ar-bulk" }, [h("label", { class: "ar-all" }, [allBox, " Chọn tất cả phiếu đang hiện"]), cntSel, btnSel]));
+    }
+    wrap.appendChild(head);
+    var list = h("div", { class: "ar-list" });
+    items.forEach(function (it) {
+      var r = it.row, e = it.entry, cardEl = h("div", { class: "ar-card", "data-key": it.key });
+      var top = h("div", { class: "ar-top" });
+      if (canConfirm && e) { var pick = h("input", { type: "checkbox", class: "ar-pick", "aria-label": "Chọn phiếu " + r["Phiếu cân"] }); pick.checked = !!st.arSel[it.key]; pick.addEventListener("change", function () { if (pick.checked) st.arSel[it.key] = 1; else delete st.arSel[it.key]; sync(); }); top.appendChild(pick); }
+      top.appendChild(h("div", { class: "ar-title", html: "<b>" + esc(r["Phiếu cân"]) + "</b><span>" + esc(fmtDate(r["Ngày cân"])) + " · Tổ " + esc(r["Mã phòng ban"]) + (r["Biển số xe"] ? " · " + esc(r["Biển số xe"]) : "") + " · " + esc(String(r["KL / số xe"])) + (st.bclLoai === "bandam" ? " xe" : " tấn") + "</span>" }));
+      top.appendChild(h("span", { class: "sp" }));
+      if (tabAllowed(ctx.origin)) top.appendChild(btn("Mở phiếu cân", "ghost", function () {
+        st.opsReceipt = { type: ctx.originType, number: String(r["Phiếu cân"]).trim(), date: r["Ngày cân"], ky: kyKey(ctx.nam, ctx.thang) };
+        opsFReset(ctx.originType); st.tab = ctx.origin; saveUi(); render();
+      }));
+      cardEl.appendChild(top);
+      var meta = h("div", { class: "ar-meta" });
+      [["Được chia (" + (r["App chia (người)"] != null ? r["App chia (người)"] : "") + " người)", r["Người được chia"]], ["Không được chia", r["Người không được chia"]], ["NV vắng trên phiếu", r["NV vắng trên phiếu"]]].forEach(function (m) {
+        if (m[1]) meta.appendChild(h("div", { class: "ar-m" }, [h("small", { text: m[0] }), h("span", { text: m[1] })]));
+      });
+      if (meta.firstChild) cardEl.appendChild(meta);
+      var who = h("div", { class: "ar-who" });
+      who.appendChild(h("div", { class: "ar-who-h", text: "Cần xác nhận chấm công (ô = 0 hoặc trống, chưa có trong NV vắng)" }));
+      (e ? e.employees : []).forEach(function (emp) {
+        var line = h("div", { class: "ar-emp" }, [h("div", { class: "ar-name", html: "<b>" + esc(emp.hoTen) + "</b><span>" + esc(emp.ma) + "</span>" }), h("span", { class: "sp" })]);
+        if (!ctx.snapshot && tabAllowed("chamcong")) line.appendChild(btn("Mở công", "ghost", function () { st.rf = RF.normalize({ maNV: [emp.ma] }); st.attendanceReviewDay = r["Ngày cân"]; st.tab = "chamcong"; saveUi(); render(); }));
+        if (canConfirm) line.appendChild(btn("Xác nhận có làm", "pri", function () { confirmProductionAttendance([r], allocation, st.bclLoai, { only: emp.ma, checkAll: true }); }));
+        who.appendChild(line);
+      });
+      cardEl.appendChild(who); list.appendChild(cardEl);
+    });
+    wrap.appendChild(list); sync();
+    return wrap;
+  }
+  function confirmProductionAttendance(visible, allocation, selectedTable, opts) {
+    opts = opts || {};
     if (!need("input.edit") || kyChot(kyStr())) return;
     var service = C.productionAttendance, period = kyStr(), revision = dbRev, candidates = new Map();
     allocation.attendanceReview.forEach(function (receipt) {
       if (!visible.some(function (row) { return row["Phiếu cân"] === receipt.phieu && row["Ngày cân"] === receipt.ngay && row["Mã phòng ban"] === receipt.maPB; })) return;
       receipt.employees.forEach(function (employee) {
+        if (opts.only && employee.ma !== opts.only) return; // xác nhận riêng 1 người (từng dòng)
         var row = { date: receipt.ngay, team: receipt.maPB, employee: employee.ma };
         candidates.set(service.key(row), { row: row, name: employee.hoTen });
       });
     });
     var body = h("div"), list = h("div"), checked = new Map();
     candidates.forEach(function (item, key) {
-      var box = h("input", { type: "checkbox" }); checked.set(key, box);
-      list.appendChild(h("label", { class: "fld" }, [box, item.row.date + " · " + item.row.team + " · " + item.row.employee + " — " + item.name]));
+      var box = h("input", { type: "checkbox" }); if (opts.checkAll) box.checked = true; checked.set(key, box);
+      list.appendChild(h("label", { class: "ar-pickrow" }, [box, h("span", { html: "<b>" + esc(item.name) + "</b> · " + esc(item.row.employee) + "<small>Ngày " + esc(item.row.date) + " · Tổ " + esc(item.row.team) + "</small>" })]));
     });
-    var reason = h("textarea", { class: "i", "aria-label": "Lý do xác nhận", placeholder: "Lý do, ví dụ Làm ca dài qua ngày" });
-    body.appendChild(list); body.appendChild(reason);
-    modal("Xác nhận có làm để chia sản lượng", body, function (close) {
+    var reason = h("textarea", { class: "i ar-reason", rows: "3", "aria-label": "Lý do xác nhận", placeholder: "Lý do (bắt buộc), ví dụ: Làm ca dài qua ngày" });
+    body.appendChild(h("p", { class: "hint", text: "Xác nhận người dưới đây CÓ đi làm ngày đó dù ô chấm công = 0 hoặc trống, để app chia sản lượng cho họ. Bước sau là xem trước phân bổ, chưa lưu gì." }));
+    body.appendChild(list); body.appendChild(h("label", { class: "fld" }, ["Lý do xác nhận", reason]));
+    if (!candidates.size) { alert("Không có người nào cần xác nhận ở phiếu đã chọn."); return; }
+    modal(opts.only ? "Xác nhận có làm — " + opts.only : "Xác nhận có làm để chia sản lượng (" + candidates.size + " người)", body, function (close) {
       return [btn("Hủy", "", close), btn("Xem trước phân bổ", "pri", function () {
         if (kyStr() !== period || dbRev !== revision || kyChot(period)) { alert("Dữ liệu kỳ đã thay đổi. Mở lại bảng đối chiếu."); return; }
         var rows = Array.from(candidates).filter(function (entry) { return checked.get(entry[0]).checked; }).map(function (entry) {
@@ -4000,7 +4060,7 @@
             if (kyStr() !== period || dbRev !== revision || kyChot(period)) { alert("Dữ liệu kỳ đã thay đổi. Mở lại bảng đối chiếu."); return; }
             var detail = rows.map(function (row) { return row.employee + " · " + row.date + " · " + row.team; }).join("; ") + " · " + reason.value.trim();
             if (!REPO.saveWorkflowRows("productionAttendance", next.productionAttendance, "Xác nhận có làm để chia sản lượng", detail).ok) { alert(lastTxnError); return; }
-            done(); render();
+            done(); st.arSel = {}; render();
           })];
         }, { wide: true });
       })];
@@ -4139,7 +4199,7 @@
         var matchingReceipts = new Set(FX(receiptRows).map(function (row) { return row.index; }));
         var fields = [["receipt", "Số phiếu"], ["plate", "Biển số xe"], ["team", "Mã tổ"], ["date", "Ngày phân bổ"]];
         if (st.bclLoai === "bandam") fields.push(["quantity", "Số lượng xe"]);
-        var filters = st.attendanceReceiptFilters || {}, controls = {}, filterBar = h("form", { class: "bar" });
+        var filters = st.attendanceReceiptFilters || {}, controls = {}, filterBar = h("form", { class: "bar ar-filter" });
         fields.forEach(function (field) {
           var input = h("input", { class: "i", type: field[0] === "date" ? "date" : field[0] === "quantity" ? "number" : "text",
             "aria-label": field[1], placeholder: field[1], value: filters[field[0]] || "" });
@@ -4177,30 +4237,8 @@
         card.appendChild(filterBar);
         card.appendChild(reviewFilter);
         if (Object.keys(rfSkip).length) card.appendChild(h("div", { class: "hint", text: "Tiêu chí không áp dụng cho bảng này: " + Object.keys(rfSkip).join(", ") }));
-        var actionableReview = visibleReview.map(function (row) {
-          var entry = r3.al.attendanceReview.find(function (item) {
-            return item.phieu === row["Phiếu cân"] && item.ngay === row["Ngày cân"] && item.maPB === row["Mã phòng ban"];
-          });
-          var actions = [];
-          if (tabAllowed(origin)) actions.push(btn("Mở phiếu cân", "ghost", function () {
-            st.opsReceipt = { type: originType, number: String(row["Phiếu cân"]).trim(), date: row["Ngày cân"], ky: kyKey(nam, thang) };
-            opsFReset(originType); st.tab = origin; saveUi(); render();
-          }));
-          if (!snapshot && entry && tabAllowed("chamcong")) entry.employees.forEach(function (employee) {
-            actions.push(btn("Mở công " + employee.ma, "ghost", function () {
-              st.rf = RF.normalize({ maNV: [employee.ma] });
-              st.attendanceReviewDay = row["Ngày cân"];
-              st.tab = "chamcong"; saveUi(); render();
-            }));
-          });
-          return Object.assign({}, row, { "Thao tác": h("div", { class: "bar" }, actions) });
-        });
-        var reviewTable = visibleReview.length ? simpleTable(actionableReview) : h("div", { class: "empty", text: "Không có phiếu khớp bộ lọc." });
-        reviewTable.classList.add("attendance-review-table");
-        card.appendChild(reviewTable);
-        if (!snapshot && visibleReview.length && can("input.edit")) card.appendChild(btn("Xác nhận có làm", "pri", function () {
-          confirmProductionAttendance(visibleReview, r3.al, st.bclLoai);
-        }));
+        // v2.1.4: danh sách thẻ theo phiếu — xác nhận từng người (từng dòng) hoặc tích chọn nhiều phiếu rồi xác nhận một lần
+        card.appendChild(attendanceReviewPanel(visibleReview, r3.al, { snapshot: snapshot, origin: origin, originType: originType, nam: nam, thang: thang }));
         sheets.push({ name: "DoiChieuChamCong", rows: visibleReview });
       }
       var recorded = ((snapshot ? snapshot.input?.data?.productionAttendance : db.productionAttendance) || []).filter(function (row) {
