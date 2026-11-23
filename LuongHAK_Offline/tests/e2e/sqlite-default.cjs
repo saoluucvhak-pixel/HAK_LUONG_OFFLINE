@@ -259,21 +259,26 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ({ app, w, errs } = await launch(D11, { HAK_PICK_DIR: JD })); await login(w);
     await w.evaluate(() => window.hakStore.scheduleSet({ keepDaily: 180 }));
     await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="mirror"]', { timeout: 15000 });
-    const txt = await w.locator("#main").innerText();
+    let txt = await w.locator("#main").innerText(); await w.click('[data-sl-tab="dl"]'); txt += "\n" + await w.locator("#main").innerText(); await w.click('[data-sl-tab="tm"]');
     ok("Chữ 'giữ N ngày' theo cài đặt thật (keepDaily = 180), không ghi cứng 60 ngày", /giữ 180 (?:ngày|bản đầu ngày)/.test(txt) && !/giữ 60 (?:ngày|bản đầu ngày)/.test(txt), (txt.match(/giữ \d+ (?:ngày|bản đầu ngày)/g) || []).join(","));
     const pickers = await w.locator("#main button").evaluateAll((bs) => bs.filter((b) => /Chọn thư mục sao lưu thứ hai|Đổi thư mục/.test(b.innerText) || (/Chọn \/ Chuyển/.test(b.innerText) && b.closest('[data-stg="mirror"]'))).length);
     ok("Thư mục sao lưu dự phòng (mirrorDir) chỉ chọn được ở MỘT chỗ", pickers === 1, "số nút chọn = " + pickers);
     const one = async (sel) => (await w.locator(sel).count()) === 1;
+    await w.click('[data-sl-tab="sl"]');
     ok("Khu 'Sao lưu ngay': đúng 1 nút Sao lưu toàn bộ + 1 ô chọn loại (SQLite mặc định / Full Backup / JSON)", (await one("[data-backup-now]")) && (await one("[data-backup-kind]")) && (await w.locator("[data-backup-kind] option").evaluateAll((o) => o.map((x) => x.value).join())) === "sqlite,full,json");
     ok("Khu 'Khôi phục': đúng 1 nút Khôi phục toàn bộ + 1 ô chọn loại", (await one("[data-restore-now]")) && (await one("[data-restore-kind]")));
+    await w.click('[data-sl-tab="tm"]');
     ok("Bảng thư mục có đủ dòng: SQLite (tự động), JSON, Full Backup, dự phòng, chứng từ, OCR", (await w.locator("[data-stg]").evaluateAll((r) => r.map((x) => x.getAttribute("data-stg")).sort().join())) === "backup,docs,export,json,mirror,ocrLib,sqlite");
     ok("Dòng thư mục SQLite có ghi chú cố định (CEO chọn (a)): 'Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng'", (await w.locator('[data-stg-note="sqlite"]').count()) === 1 && (await w.locator('[data-stg-note="sqlite"]').innerText()).trim() === "Cố định trong thư mục dữ liệu; muốn có bản ở nơi khác hãy đặt Thư mục dự phòng" && (await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').count()) === 0);
+    await w.click('[data-sl-tab="sl"]');
     ok("Không còn các nút sao lưu trùng chức năng (Tạo bản sao lưu ngay / Tạo Full Backup / Sao lưu ra file)", (await w.locator('#main button:has-text("Tạo bản sao lưu ngay"), #main button:has-text("Tạo Full Backup"), #main button:has-text("Sao lưu ra file")').count()) === 0);
+    await w.click('[data-sl-tab="tm"]');
     if (await one('[data-stg="json"]')) {
       await w.locator('[data-stg="json"] button:has-text("Chọn")').click(); await w.waitForTimeout(800);
       await w.click('#nav button[data-k="home"]'); await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="json"]');
       ok("Đặt thư mục sao lưu JSON → hiện đúng đường dẫn đã chọn", (await w.locator('[data-stg="json"]').innerText()).includes(JD));
     }
+    await w.click('[data-sl-tab="sl"]');
     if ((await one("[data-backup-kind]")) && (await one("[data-backup-now]"))) {
       await w.selectOption("[data-backup-kind]", "json"); await w.click("[data-backup-now]"); await w.waitForTimeout(1500);
     }
