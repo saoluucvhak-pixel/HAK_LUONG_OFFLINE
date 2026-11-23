@@ -168,6 +168,8 @@ jobs:
         run: xvfb-run -a npm run test:snapshot
       - name: Verify attendance-review cards (confirm per row or per selected receipt)
         run: xvfb-run -a npm run test:attendance-review
+      - name: Verify selectable SQLite backup folder (copy with SHA-256, reset to default)
+        run: xvfb-run -a npm run test:sqlite-dir
       - name: Measure shared OCR per-cell accuracy
         run: xvfb-run -a npm run test:ocr-eval
         env:

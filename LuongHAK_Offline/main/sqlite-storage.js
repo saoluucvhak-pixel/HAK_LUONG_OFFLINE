@@ -366,6 +366,13 @@ function createSqliteStorage(dir, opts) {
     try { copyVerified(latest, path.join(json.backupDir, name)); pruneSnaps(json.backupDir); }
     catch (e) { snapshotError = "Đã có bản chụp mới nhất nhưng không lưu được lịch sử bản chụp: " + String(e && e.message || e); }
     snapshotLast = { name, at: now().toISOString(), records: r.records, tag: t };
+    try { // v2.1.5: thư mục sao lưu SQLite do người dùng chọn (khóa cài đặt MỚI `sqliteDir`, chỉ thêm): chép có kiểm SHA-256 bản mới nhất + lịch sử; lỗi chỉ báo, bản trong thư mục dữ liệu luôn còn
+      const sd = (json.readSettings() || {}).sqliteDir;
+      if (sd) {
+        if (!fs.existsSync(sd)) throw new Error("Không truy cập được thư mục " + sd + " (USB chưa cắm / ổ mạng mất kết nối?)");
+        copyVerified(latest, path.join(sd, "data-snapshot.sqlite")); copyVerified(path.join(json.backupDir, name), path.join(sd, name)); pruneSnaps(sd);
+      }
+    } catch (e) { snapshotError = (snapshotError ? snapshotError + " " : "") + "Bản chụp SQLite chưa chép được sang thư mục SQLite đã chọn: " + String(e && e.message || e); }
     try {
       const st = json.readSettings() || {};
       if (st.mirrorDir) {
@@ -381,7 +388,7 @@ function createSqliteStorage(dir, opts) {
   /** Trạng thái bản chụp SQLite cho giao diện: bản mới nhất (lần này), lịch sử trên máy, lỗi gần nhất ("" = không lỗi). */
   function snapshotStatus() {
     const hist = listSnaps(json.backupDir).map((x) => { let size = 0, mtime = null; try { const s0 = fs.statSync(path.join(json.backupDir, x)); size = s0.size; mtime = s0.mtimeMs; } catch (e) { /* bỏ qua */ } return { name: x, tag: x.match(SNAP_RE)[1], size, mtime, permanent: snapPerm(x.match(SNAP_RE)[1]) }; });
-    const info = snapshotInfo(); return { latest: snapshotLast || (info && info.exists ? { name: "data-snapshot.sqlite", at: info.mtime ? new Date(info.mtime).toISOString() : null, records: info.records } : null), history: hist, keep: SNAP_KEEP, lastError: snapshotError };
+    const info = snapshotInfo(); const sqliteDir = (json.readSettings() || {}).sqliteDir || ""; return { sqliteDir, latest: snapshotLast || (info && info.exists ? { name: "data-snapshot.sqlite", at: info.mtime ? new Date(info.mtime).toISOString() : null, records: info.records } : null), history: hist, keep: SNAP_KEEP, lastError: snapshotError };
   }
   const readWrap = (name) => (...args) => { backupError = ""; if (!exportReady()) return name === "changedSinceBackup" ? true : null; return json[name](...args); };
   const mirrorWrap = () => (...args) => { backupError = ""; if (!exportReady()) return { ok: false, error: backupError }; return json.syncMirror(...args); };
