@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.8] — 23/11/2026
+- **Sao lưu SQLite ngoài máy đáng tin hơn (mục 6 prompt khôi phục, chủ yêu cầu tiếp tục 23/11/2026):** (1) chép bù bản lịch sử bị lỡ khi thư mục đã chọn mất kết nối, có kiểm SHA-256; (2) cảnh báo bản ngoài máy quá cũ (ngưỡng mặc định 7 ngày, khóa `sqliteStaleDays`); (3) nút "Thử khôi phục (không ghi gì)" diễn tập trên bản chép tạm. Không sửa tệp khóa / workflow. Chi tiết: `docs/releases/v2.1.8.md`.
+
 ## [2.1.7] — 23/11/2026
 - **Khôi phục từ bản chụp SQLite ở thư mục sao lưu đã chọn (chủ yêu cầu 23/11/2026):** màn khôi phục (trước đăng nhập) có khối "Bản chụp SQLite tìm thấy" liệt kê bản ở thư mục dữ liệu và thư mục SQLite đã chọn (`sqliteDir`); kiểm từng bản (chép về tạm + SHA-256 + integrity_check), gợi ý bản hợp lệ mới nhất, khôi phục theo `id` qua đúng đường `restoreFromSnapshot` (cất bản cũ, marker, kiểm toán). Nguồn mất kết nối được báo rõ đường dẫn + nguyên nhân, có thời hạn chờ. Nút "Kiểm tra" ở tab Sao lưu giờ kiểm cả thư mục đã chọn. Không sửa tệp khóa / workflow. Chi tiết: `docs/releases/v2.1.7.md`.
 

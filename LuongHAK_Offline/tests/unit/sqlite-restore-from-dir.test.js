@@ -144,3 +144,31 @@ test("U-RFD-13 E16: bản ở thư mục chọn cũ hơn bản local hợp lệ 
   const best = s.findBestCandidate(); assert.ok(best.best && best.best.source === "chosen", JSON.stringify(best)); assert.ok(best.checked.some((c) => !c.ok), "bản mới hơn mà hỏng bị bỏ qua kèm lý do");
   assert.equal(s.needsRecovery(), true, "chưa tự khôi phục"); s.close();
 });
+
+test("U-RFD-14 v2.1.8 chép bù: thư mục chọn mất kết nối lúc sao lưu → lần sau truy cập được, bản lịch sử bị lỡ được chép bù có kiểm SHA-256", () => {
+  const dir = tmp("hak-rfd-"), sd = tmp("hak-rfd-out-"), s = createSqliteStorage(dir, opts()); assert.equal(s.save(JSON.stringify(base())), true);
+  s.writeSettings(Object.assign({}, s.readSettings(), { sqliteDir: sd })); assert.ok(s.backup("lan1"));
+  const gone = sd + "-tam"; fs.renameSync(sd, gone); assert.ok(s.backup("lan2")); assert.match(s.snapshotStatus().lastError, /chưa chép được sang thư mục SQLite đã chọn/);
+  fs.renameSync(gone, sd); const before = files(sd, /^snap_/).length; assert.equal(before, 1, "mới có bản lần 1");
+  assert.ok(s.backup("lan3")); const out = files(sd, /^snap_/), local = files(path.join(dir, "backups"), /^snap_/);
+  assert.equal(out.length, 3, "lần 2 (bị lỡ) được chép bù + lần 3: " + out.join(","));
+  for (const n of out) assert.equal(sha(path.join(sd, n)), sha(path.join(dir, "backups", n)), "SHA-256 khớp " + n);
+  assert.deepEqual(out.slice().sort(), local.slice().sort()); assert.equal(s.externalStatus().catchup, 1); s.close();
+});
+test("U-RFD-15 v2.1.8 quá cũ: externalStatus báo stale khi bản ngoài máy quá ngưỡng (mặc định 7 ngày, cấu hình sqliteStaleDays)", () => {
+  const { dir, sd } = setup(); const s = open(dir), old = Date.now() / 1000 - 10 * 86400;
+  assert.equal(s.externalStatus().stale, false);
+  for (const f of fs.readdirSync(sd)) fs.utimesSync(path.join(sd, f), old, old);
+  let st = s.externalStatus(); assert.equal(st.stale, true); assert.equal(st.staleDays, 7); assert.ok(st.ageDays >= 9.9, String(st.ageDays));
+  s.writeSettings(Object.assign({}, s.readSettings(), { sqliteStaleDays: 30 })); st = s.externalStatus(); assert.equal(st.staleDays, 30); assert.equal(st.stale, false); s.close();
+});
+test("U-RFD-16 v2.1.8 diễn tập khôi phục: KHÔNG ghi gì (kho lành, SHA-256 mọi tệp không đổi, không tệp tạm), báo số dòng; bản hỏng bị bỏ qua; không có bản nào → báo rõ", () => {
+  const { dir, sd } = setup(); const s = open(dir); assert.equal(s.load().ok, true);
+  const snap = () => { const o = {}; for (const d of [sd, path.join(dir, "backups")]) for (const f of fs.readdirSync(d)) o[d + "/" + f] = sha(path.join(d, f)); return o; }, dataBefore = sha(sq(dir)), snapBefore = snap();
+  const r = s.restoreDrill(); assert.equal(r.good, true, r.text); assert.match(r.text, /Diễn tập đạt \(không ghi gì\)/); assert.ok(r.best.records > 0);
+  assert.deepEqual(snap(), snapBefore, "nguồn không đổi"); assert.equal(files(dir, /\.(nguon-ung-vien|kiem-ung-vien|khoi-phuc-moi|truoc-khoi-phuc)/).length, 0);
+  assert.equal(s.load().ok, true); s.close();
+  for (const d of [sd, path.join(dir, "backups")]) for (const f of fs.readdirSync(d)) fs.writeFileSync(path.join(d, f), "hỏng");
+  const s2 = open(dir), r2 = s2.restoreDrill(); assert.equal(r2.good, false); assert.match(r2.text, /KHÔNG có bản chụp nào dùng được/); s2.close();
+  const none = open(tmp("hak-rfd-none-")), r3 = none.restoreDrill(); assert.equal(r3.good, false); assert.match(r3.text, /chưa có bản chụp|KHÔNG có/); none.close(); void dataBefore;
+});

@@ -358,6 +358,7 @@ function createSqliteStorage(dir, opts) {
     }
   }
   function copyVerified(src, dest) { const tmp = dest + ".tmp"; fs.copyFileSync(src, tmp); const fd = fs.openSync(tmp, "r+"); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } if (shaOf(tmp) !== shaOf(src)) { fs.rmSync(tmp, { force: true }); throw new Error("bản chép không khớp SHA-256"); } fs.renameSync(tmp, dest); }
+  let snapshotCatchup = 0;
   function snapshotNow(tag) {
     snapshotError = ""; if (!db) return null;
     const latest = path.join(json.backupDir, "data-snapshot.sqlite"), r = store.snapshot(db, latest);
@@ -370,7 +371,10 @@ function createSqliteStorage(dir, opts) {
       const sd = (json.readSettings() || {}).sqliteDir;
       if (sd) {
         if (!fs.existsSync(sd)) throw new Error("Không truy cập được thư mục " + sd + " (USB chưa cắm / ổ mạng mất kết nối?)");
-        copyVerified(latest, path.join(sd, "data-snapshot.sqlite")); copyVerified(path.join(json.backupDir, name), path.join(sd, name)); pruneSnaps(sd);
+        copyVerified(latest, path.join(sd, "data-snapshot.sqlite")); copyVerified(path.join(json.backupDir, name), path.join(sd, name));
+        // v2.1.8: chép BÙ các bản lịch sử bị lỡ lúc thư mục đã chọn mất kết nối (USB chưa cắm…): bản local còn mà ở đó chưa có → chép có kiểm SHA-256 (tối đa SNAP_KEEP bản mới nhất; lỗi từng bản không chặn)
+        let catchup = 0; for (const n of listSnaps(json.backupDir).slice(0, SNAP_KEEP)) { if (fs.existsSync(path.join(sd, n))) continue; try { copyVerified(path.join(json.backupDir, n), path.join(sd, n)); catchup++; } catch (e2) { /* bản lẻ không chép được: lần sau thử lại */ } }
+        snapshotCatchup = catchup; pruneSnaps(sd);
       }
     } catch (e) { snapshotError = (snapshotError ? snapshotError + " " : "") + "Bản chụp SQLite chưa chép được sang thư mục SQLite đã chọn: " + String(e && e.message || e); }
     try {
@@ -545,7 +549,15 @@ function createSqliteStorage(dir, opts) {
     if (nestedOrSame(d, dir) || nestedOrSame(d, json.backupDir)) return { ok: true, configured: true, dir: d, reachable: false, error: "Thư mục đã chọn trùng/lồng với thư mục dữ liệu của app." };
     const r = scanSnapDir(d, true); if (!r.ok) return { ok: true, configured: true, dir: d, reachable: false, error: r.error };
     const items = r.items.slice().sort((a, b) => b.mtimeMs - a.mtimeMs);
-    return { ok: true, configured: true, dir: d, reachable: true, count: items.length, latest: items[0] || null };
+    const st = Number((json.readSettings() || {}).sqliteStaleDays), staleDays = st > 0 ? st : 7, latest = items[0] || null, ageDays = latest ? (now().getTime() - latest.mtimeMs) / 86400000 : null;
+    return { ok: true, configured: true, dir: d, reachable: true, count: items.length, latest, staleDays, ageDays: ageDays == null ? null : Math.round(ageDays * 10) / 10, stale: latest == null || ageDays > staleDays, catchup: snapshotCatchup };
+  }
+  /** Diễn tập khôi phục (KHÔNG ghi gì, dùng được cả khi kho đang lành): kiểm bản hợp lệ mới nhất ở mọi nguồn trên bản chép tạm, báo số dòng/thời điểm để chủ biết sao lưu dùng được TRƯỚC khi cần. */
+  function restoreDrill() {
+    const r = findBestCandidate();
+    if (!r.best) return { ok: true, good: false, best: null, text: "Diễn tập: KHÔNG có bản chụp nào dùng được" + (r.checked.length ? " — " + r.checked.slice(0, 3).map((c) => c.id + ": " + c.error).join("; ") : " (chưa có bản chụp)") + ". Hãy bấm Sao lưu rồi thử lại.", checked: r.checked, sources: r.sources };
+    const b = r.best;
+    return { ok: true, good: true, best: b, checked: r.checked, sources: r.sources, text: "Diễn tập đạt (không ghi gì): bản " + b.name + " ở " + (b.source === "chosen" ? "thư mục đã chọn" : "thư mục dữ liệu") + ", " + new Date(b.mtimeMs).toLocaleString("vi-VN") + ", " + b.records + " dòng — khôi phục được." + (r.checked.some((c) => !c.ok) ? " Có " + r.checked.filter((c) => !c.ok).length + " bản mới hơn bị lỗi, đã bỏ qua." : "") };
   }
   /** Kiểm các bản ở thư mục đã chọn: SHA-256 đối chiếu bản cùng tên trong thư mục dữ liệu; bản mới nhất còn kiểm đầy đủ (integrity_check, số dòng). */
   function verifyExternal() {
@@ -619,7 +631,7 @@ function createSqliteStorage(dir, opts) {
   function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
 
   return Object.assign({}, json, {
-    snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, listRestoreCandidates, inspectCandidate, findBestCandidate, restoreCandidate, externalStatus, verifyExternal, needsRecovery, load, save, saveDelta, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
+    snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, listRestoreCandidates, inspectCandidate, findBestCandidate, restoreCandidate, externalStatus, verifyExternal, restoreDrill, needsRecovery, load, save, saveDelta, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
     snapshotNow, snapshotStatus, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev,
     /** 006: bản đang lưu ĐÃ phân tích (chỉ đọc) + sig — để kiểm quy tắc / kho năm không phân tích lại toàn bộ dữ liệu sau mỗi lần lưu. */

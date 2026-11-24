@@ -438,6 +438,7 @@ function registerIpc() {
   // v2.1.5: thư mục sao lưu SQLite chọn được — khóa cài đặt MỚI `sqliteDir` (chỉ thêm). Các bản chụp vẫn ghi trong thư mục dữ liệu (backups) TRƯỚC, rồi chép có kiểm SHA-256 sang thư mục này (xem main/sqlite-storage.js snapshotNow).
   const sqliteDirOf = () => { const s0 = storage.readSettings() || {}; return s0.sqliteDir ? String(s0.sqliteDir) : storage.info().backupDir; };
   const SNAP_NAME = /^(data-snapshot\.sqlite|snap_\d{8}-\d{6}-\d{3}_[a-z0-9-]+\.sqlite)$/i;
+  ipcMain.handle("sqlite-drill", guarded("backup.restore", async () => { try { return storage.restoreDrill ? storage.restoreDrill() : { ok: true, good: false, text: "Chế độ lưu này không có bản chụp SQLite." }; } catch (err) { return { ok: false, error: String(err && err.message || err) }; } })); // v2.1.8: diễn tập khôi phục, không ghi gì
   ipcMain.handle("sqlite-external", guarded("backup.restore", async () => { try { return storage.externalStatus ? storage.externalStatus() : { ok: true, configured: false }; } catch (err) { return { ok: false, error: String(err && err.message || err) }; } })); // v2.1.7: bản ngoài máy gần nhất (đọc từ thư mục thật, có thời hạn chờ)
   ipcMain.handle("sqlite-get", guarded("backup.restore", async () => { const d = sqliteDirOf(); return { ok: true, dir: d, custom: !!(storage.readSettings() || {}).sqliteDir, info: SP.info(d) }; }));
   ipcMain.handle("sqlite-set-dir", guardedW("backup.restore", async (e, dir) => {
