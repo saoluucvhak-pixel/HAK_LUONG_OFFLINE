@@ -116,6 +116,7 @@ input.i{width:110px}input.search{width:240px}
 .hint{color:var(--mut);font-size:13.5px;margin:2px 0 10px}
 .warn{background:var(--warnBg);border:1px solid var(--warnBd);color:var(--warnFg);padding:10px 14px;border-radius:12px;margin:10px 0;font-size:14px}
 .warn-scroll{max-height:104px;overflow:auto}
+.ops-warns{max-height:66px;overflow:auto}
 .ok{background:var(--okBg);border:1px solid color-mix(in srgb,var(--brand) 30%,transparent);padding:10px 14px;border-radius:12px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
