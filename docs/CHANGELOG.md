@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.18] — 24/11/2026
+- **Phiếu lương PDF từng người (A6-12, Q9 — chủ chọn "làm luôn" 24/11/2026):** màn Phiếu lương có nút "⬇ PDF từng phiếu": mỗi người một trang A4 dọc, 3 phần thu nhập/khấu trừ/tạm ứng, khối ký người lập + người lao động nhận, dòng "Ngày …… tháng …… năm ……"; kỳ chưa chốt có banner và nền chữ TẠM TÍNH, tên tệp `_TAM`; nút cũ đổi tên "PDF danh sách". Chi tiết: `docs/releases/v2.1.18.md`.
+
 ## [2.1.17] — 24/11/2026
 - **Giảm thời gian giữ artifact CI từ 14–30 ngày xuống 7 ngày (Q6, chủ chọn 24/11/2026):** để không đầy hạn mức lưu trữ GitHub Actions (bộ cài ~142 MB mỗi lần chạy; bản chính thức nằm ở Releases). Chỉ sửa workflow, không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.17.md`.
 

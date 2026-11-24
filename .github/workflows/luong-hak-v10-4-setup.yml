@@ -172,6 +172,8 @@ jobs:
         run: xvfb-run -a npm run test:attendance-review-closed
       - name: Verify period restore is blocked when it would change an appendix used by a closed period (Q-15)
         run: xvfb-run -a npm run test:period-restore-frozen
+      - name: Verify per-person payslip PDF (one page per person, draft watermark)
+        run: xvfb-run -a npm run test:slip-pdf
       - name: Verify period close is blocked by orphan Mã NV in bonus/advance/meal inputs (A2-03)
         run: xvfb-run -a npm run test:close-orphans
       - name: Verify selectable SQLite backup folder (copy with SHA-256, reset to default)
@@ -262,6 +264,8 @@ jobs:
         run: node tests/e2e/attendance-review-closed.cjs
       - name: Verify period restore is blocked for closed-period appendix on Windows
         run: node tests/e2e/period-restore-frozen.cjs
+      - name: Verify per-person payslip PDF on Windows
+        run: node tests/e2e/slip-pdf.cjs
       - name: Verify period close is blocked by orphan Mã NV on Windows
         run: node tests/e2e/close-orphans.cjs
       - name: Verify selectable SQLite backup folder on Windows
