@@ -307,6 +307,7 @@
     } // hết nhánh dựng lại cả khung
     var m = $("#main"); m.innerHTML = ""; refreshNVList();
     if((db._yearArchives||[]).some(function(r){return r.active&&r.year===Number(st.nam);})&&st.tab!=="backup")m.appendChild(h("div",{class:"warn","data-archived-year-notice":"1"},[document.createTextNode("Hồ sơ năm "+st.nam+" đã nằm trong kho riêng. Dữ liệu năm này không được tải vào vùng đang làm. "),btn("Mở kho hồ sơ năm","",function(){st.tab="backup";saveUi();render();})]));
+    { var SH = window.HAKUi && window.HAKUi.screenHints, sht = SH ? SH.text(st.tab) : ""; if (sht) m.appendChild(h("div", { class: "hint screen-hint", "data-screen-hint": st.tab, text: sht })); } // Q11: bước của quy trình lương
     if (st.tab === "home") m.appendChild(tabHome());
     else if (st.tab === "luong") m.appendChild(tabLuong());
     else if (st.tab === "bangtinh") m.appendChild(tabBangTinhNoiBo());

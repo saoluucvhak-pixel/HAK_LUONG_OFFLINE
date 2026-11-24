@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.23] — 24/11/2026
+- **Chú thích quy trình lương (Q11):** không đổi tên menu; đầu các màn nhập liệu → tính lương (chỉ lương và phụ cấp) → tổng hợp lương (có khoản thu khác) → thanh toán lương (có khấu trừ) → báo cáo lương có một dòng "Bước n/5 · …". Chi tiết: `docs/releases/v2.1.23.md`.
+
 ## [2.1.22] — 24/11/2026
 - **Bố cục Bảng thanh toán lương (Q12, màn 1/3):** khối "lỗi nghiêm trọng" nay cuộn trong khung cao ≤ 104 px (liệt kê đủ tới 200 lỗi) thay vì chiếm hết màn; ở 1366×768 thấy ≥ 4 dòng bảng khi mở. Chi tiết: `docs/releases/v2.1.22.md`.
 
