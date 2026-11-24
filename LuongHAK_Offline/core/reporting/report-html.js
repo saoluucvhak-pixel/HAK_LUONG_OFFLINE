@@ -29,7 +29,7 @@
     "th,td{border:.4pt solid #666;padding:1mm 1.5mm}th{background:#e8efe9;text-align:center}td.m,td.q{text-align:right;white-space:nowrap}td.t{text-align:left;white-space:nowrap}td.n{text-align:left;white-space:nowrap}td.nm{text-align:left;white-space:normal;max-width:55mm;overflow-wrap:break-word}" +
     "tr.sub{break-after:avoid}tr.sub td{background:#f1f1f1;font-weight:700}tr.tot{break-inside:avoid}tr.tot td{background:#dfe9e2;font-weight:700;border-top:1.2pt solid #333;white-space:nowrap}th.s,td.s{font-weight:700}" +
     "th.ky,td.ky{min-width:32mm}table.has-ky tbody tr td{height:9mm}" +
-    ".sign{display:flex;justify-content:space-around;margin-top:10mm;text-align:center;page-break-inside:avoid;break-inside:avoid}.sign div{width:30%}";
+    ".sign-date{text-align:right;font-style:italic;margin:8mm 6mm 0 0;page-break-after:avoid;break-after:avoid}.sign{display:flex;justify-content:space-around;margin-top:2mm;text-align:center;page-break-inside:avoid;break-inside:avoid}.sign div{width:30%}";
 
   function isDraft(vm) { return !!(vm && vm.trangThai && /chưa chốt|tính tạm/i.test(vm.trangThai)); }
   var DRAFT_WARN = "<div class=\"warn\">BẢN NHÁP — TÍNH TẠM, kỳ chưa chốt; không dùng để ký/chi tiền</div>";
@@ -59,7 +59,7 @@
       });
       h += "<tr class=\"tot\">" + sc.map(function (c, i) { return i === ni ? "<td class=\"t\">TỔNG CỘNG (" + vm.soDong + " người)</td>" : "<td class=\"" + (c.kind === "money" ? "m" : "q") + "\">" + (vm.tong[c.key] != null ? cell(c, vm.tong[c.key]) : "") + "</td>"; }).join("") + "</tr></tbody></table>";
     });
-    if (opt.chuKy && opt.chuKy.length) h += "<div class=\"sign\">" + opt.chuKy.map(function (x) { return "<div><b>" + esc(x) + "</b><br><i>(Ký, ghi rõ họ tên)</i></div>"; }).join("") + "</div>";
+    if (opt.chuKy && opt.chuKy.length) h += "<p class=\"sign-date\">Ngày …… tháng …… năm ……</p><div class=\"sign\">" + opt.chuKy.map(function (x) { return "<div><b>" + esc(x) + "</b><br><i>(Ký, ghi rõ họ tên)</i></div>"; }).join("") + "</div>";
     return h + "</body></html>";
   }
 
@@ -107,7 +107,7 @@
       });
     });
     if (!any) h += "<div class=\"warn\">Không có dòng nào khớp bộ lọc.</div>";
-    if (opt.chuKy && opt.chuKy.length) h += "<div class=\"sign\">" + opt.chuKy.map(function (x) { return "<div><b>" + esc(x) + "</b><br><i>(Ký, ghi rõ họ tên)</i></div>"; }).join("") + "</div>";
+    if (opt.chuKy && opt.chuKy.length) h += "<p class=\"sign-date\">Ngày …… tháng …… năm ……</p><div class=\"sign\">" + opt.chuKy.map(function (x) { return "<div><b>" + esc(x) + "</b><br><i>(Ký, ghi rõ họ tên)</i></div>"; }).join("") + "</div>";
     return h + "</body></html>";
   }
 

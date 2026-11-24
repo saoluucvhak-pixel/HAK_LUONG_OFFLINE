@@ -145,6 +145,8 @@
     // chữ ký
     r += 1;
     var ck = o.chuKy || vm.chuKy || ["Người lập", "Kế toán trưởng", "Giám đốc"], per = Math.max(1, Math.floor(nc / ck.length));
+    // v2.1.14 (A6-20): dòng "Ngày …… tháng …… năm ……" điền tay, căn phải, ngay trên chức danh (biểu mẫu kế toán)
+    if (nc >= 2) { ws.mergeCells(r, Math.max(1, nc - 2), r, nc); var dc = ws.getCell(r, Math.max(1, nc - 2)); dc.value = "Ngày …… tháng …… năm ……"; dc.font = { italic: true }; dc.alignment = { horizontal: "right" }; r += 1; }
     ck.forEach(function (t, i) {
       var c0 = Math.min(nc, i * per + 1), c1 = Math.min(nc, (i + 1) * per);
       if (c1 > c0) ws.mergeCells(r, c0, r, c1);
