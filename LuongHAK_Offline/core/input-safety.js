@@ -34,6 +34,15 @@
   function assertPeriod(db,period){var p=problems(db,period);if(p.length)throw Error(p.join('; '));}
   // Keep drafts incomplete while typing, but never erase their period or change pump mode implicitly.
   function mutation(db,table,before,after){
+    // v2.1.16 (mục 7, chủ chọn "chặn"): Thưởng/Trừ, Tạm ứng, Suất cơm không được lưu với Mã NV sai hoa/thường hoặc không có trong Nhân sự (trước đây engine bỏ qua im lặng).
+    // Chỉ chặn khi Mã NV là giá trị MỚI/đổi — sửa ô khác của dòng cũ đã có mã mồ côi vẫn được (không bắt người dùng sửa dữ liệu cũ; cổng Chốt kỳ vẫn chặn, xem ui/input-orphans.js).
+    if(after&&['psluong','ungluong','tiencom'].indexOf(table)>=0){
+      var oma=String(after['Mã NV']==null?'':after['Mã NV']),prev=before?String(before['Mã NV']==null?'':before['Mã NV']):null;
+      if(oma!==''&&oma!==prev){
+        var emp={},low={};(db.nhanvien||[]).forEach(function(n){var m=n&&n['Mã NV'];if(m!=null&&m!==''){emp[String(m)]=1;low[String(m).trim().toLowerCase()]=String(m);}});
+        if(!emp[oma]){var gan=low[oma.trim().toLowerCase()];return 'Mã NV "'+oma+'" không khớp Nhân sự'+(gan?' (gần giống "'+gan+'" — sai hoa/thường hoặc có khoảng trắng)':' (mã không tồn tại)')+' — không lưu vì khoản này sẽ bị BỎ QUA khi tính lương. Sửa Mã NV cho đúng.';}
+      }
+    }
     if(['sanluong','bandam'].indexOf(table)<0||!after)return '';
     if(!V.normDate(after['Ngày cân']))return 'Ngày cân không được trống hoặc sai; dòng chưa bị thay đổi';
     if(before&&!!before['Mã NV']!==!!after['Mã NV'])return 'Không đổi cách phân bổ bằng cách xóa/thêm Mã NV. Xóa phiếu rồi tạo lại ở đúng tab.';

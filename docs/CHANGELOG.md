@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.16] — 24/11/2026
+- **Mục 6 (A4) và mục 7 (chặn khi nhập) theo chủ chọn 24/11/2026:** (1) Excel đối chiếu chấm công chỉ 14 cột, in A4 ngang (trước 20 cột, A3); (2) Thưởng/Trừ, Tạm ứng, Suất cơm không lưu được với Mã NV sai hoa/thường, có khoảng trắng hoặc không tồn tại (`core/input-safety.js`, mã lỗi `input`); sửa ô khác của dòng cũ vẫn được. Chi tiết: `docs/releases/v2.1.16.md`.
+
 ## [2.1.15] — 24/11/2026
 - **E2E giao diện cho thông báo chặn khôi phục kỳ (mục 8, Q-15):** `period-restore-frozen.cjs` (Electron thật): gói kỳ làm đổi phụ lục mà kỳ đã chốt dùng → màn khôi phục chặn, dữ liệu không đổi; nối vào CI Ubuntu + Windows. Không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.15.md`.
 
