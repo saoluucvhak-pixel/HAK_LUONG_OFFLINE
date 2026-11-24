@@ -14,7 +14,10 @@
     rp_thanhtoan: THANHTOAN, rp_cttt: THANHTOAN, rp_soct: THANHTOAN, rp_ck: THANHTOAN, rp_tm: THANHTOAN,
     rp_ctnv: BAOCAO, slips: BAOCAO, rp_tncn: BAOCAO, rp_pb: BAOCAO, baocaoluong: BAOCAO
   };
+  // Q8 (chủ chọn: giữ tùy chọn như hiện nay, chỉ nhắc): phụ lục hiệu lực GIỮA tháng.
+  var PHU_LUC_GIUA_THANG = "Nhắc: phụ lục có hiệu lực GIỮA tháng thì nhớ chọn ô \"Cách áp dụng trong tháng hiệu lực\" — \"Từ ngày hiệu lực\" (công trước ngày đó tính theo mức cũ, từ ngày đó theo mức mới; chỉ chia được khi cùng mã lương) hoặc \"Cả tháng\" (cả tháng theo mức mới). Để trống = \"Cả tháng\".";
+  function phuLucGiuaThang() { return PHU_LUC_GIUA_THANG; }
   function text(tab) { return Object.prototype.hasOwnProperty.call(MAP, tab) ? MAP[tab] : ""; }
-  var api = { text: text, MAP: MAP };
+  var api = { text: text, MAP: MAP, phuLucGiuaThang: phuLucGiuaThang };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else { root.HAKUi = root.HAKUi || {}; root.HAKUi.screenHints = api; }
 })(typeof window !== "undefined" ? window : this);
