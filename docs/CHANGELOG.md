@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.27] — 24/11/2026
+- **Rà soát tổng thể 24/11/2026 (theo quy trình Control Center):** thêm `docs/RA_SOAT_TONG_THE_2026-11-24.md` (kiểm nền, việc dở, đề xuất) và cập nhật đầu `TODO_ROADMAP.md`. Không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.27.md`.
+
 ## [2.1.26] — 24/11/2026
 - **Bố cục Kiểm tra bảng lương (Q12, màn 3/3):** cột "Chi tiết" cuộn trong khung ≤ 72 px (liệt kê đủ tới 200 dòng) nên mỗi mục chỉ cao vài dòng, thấy nhiều mục hơn khi mở màn. Chi tiết: `docs/releases/v2.1.26.md`.
 

@@ -2,6 +2,9 @@
 
 > File này là "bộ nhớ" của dự án: phiên làm việc sau đọc file này để tiếp tục mà không mất ngữ cảnh.
 
+## Cập nhật 24/11/2026
+- Bản hiện hành **2.1.26** (pre-release; chưa nghiệm thu Windows thật). Tình trạng, việc dở và đề xuất: **`RA_SOAT_TONG_THE_2026-11-24.md`**. Mục "Trạng thái hiện tại" bên dưới là ảnh chụp 18/11 (2.0.33), giữ để tham chiếu.
+
 ## Trạng thái hiện tại (18/11/2026)
 - Nhánh phát hành: `main` · phiên bản **2.0.33** (ghi chú phát hành: *thử nghiệm có kiểm soát*). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`. Kết luận nghiệm thu hiện hành: `ACCEPTANCE_SQLITE_RELEASE.md` §7 (**Chỉ đủ thử nghiệm có kiểm soát**).
 - **Kho dữ liệu:** từ 2.0.29 **SQLite (`data.sqlite`) là nguồn chính mặc định**, `data.json` là bản xuất (quay lui: `HAK_STORAGE=json`). 2.0.30 sửa A01 (kho năm ghi lùi) và A02 (sao lưu giả); 2.0.32 thêm schema v2 (CHECK) và bản chụp SQLite xoay vòng; 2.0.33 phân tích dữ liệu một lần ở đường ghi (chuỗi ghi ≈420–450 ms → ≈290 ms ở 5.000 NV).
