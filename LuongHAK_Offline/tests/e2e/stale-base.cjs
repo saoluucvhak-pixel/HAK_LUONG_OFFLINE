@@ -11,6 +11,8 @@ const APP = path.resolve(__dirname, "../.."), PASS = "StaleBase2026";
 const results = [];
 const ok = (name, cond, extra) => { results.push({ name, pass: !!cond, extra: extra || "" }); console.log((cond ? "PASS " : "FAIL ") + name + (!cond && extra ? " — " + String(extra).slice(0, 400) : "")); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// v2.1.12: KHÔNG dựa vào thời gian ngủ cố định sau khi đóng app (runner Windows chậm từng làm 1 lần đỏ ngẫu nhiên ở bước này, 21/11/2026): chờ ĐIỀU KIỆN thật tối đa `ms`.
+const until = async (fn, ms = 20000) => { const t0 = Date.now(); for (;;) { let v = false; try { v = await fn(); } catch (e) { v = false; } if (v) return true; if (Date.now() - t0 > ms) return false; await sleep(150); } };
 const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex"), iter = 210000; return { id: u.toUpperCase(), tenDangNhap: u, hoTen: n, vaiTro: r, khoa: false, salt, iter, hash: crypto.pbkdf2Sync(PASS, Buffer.from(salt, "hex"), iter, 32, "sha256").toString("hex") }; };
 const seed = () => { const d = fixture(); d.auditlog = []; d.baomat = []; d.schemaVersion = 2; d.sanluong = []; d.chamcong = []; d.nguoidung = [account("admin", "Quản trị giả", "admin")]; return d; };
 const nv = (D) => { const db = new DatabaseSync(path.join(D, "data.sqlite"), { readOnly: true }); try { return db.prepare("SELECT json FROM records WHERE tbl='nhanvien'").all().map((r) => JSON.parse(r.json)["Mã NV"]); } finally { db.close(); } };
@@ -46,7 +48,7 @@ const outsideWrite = (w, ma) => w.evaluate((m) => { const d = JSON.parse(window.
   { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000); answer.ok = true;
     await r.w.evaluate(() => { if (typeof window.hakMakeDirty === "function") window.hakMakeDirty(); });
     ok("Ghi ngoài giao diện (0099)", (await outsideWrite(r.w, "0099")) === true && nv(D).includes("0099"));
-    await r.app.close().catch(() => {}); await sleep(2000);
+    await r.app.close().catch(() => {}); await until(() => asked(r.dialogs)); await sleep(500);
     ok("ĐÓNG: 0099 CÒN NGUYÊN sau khi giao diện đóng — không bị ghi đè (trước v2.0.35: bị mất)", nv(D).includes("0099"), "sqlite: " + nv(D).slice(-3).join(","));
     ok("ĐÓNG: giao diện đã hỏi người dùng (hộp thoại nêu 'thay đổi ở nơi khác')", asked(r.dialogs), JSON.stringify(r.dialogs).slice(0, 160)); }
 
@@ -72,7 +74,7 @@ const outsideWrite = (w, ma) => w.evaluate((m) => { const d = JSON.parse(window.
   // 4. Đối chứng: không có ghi ngoài giao diện → ghi của giao diện vẫn bền, KHÔNG hộp thoại 'nơi khác'
   { const D = fresh(); r = await launch(D); await login(r.w); await sleep(1000); answer.ok = true; const a0 = audit(D);
     await r.w.evaluate(() => { if (typeof window.hakMakeDirty === "function") window.hakMakeDirty(); });
-    await r.app.close().catch(() => {}); await sleep(2000);
+    await r.app.close().catch(() => {}); await until(() => audit(D) > a0); await sleep(500);
     ok("Đối chứng: đóng bình thường → giao diện ghi bền (nhật ký tăng) và không hỏi 'nơi khác'", audit(D) > a0 && !asked(r.dialogs), "trước " + a0 + ", sau " + audit(D) + " | " + JSON.stringify(r.dialogs).slice(0, 120)); }
 
   const fail = results.filter((x) => !x.pass).length;
