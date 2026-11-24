@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.20] — 24/11/2026
+- **Tài liệu nghiệm thu Windows (Q1) + kết quả đo phương án C cho `U-DUR-06c` (Q3, chọn "đo thử C"):** `docs/NGHIEM_THU_WINDOWS_CHECKLIST.md` (17 bước), `docs/WAL_CHECKPOINT_BENCH.md` và công cụ `tests/perf/wal-checkpoint-bench.js`. Chỉ tài liệu và công cụ đo, không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.20.md`.
+
 ## [2.1.19] — 24/11/2026
 - **Báo cáo Bảo hiểm chi tiết có Số sổ BHXH và Ngày sinh (A6-14, Q10 — chủ chọn "thêm" 24/11/2026):** ghép theo Mã NV ở lớp giao diện (không đổi số tiền, không đổi `core/bh-report.js`); thiếu dữ liệu thì có dòng nhắc số người thiếu. Chi tiết: `docs/releases/v2.1.19.md`.
 
