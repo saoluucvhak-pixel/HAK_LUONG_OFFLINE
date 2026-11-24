@@ -21,6 +21,11 @@ async function prepare() {
   const settings = JSON.parse(fs.readFileSync(path.join(D, "settings.json"), "utf8")); ok("Chuẩn bị: đã chọn thư mục SQLite", settings.sqliteDir === SD);
   await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-backup-now]"); await w.selectOption("[data-backup-kind]", "sqlite"); await w.click("[data-backup-now]"); await w.waitForTimeout(3500);
   ok("Chuẩn bị: bản chụp đã chép sang thư mục đã chọn", fs.existsSync(path.join(SD, "data-snapshot.sqlite")), fs.readdirSync(SD).join(","));
+  await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="sqlite"] button:has-text("Thử khôi phục")');
+  await w.waitForSelector('[data-stg-ext="sqlite"]'); await w.waitForTimeout(800);
+  ok("Dòng Sao lưu SQLite hiện bản ngoài máy gần nhất (đọc từ thư mục thật), chưa báo quá cũ", /Bản ngoài máy gần nhất/.test(await w.locator('[data-stg-ext="sqlite"]').innerText()));
+  await w.locator('[data-stg="sqlite"] button:has-text("Thử khôi phục")').click(); await w.waitForSelector('[data-stg-verify="sqlite"]'); await w.waitForTimeout(1500);
+  const dt = await w.locator('[data-stg-verify="sqlite"]').innerText(); ok("Diễn tập khôi phục (không ghi gì) báo đạt + số dòng", /Diễn tập đạt \(không ghi gì\).*\d+ dòng/.test(dt), dt);
   await app.close();
   return { D, SD, staff: db.nhanvien.length };
 }

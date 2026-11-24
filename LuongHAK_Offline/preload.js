@@ -95,7 +95,7 @@ contextBridge.exposeInMainWorld("hakJson", { // 012-A: sao lưu JSON vào thư m
   get: () => ipcRenderer.invoke("json-get"), list: () => ipcRenderer.invoke("json-list"), setDir: (dir) => ipcRenderer.invoke("json-set-dir", dir), backup: () => ipcRenderer.invoke("json-backup")
 });
 contextBridge.exposeInMainWorld("hakSqlite", { // v2.1.5: thư mục sao lưu SQLite chọn được
-  get: () => ipcRenderer.invoke("sqlite-get"), setDir: (dir) => ipcRenderer.invoke("sqlite-set-dir", dir), clearDir: () => ipcRenderer.invoke("sqlite-clear-dir"), external: () => ipcRenderer.invoke("sqlite-external")
+  get: () => ipcRenderer.invoke("sqlite-get"), setDir: (dir) => ipcRenderer.invoke("sqlite-set-dir", dir), clearDir: () => ipcRenderer.invoke("sqlite-clear-dir"), external: () => ipcRenderer.invoke("sqlite-external"), drill: () => ipcRenderer.invoke("sqlite-drill")
 });
 contextBridge.exposeInMainWorld("hakDocs", {
   add: (data, info) => ipcRenderer.invoke("doc-add", data, info),   // Uint8Array, { name, user, note, pages } → { ok, id, sha256, duplicate, size } | { ok:false, error }
