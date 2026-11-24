@@ -86,7 +86,8 @@ test("U-DEDUP-T7 nhập tay tiền cơm cùng Ngày + Mã NV với dòng đã c�
   const r = repoFor(db).plan("insert", "tiencom", null, { "Ngày": OPEN + "-12", "Mã NV": "NV01", "Số suất cơm": "2" }, { what: "thêm dòng", checkDup: undefined }); // đúng tham số app truyền (CT_KEY.tiencom = undefined)
   assert.equal(r.ok, false, "hiện tại cho thêm dòng trùng"); assert.equal(r.code, "dup");
   const r2 = repoFor(db).plan("insert", "tiencom", null, { "Ngày": OPEN + "-12", "Mã NV": "nv01", "Số suất cơm": "2" }, { what: "thêm dòng" });
-  assert.equal(r2.ok, false, "nhập tay 'nv01' cũng phải bị chặn theo khóa chuẩn hóa"); assert.equal(r2.code, "dup");
+  // v2.1.16 (mục 7): 'nv01' không khớp Mã NV trong Nhân sự → bị chặn SỚM HƠN bởi input-safety (code 'input', gợi ý "NV01"); vẫn là CHẶN, không lọt vào bảng.
+  assert.equal(r2.ok, false, "nhập tay 'nv01' vẫn phải bị chặn"); assert.equal(r2.code, "input"); assert.match(r2.error || r2.msg || r2.message || "", /gần giống "NV01"/);
 });
 
 // ---- T8: nhập tay Phiếu cân 'pc-001' cùng kỳ lọt cả lúc tính lương ----

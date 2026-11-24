@@ -64,7 +64,7 @@ test("U-ARX-06 file xlsx: 3 sheet, tiêu đề, đóng băng, bộ lọc, tổng
   assert.ok(hr >= 3 && hr <= 7, "đóng băng dưới dòng tiêu đề, ySplit=" + hr);
   assert.ok(ws.autoFilter, "có bộ lọc");
   assert.equal(ws.getCell(hr, 1).value, "STT");
-  const dateCol = X.DETAIL_COLS.indexOf("Ngày cân") + 1, maCol = X.DETAIL_COLS.indexOf("Mã NV") + 1;
+  const dateCol = X.SHEET_COLS.indexOf("Ngày cân") + 1, maCol = X.SHEET_COLS.indexOf("Mã NV") + 1;
   assert.equal(ws.getCell(hr + 1, dateCol).numFmt, "dd/mm/yyyy"); assert.ok(ws.getCell(hr + 1, dateCol).value instanceof Date);
   assert.equal(ws.getCell(hr + 1, maCol).numFmt, "@");
   const text = JSON.stringify(ws.getSheetValues());
@@ -81,7 +81,7 @@ test("U-ARX-08 chỗ ký: cột ký rộng, dòng đủ cao; Mã NV 0 đầu gi�
   const al = { attendanceReview: [{ phieu: "PC-9", ngay: "2026-10-05", maPB: "T1", kl: 5, soNguoi: 1, vang: "", recipients: [emp("X", "X")], excluded: [], employees: [emp("00123", "=HYPERLINK(\"http://x\")")] }] };
   const vms = X.toViewModels(X.build(Object.assign({}, base, { allocation: al })), { loai: "sanluong", ky: "2026-10" });
   const ws = RX.buildMany(ExcelJS, vms, {}).worksheets[0], hr = ws.views[0].ySplit;
-  const signCol = X.DETAIL_COLS.indexOf("Chủ/Trưởng bộ phận xác nhận (ký)") + 1, maCol = X.DETAIL_COLS.indexOf("Mã NV") + 1, nameCol = X.DETAIL_COLS.indexOf("Họ và tên") + 1;
+  const signCol = X.SHEET_COLS.indexOf("Chủ/Trưởng bộ phận xác nhận (ký)") + 1, maCol = X.SHEET_COLS.indexOf("Mã NV") + 1, nameCol = X.SHEET_COLS.indexOf("Họ và tên") + 1;
   assert.ok(ws.getColumn(signCol).width >= 28, "cột ký đủ rộng: " + ws.getColumn(signCol).width);
   assert.ok(ws.getRow(hr + 1).height >= 24, "dòng đủ cao để ký");
   assert.equal(ws.getCell(hr + 1, maCol).value, "00123"); assert.equal(ws.getCell(hr + 1, maCol).numFmt, "@");
@@ -94,4 +94,13 @@ test("U-ARX-09 hiệu năng: 100.000 dòng người × phiếu dựng < 2 s (có
   const al = { attendanceReview: Array.from({ length: 20 }, (_, p) => ({ phieu: "P" + p, ngay: "2026-10-05", maPB: "T", kl: 30, soNguoi: 10, vang: "", recipients: people.slice(0, 10), excluded: [], employees: people })) };
   const t = Date.now(), d = X.build({ allocation: al, loai: "sanluong", ky: "2026-10", chamcong: cc, confirmed: [], deptName: (m) => m, plates: {} });
   assert.equal(d.detail.length, 100000); assert.ok(Date.now() - t < 2000, "mất " + (Date.now() - t) + " ms");
+});
+
+test("U-ARX-10 (mục 6) sheet đối chiếu chỉ 14 cột và in A4 ngang (paperSize 9), cột bị bớt nằm ở tiêu đề/sheet 2; dữ liệu dòng vẫn đủ trường", () => {
+  assert.equal(X.SHEET_COLS.length, 14); assert.ok(X.SHEET_COLS.every((c) => X.DETAIL_COLS.includes(c)), "mọi cột sheet đều có trong dữ liệu dòng");
+  const d = X.build(base), vms = X.toViewModels(d, { loai: "sanluong", ky: "2026-10", congTy: "T", kyText: "Kỳ làm việc: 10/2026", trangThai: "Đã chốt", ngayLap: "24/11/2026", nguoiLap: "admin" });
+  assert.equal(vms[0].cols.length, 14); const ws = RX.buildMany(ExcelJS, vms, {}).worksheets[0];
+  assert.equal(ws.pageSetup.paperSize, 9, "A4 (9), không phải A3 (8)"); assert.equal(ws.pageSetup.orientation, "landscape");
+  assert.match(JSON.stringify(ws.getSheetValues()), /Điều kiện: ô công = 0\/trống/, "điều kiện vào danh sách ghi ở phạm vi");
+  const r = d.detail[0]; ["Kỳ", "Loại", "Phòng ban", "Có trong NV vắng của phiếu?", "Người xác nhận", "Lý do"].forEach((k) => assert.ok(k in r, "dữ liệu dòng vẫn có " + k));
 });

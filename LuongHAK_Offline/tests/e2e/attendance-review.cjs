@@ -38,10 +38,10 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
   const wbX = await getXlsx(); ok("Tải được DoiChieuChamCong_SanLuong_2026-10_TAM.xlsx", !!wbX);
   if (wbX) {
     const ws = wbX.worksheets[0], hr = ws.views[0].ySplit, head = []; ws.getRow(hr).eachCell((c) => head.push(String(c.value)));
-    ok("Sheet 1 có đủ cột: Số phiếu, Mã NV, Họ và tên, Tình trạng chấm công, Có trong NV vắng, Trạng thái xác nhận, cột ký", ["Số phiếu", "Mã NV", "Họ và tên", "Tình trạng chấm công ngày đó", "Có trong NV vắng của phiếu?", "Trạng thái xác nhận", "Chủ/Trưởng bộ phận xác nhận (ký)"].every((c) => head.includes(c)), head.join("|"));
+    ok("Sheet 1 có đủ cột chính (14 cột, vừa A4): Số phiếu, Mã NV, Họ và tên, Tình trạng chấm công, Trạng thái xác nhận, cột ký", ["Số phiếu", "Mã NV", "Họ và tên", "Tình trạng chấm công ngày đó", "Trạng thái xác nhận", "Chủ/Trưởng bộ phận xác nhận (ký)"].every((c) => head.includes(c)), head.join("|"));
     let n = 0; for (let r = hr + 1; r <= ws.rowCount; r++) { const v = ws.getRow(r).getCell(head.indexOf("Mã NV") + 1).value; if (v && /\S/.test(String(v)) && typeof ws.getRow(r).getCell(1).value === "number") n++; }
     ok("Số dòng = số người cần xác nhận đang hiện trên màn (" + empLines + ")", n === empLines && n >= 2, n + " vs " + empLines);
-    ok("3 sheet; đóng băng + bộ lọc; kỳ chưa chốt có 'tính tạm'", wbX.worksheets.length === 3 && !!ws.autoFilter && /tính tạm|NHÁP/i.test(JSON.stringify(ws.getSheetValues())));
+    ok("Sheet 1: 14 cột, in A4 ngang; 3 sheet; đóng băng + bộ lọc; kỳ chưa chốt có 'tính tạm'", head.length === 14 && ws.pageSetup.paperSize === 9 && wbX.worksheets.length === 3 && !!ws.autoFilter && /tính tạm|NHÁP/i.test(JSON.stringify(ws.getSheetValues())));
   }
   await w.click('.ar-export button:has-text("Xuất tất cả")'); const wbAll = await getXlsx(); ok("Xuất tất cả (bỏ lọc) cũng tải được", !!wbAll);
   // Ban dăm xuất hàng: cùng danh sách, tên tệp BanDam, cột Loại đúng
@@ -49,8 +49,8 @@ const account = (u, n, r) => { const salt = crypto.randomBytes(16).toString("hex
   await w.click('.ar-export button:has-text("Xuất Excel danh sách cần xác nhận")');
   let bdName = null; for (let i = 0; i < 60 && !bdName; i++) { await w.waitForTimeout(300); bdName = fs.readdirSync(DLD).find((n) => /^DoiChieuChamCong_BanDam_2026-10_TAM\.xlsx$/.test(n)); }
   ok("Ban dăm: tải được DoiChieuChamCong_BanDam_2026-10_TAM.xlsx", !!bdName);
-  if (bdName) { await w.waitForTimeout(300); const wbB = new ExcelJS.Workbook(); await wbB.xlsx.load(fs.readFileSync(path.join(DLD, bdName))); const wsB = wbB.worksheets[0], hrB = wsB.views[0].ySplit, hB = []; wsB.getRow(hrB).eachCell((c) => hB.push(String(c.value))); const lc = hB.indexOf("Loại") + 1;
-    ok("Ban dăm: cột Loại = 'Ban dăm xuất hàng' và có ≥ 1 người", wsB.getRow(hrB + 1).getCell(lc).value === "Ban dăm xuất hàng" && /BAN DĂM/.test(JSON.stringify(wsB.getSheetValues()))); fs.unlinkSync(path.join(DLD, bdName)); }
+  if (bdName) { await w.waitForTimeout(300); const wbB = new ExcelJS.Workbook(); await wbB.xlsx.load(fs.readFileSync(path.join(DLD, bdName))); const wsB = wbB.worksheets[0], hrB = wsB.views[0].ySplit;
+    ok("Ban dăm: tiêu đề sheet ghi BAN DĂM XUẤT HÀNG (cột Loại đã bỏ để vừa A4) và có ≥ 1 người", /BAN DĂM XUẤT HÀNG/.test(JSON.stringify(wsB.getSheetValues())) && wsB.rowCount > hrB + 1 && wsB.pageSetup.paperSize === 9); fs.unlinkSync(path.join(DLD, bdName)); }
   await w.selectOption("#main .card .bar select", "sanluong"); await w.waitForSelector("[data-attendance-review] .ar-card", { timeout: 15000 });
   // xác nhận TỪNG DÒNG: phiếu 1, người `who`
   await w.locator(".ar-card").first().locator('.ar-emp button:has-text("Xác nhận có làm")').first().click(); await w.waitForSelector(".ar-pickrow");

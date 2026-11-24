@@ -6,6 +6,9 @@
   "use strict";
   var DETAIL_COLS = ["STT", "Kỳ", "Loại", "Ngày cân", "Số phiếu", "Biển số xe", "Mã tổ", "Tên tổ", "KL (tấn) / Số xe", "Mã NV", "Họ và tên", "Phòng ban",
     "Tình trạng chấm công ngày đó", "Có trong NV vắng của phiếu?", "Số người được chia", "Phần mỗi người", "Trạng thái xác nhận", "Người xác nhận", "Lý do", "Chủ/Trưởng bộ phận xác nhận (ký)"];
+  // v2.1.16 (mục 6, chủ chọn A4): sheet "CanXacNhan" chỉ 14 cột để vừa A4 ngang (report-xlsx dùng A3 khi > 14 cột). Dữ liệu từng dòng (build) vẫn đủ trường; cột bị bớt đã nằm ở tiêu đề / phạm vi / sheet 2:
+  //  Kỳ, Loại → tiêu đề + dòng kỳ; Phòng ban = Tên tổ (trùng); "Có trong NV vắng?" luôn "Không" (là điều kiện vào danh sách, ghi ở phạm vi); Người xác nhận, Lý do → sheet "DaXacNhanCoLam".
+  var SHEET_COLS = ["STT", "Ngày cân", "Số phiếu", "Biển số xe", "Mã tổ", "Tên tổ", "KL (tấn) / Số xe", "Mã NV", "Họ và tên", "Tình trạng chấm công ngày đó", "Số người được chia", "Phần mỗi người", "Trạng thái xác nhận", "Chủ/Trưởng bộ phận xác nhận (ký)"];
   var KHONG_DI_LAM = { PN: 1, CL: 1, CC: 1 };
   function loaiLabel(loai) { return loai === "bandam" ? "Ban dăm xuất hàng" : "Sản lượng"; }
   function reviewKey(phieu, ngay, maPB) { return [String(phieu == null ? "" : phieu).trim(), ngay, String(maPB == null ? "" : maPB).trim()].join("|"); }
@@ -80,10 +83,10 @@
   /** View-model cho ui/report-xlsx.js buildMany: sheet đầu = danh sách phẳng (tiêu đề, đóng băng, lọc, tổng ở chân), sheet 2 = đã xác nhận, sheet 3 = tổng hợp theo tổ. */
   function toViewModels(data, info) {
     info = info || {};
-    var base = { congTy: info.congTy || "", kyText: info.kyText || "", phamVi: info.phamVi || "Toàn bộ", ngayLap: info.ngayLap || "", nguoiLap: info.nguoiLap || "", trangThai: info.trangThai || "", donVi: "Người / phiếu cân" };
+    var base = { congTy: info.congTy || "", kyText: info.kyText || "", phamVi: (info.phamVi || "Toàn bộ") + " · Điều kiện: ô công = 0/trống và không có trong NV vắng của phiếu", ngayLap: info.ngayLap || "", nguoiLap: info.nguoiLap || "", trangThai: info.trangThai || "", donVi: "Người / phiếu cân" };
     var d = Object.assign({}, base, {
       sheetName: "CanXacNhan", title: "DANH SÁCH CẦN XÁC NHẬN CHẤM CÔNG — " + loaiLabel(info.loai).toLocaleUpperCase("vi-VN"),
-      cols: DETAIL_COLS.map(function (l) { return col(l, /^(STT|Số người được chia)$/.test(l) ? "qty" : /^(KL|Phần mỗi người)/.test(l) ? "qty3" : "text", /^(Lý do|Họ và tên)$/.test(l)); }),
+      cols: SHEET_COLS.map(function (l) { return col(l, /^(STT|Số người được chia)$/.test(l) ? "qty" : /^(KL|Phần mỗi người)/.test(l) ? "qty3" : "text", /^(Họ và tên)$/.test(l)); }),
       rows: data.detail, tong: {}, rowHeight: 24, tongNhan: "TỔNG: " + data.counts.people + " người-phiếu · " + data.counts.receipts + " phiếu"
     });
     var c = Object.assign({}, base, {
@@ -100,6 +103,6 @@
     return [d, c, t];
   }
 
-  var api = { build: build, toViewModels: toViewModels, filename: filename, reviewKey: reviewKey, dayStatus: dayStatus, DETAIL_COLS: DETAIL_COLS };
+  var api = { build: build, toViewModels: toViewModels, filename: filename, reviewKey: reviewKey, dayStatus: dayStatus, DETAIL_COLS: DETAIL_COLS, SHEET_COLS: SHEET_COLS };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else { root.HAKUi = root.HAKUi || {}; root.HAKUi.attendanceReviewExport = api; }
 })(typeof window !== "undefined" ? window : this);
