@@ -1,6 +1,6 @@
 {
   "name": "luong-hak",
-  "version": "2.1.20",
+  "version": "2.1.21",
   "description": "Tính lương HAK - chạy offline",
   "main": "main.js",
   "author": "HAK",
@@ -15,6 +15,7 @@
     "test:attendance-review-closed": "node tests/e2e/attendance-review-closed.cjs",
     "test:close-orphans": "node tests/e2e/close-orphans.cjs",
     "test:slip-pdf": "node tests/e2e/slip-pdf.cjs",
+    "test:payment-voucher": "node tests/e2e/payment-voucher.cjs",
     "test:period-restore-frozen": "node tests/e2e/period-restore-frozen.cjs",
     "test:sqlite-dir": "node tests/e2e/sqlite-dir.cjs",
     "test:sqlite-restore-dir": "node tests/e2e/sqlite-restore-from-dir.cjs",

@@ -16,6 +16,19 @@
     }));
     if (type === "TONG_HOP_NV") { var cb = h("input", { type: "checkbox", "data-th-nhom": "1" }); cb.checked = !!st.thNhom; cb.addEventListener("change", function () { st.thNhom = cb.checked; render(); }); tools.appendChild(h("label", { class: "chip", title: "Mỗi phòng ban một nhóm, có dòng cộng từng phòng; in và Excel theo đúng dạng nhóm" }, [cb, document.createTextNode(" Nhóm theo phòng ban")])); }
     if (type === "THANH_TOAN") { tools.appendChild(btn("Lập chứng từ chuyển khoản", "", function () { payLap(PLG.HT.CK, src); })); tools.appendChild(btn("Lập phiếu chi tiền mặt", "", function () { payLap(PLG.HT.TM, src); })); }
+    // v2.1.22 (A6-14 / Q10 phần 3/3): in PHIẾU CHI tiền mặt (PDF) từ sổ chứng từ — mỗi chứng từ tiền mặt 1 trang A4, có BẰNG CHỮ và khối ký (ui/payment-voucher.js)
+    if (type === "SO_CHUNG_TU") tools.appendChild(btn("⬇ In phiếu chi tiền mặt (PDF)", "", function () {
+      if (!need("export", "in phiếu chi")) return;
+      var PV = window.HAKUI && window.HAKUI.paymentVoucher; if (!PV) { alert("Thiếu mô-đun phiếu chi"); return; }
+      var ky = kyKey(st.nam, st.thang), vs = PV.pick(payLines().filter(function (l) { return l["Kỳ"] === ky; }));
+      if (!vs.length) { toast("Kỳ " + ky + " chưa có chứng từ tiền mặt nào để in"); return; }
+      var html = PV.html({ congTy: congTy()["Tên công ty"] || "", diaChi: congTy()["Địa chỉ"] || "", vouchers: vs });
+      if (!window.hakReport) { pdfFallbackPrint(html); toast("Bản chạy bằng trình duyệt: chọn “Lưu thành PDF” trong hộp thoại In"); return; }
+      toast("Đang tạo PDF " + vs.length + " phiếu chi…");
+      window.hakReport.pdf({ html: html, name: PV.filename(ky, vs.length, vs.length === 1 ? vs[0].so : ""), landscape: false, footer: (congTy()["Tên công ty"] ? congTy()["Tên công ty"] + " · " : "") + "Phiếu chi " + ky }).then(function (r) {
+        if (r && r.ok) { audit("In phiếu chi tiền mặt", ky + " · " + vs.length + " phiếu · " + r.name); toast("Đã lưu PDF: " + r.name + " (" + r.pages + " trang)"); } else alert("Không xuất được PDF: " + (r && r.error || "lỗi không rõ"));
+      }, function (e) { alert("Không xuất được PDF: " + (e && e.message || e)); });
+    }, "Mỗi chứng từ chi TIỀN MẶT (không tính đã hủy) một trang A4: số tiền bằng chữ và chỗ ký. Chỉ in, không lập hay sửa chứng từ."));
     card.appendChild(tools);
     var kp = [h("div", { class: "kpi", html: "<small>Số dòng" + (vm.loc.length ? " (đang lọc)" : "") + "</small><b>" + vm.soDong + (vm.loc.length ? "/" + vm.soDongGoc : "") + "</b>" })];
     Object.keys(vm.tong).filter(function (k) { return k !== "Số người"; }).slice(-2).forEach(function (k) { kp.push(h("div", { class: "kpi", html: "<small>" + esc(k) + "</small><b>" + fmt(vm.tong[k]) + "</b>" })); });
