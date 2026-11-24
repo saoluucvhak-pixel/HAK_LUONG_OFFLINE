@@ -24,7 +24,7 @@
   function payXlsx(vm, type) {
     if (!payExportOk(vm, type)) return;
     if (!window.ExcelJS || !window.HAKUi || !window.HAKUi.reportXlsx) { alert("Thiếu thư viện Excel"); return; }
-    var wb = window.HAKUi.reportXlsx.build(window.ExcelJS, vm, { chuKy: type === "TIEN_MAT" || type === "THANH_TOAN" ? ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] : ["Người lập", "Kế toán trưởng", "Giám đốc"], nguoiLap: vm.nguoiLap });
+    var wb = window.HAKUi.reportXlsx.build(window.ExcelJS, Object.assign({}, vm, { ghiChu: vm.canhbao && vm.canhbao.length ? vm.canhbao : undefined }), { chuKy: type === "TIEN_MAT" || type === "THANH_TOAN" ? ["Người lập", "Kế toán trưởng", "Thủ quỹ", "Giám đốc"] : ["Người lập", "Kế toán trưởng", "Giám đốc"], nguoiLap: vm.nguoiLap });
     wb.xlsx.writeBuffer().then(function (buf) {
       download(vm.file + "_" + vm.kyKey + payTamSuffix(vm) + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
       audit("Xuất Excel " + vm.title, vm.ky + " · " + vm.soDong + " dòng · phạm vi: " + vm.phamVi);

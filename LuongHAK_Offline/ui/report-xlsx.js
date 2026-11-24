@@ -142,6 +142,8 @@
       });
       lastData = r; r++;
     }
+    // v2.1.21 (A6-24 / Q10): cảnh báo của báo cáo (vd. thiếu Mã số thuế) IN ở Excel như ở PDF — nằm DƯỚI bảng, không làm tăng vùng đóng băng
+    if (vm.ghiChu && vm.ghiChu.length && nc >= 1) { r += 1; vm.ghiChu.forEach(function (g) { if (nc > 1) ws.mergeCells(r, 1, r, nc); var gc = ws.getCell(r, 1); gc.value = "Cảnh báo: " + g; gc.font = { italic: true, color: { argb: "FFB00020" } }; gc.alignment = { wrapText: true, vertical: "top" }; ws.getRow(r).height = Math.max(18, 15 * Math.ceil(String(g).length / Math.max(40, nc * 12))); r += 1; }); }
     // chữ ký
     r += 1;
     var ck = o.chuKy || vm.chuKy || ["Người lập", "Kế toán trưởng", "Giám đốc"], per = Math.max(1, Math.floor(nc / ck.length));
