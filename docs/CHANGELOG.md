@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.12] — 24/11/2026
+- **Khôi phục theo kỳ không ghi đè phụ lục của kỳ đã chốt (mục 8, Q-15/T-05, chủ chọn "chặn" 24/11/2026):** `planPeriodRestore` chặn khi gói làm đổi phụ lục hợp đồng mà kỳ đã chốt đang dùng để tính lương (nêu kỳ, phụ lục, cách làm); thêm `docs/KE_HOACH_QUY_TOI.md` (kế hoạch quý tới: duyệt lương + quyết toán thuế năm — chưa làm mã). Chi tiết: `docs/releases/v2.1.12.md`.
+
 ## [2.1.11] — 24/11/2026
 - **Chặn chốt kỳ khi Thưởng/Tạm ứng/Suất cơm có Mã NV sai (A2-03/T-02) + Danh sách chuyển khoản ở Tính lương cùng quy tắc với Bảng kê chuyển khoản (A6-03, chủ chọn phương án b):** (1) cổng Chốt kỳ chặn khi có Mã NV sai hoa/thường hoặc không tồn tại ở psluong/ungluong/tiencom của kỳ (không tự sửa dữ liệu, không đổi công thức); (2) "Danh sách chuyển khoản" trừ số đã chi/đang chờ chi, có cột Đã thanh toán / Đang chờ chi / Kiểm tra, kỳ chưa chốt ghi TẠM TÍNH (sheet `ChuyenKhoan_TAM`). Chi tiết: `docs/releases/v2.1.11.md`.
 

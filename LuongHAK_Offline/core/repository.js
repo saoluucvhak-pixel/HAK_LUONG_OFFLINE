@@ -511,6 +511,19 @@
       if (res.add.length || res.change.length || res.remove.length) { out.global[t] = res; out.counts.add += res.add.length; out.counts.change += res.change.length; out.counts.remove += res.remove.length; }
     });
     if (!out.ok) return out;
+    // v2.1.12 (Q-15 / T-05, chủ chọn "chặn" 24/11/2026): phụ lục hợp đồng đã được dùng để tính lương cho kỳ ĐÃ CHỐT thì KHÔNG ai được sửa/xóa — kể cả bằng khôi phục theo kỳ (cùng quy tắc `repository.plan`).
+    if (out.global.chitiethd) {
+      var gh = out.global.chitiethd, hit = [], hitKy = {};
+      var mark = function (row) { var fz = GRD.frozenAppendix(db, row); if (fz.length) { hit.push(row["Mã NV"] + " " + row["Số HĐLĐ"] + " (hiệu lực từ " + String(row["Hiệu lực từ"] || "").slice(0, 10) + ")"); fz.forEach(function (k) { hitKy[k] = 1; }); } };
+      gh.change.forEach(function (c) { mark(c.before); });
+      if (out.deletes.allowed) gh.remove.forEach(function (x) { if (!x.reason) mark(x.row); });
+      if (hit.length) {
+        out.ok = false;
+        out.blocked = "Gói làm đổi/xóa " + hit.length + " phụ lục hợp đồng mà kỳ đã chốt " + Object.keys(hitKy).sort().join(", ") + " đang dùng để tính lương: " + hit.slice(0, 5).join("; ") + (hit.length > 5 ? "; …" : "") +
+          ". Phụ lục đã dùng cho kỳ đã chốt không được sửa/xóa (Q-15), kể cả khi khôi phục. Không khôi phục. Muốn thay đổi: thêm phụ lục MỚI, hoặc mở chốt kỳ đó theo quy trình (có lý do) rồi làm lại.";
+        return out;
+      }
+    }
     // bảng KHÔNG có khóa (so theo nội dung): dòng máy không có trong gói + dòng gói không có ở máy cùng lúc = có thể là dòng bị SỬA → không đoán, chặn
     Object.keys(out.global).forEach(function (t) { var g = out.global[t]; if (g.byContent && g.add.length && g.remove.length) fail("Bảng '" + t + "' không có khóa nhận diện: " + g.add.length + " dòng trong gói và " + g.remove.length + " dòng ở máy không khớp nhau — không biết dòng nào là bản sửa; không khôi phục để tránh nhân đôi."); });
     if (!out.ok) return out;
