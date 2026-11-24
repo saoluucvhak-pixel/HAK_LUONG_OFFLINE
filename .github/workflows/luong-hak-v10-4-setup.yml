@@ -144,7 +144,7 @@ jobs:
           name: HAK-LUONG-V10.4-Windows-Setup-${{ github.run_number }}
           path: LuongHAK_Offline/dist/*Setup*.exe
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7 # v2.1.17: bộ cài ~142 MB/lần chạy; bản chính thức nằm ở Releases — giữ ngắn để không đầy hạn mức lưu trữ Actions
   electron-full-e2e:
     name: E2E trên Electron thật
     needs: check
@@ -191,7 +191,7 @@ jobs:
           path: |
             LuongHAK_Offline/tests/e2e/last-e2e-result.json
             LuongHAK_Offline/tests/e2e/shared-ocr-eval.json
-          retention-days: 14
+          retention-days: 7
 
   electron-e2e:
     needs: check
@@ -278,7 +278,7 @@ jobs:
             LuongHAK_Offline/tests/e2e/year-archive-result.json
             LuongHAK_Offline/tests/e2e/document-review-result.json
             LuongHAK_Offline/tests/e2e/screenshots/*.png
-          retention-days: 14
+          retention-days: 7
   workspace-visual:
     needs: check
     runs-on: windows-latest
@@ -316,7 +316,7 @@ jobs:
         with:
           name: HAK-V10.3-V10.4-Visual-${{ github.run_number }}
           path: visual-evidence/
-          retention-days: 30
+          retention-days: 7
   inherited-quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -393,7 +393,7 @@ jobs:
             hak-architecture-results.json
             hak-project-memory.jsonl
             hak-skill-proposals.json
-          retention-days: 30
+          retention-days: 7
 
   consolidation:
     runs-on: ubuntu-latest
