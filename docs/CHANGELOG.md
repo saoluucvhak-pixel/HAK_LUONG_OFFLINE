@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.10] — 24/11/2026
+- **CI Windows chạy thêm 5 E2E (chủ duyệt đề xuất mục 12, 24/11/2026):** snapshot-cache, attendance-review, attendance-review-closed, sqlite-dir, sqlite-restore-from-dir nay cũng chạy trong job `electron-e2e` (Windows); timeout job 20 → 35 phút. Không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.10.md`.
+
 ## [2.1.9] — 24/11/2026
 - **CI chạy thêm 5 E2E trên Electron thật (chủ yêu cầu 24/11/2026):** `test:snapshot`, `test:attendance-review`, `test:attendance-review-closed`, `test:sqlite-dir`, `test:sqlite-restore-dir` được nối vào job "E2E trên Electron thật" (gồm 3 bước của PR #185); timeout job 20 → 35 phút. Không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.9.md`.
 
