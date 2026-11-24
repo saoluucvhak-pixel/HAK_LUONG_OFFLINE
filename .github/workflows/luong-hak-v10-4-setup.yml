@@ -192,7 +192,7 @@ jobs:
   electron-e2e:
     needs: check
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: LuongHAK_Offline
@@ -250,6 +250,16 @@ jobs:
         run: node tests/e2e/input-filter-dept.cjs
         env:
           E2E_SHOTS: tests/e2e/screenshots
+      - name: Verify report snapshot cache and app-shell update on Windows
+        run: node tests/e2e/snapshot-cache.cjs
+      - name: Verify attendance-review cards and flat Excel export on Windows
+        run: node tests/e2e/attendance-review.cjs
+      - name: Verify attendance-review Excel export from a closed period on Windows
+        run: node tests/e2e/attendance-review-closed.cjs
+      - name: Verify selectable SQLite backup folder on Windows
+        run: node tests/e2e/sqlite-dir.cjs
+      - name: Verify restore from the chosen SQLite folder on Windows
+        run: node tests/e2e/sqlite-restore-from-dir.cjs
       - name: Upload Electron test evidence
         if: always()
         uses: actions/upload-artifact@v7
