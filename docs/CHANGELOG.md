@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.11] — 24/11/2026
+- **Chặn chốt kỳ khi Thưởng/Tạm ứng/Suất cơm có Mã NV sai (A2-03/T-02) + Danh sách chuyển khoản ở Tính lương cùng quy tắc với Bảng kê chuyển khoản (A6-03, chủ chọn phương án b):** (1) cổng Chốt kỳ chặn khi có Mã NV sai hoa/thường hoặc không tồn tại ở psluong/ungluong/tiencom của kỳ (không tự sửa dữ liệu, không đổi công thức); (2) "Danh sách chuyển khoản" trừ số đã chi/đang chờ chi, có cột Đã thanh toán / Đang chờ chi / Kiểm tra, kỳ chưa chốt ghi TẠM TÍNH (sheet `ChuyenKhoan_TAM`). Chi tiết: `docs/releases/v2.1.11.md`.
+
 ## [2.1.10] — 24/11/2026
 - **CI Windows chạy thêm 5 E2E (chủ duyệt đề xuất mục 12, 24/11/2026):** snapshot-cache, attendance-review, attendance-review-closed, sqlite-dir, sqlite-restore-from-dir nay cũng chạy trong job `electron-e2e` (Windows); timeout job 20 → 35 phút. Không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.10.md`.
 
