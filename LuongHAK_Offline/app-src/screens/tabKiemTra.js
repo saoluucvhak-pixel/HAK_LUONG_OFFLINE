@@ -20,7 +20,7 @@
       tr.appendChild(h("td", { text: r.id }));
       tr.appendChild(h("td", { class: "kt-" + r.muc.toLowerCase(), html: "<b>" + (r.muc === "ERROR" ? "⛔ ERROR" : r.muc === "WARNING" ? "⚠ WARNING" : "✓ INFO") + "</b>" }));
       tr.appendChild(h("td", { class: "t", html: "<b>" + esc(r.ten) + "</b>" }));
-      tr.appendChild(h("td", { class: "t", html: r.chiTiet.slice(0, 8).map(esc).join("<br>") + (r.chiTiet.length > 8 ? "<br>…(" + (r.chiTiet.length - 8) + " dòng nữa — xem trong file Excel)" : "") }));
+      tr.appendChild(h("td", { class: "t", html: "<div class=\"kt-detail\">" + r.chiTiet.slice(0, 200).map(esc).join("<br>") + (r.chiTiet.length > 200 ? "<br>…(" + (r.chiTiet.length - 200) + " dòng nữa — xem trong file Excel)" : "") + "</div>" }));
       var act = h("td"); if (r.goto && r.muc !== "INFO") act.appendChild(btn("Đi tới dữ liệu", "", function () { ktDi(r.goto); })); tr.appendChild(act);
       tb.appendChild(tr);
     });

@@ -9,7 +9,7 @@ const fs = require("node:fs"), path = require("node:path");
 const TOP_ONE_ROW = 80, TOP_TWO_ROWS = 120;
 const INPUT_SCREENS = ["chamcong", "sanluong", "bandam", "tiencom", "psluong", "ungluong"], MIN_ROWS = 12;
 // Q12 (một màn một PR): màn báo cáo đã sửa — ở 1366×768 phải thấy ≥ FIXED_MIN_ROWS dòng khi mở. Danh sách chỉ được DÀI THÊM, không rút bớt.
-const FIXED_REPORT_SCREENS = ["rp_thanhtoan", "rp_bd"], FIXED_MIN_ROWS = 4;
+const FIXED_REPORT_SCREENS = ["rp_thanhtoan", "rp_bd", "ktbl"], FIXED_MIN_ROWS = 4;
 const SIZES = [{ w: 1366, h: 768 }, { w: 1920, h: 1080 }, { w: 1024, h: 768 }];
 
 
