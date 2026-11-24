@@ -1,13 +1,13 @@
   // ---------- Chốt kỳ lương ----------
   function kyChot(ky) { return db.kyluong.filter(function (k) { return k.ky === ky; })[0] || null; }
   function excelSheets(r, ky) {
-    var mm = String(ky).split("-");
-    var ck = r.bangluong.filter(function (x) { return x["HTTT"] === "Chuyển khoản" && x["Thực lĩnh"] > 0; }).map(function (x, i) { return { "STT": i + 1, "Mã NV": x["Mã NV"], "Họ và tên": x["Họ và tên"], "Số tài khoản": x["Số tài khoản"], "Ngân hàng": x["Ngân hàng"], "Số tiền": x["Thực lĩnh"], "Nội dung": "Luong T" + (+mm[1]) + "/" + mm[0] + " " + x["Mã NV"] }; });
+    // v2.1.11 (A6-03, phương án (b)): cùng quy tắc "Bảng kê chuyển khoản" — trừ số đã chi/đang chờ chi, kiểm tài khoản, kỳ chưa chốt ghi TẠM TÍNH (ui/transfer-list.js)
+    var tl = window.HAKUI.transferList.build(r.bangluong, ky, { chot: !!kyChot(ky), lines: payLines(), outstanding: PLG.outstanding, isChuyenKhoan: function (v) { return PLG.hinhThucCua(v) === PLG.HT.CK; } });
     return {
       bl: { name: "BangLuong", cols: COLS_FULL.concat(["HTTT", "Số tài khoản", "Ngân hàng"]), rows: r.bangluong },
       bh: { name: "BHXH", cols: r.bhxh[0] ? Object.keys(r.bhxh[0]) : ["Mã NV"], rows: r.bhxh },
       tn: { name: "ThueTNCN", cols: r.tncn[0] ? Object.keys(r.tncn[0]) : ["Mã NV"], rows: r.tncn },
-      ck: { name: "ChuyenKhoan", cols: ["STT", "Mã NV", "Họ và tên", "Số tài khoản", "Ngân hàng", "Số tiền", "Nội dung"], rows: ck }
+      ck: { name: tl.name, cols: tl.cols, rows: tl.rows }
     };
   }
   function payrollReportDetails(nam, thang, payroll) {
@@ -264,6 +264,8 @@
     // v2.1.4: người đã nghỉ / hợp đồng hết hạn nhưng chưa có Ngày chấm dứt mà vẫn nằm trong bảng lương → chặn chốt (xem ui/leave-audit.js)
     if (window.HAKUI && window.HAKUI.leaveAudit) window.HAKUI.leaveAudit.audit(db, st.nam, st.thang, { activeHD: HRM.activeHD, soCong: function (v) { return E.tachCong(v).soCong; } }).filter(function (x) { return x.block; })
       .forEach(function (x) { critIssues.push({ level: "Critical", msg: x.ma + " " + x.ten + ": " + x.msg + " → " + x.goiY }); });
+    // v2.1.11 (A2-03): Thưởng/Trừ, Tạm ứng, Suất cơm có Mã NV sai hoa/thường hoặc không tồn tại bị engine bỏ qua im lặng → chặn chốt (không tự sửa dữ liệu)
+    if (window.HAKUI && window.HAKUI.inputOrphans) window.HAKUI.inputOrphans.audit(db, kyKey(st.nam, st.thang), { rowPeriod: VAL.rowPeriod }).forEach(function (x) { critIssues.push({ level: "Critical", msg: x.msg }); });
     if (critIssues.length) {
       alert("⛔ KHÔNG THỂ CHỐT — có " + critIssues.length + " lỗi dữ liệu NGHIÊM TRỌNG cần sửa trước:\n" +
         critIssues.slice(0, 10).map(function (i) { return "• " + i.msg; }).join("\n") + (critIssues.length > 10 ? "\n…" : "") +
