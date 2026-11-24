@@ -156,14 +156,17 @@
     else if (st.bcl === "baohiem") {
       // α18: chỉ cộng / so sánh bảng BHXH engine đã tính của kỳ (không tính lại) — báo cáo nội bộ, không thay mẫu D02-LT / C12-TS
       var pn = thang === 1 ? nam - 1 : nam, pt = thang === 1 ? 12 : thang - 1, prv = kqKy(pn, pt);
-      var th = BHR.tongHop(src.kq), bd = BHR.bienDong(src.kq, prv.kq), pbB = BHR.theoPhongBan(src.kq), ctB = BHR.chiTiet(src.kq); bd = FX(bd); pbB = FX(pbB); ctB = FX(ctB);
+      var th = BHR.tongHop(src.kq), bd = BHR.bienDong(src.kq, prv.kq), pbB = BHR.theoPhongBan(src.kq), ctB = BHR.chiTiet(src.kq); bd = FX(bd); pbB = FX(pbB);
+      // v2.1.19 (A6-14 / Q10): thêm Số sổ BHXH + Ngày sinh (ghép theo Mã NV; số tiền không đổi). Kỳ đã chốt: danh sách người lấy từ bản chốt; Ngày sinh từ hồ sơ cá nhân hiện có.
+      var bhStaff = snapshot ? (snapshot.input && snapshot.input.staff) : staffPay(nam, thang).list, bhEnd = kyKey(nam, thang) + "-" + ("0" + new Date(nam, thang, 0).getDate()).slice(-2);
+      ctB = FX(window.HAKUI.bhPersonFields.enrich(ctB, bhStaff, db.canhan, bhEnd)); var bhMiss = window.HAKUI.bhPersonFields.missing(ctB);
       info("Số người đóng BH: <b>" + th.soNguoi + "</b>" + (th.chuaDuNguong ? " · <b>" + th.chuaDuNguong + "</b> người chưa đủ ngưỡng công (vẫn trừ khoản NLĐ đóng; truy thu " + fmt(th.truyThu) + ")" : "") + ". Báo cáo nội bộ để đối chiếu trước khi kê khai / nộp — <b>không thay mẫu chính thức</b> của cơ quan BHXH (D02-LT, C12-TS…).");
       card.appendChild(h("div", { class: "fh", text: "Tổng hợp theo khoản" })); card.appendChild(simpleTable(th.rows));
       if (Math.abs(th.lechNLD) >= 1) info("Chênh lệch làm tròn giữa 'Cộng BH NLĐ đóng' và tổng từng khoản: " + fmt(th.lechNLD) + "đ.", "warn");
       card.appendChild(h("div", { class: "fh", text: "Tăng / giảm / điều chỉnh so với tháng " + pt + "/" + pn + (prv.chot ? " (đã chốt)" : " (chưa chốt — tính tạm)") }));
       card.appendChild(bd.length ? simpleTable(bd) : h("div", { class: "hint", text: "Không có biến động so với kỳ trước." }));
       card.appendChild(h("div", { class: "fh", text: "Theo phòng ban" })); card.appendChild(simpleTable(pbB));
-      card.appendChild(h("div", { class: "fh", text: "Chi tiết từng người" })); card.appendChild(simpleTable(ctB));
+      card.appendChild(h("div", { class: "fh", text: "Chi tiết từng người" })); if (bhMiss.soSo || bhMiss.ngaySinh) card.appendChild(h("div", { class: "hint", text: "Thiếu dữ liệu để kê khai: " + bhMiss.soSo + " người chưa có Số sổ BHXH, " + bhMiss.ngaySinh + " người chưa có Ngày sinh (bổ sung ở Hồ sơ cá nhân)." })); card.appendChild(simpleTable(ctB));
       sheets.push({ name: "TongHop", rows: th.rows }, { name: "TangGiam", rows: bd }, { name: "TheoPhongBan", rows: pbB }, { name: "ChiTiet", rows: ctB });
     }
     else if (st.bcl === "sosanh") { var ss = bcSoSanh(nam, thang); ss.rows = FX(ss.rows); info("So sánh <b>" + ss.prev + "</b> → <b>" + ss.cur + "</b>, sắp theo mức chênh lớn nhất."); card.appendChild(simpleTable(ss.rows)); sheets.push({ name: "SoSanh", rows: ss.rows }); }
