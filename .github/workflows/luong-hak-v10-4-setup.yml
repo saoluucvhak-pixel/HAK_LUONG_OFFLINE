@@ -170,6 +170,8 @@ jobs:
         run: xvfb-run -a npm run test:attendance-review
       - name: Verify attendance-review Excel export from a closed period (uses the closed snapshot)
         run: xvfb-run -a npm run test:attendance-review-closed
+      - name: Verify period close is blocked by orphan Mã NV in bonus/advance/meal inputs (A2-03)
+        run: xvfb-run -a npm run test:close-orphans
       - name: Verify selectable SQLite backup folder (copy with SHA-256, reset to default)
         run: xvfb-run -a npm run test:sqlite-dir
       - name: Verify restore from the chosen SQLite folder (corrupt store, wiped backups, unreachable folder)
@@ -256,6 +258,8 @@ jobs:
         run: node tests/e2e/attendance-review.cjs
       - name: Verify attendance-review Excel export from a closed period on Windows
         run: node tests/e2e/attendance-review-closed.cjs
+      - name: Verify period close is blocked by orphan Mã NV on Windows
+        run: node tests/e2e/close-orphans.cjs
       - name: Verify selectable SQLite backup folder on Windows
         run: node tests/e2e/sqlite-dir.cjs
       - name: Verify restore from the chosen SQLite folder on Windows
