@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.28] — 24/11/2026
+- **Test chuyển dữ liệu máy A → máy B (handoff 011, issue #112):** thêm `tests/unit/machine-transfer.test.js` (5 ca) cho JSON đầy đủ, Full Backup, gói `.hakenc`, khôi phục 2 lần, gói hỏng. Chỉ thêm test + tài liệu; không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.28.md`.
+
 ## [2.1.27] — 24/11/2026
 - **Rà soát tổng thể 24/11/2026 (theo quy trình Control Center):** thêm `docs/RA_SOAT_TONG_THE_2026-11-24.md` (kiểm nền, việc dở, đề xuất) và cập nhật đầu `TODO_ROADMAP.md`. Không đổi mã sản phẩm. Chi tiết: `docs/releases/v2.1.27.md`.
 
