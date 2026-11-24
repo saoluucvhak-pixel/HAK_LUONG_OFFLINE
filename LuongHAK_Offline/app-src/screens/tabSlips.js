@@ -31,11 +31,25 @@
       } else saveXlsx(fileP, [{ name: "PhieuLuong_" + kyStr(), cols: cols, rows: list.map(function (b) { var o = {}; cols.forEach(function (c) { o[c] = b[c] == null ? "" : b[c]; }); return o; }) }]);
       audit("Xuất phiếu lương Excel", kyLabel(kyStr()) + " · " + list.length + " phiếu");
     }));
-    bar.appendChild(btn("⬇ PDF", "", function () {
+    bar.appendChild(btn("⬇ PDF danh sách", "", function () {
       if (!list.length) { toast("Không có phiếu nào"); return; }
       var colsP = ["Mã NV", "Họ và tên", "Phòng ban", "Tổng công", "Công chuẩn"].concat(SLIP_LINES.map(function (l) { return l[0]; }));
       exportSheetsPdf({ title: "Phiếu lương", ky: "Kỳ " + ("0" + st.thang).slice(-2) + "/" + st.nam, trangThai: src.chot ? "Đã chốt" : "Chưa chốt — tính tạm", loc: st.slipPB ? ["Phòng ban: " + st.slipPB] : [], sheets: [{ name: "PhieuLuong", rows: list.map(function (b) { var o = {}; colsP.forEach(function (c) { o[c] = b[c] == null ? "" : b[c]; }); return o; }) }] }, "PhieuLuong_" + kyStr() + (st.slipPB && !single ? "_" + slug(st.slipPB) : "") + ".pdf");
     }, "PDF danh sách phiếu theo đúng bộ lọc đang chọn"));
+    // v2.1.18 (A6-12): PDF PHIẾU LƯƠNG TỪNG NGƯỜI — mỗi người 1 trang A4 dọc, có khối ký; kỳ chưa chốt ghi TẠM TÍNH (ui/slip-pdf.js)
+    bar.appendChild(btn("⬇ PDF từng phiếu", "", function () {
+      if (!list.length) { toast("Không có phiếu nào"); return; }
+      if (!need("export", "xuất phiếu lương PDF") || formulaErrorsBlock("PhieuLuong_TungNguoi")) return;
+      var SP = window.HAKUI && window.HAKUI.slipPdf; if (!SP) { alert("Thiếu mô-đun phiếu lương PDF"); return; }
+      var kyP = ("0" + st.thang).slice(-2) + "/" + st.nam, html = SP.html({ congTy: congTy()["Tên công ty"] || "", ky: kyP, chot: !!src.chot, nguoiLap: currentUser(), slips: list.map(function (b) { return { maNV: b["Mã NV"], hoTen: b["Họ và tên"], phongBan: b["Phòng ban"], tongCong: b["Tổng công"], congChuan: b["Công chuẩn"], lines: slipLines(b) }; }) });
+      var name = SP.filename(kyP, { chot: !!src.chot, suffix: list.length === 1 ? slug(list[0]["Mã NV"]) : (st.slipPB && !single ? slug(st.slipPB) : "") });
+      if (!window.hakReport) { pdfFallbackPrint(html); toast("Bản chạy bằng trình duyệt: chọn “Lưu thành PDF” trong hộp thoại In"); return; }
+      toast("Đang tạo PDF " + list.length + " phiếu…");
+      window.hakReport.pdf({ html: html, name: name, landscape: false, footer: (congTy()["Tên công ty"] ? congTy()["Tên công ty"] + " · " : "") + "Phiếu lương " + kyP }).then(function (r) {
+        if (r && r.ok) { audit("Xuất PDF phiếu lương từng người", kyLabel(kyStr()) + " · " + list.length + " phiếu · " + r.name); toast("Đã lưu PDF: " + r.name + " (" + r.pages + " trang)"); }
+        else alert("Không xuất được PDF: " + (r && r.error || "lỗi không rõ"));
+      }, function (e) { alert("Không xuất được PDF: " + (e && e.message || e)); });
+    }, "Mỗi người một trang A4 dọc, có chỗ ký — theo đúng bộ lọc đang chọn. Kỳ chưa chốt ghi TẠM TÍNH."));
     bar.appendChild(btn("🖨 In " + list.length + " phiếu", "pri", function () { if (!list.length) { toast("Không có phiếu nào"); return; } audit("In phiếu lương", kyLabel(kyStr()) + " · " + list.length + " phiếu"); window.print(); }));
     w.appendChild(bar);
     var kyPad = ("0" + st.thang).slice(-2) + "/" + st.nam;
