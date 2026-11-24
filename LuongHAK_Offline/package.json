@@ -11,6 +11,8 @@
     "test": "node --test \"tests/unit/*.test.js\" \"tests/integration/*.test.js\" \"tests/regression/*.test.js\"",
     "test:e2e": "node tests/e2e/run-e2e.js",
     "test:snapshot": "node tests/e2e/snapshot-cache.cjs",
+    "test:attendance-review": "node tests/e2e/attendance-review.cjs",
+    "test:attendance-review-closed": "node tests/e2e/attendance-review-closed.cjs",
     "test:sqlite-dir": "node tests/e2e/sqlite-dir.cjs",
     "test:sqlite-restore-dir": "node tests/e2e/sqlite-restore-from-dir.cjs",
     "test:ui-dom": "node tests/e2e/drawer-dom-check.cjs",

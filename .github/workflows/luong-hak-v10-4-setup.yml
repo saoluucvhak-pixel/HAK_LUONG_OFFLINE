@@ -149,7 +149,7 @@ jobs:
     name: E2E trên Electron thật
     needs: check
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: LuongHAK_Offline
@@ -164,6 +164,16 @@ jobs:
           npm install --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
       - name: Run full Electron suite with isolated synthetic data
         run: xvfb-run -a npm run test:e2e
+      - name: Verify report snapshot cache and app-shell update (never show stale numbers)
+        run: xvfb-run -a npm run test:snapshot
+      - name: Verify attendance-review cards and flat Excel export (open period, Ban dam, confirm per row)
+        run: xvfb-run -a npm run test:attendance-review
+      - name: Verify attendance-review Excel export from a closed period (uses the closed snapshot)
+        run: xvfb-run -a npm run test:attendance-review-closed
+      - name: Verify selectable SQLite backup folder (copy with SHA-256, reset to default)
+        run: xvfb-run -a npm run test:sqlite-dir
+      - name: Verify restore from the chosen SQLite folder (corrupt store, wiped backups, unreachable folder)
+        run: xvfb-run -a npm run test:sqlite-restore-dir
       - name: Measure shared OCR per-cell accuracy
         run: xvfb-run -a npm run test:ocr-eval
         env:
