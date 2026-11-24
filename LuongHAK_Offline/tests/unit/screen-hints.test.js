@@ -14,3 +14,7 @@ test("U-HINT-2: màn không thuộc quy trình / khóa lạ → rỗng, không n
 test("U-HINT-3: số bước ghi đúng thứ tự 1→5", () => {
   ["chamcong", "bangtinh", "rp_tonghop", "rp_thanhtoan", "baocaoluong"].forEach((k, i) => assert.ok(SH.text(k).startsWith("Bước " + (i + 1) + "/5"), k));
 });
+test("U-HINT-4 (Q8): nhắc phụ lục giữa tháng nêu cả hai lựa chọn và mặc định \"Cả tháng\"", () => {
+  const t = SH.phuLucGiuaThang();
+  assert.match(t, /Từ ngày hiệu lực/); assert.match(t, /Cả tháng/); assert.match(t, /Để trống = "Cả tháng"/);
+});

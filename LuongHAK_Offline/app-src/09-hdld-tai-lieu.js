@@ -227,6 +227,7 @@
     body.appendChild(h("div", { class: "hint", html: "Lập <b>phụ lục mới " + esc(draft["Mã công tác"]) + "</b> từ phụ lục hiện tại <b>" + esc(cur["Mã công tác"] || "") + "</b> (hiệu lực " + esc(dispVal({ t: "date" }, cur["Hiệu lực từ"])) + "). Phụ lục cũ giữ nguyên; bảng lương tự lấy phụ lục mới từ ngày hiệu lực." }));
     var chips = h("div", { class: "chips", role: "radiogroup", "aria-label": "Loại biến động", style: "margin:4px 0 14px" });
     HRM.BIEN_DONG.filter(function (L) { return !/điều chuyển|chức vụ|bổ nhiệm/i.test(L); }).forEach(function (L) { var r = h("input", { type: "radio", name: "bd", value: L }); r.addEventListener("change", function () { loai.v = L; }); chips.appendChild(h("label", { class: "chip" }, [r, " " + L])); });
+    { var SHm = window.HAKUi && window.HAKUi.screenHints; if (SHm) body.appendChild(h("div", { class: "hint", "data-appendix-midmonth": "1", text: SHm.phuLucGiuaThang() })); } // Q8: nhắc chọn cách áp dụng khi phụ lục giữa tháng
     body.appendChild(h("div", { class: "fh", text: "Loại biến động" })); body.appendChild(chips);
     var keys = ["Hiệu lực từ", "Số quyết định", "Lương thỏa thuận", "Lương cơ bản", "Mức đóng bảo hiểm", "Vị trí việc làm", "Cách áp dụng trong tháng hiệu lực", "Ghi chú"];
     var fs = keys.map(function (k) { return HR.chitiethd.f.filter(function (f) { return f.k === k; })[0]; }).filter(Boolean).map(function (f) { return f.k === "Ghi chú" ? Object.assign({}, f, { label: "Lý do / ghi chú" }) : f; });
@@ -318,6 +319,7 @@
       });
       tabs.appendChild(btn("Tiêu chuẩn phúc lợi", st.hdTab === "phucloi" ? "on" : "", function () { st.hdTab = "phucloi"; draw(); }));
       content.innerHTML = "";
+      { var SHn = window.HAKUi && window.HAKUi.screenHints; if (st.hdTab === "chitiethd" && SHn) content.appendChild(h("div", { class: "hint", "data-appendix-midmonth": "1", text: SHn.phuLucGiuaThang() })); } // Q8
       content.appendChild(st.hdTab === "phucloi" ? benefitContractPanel(ma, soHD, draw) : st.hdTab === "hdld_tailieu" ? hdldPanel(ma, cur) : subTable(st.hdTab, { "Mã NV": ma, "Số HĐLĐ": soHD }));
     };
     body.appendChild(h("div", { class: "hint", html: "Cha: hợp đồng <b>" + esc(soHD) + "</b> · " + esc(cur["Hình thức HĐLĐ"] || "") + " · vào làm " + esc(cur["Ngày vào làm"] || "") + ". Các mục con bên dưới tự gắn Mã NV và Số HĐLĐ của hợp đồng này." }));
