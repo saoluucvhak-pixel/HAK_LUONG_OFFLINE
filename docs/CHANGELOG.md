@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.22] — 24/11/2026
+- **Bố cục Bảng thanh toán lương (Q12, màn 1/3):** khối "lỗi nghiêm trọng" nay cuộn trong khung cao ≤ 104 px (liệt kê đủ tới 200 lỗi) thay vì chiếm hết màn; ở 1366×768 thấy ≥ 4 dòng bảng khi mở. Chi tiết: `docs/releases/v2.1.22.md`.
+
 ## [2.1.21] — 24/11/2026
 - **Q10 phần 2–3 (chủ chọn "thêm theo đề xuất" 24/11/2026):** (2) cảnh báo của báo cáo lương (vd. thiếu Mã số thuế ở báo cáo TNCN) nay IN cả ở Excel, nằm dưới bảng; (3) **phiếu chi tiền mặt in được** (PDF, mỗi chứng từ tiền mặt một trang A4 có số tiền bằng chữ và khối ký) ở màn Sổ chứng từ thanh toán. Chi tiết: `docs/releases/v2.1.21.md`.
 

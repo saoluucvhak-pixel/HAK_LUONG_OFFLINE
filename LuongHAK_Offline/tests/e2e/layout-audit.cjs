@@ -8,6 +8,8 @@ const fs = require("node:fs"), path = require("node:path");
 /** 005B-UI001 (issue #97): chiều cao tối đa của thanh trên — 1 hàng ở 1366×768 và 1920×1080, tối đa 2 hàng ở 1024×768. */
 const TOP_ONE_ROW = 80, TOP_TWO_ROWS = 120;
 const INPUT_SCREENS = ["chamcong", "sanluong", "bandam", "tiencom", "psluong", "ungluong"], MIN_ROWS = 12;
+// Q12 (một màn một PR): màn báo cáo đã sửa — ở 1366×768 phải thấy ≥ FIXED_MIN_ROWS dòng khi mở. Danh sách chỉ được DÀI THÊM, không rút bớt.
+const FIXED_REPORT_SCREENS = ["rp_thanhtoan"], FIXED_MIN_ROWS = 4;
 const SIZES = [{ w: 1366, h: 768 }, { w: 1920, h: 1080 }, { w: 1024, h: 768 }];
 
 
@@ -152,4 +154,4 @@ async function auditDialogs(opt) {
   }
   return rows;
 }
-module.exports = { TOP_ONE_ROW, TOP_TWO_ROWS, INPUT_SCREENS, MIN_ROWS, auditDialogs, syntheticData, auditAll, pageChecks, dialogChecks, focusCheck, SIZES };
+module.exports = { TOP_ONE_ROW, TOP_TWO_ROWS, INPUT_SCREENS, MIN_ROWS, FIXED_REPORT_SCREENS, FIXED_MIN_ROWS, auditDialogs, syntheticData, auditAll, pageChecks, dialogChecks, focusCheck, SIZES };
