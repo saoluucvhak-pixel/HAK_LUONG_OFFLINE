@@ -63,3 +63,41 @@ test("U-PARITY-BH-04: Excel (4 sheet) giữ nguyên từng giá trị của báo
     for (const k of ["Cộng BH NLĐ đóng", "Cộng BH công ty đóng"]) if (k in r) assert.ok(vals.some((v) => typeof v === "number" && Math.abs(v - r[k]) < 1e-6), r["Mã NV"] + " " + k + " có trong Excel");
   }
 });
+
+test("bộ lọc bảo hiểm dùng cùng tập dòng cho tổng kỳ, phòng ban, chi tiết và Excel", async () => {
+  const report = BH.filteredReport(kq, { bhxh: [row("QA-LEFT", "Xưởng", 3000000, true)] }, { phongBan: ["Xưởng"] });
+  const people = body(report.people);
+  assert.deepEqual(people.map(r => r["Mã NV"]), ["NV002", "TỔNG-03"]);
+  assert.ok(report.movement.some(r => r["Mã NV"] === "QA-LEFT" && r.Loại.startsWith("Giảm")));
+  const expected = sum(people, "Cộng BH NLĐ đóng");
+  assert.equal(report.totals.soNguoi, people.length);
+  assert.equal(report.totals.rows.at(-1)["Người lao động đóng (trừ lương)"], expected);
+  assert.equal(report.departments.at(-1)["Cộng BH NLĐ đóng"], expected);
+  const sheets = [{ name: "TongHop", rows: report.totals.rows }, { name: "ChiTiet", rows: people }];
+  const book = new X.Workbook();
+  await book.xlsx.load(await BX.build(X, sheets, { phamVi: "Xưởng" }).xlsx.writeBuffer());
+  assert.equal(book.getWorksheet("TongHop").getCell("C10").value, expected);
+  assert.ok(book.getWorksheet("ChiTiet").getColumn(2).values.includes("TỔNG-03"));
+  const html = require("../../core/reporting/report-html").sheets({ title: "Bảo hiểm", sheets });
+  assert.match(html, /TỔNG-03/);
+  assert.doesNotMatch(html, /NV001|00123/);
+  assert.equal(BH.filteredReport(kq, {}, { maNV: ["UNKNOWN"] }).totals.soNguoi, 0);
+  assert.ok(BH.filteredReport(kq, {}, { thucLinhTu: 1000 }).skipped.includes("Khoảng thực lĩnh"));
+});
+
+test("Excel bảo hiểm lưu ngày kiểu Date, giữ số sổ và hai tiêu đề ở sheet rỗng", async () => {
+  const entry = { ...BH.chiTiet(kq)[0], "Số sổ BHXH": "0000000001", "Ngày sinh": "29/02/2000" };
+  for (const rows of [[entry], []]) {
+    const out = new X.Workbook();
+    await out.xlsx.load(await BX.build(X, [{ name: "ChiTiet", rows }], { notes: ["Nguồn: hồ sơ hiện tại"] }).xlsx.writeBuffer());
+    const ws = out.getWorksheet("ChiTiet"), header = ws.getRow(5).values;
+    assert.ok(header.includes("Số sổ BHXH") && header.includes("Ngày sinh"));
+    assert.match(ws.getCell("A4").value, /hồ sơ hiện tại/);
+    if (!rows.length) continue;
+    assert.equal(ws.getCell(6, header.indexOf("Số sổ BHXH")).value, "0000000001");
+    const birth = ws.getCell(6, header.indexOf("Ngày sinh"));
+    assert.equal(birth.value.toISOString().slice(0, 10), "2000-02-29");
+    assert.equal(birth.numFmt, "dd/mm/yyyy");
+    assert.equal(birth.alignment.horizontal, "center");
+  }
+});

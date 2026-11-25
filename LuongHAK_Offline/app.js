@@ -4160,7 +4160,7 @@
     w.appendChild(bar);
     var card = h("div", { class: "card" }), tools = h("div", { class: "bar" }), sheets = [], title = BCL.filter(function (b) { return b[0] === st.bcl; })[0][1].replace(/^\S+\s/, "");
     card.appendChild(tools);
-    var rfHint = h("div", { class: "hint", "data-rf-hint": "1" }), rfSkip = {};
+    var rfHint = h("div", { class: "hint", "data-rf-hint": "1" }), rfSkip = {}, bhNotes = [];
     if (st.bcl !== "sanluong") card.appendChild(reportFilterBar(kqKy(st.nam, st.thang).kq.bangluong));
     card.appendChild(rfHint);
     /** Lọc 1 bảng báo cáo theo bộ lọc dùng chung (chỉ tiêu chí mà bảng có cột); dòng tổng tính lại sau lọc */
@@ -4306,10 +4306,16 @@
     else if (st.bcl === "baohiem") {
       // α18: chỉ cộng / so sánh bảng BHXH engine đã tính của kỳ (không tính lại) — báo cáo nội bộ, không thay mẫu D02-LT / C12-TS
       var pn = thang === 1 ? nam - 1 : nam, pt = thang === 1 ? 12 : thang - 1, prv = kqKy(pn, pt);
-      var th = BHR.tongHop(src.kq), bd = BHR.bienDong(src.kq, prv.kq), pbB = BHR.theoPhongBan(src.kq), ctB = BHR.chiTiet(src.kq); bd = FX(bd); pbB = FX(pbB);
-      // v2.1.19 (A6-14 / Q10): thêm Số sổ BHXH + Ngày sinh (ghép theo Mã NV; số tiền không đổi). Kỳ đã chốt: danh sách người lấy từ bản chốt; Ngày sinh từ hồ sơ cá nhân hiện có.
-      var bhStaff = snapshot ? (snapshot.input && snapshot.input.staff) : staffPay(nam, thang).list, bhEnd = kyKey(nam, thang) + "-" + ("0" + new Date(nam, thang, 0).getDate()).slice(-2);
-      ctB = FX(window.HAKUI.bhPersonFields.enrich(ctB, bhStaff, db.canhan, bhEnd)); var bhMiss = window.HAKUI.bhPersonFields.missing(ctB);
+      var reportBH = BHR.filteredReport(src.kq, prv.kq, st.rf);
+      var th = reportBH.totals, bd = reportBH.movement, pbB = reportBH.departments;
+      reportBH.skipped.forEach(function (name) { rfSkip[name] = 1; });
+      if (reportBH.skipped.length) bhNotes.push("Tiêu chí không áp dụng được cho báo cáo bảo hiểm: " + reportBH.skipped.join(", ") + ".");
+      var fieldsBH = window.HAKUI.bhPersonFields, sourceBH = fieldsBH.source(snapshot, db.canhan);
+      if (sourceBH.note) { bhNotes.push(sourceBH.note); info(esc(sourceBH.note), "warn"); }
+      var bhStaff = snapshot ? (snapshot.input && snapshot.input.staff) : staffPay(nam, thang).list;
+      var bhEnd = kyKey(nam, thang) + "-" + ("0" + new Date(nam, thang, 0).getDate()).slice(-2);
+      var ctB = fieldsBH.enrich(reportBH.people, bhStaff, sourceBH.profiles, bhEnd);
+      var bhMiss = fieldsBH.missing(ctB);
       info("Số người đóng BH: <b>" + th.soNguoi + "</b>" + (th.chuaDuNguong ? " · <b>" + th.chuaDuNguong + "</b> người chưa đủ ngưỡng công (vẫn trừ khoản NLĐ đóng; truy thu " + fmt(th.truyThu) + ")" : "") + ". Báo cáo nội bộ để đối chiếu trước khi kê khai / nộp — <b>không thay mẫu chính thức</b> của cơ quan BHXH (D02-LT, C12-TS…).");
       card.appendChild(h("div", { class: "fh", text: "Tổng hợp theo khoản" })); card.appendChild(simpleTable(th.rows));
       if (Math.abs(th.lechNLD) >= 1) info("Chênh lệch làm tròn giữa 'Cộng BH NLĐ đóng' và tổng từng khoản: " + fmt(th.lechNLD) + "đ.", "warn");
@@ -4337,12 +4343,12 @@
     var bclTrangThai = dataSource || (src && !BCL_NAM[st.bcl] ? (src.chot ? "Đã chốt" : "Chưa chốt — tính tạm") : (!BCL_NAM[st.bcl] && !snapshot ? "Chưa chốt — tính tạm" : ""));
     var bclTam = !BCL_NAM[st.bcl] && (/chưa chốt|tính tạm/i.test(bclTrangThai) || (src && !src.chot)) ? "_TAM" : "";
     tools.appendChild(btn("⬇ Xuất PDF", "", function () {
-      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + kyPad, trangThai: bclTrangThai, loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + bclTam + ".pdf");
+      exportSheetsPdf({ title: title, ky: BCL_NAM[st.bcl] ? "Năm " + nam : "Kỳ " + kyPad, trangThai: bclTrangThai, loc: st.bcl === "sanluong" ? RF.describe(st.rf).map(function (label) { return "Đối chiếu chấm công: " + label; }) : RF.describe(st.rf), ghiChu: bhNotes, sheets: sheets }, "BaoCao_" + slug(title) + "_" + (BCL_NAM[st.bcl] ? nam : kyKey(nam, thang)) + bclTam + ".pdf");
     }, "PDF theo đúng bộ lọc đang chọn"));
     tools.appendChild(btn(st.bcl === "sanluong" ? "⬇ Xuất báo cáo đang xem (Excel)" : "⬇ Xuất Excel", "pri", function () {
       if (st.bcl === "baohiem") {
         if (!window.ExcelJS || !window.HAKUi.bhXlsx) { alert("Thiếu thư viện Excel báo cáo bảo hiểm"); return; }
-        window.HAKUi.bhXlsx.build(window.ExcelJS, sheets, { congTy: congTy()["Tên công ty"] || "", kyText: "THÁNG " + kyPad, trangThai: src.chot ? "Đã chốt" : "Chưa chốt — tính tạm", phamVi: RF.describe(st.rf).join("; ") || "Toàn bộ", ngayLap: new Date().toLocaleDateString("vi-VN"), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
+        window.HAKUi.bhXlsx.build(window.ExcelJS, sheets, { congTy: congTy()["Tên công ty"] || "", kyText: "THÁNG " + kyPad, trangThai: src.chot ? "Đã chốt" : "Chưa chốt — tính tạm", phamVi: RF.describe(st.rf).join("; ") || "Toàn bộ", notes: bhNotes, ngayLap: new Date().toLocaleDateString("vi-VN"), nguoiLap: currentUser() }).xlsx.writeBuffer().then(function (buf) {
           download("BaoCao_BaoHiem_" + kyKey(nam, thang) + bclTam + ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf);
           audit("Xuất Excel bảo hiểm", kyKey(nam, thang));
         }, function (e) { alert("Không xuất được Excel: " + (e.message || e)); });
