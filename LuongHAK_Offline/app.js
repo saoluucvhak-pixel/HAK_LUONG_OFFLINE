@@ -6321,21 +6321,19 @@
                 finish(r);
               }).catch(failed);
             }
-            if (k === "json" || k === "backup") {
-              var applying = false;
-              var body = h("div", {}, [
-                h("p", { text: "Thư mục mới" }), h("p", { class: "bk-path", text: p.dir }),
-                h("p", { text: "App sẽ chép bản sao lưu cũ, đối chiếu SHA-256 rồi đặt thư mục mới cho lần sao lưu sau. Các tệp ở thư mục cũ vẫn còn." })
-              ]);
-              modal("Xác nhận chuyển " + kk[1], body, function (close) {
-                var apply = btn("Chuyển và lưu", "pri", function () { applying = true; close(); move(); });
-                apply.setAttribute("data-confirm-storage-move", k);
-                return [btn("Hủy", "ghost", close), apply];
-              }, { onClose: function () { if (!applying) finish({ cancelled: true }); } });
-              return;
-            }
-            if (confirm("Chuyển " + kk[1] + " sang:\n" + p.dir + "\n\nApp sẽ chép và kiểm tra SHA-256. Dữ liệu cũ vẫn còn. Tiếp tục?")) move();
-            else finish({ cancelled: true });
+            var applying = false;
+            var description = k === "sqlite" ? "App sẽ chép các bản SQLite sang thư mục mới và tiếp tục giữ bản gốc trong thư mục dữ liệu."
+              : k === "mirror" ? "App sẽ chép các bản sao lưu sang thư mục dự phòng. Các bản đang có vẫn còn."
+              : "App sẽ chép các tệp liên quan, đối chiếu SHA-256 rồi lưu đường dẫn mới. Các tệp ở thư mục cũ vẫn còn.";
+            var body = h("div", {}, [
+              h("p", { text: "Thư mục mới" }), h("p", { class: "bk-path", text: p.dir }),
+              h("p", { text: description })
+            ]);
+            modal("Xác nhận chuyển " + kk[1], body, function (close) {
+              var apply = btn("Chuyển và lưu", "pri", function () { applying = true; close(); move(); });
+              apply.setAttribute("data-confirm-storage-move", k);
+              return [btn("Hủy", "ghost", close), apply];
+            }, { onClose: function () { if (!applying) finish({ cancelled: true }); } });
           }).catch(failed);
         }, "Chọn thư mục mới và chuyển dữ liệu sang (chép + kiểm SHA-256, không xóa dữ liệu cũ)") : null,
         k === "sqlite" && STG.sqlite && STG.sqlite.custom && can("system.admin") ? btn("Về mặc định", "ghost", function () { if (!confirm("Bỏ thư mục SQLite đã chọn? (Các bản đã chép ở đó vẫn giữ nguyên; app chỉ ghi trong thư mục dữ liệu)")) return; window.hakSqlite.clearDir().then(function () { audit("Bỏ thư mục sao lưu SQLite", "về mặc định"); STG.sqlite = null; STG.info = null; render(); }); }) : null,
@@ -6571,7 +6569,7 @@
     var guide = h("details", { "data-backup-guide": "1" }, [h("summary", { text: "Hướng dẫn sao lưu và khôi phục từng bước" })]);
     guide.appendChild(h("ol", {}, [
       h("li", { text: "Chọn loại: Full Backup để chuyển máy hoặc giữ cả chứng từ và OCR; JSON để lưu riêng dữ liệu dạng JSON; SQLite để phục hồi kho dữ liệu trên máy." }),
-      h("li", { text: "Đổi nơi lưu: mở Lịch & thư mục sao lưu, bấm Chọn / Chuyển… đúng dòng. Chọn một thư mục riêng, ví dụ D:\\SaoLuuHAK\\JSON và D:\\SaoLuuHAK\\Full. Với JSON hoặc Full Backup, bấm Chuyển và lưu, rồi chờ thông báo và kiểm tra cột Đường dẫn hiện tại." }),
+      h("li", { text: "Đổi nơi lưu: mở Lịch & thư mục sao lưu, bấm Chọn / Chuyển… đúng dòng. Chọn một thư mục riêng, ví dụ D:\\SaoLuuHAK\\JSON và D:\\SaoLuuHAK\\Full. Bấm Chuyển và lưu, rồi chờ thông báo và kiểm tra cột Đường dẫn hiện tại." }),
       h("li", { text: "Tạo bản mới: quay về mục Sao lưu ngay, chọn loại và bấm Sao lưu toàn bộ. Với Full Backup có mật khẩu, lưu mật khẩu ở nơi riêng để có thể mở gói khi cần." }),
       h("li", { text: "Kiểm tra tệp: chờ báo hoàn tất, dùng Mở ở đúng dòng thư mục để tìm tệp vừa tạo. Giữ thêm một bản ở ổ khác hoặc USB. Giữ cả tệp .sha256 đi kèm nếu có." }),
       h("li", { text: "Khôi phục: ở mục 2, chọn Full Backup hoặc JSON đúng với tệp, rồi bấm Khôi phục toàn bộ… và đọc kết quả kiểm tra trước khi xác nhận. Nếu kho SQLite hỏng, dùng màn hình khôi phục khi mở app. Để thử trước, dùng hồ sơ thử hoặc máy khác." })
@@ -7125,10 +7123,17 @@
       body.appendChild(ul);
     };
     draw();
+    var folderChanged = function () {
+      STG.data = null;
+      STG.info = null;
+      STG.ver = null;
+      if (st.tab === "backup") render();
+      draw();
+    };
     closeFn = modal("📂 File đã tải", body, function (close) {
       return [btn("📂 Mở thư mục", "pri", function () { if (!FILES.openDir()) toast("Không mở được thư mục"); }),
-        btn("Đổi thư mục lưu…", "", function () { var r = FILES.chooseDir(); if (r && r.ok) { toast("Từ giờ file lưu vào: " + r.dir); audit("Đổi thư mục lưu file xuất", ""); draw(); } else if (r && r.error) toast(r.error); }),
-        btn("Dùng thư mục mặc định", "ghost", function () { var r = FILES.resetDir(); if (r && r.ok) { toast("Dùng thư mục mặc định: " + r.dir); draw(); } }),
+        btn("Đổi thư mục lưu…", "", function () { var r = FILES.chooseDir(); if (r && r.ok) { toast("Từ giờ file lưu vào: " + r.dir); audit("Đổi thư mục lưu file xuất", ""); folderChanged(); } else if (r && r.error) toast(r.error); }),
+        btn("Dùng thư mục mặc định", "ghost", function () { var r = FILES.resetDir(); if (r && r.ok) { toast("Dùng thư mục mặc định: " + r.dir); folderChanged(); } else if (r && r.error) toast(r.error); }),
         btn("Đóng", "", close)];
     }, { drawer: true });
     return closeFn;

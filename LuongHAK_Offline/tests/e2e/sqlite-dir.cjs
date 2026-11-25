@@ -16,7 +16,9 @@ const sha = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest
   await w.waitForSelector("#main > *"); await w.fill("#main input[data-f=u]", "admin"); await w.fill("#main input[data-f=p]", PASS); await w.click("#main button.big"); await w.waitForSelector("#nav button[data-k=home]");
   await w.evaluate(() => document.querySelector("#nav button[data-k=backup]").click()); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="sqlite"]');
   ok("Dòng SQLite có nút 'Chọn / Chuyển…' và chưa tùy chỉnh", (await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').count()) === 1 && (await w.locator('[data-stg="sqlite"] button:has-text("Về mặc định")').count()) === 0);
-  await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').click(); await w.waitForTimeout(2500);
+  await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').click();
+  await w.locator('[data-confirm-storage-move="sqlite"]').click();
+  await w.locator("[data-stg-msg].ok").waitFor();
   const settings = () => JSON.parse(fs.readFileSync(path.join(D, "settings.json"), "utf8"));
   ok("Chọn thư mục → lưu cấu hình sqliteDir", settings().sqliteDir === SD, JSON.stringify(settings()));
   ok("Hiện đúng đường dẫn đã chọn + nút 'Về mặc định'", (await w.locator('[data-stg="sqlite"] .bk-path').innerText()).includes(SD) && (await w.locator('[data-stg="sqlite"] button:has-text("Về mặc định")').count()) === 1);

@@ -17,7 +17,9 @@ async function prepare() {
   fs.writeFileSync(path.join(D, "data.json"), JSON.stringify(db));
   const app = await launch(D, SD), w = await app.firstWindow(); w.on("dialog", (d) => d.accept()); await w.setViewportSize({ width: 1440, height: 1000 }).catch(() => {}); await login(w);
   await w.evaluate(() => document.querySelector("#nav button[data-k=backup]").click()); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="sqlite"]');
-  await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').click(); await w.waitForTimeout(2500);
+  await w.locator('[data-stg="sqlite"] button:has-text("Chọn")').click();
+  await w.locator('[data-confirm-storage-move="sqlite"]').click();
+  await w.locator("[data-stg-msg].ok").waitFor();
   const settings = JSON.parse(fs.readFileSync(path.join(D, "settings.json"), "utf8")); ok("Chuẩn bị: đã chọn thư mục SQLite", settings.sqliteDir === SD);
   await w.click('[data-sl-tab="sl"]'); await w.waitForSelector("[data-backup-now]"); await w.selectOption("[data-backup-kind]", "sqlite"); await w.click("[data-backup-now]"); await w.waitForTimeout(3500);
   ok("Chuẩn bị: bản chụp đã chép sang thư mục đã chọn", fs.existsSync(path.join(SD, "data-snapshot.sqlite")), fs.readdirSync(SD).join(","));
