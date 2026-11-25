@@ -1,6 +1,6 @@
-# Checklist nghiệm thu bản cài trên Windows thật (từ v2.1.18)
+# Checklist nghiệm thu bản cài trên Windows thật (v2.1.30)
 
-Mục đích: ghi lại bằng chứng chạy thật cho các việc tôi (Claude) KHÔNG thể kiểm trong môi trường Linux. Mọi bản v2.1.x hiện là "thử nghiệm có kiểm soát" cho tới khi bảng này được điền đủ.
+v2.1.30 đã qua cài đè từ v2.1.29 trên Windows CI với dữ liệu giả. Bảng này ghi riêng kết quả trên máy của đơn vị. [Lượt CI phát hành](https://github.com/saoluucvhak-pixel/HAK_LUONG_OFFLINE/actions/runs/45592072530)
 
 **Người thử:** ____________  **Ngày:** ____________  **Máy:** Windows ____ (bản ___ )  **Bản cài:** `TinhLuongHAK-V10.4-Setup-____.exe`
 **Chuẩn bị:** tải bộ cài + `SHA256SUMS.txt` ở Releases; kiểm SHA-256 (PowerShell: `Get-FileHash .\TinhLuongHAK-V10.4-Setup-X.Y.Z.exe`). Dùng **dữ liệu thử** hoặc bản sao dữ liệu, KHÔNG dùng dữ liệu thật đang vận hành.
@@ -22,12 +22,17 @@ Ghi **Đạt / Không đạt / Không áp dụng** và ghi chú (chụp màn hì
 | 11 | Sao lưu SQLite ra USB / ổ khác | Công ty & Sao lưu → chọn thư mục SQLite (USB), bấm Sao lưu; bản xuất hiện ở USB | | |
 | 12 | Rút USB rồi sao lưu | Rút USB, bấm Sao lưu: app báo rõ (không treo); cắm lại, sao lưu: bản bị lỡ được chép bù | | |
 | 13 | "Thử khôi phục (không ghi gì)" | Nút ở dòng Sao lưu SQLite: báo đạt + số dòng; dữ liệu không đổi | | |
-| 14 | **Khôi phục thật từ USB** (trên bản sao) | Làm hỏng `data.sqlite` (hoặc dùng máy thử), mở app: màn khôi phục liệt kê bản ở USB → Kiểm tra → Khôi phục; đăng nhập, dữ liệu khớp | | |
+| 14 | **Khôi phục thật từ USB** (trên bản sao) | Trên máy thử với kho dùng riêng, dùng tình huống kho thử bị hỏng, rồi mở app: màn khôi phục liệt kê bản ở USB → Kiểm tra → Khôi phục; đăng nhập, dữ liệu khớp | | |
 | 15 | Ổ mạng / NAS / Drive đồng bộ (nếu có) | Lặp bước 11–14 với thư mục mạng; ghi nhận có treo > 6 giây không | | |
 | 16 | Khôi phục theo kỳ | Gói kỳ làm đổi phụ lục của kỳ đã chốt → phải bị chặn, nêu kỳ + phụ lục | | |
 | 17 | Gỡ cài đặt / cài đè bản mới | Cài đè bản mới hơn: dữ liệu còn nguyên | | |
+| 18 | Đổi thư mục JSON và Full Backup | Chọn hai thư mục riêng. Bấm **Hủy** lần đầu và xác nhận đường dẫn cũ. Chọn lại, bấm **Chuyển và lưu**, mở lại app và xác nhận hai đường dẫn mới. | | |
+| 19 | Sao lưu sau khi đổi đích | Tạo JSON và Full Backup mã hóa bằng hồ sơ thử. Dùng **Mở** ở từng dòng để kiểm tệp được ghi đúng nơi và tìm tệp kiểm tra SHA-256 đi kèm nếu có. | | |
+| 20 | Khôi phục Full Backup mã hóa | Chọn gói thử trên hồ sơ riêng. Thử mật khẩu sai để xác nhận dữ liệu giữ nguyên, sau đó dùng mật khẩu đúng và kiểm nhân viên, kỳ chốt, chứng từ, mẫu OCR. | | |
+| 21 | Đổi thư mục xuất | Đổi trong **File đã tải**, đối chiếu dòng **Thư mục xuất file**, xuất Excel/PDF rồi kiểm tệp mới trong thư mục đó. Thử **Dùng thư mục mặc định**. | | |
+| 22 | Chọn kỳ rà soát | Mở **Kiểm tra & nhật ký**, chọn năm khác trong danh sách và đổi tháng. Kiểm tiêu đề kỳ hoặc kết quả hiển thị đúng tháng/năm mới. | | |
 
 **Kết luận:** ☐ Nghiệm thu  ☐ Chưa nghiệm thu (nêu lý do): ______________________
 **Người thử ký:** ____________   **Người duyệt (chủ):** ____________
 
-Lỗi phát hiện: ghi số bước, bản cài, ảnh chụp, rồi gửi cho Claude kèm tệp `log` trong thư mục dữ liệu (nếu có).
+Lỗi phát hiện: ghi số bước, bản cài, ảnh chụp, và trích đoạn log liên quan nếu có. Che tên, mã nhân viên, số tài khoản và đường dẫn cá nhân trước khi gửi.
