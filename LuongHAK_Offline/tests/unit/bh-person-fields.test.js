@@ -23,5 +23,22 @@ test("U-BHP-03 thiếu dữ liệu: không có staff/canhan → 2 cột rỗng; 
 });
 test("U-BHP-04 báo cáo bảo hiểm (tabBaoCaoLuong) gọi HAKUI.bhPersonFields.enrich; index.html nạp ui/bh-person-fields.js", () => {
   const fs = require("node:fs"), path = require("node:path");
-  assert.match(fs.readFileSync(path.join(__dirname, "../../app-src/screens/tabBaoCaoLuong.js"), "utf8"), /HAKUI\.bhPersonFields\.enrich\(/); assert.match(fs.readFileSync(path.join(__dirname, "../../index.html"), "utf8"), /ui\/bh-person-fields\.js/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../../app-src/screens/tabBaoCaoLuong.js"), "utf8"), /fieldsBH\.enrich\(reportBH\.people, bhStaff, sourceBH\.profiles/); assert.match(fs.readFileSync(path.join(__dirname, "../../index.html"), "utf8"), /ui\/bh-person-fields\.js/);
+});
+
+test("kỳ chốt mới giữ ngày sinh khi hồ sơ đổi và qua vòng lưu/đọc; bản chốt cũ báo nguồn", () => {
+  const close = require("../../core/payroll-close");
+  const db = { canhan: [...canhan.map(row => ({ ...row })), { "Mã NV": "NGOAI", "Ngày sinh": "2000-02-29" }] };
+  const snap = close.buildSnapshot(db, "2026-10", { bangluong: [], bhxh: [{ "Mã NV": "NV01" }] }, staff);
+  const restored = JSON.parse(JSON.stringify(snap));
+  assert.deepEqual(restored.input.insuranceBirthDates, [{ "Mã NV": "NV01", "Ngày sinh": "1990-03-16" }]);
+  db.canhan[1]["Ngày sinh"] = "1990-03-17";
+  assert.equal(close.verify(restored), "ok");
+  const frozen = B.source(restored, db.canhan);
+  assert.equal(frozen.note, "");
+  assert.equal(B.enrich(rows(), staff, frozen.profiles, "2026-10-31")[0]["Ngày sinh"], "16/03/1990");
+  const legacy = B.source({ input: {} }, db.canhan);
+  assert.match(legacy.note, /hồ sơ cá nhân hiện tại/);
+  assert.equal(B.enrich(rows(), staff, legacy.profiles, "2026-10-31")[0]["Ngày sinh"], "17/03/1990");
+  assert.deepEqual(B.source({ input: { insuranceBirthDates: [] } }, db.canhan), { profiles: [], note: "" });
 });

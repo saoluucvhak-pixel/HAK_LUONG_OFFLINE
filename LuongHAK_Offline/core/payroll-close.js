@@ -24,6 +24,23 @@
   function current(db, ky) { return (db.kyluong || []).filter(function (k) { return k.ky === ky; })[0] || null; }
   function history(db, ky) { return (db.kyluong_lichsu || []).filter(function (k) { return k.ky === ky; }); }
 
+  function birthDatesAtPeriodEnd(profiles, periodEnd, employeeIds) {
+    var latest = new Map();
+    (profiles || []).forEach(function (row) {
+      var id = row && row["Mã NV"];
+      if (id == null || (employeeIds && !employeeIds.has(String(id)))) return;
+      var from = V.normDate(row["Hiệu lực từ"]);
+      if (from === null || (periodEnd && from > periodEnd)) return;
+      var previous = latest.get(String(id));
+      if (!previous || from >= previous.from) {
+        latest.set(String(id), { from: from, date: V.normDate(row["Ngày sinh"]) || "" });
+      }
+    });
+    return Array.from(latest, function (entry) {
+      return { "Mã NV": entry[0], "Ngày sinh": entry[1].date };
+    });
+  }
+
   /** Dựng snapshot chốt kỳ. kq = kết quả tính lương; staff = danh sách nhân sự đã dùng để tính. */
   function buildSnapshot(db, ky, kq, staff, meta) {
     meta = meta || {};
@@ -42,6 +59,8 @@
     var dm = {}; DM.forEach(function (t) { dm[t] = clone(db[t] || []); });
     var result = clone({ bangluong: kq.bangluong, bhxh: kq.bhxh, tncn: kq.tncn, canhbao: kq.canhbao });
     var inp = { staff: clone(staff || []), data: input, danhmuc: dm };
+    var insuranceIds = new Set((kq.bhxh || []).map(function (row) { return String(row["Mã NV"]); }));
+    if (insuranceIds.size) inp.insuranceBirthDates = birthDatesAtPeriodEnd(db.canhan, cuoi, insuranceIds);
     if (meta.leaveReview) inp.leaveReview = clone(meta.leaveReview);
     if (meta.payrollReports) inp.payrollReports = clone(meta.payrollReports);
     return {
@@ -137,7 +156,7 @@
     return rows;
   }
 
-  var api = { buildSnapshot: buildSnapshot, close: close, rollbackClose: rollbackClose, reopen: reopen, rollbackReopen: rollbackReopen,
+  var api = { birthDatesAtPeriodEnd: birthDatesAtPeriodEnd, buildSnapshot: buildSnapshot, close: close, rollbackClose: rollbackClose, reopen: reopen, rollbackReopen: rollbackReopen,
     verify: verify, diff: diff, diffDetailed: diffDetailed, checksum: checksum, totals: totals, current: current, history: history };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.close = api; }

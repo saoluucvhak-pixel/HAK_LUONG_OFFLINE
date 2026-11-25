@@ -57,7 +57,17 @@
     Object.keys(a).forEach(function (k) { if (!b[k]) { var x = a[k]; out.push({ "Loại": "Giảm (không còn đóng trong kỳ)", "Mã NV": k, "Họ và tên": x["Họ và tên"], "Phòng ban": x["Phòng ban"] || "", "Lương đóng kỳ trước": n0(x["Lương đóng BHXH"]), "Lương đóng kỳ này": "" }); } });
     return out;
   }
-  var api = { chiTiet: chiTiet, theoPhongBan: theoPhongBan, tongHop: tongHop, bienDong: bienDong, MONEY: MONEY };
+  function filteredReport(current, previous, spec) {
+    var RF = (typeof module !== "undefined" && module.exports) ? require("./reporting/report-filter.js") : root.HAKCore.reportFilter;
+    var currentRows = RF.applyGeneric(current.bhxh, spec);
+    var movement = RF.applyGeneric(bienDong(current, previous), spec);
+    var scoped = { bhxh: currentRows.rows };
+    return {
+      totals: tongHop(scoped), departments: theoPhongBan(scoped), people: chiTiet(scoped), movement: movement.rows,
+      skipped: Array.from(new Set(currentRows.skipped.concat(movement.rows.length ? movement.skipped : [])))
+    };
+  }
+  var api = { filteredReport: filteredReport, chiTiet: chiTiet, theoPhongBan: theoPhongBan, tongHop: tongHop, bienDong: bienDong, MONEY: MONEY };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else { root.HAKCore = root.HAKCore || {}; root.HAKCore.bh = api; }
 })(typeof window !== "undefined" ? window : this);

@@ -3,17 +3,27 @@
   'use strict';
   var node=typeof module!=='undefined'&&module.exports;
   var RX=node?require('./report-xlsx'):root.HAKUi.reportXlsx;
+  var V=node?require('../core/validate'):root.HAKCore.validate;
+  var TR=node?require('../core/reporting/total-row'):root.HAKCore.totalRow;
   var TITLES={TongHop:'TỔNG HỢP BẢO HIỂM THEO KHOẢN',TangGiam:'BIẾN ĐỘNG BẢO HIỂM',TheoPhongBan:'TỔNG HỢP BẢO HIỂM THEO PHÒNG BAN',ChiTiet:'CHI TIẾT BẢO HIỂM NGƯỜI LAO ĐỘNG'};
-  var EMPTY={TongHop:['Khoản','Công ty đóng','Người lao động đóng (trừ lương)','Cộng'],TangGiam:['Loại','Mã NV','Họ và tên','Phòng ban','Lương đóng kỳ trước','Lương đóng kỳ này'],TheoPhongBan:['Phòng ban','Số người','Cộng BH công ty đóng','Cộng BH NLĐ đóng','Truy thu bảo hiểm'],ChiTiet:['STT','Mã NV','Họ và tên','Phòng ban','Lương đóng BHXH','NLĐ.BHXH','NLĐ.BHYT','NLĐ.BHTN','Cộng BH NLĐ đóng']};
+  var EMPTY={TongHop:['Khoản','Công ty đóng','Người lao động đóng (trừ lương)','Cộng'],TangGiam:['Loại','Mã NV','Họ và tên','Phòng ban','Lương đóng kỳ trước','Lương đóng kỳ này'],TheoPhongBan:['Phòng ban','Số người','Cộng BH công ty đóng','Cộng BH NLĐ đóng','Truy thu bảo hiểm'],ChiTiet:['STT','Mã NV','Họ và tên','Số sổ BHXH','Ngày sinh','Phòng ban','Lương đóng BHXH','NLĐ.BHXH','NLĐ.BHYT','NLĐ.BHTN','Cộng BH NLĐ đóng']};
   function build(X,sheets,meta){
     meta=meta||{};
     var vms=sheets.map(function(sh){
       var rows=(sh.rows||[]).slice(),keys=rows.length?Object.keys(rows[0]):EMPTY[sh.name],total=null;
-      if(rows.length&&keys.some(function(k){return /^TỔNG/i.test(String(rows[rows.length-1][k]||''));})) total=rows.pop();
+      var last=rows[rows.length-1];
+      if(TR.is(last) || (last && (
+        (sh.name==='TongHop' && last['Khoản']==='TỔNG') ||
+        (sh.name==='TheoPhongBan' && last['Phòng ban']==='TỔNG CỘNG') ||
+        (sh.name==='ChiTiet' && !last['Mã NV'] && /^TỔNG CỘNG \(\d+ người\)$/.test(last['Họ và tên']))
+      ))) total=rows.pop();
       var money=function(k){return /^(CTY\.|NLĐ\.)|đóng|bảo hiểm|truy thu|lương|^Cộng$|^Tổng BH/i.test(k)&&!/^Mã|^Số sổ|^Ghi chú|^Loại/.test(k);};
       var cols=keys.map(function(k){return{key:k,label:k,kind:money(k)?'money':/^(STT|Số người)$/.test(k)?'qty':'text'};});
+      if(sh.name==='ChiTiet') rows=rows.map(function(row){
+        return Object.assign({},row,{'Ngày sinh':V.normDate(row['Ngày sinh'])||''});
+      });
       var tong={};if(total)cols.forEach(function(c){if(c.kind!=='text'&&typeof total[c.key]==='number')tong[c.key]=total[c.key];});
-      return{sheetName:sh.name,title:TITLES[sh.name],congTy:meta.congTy||'',kyText:meta.kyText||'',trangThai:meta.trangThai||'',phamVi:meta.phamVi||'Toàn bộ',donVi:'Đồng (VND)',ngayLap:meta.ngayLap||'',cols:cols,rows:rows,tong:tong,chuKy:['Người lập','Kế toán trưởng']};
+      return{sheetName:sh.name,title:TITLES[sh.name],congTy:meta.congTy||'',kyText:meta.kyText||'',trangThai:meta.trangThai||'',phamVi:meta.phamVi||'Toàn bộ',source:(meta.notes||[]).join(' '),donVi:'Đồng (VND)',ngayLap:meta.ngayLap||'',cols:cols,rows:rows,tong:tong,chuKy:['Người lập','Kế toán trưởng']};
     });
     var wb=RX.buildMany(X,vms,{chuKy:['Người lập','Kế toán trưởng'],nguoiLap:meta.nguoiLap});
     wb.worksheets.forEach(function(ws,index){
@@ -25,13 +35,13 @@
         var h=ws.getCell(hr,i+1);h.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF17365D'}};h.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
         for(var r=hr+1;r<=end;r++){
           var cell=ws.getCell(r,i+1);cell.font={name:'Calibri',size:11};
-          cell.alignment={vertical:'middle',horizontal:/^STT$/i.test(c.key)?'center':(c.kind==='text'?'left':'right'),wrapText:c.kind==='text'};
+          cell.alignment={vertical:'middle',horizontal:/^(STT|Ngày sinh)$/i.test(c.key)?'center':(c.kind==='text'?'left':'right'),wrapText:c.kind==='text'};
           if(r%2===0)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF1F5FA'}};
         }
         if(vm.rows.length){var t=ws.getCell(end+1,i+1);t.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFDDEBF7'}};t.font={name:'Calibri',bold:true,size:11};}
       });
       if(vm.rows.length){var stop=1;while(stop<nc&&ws.getCell(end+1,stop+1).value==null)stop++;if(stop>1)ws.mergeCells(end+1,1,end+1,stop);}
-      ws.getRow(4).height=26;
+      ws.getRow(4).height=meta.notes&&meta.notes.length?44:26;
       if(!vm.rows.length){ws.mergeCells(hr+1,1,hr+1,nc);ws.getCell(hr+1,1).value='Không có dữ liệu trong phạm vi đã chọn';ws.getRow(hr+1).height=28;}
       ws.pageSetup.paperSize=9;ws.pageSetup.orientation='landscape';ws.pageSetup.fitToWidth=nc>10?2:1;
       if(nc>10)ws.pageSetup.printTitlesColumn='A:C';
