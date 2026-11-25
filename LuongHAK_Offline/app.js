@@ -180,7 +180,27 @@
     var names = tables.concat(["auditlog"]), snap = {}, ok = false, wasDirty = dirty, sessionName = session && session.tenDangNhap;
     names.forEach(function (k) { snap[k] = JSON.stringify(db[k] || []); });
     try { ok = fn() !== false; if (!ok) lastTxnError = "Thao tác kiểm tra dữ liệu không cho phép ghi"; } catch (e) { ok = false; lastTxnError = String(e && e.message || e); toast("⛔ Lỗi khi xử lý: " + lastTxnError); }
-    if (ok) { ok = saveNow(); if (!ok) lastTxnError = lastSaveError; if (ok) { dbRev++; st.kqStale = true; } } // dữ liệu đã đổi → làm hết hiệu lực bản tính lương tạm
+    if (ok) {
+      if (typeof store !== "undefined" && store && store.saveDelta && !(typeof window !== "undefined" && window && window.HAK_SAVE === "full") && (typeof readOnly !== "undefined" ? !readOnly : true) && typeof saveDelta === "function") {
+        var deltaTables = {};
+        names.forEach(function (k) { deltaTables[k] = db[k] || []; });
+        var res = saveDelta({ tables: deltaTables, baseSig: typeof baseSig !== "undefined" ? baseSig : undefined });
+        if (res && res.ok) {
+          ok = true;
+        } else if (res && (res.conflict || isStale(res))) {
+          ok = false;
+          lastTxnError = lastSaveError;
+        } else {
+          ok = saveNow();
+          if (ok) { dbRev++; st.kqStale = true; }
+          if (!ok) lastTxnError = lastSaveError;
+        }
+      } else {
+        ok = saveNow();
+        if (ok) { dbRev++; st.kqStale = true; }
+        if (!ok) lastTxnError = lastSaveError;
+      }
+    } // dữ liệu đã đổi → làm hết hiệu lực bản tính lương tạm
     if (!ok) { names.forEach(function (k) { db[k] = JSON.parse(snap[k]); }); dbRev++; st.kqStale = true; dirty = wasDirty; if (names.indexOf("nguoidung") >= 0) session = sessionName ? PERM.findUser(db, sessionName) : null; if (wasDirty) { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); } }
     return ok;
   }
