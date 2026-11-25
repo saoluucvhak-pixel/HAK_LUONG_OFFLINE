@@ -398,8 +398,14 @@ function registerIpc() {
   ipcMain.handle("paths-get", guarded("backup.restore", async () => ({ ok: true, paths: spCur(), defaults: SP.defaults(app.getPath("userData"), exportsDir.dir()), labels: SP.LABEL, custom: Object.fromEntries(SP.KINDS.map((k) => [k, !!storage.readSettings()[SP.KEY[k]]])) })));
   ipcMain.handle("paths-pick", guarded("backup.restore", async (e, kind) => {
     if (process.env.HAK_PICK_DIR) return { ok: true, dir: process.env.HAK_PICK_DIR };
-    const r = dialog.showOpenDialogSync(BrowserWindow.fromWebContents(e.sender), { title: "Chọn thư mục: " + (SP.LABEL[kind] || ""), properties: ["openDirectory", "createDirectory"] });
-    return r && r[0] ? { ok: true, dir: r[0] } : { ok: false, cancelled: true };
+    const labels = { json: "Sao lưu JSON", sqlite: "Sao lưu SQLite", ...SP.LABEL };
+    if (!Object.hasOwn(labels, kind)) return { ok: false, error: "Loại thư mục không hợp lệ" };
+    const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), {
+      title: "Chọn thư mục: " + labels[kind],
+      defaultPath: dirOfKind(kind) || undefined,
+      properties: ["openDirectory", "createDirectory"]
+    });
+    return !r.canceled && r.filePaths[0] ? { ok: true, dir: r.filePaths[0] } : { ok: false, cancelled: true };
   }));
   // Quản lý 5 thư mục: mở / dung lượng / kiểm tra toàn vẹn (chỉ đọc)
   const spKinds = SP.KINDS.concat(["export", "json", "sqlite"]); // 012-A: json = thư mục sao lưu JSON (jsonDir) · sqlite = nơi ghi các bản tự động (chỉ xem/mở/kiểm)
@@ -433,7 +439,7 @@ function registerIpc() {
         onApplied: (n) => { if (kind === "docs") vault = createVault(n.docs); else if (kind === "ocrLib") ocrLib = require("./main/ocr-library").createStore(n.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") }); } });
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
-  // 012-A (issue #113): thư mục sao lưu JSON — khóa cài đặt MỚI `jsonDir` (chỉ thêm; cấu hình cũ vẫn đọc được). KHÔNG sửa main/storage-paths.js (tệp kế thừa bị CI khóa): dùng lại validate/copy kiểm SHA-256 của nó.
+  // 012-A (issue #113): thư mục sao lưu JSON — khóa cài đặt MỚI `jsonDir` (chỉ thêm; cấu hình cũ vẫn đọc được). dùng lại validate/copy kiểm SHA-256 của main/storage-paths.js.
   const jsonDirOf = () => { const s0 = storage.readSettings() || {}; return s0.jsonDir ? String(s0.jsonDir) : path.join(app.getPath("userData"), "json_backups"); };
   // v2.1.5: thư mục sao lưu SQLite chọn được — khóa cài đặt MỚI `sqliteDir` (chỉ thêm). Các bản chụp vẫn ghi trong thư mục dữ liệu (backups) TRƯỚC, rồi chép có kiểm SHA-256 sang thư mục này (xem main/sqlite-storage.js snapshotNow).
   const sqliteDirOf = () => { const s0 = storage.readSettings() || {}; return s0.sqliteDir ? String(s0.sqliteDir) : storage.info().backupDir; };

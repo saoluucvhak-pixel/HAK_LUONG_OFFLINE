@@ -6291,6 +6291,7 @@
     if (!STG.sqlite && window.hakSqlite) { window.hakSqlite.get().then(function (r) { if (r && r.ok) { STG.sqlite = r; if (st.tab === "backup") render(); } }); }
     if (!STG.json && window.hakJson) { window.hakJson.get().then(function (r) { if (r && r.ok) { STG.json = r; if (st.tab === "backup") render(); } }); }
     if (!STG.info) { window.hakPaths.info().then(function (r) { if (r && r.ok) { STG.info = r.info; STG.exportDir = r.exportDir; if (st.tab === "backup") render(); } }); }
+    if (STG.msg) c.appendChild(h("div", { class: STG.msg.bad ? "warn" : "ok", "data-stg-msg": "1", role: STG.msg.bad ? "alert" : "status", text: STG.msg.text }));
     var fmtB = function (n) { return n >= 1073741824 ? (n / 1073741824).toFixed(2) + " GB" : n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.ceil(n / 1024) + " KB"; };
     var t = h("table", { class: "t bk-stg-tbl" });
     t.appendChild(h("tr", {}, ["Thư mục", "Đường dẫn hiện tại", "Dung lượng", "Thao tác"].map(function (x) { return h("th", { text: x }); })));
@@ -6301,17 +6302,41 @@
       var acts = h("td", { class: "t bk-act" }, [h("div", { class: "bk-acts" }, [
         movable ? btn("Chọn / Chuyển…", "ghost", function () {
           if (!need("backup.restore", "đổi thư mục lưu trữ") || STG.busy) return;
+          STG.busy = true;
+          function finish(r) {
+            STG.busy = false;
+            if (r && r.cancelled) return;
+            STG.data = null; STG.info = null; STG.ver = null; STG.json = null; STG.sqlite = null; STG.sqliteExt = null;
+            STG.msg = formatStorageMoveMsg(r);
+            if (st.tab === "backup") render();
+          }
+          function failed(err) { finish({ ok: false, error: err && err.message }); }
           window.hakPaths.pick(k).then(function (p) {
-            if (!p || !p.ok) return;
-            if (!confirm("Chuyển \"" + kk[1] + "\" sang:\n" + p.dir + "\n\nDữ liệu sẽ được CHÉP và kiểm tra SHA-256, kho mới được mở thử trước khi đổi cấu hình; dữ liệu cũ vẫn giữ nguyên. Tiếp tục?")) return;
-            STG.busy = true; toast("Đang chép và kiểm tra dữ liệu…");
-            (k === "json" ? window.hakJson.setDir(p.dir) : k === "sqlite" ? window.hakSqlite.setDir(p.dir) : window.hakPaths.move(k, p.dir)).then(function (r) {
-              if (k === "mirror" && r && r.ok && store && store.mirrorSync) { var ms = store.mirrorSync(); if (ms && ms.ok) r.note = (r.note || "") + " Đã chép " + (ms.copied || 0) + " bản sao lưu sang thư mục dự phòng."; }
-              STG.busy = false; STG.data = null; STG.info = null; STG.ver = null; STG.json = null; STG.sqlite = null; STG.sqliteExt = null;
-              STG.msg = formatStorageMoveMsg(r);
-              audit("Đổi thư mục lưu trữ", k + " → " + p.dir + " · " + (r && r.ok ? "đạt" : "không đạt")); render();
-            });
-          });
+            if (!p || !p.ok) { finish(p); return; }
+            function move() {
+              toast("Đang chép và kiểm tra dữ liệu…");
+              (k === "json" ? window.hakJson.setDir(p.dir) : k === "sqlite" ? window.hakSqlite.setDir(p.dir) : window.hakPaths.move(k, p.dir)).then(function (r) {
+                if (k === "mirror" && r && r.ok && store && store.mirrorSync) { var ms = store.mirrorSync(); if (ms && ms.ok) r.note = (r.note || "") + " Đã chép " + (ms.copied || 0) + " bản sao lưu sang thư mục dự phòng."; }
+                audit("Đổi thư mục lưu trữ", k + " → " + p.dir + " · " + (r && r.ok ? "đạt" : "không đạt"));
+                finish(r);
+              }).catch(failed);
+            }
+            if (k === "json" || k === "backup") {
+              var applying = false;
+              var body = h("div", {}, [
+                h("p", { text: "Thư mục mới" }), h("p", { class: "bk-path", text: p.dir }),
+                h("p", { text: "App sẽ chép bản sao lưu cũ, đối chiếu SHA-256 rồi đặt thư mục mới cho lần sao lưu sau. Các tệp ở thư mục cũ vẫn còn." })
+              ]);
+              modal("Xác nhận chuyển " + kk[1], body, function (close) {
+                var apply = btn("Chuyển và lưu", "pri", function () { applying = true; close(); move(); });
+                apply.setAttribute("data-confirm-storage-move", k);
+                return [btn("Hủy", "ghost", close), apply];
+              }, { onClose: function () { if (!applying) finish({ cancelled: true }); } });
+              return;
+            }
+            if (confirm("Chuyển " + kk[1] + " sang:\n" + p.dir + "\n\nApp sẽ chép và kiểm tra SHA-256. Dữ liệu cũ vẫn còn. Tiếp tục?")) move();
+            else finish({ cancelled: true });
+          }).catch(failed);
         }, "Chọn thư mục mới và chuyển dữ liệu sang (chép + kiểm SHA-256, không xóa dữ liệu cũ)") : null,
         k === "sqlite" && STG.sqlite && STG.sqlite.custom && can("system.admin") ? btn("Về mặc định", "ghost", function () { if (!confirm("Bỏ thư mục SQLite đã chọn? (Các bản đã chép ở đó vẫn giữ nguyên; app chỉ ghi trong thư mục dữ liệu)")) return; window.hakSqlite.clearDir().then(function () { audit("Bỏ thư mục sao lưu SQLite", "về mặc định"); STG.sqlite = null; STG.info = null; render(); }); }) : null,
         k === "mirror" && STG.data.paths.mirror && can("system.admin") ? btn("Bỏ thư mục dự phòng", "ghost", function () { if (!confirm("Bỏ thư mục sao lưu dự phòng? (Các bản đã chép ở đó vẫn giữ nguyên)")) return; store.mirrorClear(); audit("Bỏ thư mục sao lưu dự phòng", STG.data.paths.mirror); STG.data = null; STG.info = null; render(); }, "Ngừng chép sang thư mục dự phòng") : null,
@@ -6331,7 +6356,6 @@
       if (verify) t.appendChild(h("tr", {}, [h("td"), h("td", { colspan: 3, class: verify.good === false ? "warn" : "ok", "data-stg-verify": k, text: (verify.good === false ? "✕ " : verify.good ? "✓ " : "") + verify.text })]));
     });
     c.appendChild(h("div", { style: "overflow-x:auto;max-width:100%" }, [t])); // cửa sổ hẹp: bảng cuộn ngang, không tràn khỏi khung
-    if (STG.msg) c.appendChild(h("div", { class: STG.msg.bad ? "warn" : "ok", "data-stg-msg": "1", text: STG.msg.text }));
     return c;
   }
   /** Tạo Full Backup (gói .zip: dữ liệu + chứng từ gốc + thư viện OCR + manifest SHA-256). Gọi từ khu 1 "Sao lưu ngay". */
@@ -6544,6 +6568,15 @@
       c.appendChild(h("div", { class: "hint", text: "Gói kỳ (.zip): chấm công, sản lượng, bán dăm, phát sinh, tạm ứng, tiền cơm, kết quả và bản chốt của kỳ + TOÀN BỘ nhân sự, danh mục, công thức lúc sao lưu. Đổi kỳ ở thanh trên." }));
     }
     c.appendChild(h("div", { class: "hint", text: "Trước khi cài lại Windows / đổi máy: sao lưu rồi cất file sang USB/Drive (thư mục dự phòng ở tab “Lịch & thư mục sao lưu” tự chép giúp). Sang máy mới: cài app rồi Khôi phục ở mục 2." }));
+    var guide = h("details", { "data-backup-guide": "1" }, [h("summary", { text: "Hướng dẫn sao lưu và khôi phục từng bước" })]);
+    guide.appendChild(h("ol", {}, [
+      h("li", { text: "Chọn loại: Full Backup để chuyển máy hoặc giữ cả chứng từ và OCR; JSON để lưu riêng dữ liệu dạng JSON; SQLite để phục hồi kho dữ liệu trên máy." }),
+      h("li", { text: "Đổi nơi lưu: mở Lịch & thư mục sao lưu, bấm Chọn / Chuyển… đúng dòng. Chọn một thư mục riêng, ví dụ D:\\SaoLuuHAK\\JSON và D:\\SaoLuuHAK\\Full. Với JSON hoặc Full Backup, bấm Chuyển và lưu, rồi chờ thông báo và kiểm tra cột Đường dẫn hiện tại." }),
+      h("li", { text: "Tạo bản mới: quay về mục Sao lưu ngay, chọn loại và bấm Sao lưu toàn bộ. Với Full Backup có mật khẩu, lưu mật khẩu ở nơi riêng để có thể mở gói khi cần." }),
+      h("li", { text: "Kiểm tra tệp: chờ báo hoàn tất, dùng Mở ở đúng dòng thư mục để tìm tệp vừa tạo. Giữ thêm một bản ở ổ khác hoặc USB. Giữ cả tệp .sha256 đi kèm nếu có." }),
+      h("li", { text: "Khôi phục: ở mục 2, chọn Full Backup hoặc JSON đúng với tệp, rồi bấm Khôi phục toàn bộ… và đọc kết quả kiểm tra trước khi xác nhận. Nếu kho SQLite hỏng, dùng màn hình khôi phục khi mở app. Để thử trước, dùng hồ sơ thử hoặc máy khác." })
+    ]));
+    c.appendChild(guide);
     return c;
   }
   /** Khu 2 — KHÔI PHỤC (012-A): một nút, chọn loại. Luôn có bước kiểm tra + xác nhận, tự sao lưu bản hiện tại trước khi ghi. */
