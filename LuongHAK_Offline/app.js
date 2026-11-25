@@ -120,7 +120,7 @@
   }
   // Phiên bản kho mà giao diện đã nạp/lưu gần nhất; gửi kèm mỗi lần lưu để tiến trình chính từ chối ghi đè khi kho đã đổi ở nơi khác (STALE_BASE).
   var baseSig; try { baseSig = (store && !loadError && store.sig) ? String(store.sig()) : undefined; } catch (e) { baseSig = undefined; }
-  var hadInputReviewsOnLoad = !(db && (db.schemaVersion < 5 || db._inputReviews === undefined));
+  var inputReviewsSaved = !!(db && db._inputReviews && db.schemaVersion >= 5);
   var lastSaveStale = false, staleDeclined = false, closingNow = false;
   function isStale(r) { return (typeof r === "string" && r.indexOf("STALE_BASE") === 0) || (r && typeof r === "object" && (r.conflict === true || r.code === "STALE_BASE")); }
   /** Kho đã đổi ở nơi khác: bản trong bộ nhớ là bản CŨ. Không ghi; hỏi tải lại (bỏ thay đổi chưa lưu ở màn hình này) hoặc giữ màn hình để xử lý tay. */
@@ -136,8 +136,8 @@
     lastSaveError = "";
     if (readOnly) { lastSaveError = "Đang ở chế độ khôi phục — chưa ghi dữ liệu"; toast("⚠ " + lastSaveError); return false; }
     var str = JSON.stringify(db);
-    if (store) { var r; lastSaveStale = false; try { r = store.save(str, baseSig); } catch (e) { r = e && e.message || String(e); } if (r !== true) { lastSaveError = String(r && r.error || r || "Nơi lưu dữ liệu không xác nhận đã ghi thành công"); dirty = true; if (isStale(r)) { lastSaveStale = true; toast("⛔ " + lastSaveError); if (!closingNow) onStaleBase(); return false; } toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + lastSaveError); return false; } try { if (store.sig) baseSig = String(store.sig()); } catch (e) { /* giữ baseSig cũ */ } dirty = false; hadInputReviewsOnLoad = true; return true; }
-    try { localStorage.setItem(KEY, str); dirty = false; hadInputReviewsOnLoad = true; return true; } catch (e) { lastSaveError = "Không ghi được bộ nhớ trình duyệt: " + (e && e.message || String(e)); dirty = true; toast("⚠ " + lastSaveError + " — hãy bấm Sao lưu ra file ngay!"); return false; }
+    if (store) { var r; lastSaveStale = false; try { r = store.save(str, baseSig); } catch (e) { r = e && e.message || String(e); } if (r !== true) { lastSaveError = String(r && r.error || r || "Nơi lưu dữ liệu không xác nhận đã ghi thành công"); dirty = true; if (isStale(r)) { lastSaveStale = true; toast("⛔ " + lastSaveError); if (!closingNow) onStaleBase(); return false; } toast("⚠ KHÔNG LƯU ĐƯỢC dữ liệu: " + lastSaveError); return false; } try { if (store.sig) baseSig = String(store.sig()); } catch (e) { /* giữ baseSig cũ */ } dirty = false; if (db && db._inputReviews && db.schemaVersion >= 5) inputReviewsSaved = true; return true; }
+    try { localStorage.setItem(KEY, str); dirty = false; if (db && db._inputReviews && db.schemaVersion >= 5) inputReviewsSaved = true; return true; } catch (e) { lastSaveError = "Không ghi được bộ nhớ trình duyệt: " + (e && e.message || String(e)); dirty = true; toast("⚠ " + lastSaveError + " — hãy bấm Sao lưu ra file ngay!"); return false; }
   }
   function saveDelta(mutation) {
     if (readOnly) { lastSaveError = "Đang ở chế độ khôi phục — chưa ghi dữ liệu"; toast("⚠ " + lastSaveError); return { ok: false, error: lastSaveError }; }
@@ -166,7 +166,7 @@
       if (r.baseSig) baseSig = String(r.baseSig);
       else if (store.sig) { try { baseSig = String(store.sig()); } catch (e) {} }
       dirty = false;
-      if (mutation && mutation.tables && mutation.tables._inputReviews) hadInputReviewsOnLoad = true;
+      if (mutation && mutation.tables && mutation.tables._inputReviews) inputReviewsSaved = true;
       dbRev++;
       st.kqStale = true;
       return r;
@@ -183,7 +183,7 @@
     names.forEach(function (k) { snap[k] = JSON.stringify(db[k] || []); });
     try { ok = fn() !== false; if (!ok) lastTxnError = "Thao tác kiểm tra dữ liệu không cho phép ghi"; } catch (e) { ok = false; lastTxnError = String(e && e.message || e); toast("⛔ Lỗi khi xử lý: " + lastTxnError); }
     if (ok) {
-      var hasReviews = (typeof hadInputReviewsOnLoad !== "undefined" ? hadInputReviewsOnLoad : !(db && (db.schemaVersion < 5 || db._inputReviews === undefined)));
+      var hasReviews = (typeof inputReviewsSaved !== "undefined") ? inputReviewsSaved : true;
       if (!wasDirty && hasReviews && typeof store !== "undefined" && store && store.saveDelta && !(typeof window !== "undefined" && window && window.HAK_SAVE === "full") && (typeof readOnly !== "undefined" ? !readOnly : true) && typeof saveDelta === "function") {
         var deltaTables = {};
         names.forEach(function (k) { deltaTables[k] = db[k] || []; });

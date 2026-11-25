@@ -22,7 +22,7 @@ function setupTxnEnv({ deltaResult = { ok: true, baseSig: "sqlite:2" }, saveNowR
       schemaVersion: 5
     },
     dirty: false,
-    hadInputReviewsOnLoad: !legacyDb,
+    inputReviewsSaved: !legacyDb,
     dbRev: 0,
     st: { kqStale: false },
     baseSig: "sqlite:1",
