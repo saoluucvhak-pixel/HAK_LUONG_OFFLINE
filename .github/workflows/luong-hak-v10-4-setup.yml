@@ -130,14 +130,17 @@ jobs:
         run: |
           npm install --no-save playwright@${{ env.PLAYWRIGHT_VERSION }}
           $setup = (Get-ChildItem dist -Filter '*Setup*.exe' | Select-Object -First 1).FullName
-          $prevArgs = @()
-          $tag = (gh release list --repo $env:GITHUB_REPOSITORY --limit 1 --json tagName --jq '.[0].tagName' 2>$null)
-          if ($tag) {
-            New-Item -ItemType Directory -Force prev | Out-Null
-            gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern '*Setup*.exe' --dir prev 2>$null
-            $p = Get-ChildItem prev -Filter '*Setup*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($p -and ($p.Name -notlike "*$((Get-Content package.json | ConvertFrom-Json).version).exe")) { $prevArgs = @('--prev', $p.FullName) }
-          }
+          $currentTag = 'v' + (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $releases = gh release list --repo $env:GITHUB_REPOSITORY --exclude-drafts --limit 20 --json tagName
+          if ($LASTEXITCODE -ne 0) { throw 'Could not list previous Windows releases' }
+          $tag = ($releases | ConvertFrom-Json | Where-Object { $_.tagName -ne $currentTag } | Select-Object -First 1).tagName
+          if (-not $tag) { throw 'A different published version is required for the upgrade test' }
+          New-Item -ItemType Directory -Force prev | Out-Null
+          gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern '*Setup*.exe' --dir prev
+          if ($LASTEXITCODE -ne 0) { throw "Could not download the previous installer ($tag)" }
+          $previous = @(Get-ChildItem prev -Filter '*Setup*.exe' -File)
+          if ($previous.Count -ne 1) { throw "Expected exactly one previous installer ($tag)" }
+          $prevArgs = @('--prev', $previous[0].FullName)
           $testedHash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
           Write-Host "Setup: $setup; bản trước: $($prevArgs -join ' ')"
           node tests/e2e/installed-setup.cjs --setup $setup @prevArgs
