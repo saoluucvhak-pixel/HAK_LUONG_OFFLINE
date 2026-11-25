@@ -107,7 +107,8 @@
     names.forEach(function (k) { snap[k] = JSON.stringify(db[k] || []); });
     try { ok = fn() !== false; if (!ok) lastTxnError = "Thao tác kiểm tra dữ liệu không cho phép ghi"; } catch (e) { ok = false; lastTxnError = String(e && e.message || e); toast("⛔ Lỗi khi xử lý: " + lastTxnError); }
     if (ok) {
-      if (!wasDirty && hadInputReviewsOnLoad && typeof store !== "undefined" && store && store.saveDelta && !(typeof window !== "undefined" && window && window.HAK_SAVE === "full") && (typeof readOnly !== "undefined" ? !readOnly : true) && typeof saveDelta === "function") {
+      var hasReviews = (typeof hadInputReviewsOnLoad !== "undefined" ? hadInputReviewsOnLoad : !(db && (db.schemaVersion < 5 || db._inputReviews === undefined)));
+      if (!wasDirty && hasReviews && typeof store !== "undefined" && store && store.saveDelta && !(typeof window !== "undefined" && window && window.HAK_SAVE === "full") && (typeof readOnly !== "undefined" ? !readOnly : true) && typeof saveDelta === "function") {
         var deltaTables = {};
         names.forEach(function (k) { deltaTables[k] = db[k] || []; });
         var res = saveDelta({ tables: deltaTables, baseSig: typeof baseSig !== "undefined" ? baseSig : undefined });
