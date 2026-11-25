@@ -111,10 +111,17 @@
       body.appendChild(ul);
     };
     draw();
+    var folderChanged = function () {
+      STG.data = null;
+      STG.info = null;
+      STG.ver = null;
+      if (st.tab === "backup") render();
+      draw();
+    };
     closeFn = modal("📂 File đã tải", body, function (close) {
       return [btn("📂 Mở thư mục", "pri", function () { if (!FILES.openDir()) toast("Không mở được thư mục"); }),
-        btn("Đổi thư mục lưu…", "", function () { var r = FILES.chooseDir(); if (r && r.ok) { toast("Từ giờ file lưu vào: " + r.dir); audit("Đổi thư mục lưu file xuất", ""); draw(); } else if (r && r.error) toast(r.error); }),
-        btn("Dùng thư mục mặc định", "ghost", function () { var r = FILES.resetDir(); if (r && r.ok) { toast("Dùng thư mục mặc định: " + r.dir); draw(); } }),
+        btn("Đổi thư mục lưu…", "", function () { var r = FILES.chooseDir(); if (r && r.ok) { toast("Từ giờ file lưu vào: " + r.dir); audit("Đổi thư mục lưu file xuất", ""); folderChanged(); } else if (r && r.error) toast(r.error); }),
+        btn("Dùng thư mục mặc định", "ghost", function () { var r = FILES.resetDir(); if (r && r.ok) { toast("Dùng thư mục mặc định: " + r.dir); folderChanged(); } else if (r && r.error) toast(r.error); }),
         btn("Đóng", "", close)];
     }, { drawer: true });
     return closeFn;

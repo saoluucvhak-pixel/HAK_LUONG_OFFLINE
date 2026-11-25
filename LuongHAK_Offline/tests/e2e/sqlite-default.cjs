@@ -274,7 +274,9 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Không còn các nút sao lưu trùng chức năng (Tạo bản sao lưu ngay / Tạo Full Backup / Sao lưu ra file)", (await w.locator('#main button:has-text("Tạo bản sao lưu ngay"), #main button:has-text("Tạo Full Backup"), #main button:has-text("Sao lưu ra file")').count()) === 0);
     await w.click('[data-sl-tab="tm"]');
     if (await one('[data-stg="json"]')) {
-      await w.locator('[data-stg="json"] button:has-text("Chọn")').click(); await w.waitForTimeout(800);
+      await w.locator('[data-stg="json"] button:has-text("Chọn")').click();
+      await w.locator('[data-confirm-storage-move="json"]').click();
+      await w.locator('[data-stg-msg].ok').waitFor();
       await w.click('#nav button[data-k="home"]'); await w.click('#nav button[data-k="backup"]'); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="json"]');
       ok("Đặt thư mục sao lưu JSON → hiện đúng đường dẫn đã chọn", (await w.locator('[data-stg="json"]').innerText()).includes(JD));
     }
@@ -291,6 +293,50 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     if (await one("[data-backup-now]")) { const b = await w.locator("[data-backup-now]").boundingBox(), vp = w.viewportSize() || { width: 1366, height: 768 }; ok("Nút Sao lưu toàn bộ thấy ngay khi mở màn (không cần cuộn)", !!b && b.y >= 0 && b.y + b.height <= vp.height, JSON.stringify(b) + " / " + JSON.stringify(vp)); } else ok("Nút Sao lưu toàn bộ thấy ngay khi mở màn (không cần cuộn)", false, "không có nút");
     ok("Màn Sao lưu & Khôi phục: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();
+    const FD = fs.mkdtempSync(path.join(os.tmpdir(), "hak-bkfull-"));
+    ({ app, w, errs } = await launch(D11, { HAK_PICK_DIR: FD })); await login(w);
+    await w.click('#nav button[data-k="backup"]');
+    await w.click('[data-sl-tab="sl"]');
+    await w.click('[data-backup-guide] summary');
+    ok("Hướng dẫn sao lưu hiển thị từng bước", (await w.locator('[data-backup-guide][open] li').count()) === 5);
+    await w.click('[data-sl-tab="tm"]');
+    ok("Mở lại app giữ thư mục JSON đã chọn", (await w.evaluate(() => window.hakJson.get())).dir === JD);
+    const selectFull = w.locator('[data-stg="backup"] button:has-text("Chọn")');
+    const oldFull = (await w.evaluate(() => window.hakPaths.get())).paths.backup;
+    const encryptedName = "LuongHAK_FullBackup_QA.zip.hakenc", hashName = encryptedName + ".sha256";
+    fs.writeFileSync(path.join(oldFull, encryptedName), "fixture for encrypted-file transfer");
+    fs.writeFileSync(path.join(oldFull, hashName), "fixture for checksum-file transfer");
+
+    await selectFull.click();
+    await w.locator('#modal [role="dialog"] button', { hasText: /^Hủy$/ }).click();
+    ok("Hủy xác nhận giữ nguyên đường dẫn Full Backup", (await w.evaluate(() => window.hakPaths.get())).paths.backup === oldFull);
+    await selectFull.click();
+    await w.locator('[data-confirm-storage-move="backup"]').click();
+    await w.locator('[data-stg-msg].ok').waitFor();
+    ok("Xác nhận chuyển Full Backup lưu đúng thư mục", (await w.evaluate(() => window.hakPaths.get())).paths.backup === FD);
+    for (const name of [encryptedName, hashName]) {
+      ok("Chuyển Full Backup giữ nguyên nguồn và chép đủ " + name,
+        fs.existsSync(path.join(FD, name)) && fs.readFileSync(path.join(FD, name)).equals(fs.readFileSync(path.join(oldFull, name))));
+    }
+
+    await app.close();
+    const ED = fs.mkdtempSync(path.join(os.tmpdir(), "hak-export-"));
+    ({ app, w, errs } = await launch(D11, { HAK_DOWNLOAD_DIR: "" })); await login(w);
+    await app.evaluate(({ dialog }, folder) => { dialog.showOpenDialogSync = () => [folder]; }, ED);
+    await w.click('#nav button[data-k="backup"]');
+    await w.click('[data-sl-tab="tm"]');
+    const exportPath = w.locator('[data-stg="export"] .bk-path');
+    await exportPath.waitFor();
+    const defaultExport = (await w.evaluate(() => window.hakFiles.info())).dir;
+    await w.click('#top button[data-files]');
+    await w.getByRole("button", { name: "Đổi thư mục lưu…" }).click();
+    await w.waitForFunction(folder => document.querySelector('[data-stg="export"] .bk-path')?.textContent === folder, ED);
+    ok("Thư mục xuất cập nhật ngay trên bảng lưu trữ", (await w.evaluate(() => window.hakFiles.info())).dir === ED);
+    await w.getByRole("button", { name: "Dùng thư mục mặc định" }).click();
+    await w.waitForFunction(folder => document.querySelector('[data-stg="export"] .bk-path')?.textContent === folder, defaultExport);
+    ok("Về mặc định cập nhật cả bảng lưu trữ và thư mục xuất", (await w.evaluate(() => window.hakFiles.info())).dir === defaultExport);
+    await app.close();
+
   }
   // 13. GIAO DIỆN sao lưu / khôi phục THEO KỲ (012-B2, issue #113): bấm nút thật → gói .zip; sửa dữ liệu; khôi phục qua màn xem trước (xác nhận riêng, xóa tắt sẵn), tự SAO LƯU TOÀN BỘ trước khi ghi, ghi nhật ký
   {

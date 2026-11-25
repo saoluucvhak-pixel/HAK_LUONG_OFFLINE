@@ -964,8 +964,8 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=home]"); await w.waitForTimeout(200);
     const homeBefore = await w.locator("main").first().innerText();
-    await app.evaluate(({ dialog }, p) => { dialog.showOpenDialogSync = () => [p]; }, USB); // giả lập người dùng chọn thư mục trong hộp thoại Windows
-    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="mirror"]'); await w.click('[data-stg="mirror"] button:has-text("Chọn")'); await w.waitForTimeout(1500);
+    await app.evaluate(({ dialog }, p) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [p] }); }, USB); // giả lập người dùng chọn thư mục trong hộp thoại Windows
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="mirror"]'); await w.click('[data-stg="mirror"] button:has-text("Chọn")'); await w.locator('[data-confirm-storage-move="mirror"]').click(); await w.locator("[data-stg-msg].ok").waitFor();
     const card = await w.locator(".card", { has: w.locator('h3:has-text("Sao lưu ra ngoài máy")') }).innerText();
     const mir = fs.readdirSync(path.join(USB, "TinhLuongHAK-SaoLuu"));
     await w.click("#nav button[data-k=home]"); await w.waitForTimeout(200);
@@ -1524,7 +1524,7 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch(DATA, { env: { HAK_PICK_DIR: NEWD } }));
     const n0 = await w.evaluate(async () => (await window.hakOcrLib.list({})).samples.length);
     await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="ocrLib"]');
-    await w.locator('[data-stg="ocrLib"] button:has-text("Chuyển")').click(); await w.waitForSelector('[data-stg-msg]', { timeout: 30000 });
+    await w.locator('[data-stg="ocrLib"] button:has-text("Chuyển")').click(); await w.locator('[data-confirm-storage-move="ocrLib"]').click(); await w.waitForSelector('[data-stg-msg]', { timeout: 30000 });
     const msg = await w.locator("[data-stg-msg]").innerText();
     const set = JSON.parse(fs.readFileSync(path.join(DATA, "settings.json"), "utf8"));
     const n1 = await w.evaluate(async () => { const r = await window.hakOcrLib.list({}); const v = await window.hakOcrLib.verify(); return { n: r.samples.length, ok: v.report.ok }; });
