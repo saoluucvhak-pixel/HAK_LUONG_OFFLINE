@@ -110,3 +110,16 @@ test("U-TXN-DELTA-03: Cờ khẩn cấp window.HAK_SAVE = 'full' ép txn() chuy�
   assert.ok(events.includes("store.save"), "Phải gọi store.save (full)");
   assert.equal(events.some((e) => e.action === "saveDelta"), false, "Không được gọi saveDelta khi có cờ full");
 });
+
+test("U-TXN-DELTA-04: Khi có thay đổi dở dang (dirty === true), txn() an toàn chuyển sang saveNow() để không sót bảng khác", () => {
+  const { c, events } = setupTxnEnv();
+  c.dirty = true;
+
+  const ok = c.txn(["nhanvien"], () => {
+    c.db.nhanvien.push({ _id: "nv-04", "Mã NV": "0004" });
+  });
+
+  assert.equal(ok, true);
+  assert.ok(events.includes("store.save"), "Phải gọi store.save (full) để lưu trọn vẹn dữ liệu");
+  assert.equal(events.some((e) => e.action === "saveDelta"), false, "Không dùng saveDelta khi dirty đang bật");
+});

@@ -198,12 +198,14 @@ function registerIpc() {
         try { curDoc = (ld && ld.ok && ld.text) ? JSON.parse(ld.text) : {}; } catch (e2) { curDoc = {}; }
       }
       const nextDoc = applyMutationToDoc(curDoc, mutation);
-      const v = policy().check("", who, { restoring: !!(restorer && restorer.busy()), recovery: rcv, parsed: nextDoc });
+      const hasKyluong = mutation && mutation.tables && mutation.tables.kyluong;
+      const nextText = (hasKyluong || !storage.saveDelta) ? JSON.stringify(nextDoc) : "";
+      const v = policy().check(nextText, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv, parsed: nextDoc });
       if (!v.ok) {
         if (process.env.HAK_DEBUG_POLICY) require("fs").appendFileSync(process.env.HAK_DEBUG_POLICY, v.error + "\n");
         return (opts && opts.structured) ? { ok: false, error: v.error } : v.error;
       }
-      if (storage.hasDataFile()) years.checkWrite("", !!(restorer && restorer.busy()), nextDoc);
+      if (storage.hasDataFile()) years.checkWrite(nextText, !!(restorer && restorer.busy()), nextDoc);
       let r;
       if (storage.saveDelta) {
         r = storage.saveDelta(mutation);
