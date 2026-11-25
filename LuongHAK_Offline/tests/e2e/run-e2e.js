@@ -964,8 +964,8 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=home]"); await w.waitForTimeout(200);
     const homeBefore = await w.locator("main").first().innerText();
-    await app.evaluate(({ dialog }, p) => { dialog.showOpenDialogSync = () => [p]; }, USB); // giả lập người dùng chọn thư mục trong hộp thoại Windows
-    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="mirror"]'); await w.click('[data-stg="mirror"] button:has-text("Chọn")'); await w.waitForTimeout(1500);
+    await app.evaluate(({ dialog }, p) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [p] }); }, USB); // giả lập người dùng chọn thư mục trong hộp thoại Windows
+    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="tm"]'); await w.waitForSelector('[data-stg="mirror"]'); await w.click('[data-stg="mirror"] button:has-text("Chọn")'); await w.locator("[data-stg-msg].ok").waitFor();
     const card = await w.locator(".card", { has: w.locator('h3:has-text("Sao lưu ra ngoài máy")') }).innerText();
     const mir = fs.readdirSync(path.join(USB, "TinhLuongHAK-SaoLuu"));
     await w.click("#nav button[data-k=home]"); await w.waitForTimeout(200);
