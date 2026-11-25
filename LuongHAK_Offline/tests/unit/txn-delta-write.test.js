@@ -6,15 +6,23 @@ const fs = require("node:fs"), path = require("node:path"), vm = require("node:v
 
 const src = fs.readFileSync(path.join(__dirname, "../../app.js"), "utf8");
 
-function setupTxnEnv({ deltaResult = { ok: true, baseSig: "sqlite:2" }, saveNowResult = true, hakSave = "" } = {}) {
+function setupTxnEnv({ deltaResult = { ok: true, baseSig: "sqlite:2" }, saveNowResult = true, hakSave = "", legacyDb = false } = {}) {
   const events = [];
   const c = {
-    db: {
+    db: legacyDb ? {
       auditlog: [],
       nhanvien: [{ _id: "nv-01", "Mã NV": "0001", "Họ và tên": "Nguyễn Văn A" }],
-      congty: [{ ten: "Cty HAK" }]
+      congty: [{ ten: "Cty HAK" }],
+      schemaVersion: 2
+    } : {
+      auditlog: [],
+      nhanvien: [{ _id: "nv-01", "Mã NV": "0001", "Họ và tên": "Nguyễn Văn A" }],
+      congty: [{ ten: "Cty HAK" }],
+      _inputReviews: [],
+      schemaVersion: 5
     },
     dirty: false,
+    hadInputReviewsOnLoad: !legacyDb,
     dbRev: 0,
     st: { kqStale: false },
     baseSig: "sqlite:1",
@@ -122,4 +130,16 @@ test("U-TXN-DELTA-04: Khi có thay đổi dở dang (dirty === true), txn() an t
   assert.equal(ok, true);
   assert.ok(events.includes("store.save"), "Phải gọi store.save (full) để lưu trọn vẹn dữ liệu");
   assert.equal(events.some((e) => e.action === "saveDelta"), false, "Không dùng saveDelta khi dirty đang bật");
+});
+
+test("U-TXN-DELTA-05: Khi cơ sở dữ liệu cũ chưa có _inputReviews (schema < 5), txn() tự động chuyển sang saveNow() để hoàn tất nâng cấp", () => {
+  const { c, events } = setupTxnEnv({ legacyDb: true });
+
+  const ok = c.txn(["nhanvien"], () => {
+    c.db.nhanvien.push({ _id: "nv-05", "Mã NV": "0005" });
+  });
+
+  assert.equal(ok, true);
+  assert.ok(events.includes("store.save"), "Phải gọi store.save (full) để hoàn tất nâng cấp schema trên đĩa");
+  assert.equal(events.some((e) => e.action === "saveDelta"), false, "Không dùng saveDelta khi cơ sở dữ liệu chưa nâng cấp đủ bảng");
 });
