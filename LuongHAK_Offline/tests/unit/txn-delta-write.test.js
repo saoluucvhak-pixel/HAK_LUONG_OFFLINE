@@ -84,7 +84,7 @@ test("U-TXN-DELTA-01: txn() tự động phát sinh delta payload chứa chỉ c
 });
 
 test("U-TXN-DELTA-02: txn() hoàn tác bộ nhớ khi saveDelta báo STALE_BASE", () => {
-  const { c, events } = setupTxnEnv({
+  const { c } = setupTxnEnv({
     deltaResult: { ok: false, conflict: true, code: "STALE_BASE", error: "STALE_BASE: Bản nền đã cũ" }
   });
 
