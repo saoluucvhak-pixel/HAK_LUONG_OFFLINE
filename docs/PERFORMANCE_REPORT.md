@@ -139,3 +139,14 @@ Nhận định (trung thực):
 ## Đo lại sau 006, v2.0.56 (20/11/2026)
 
 Tái lập: `docs/v2.0.56/perf-steps.cjs` (60 lần sửa 1 ô, bỏ 3 lần đầu, cùng máy và dữ liệu giả). Chuỗi ghi tiến trình chính: **5.000 NV 242/315 → 104/161 ms (p50/p95); 10.000 NV 531/656 → 214/302 ms; 300 NV 6/9 ms.** Nguyên nhân trước: sau mỗi lần lưu, bước kiểm quy tắc ghi và kho năm đều đọc + phân tích lại toàn bộ dữ liệu (2 × ~37 ms), băm cả bảng (~30 ms) và kho SQLite tuần tự hóa lại từng dòng (~50 ms). Mục tiêu < 150 ms ở 5.000 NV: **đạt ở p50, chưa đạt ở p95** (~161 ms). Chưa đo trên Windows thật.
+
+## Đo nền v2.1.30 (25/11/2026)
+
+Linux x86_64, Node 24.22.3, commit `3d6985c`. Benchmark sẵn có dùng dữ liệu giả, sửa một ô mỗi lượt trong 60 lượt và bỏ 3 lượt đầu. Hai quy mô chạy trong các tiến trình Linux cùng phiên. Thời gian chuỗi ghi tính từ bước phân tích JSON đến khi ghi xong SQLite. Phép đo tách riêng thời gian tạo JSON và chưa tính IPC, renderer hoặc Windows.
+
+| Nhân viên giả | Chuỗi ghi p50/p95 | Tạo JSON p50/p95 |
+|---|---:|---:|
+| 300 | 9 / 19 ms | 5 / 10 ms |
+| 5.000 | 120 / 158 ms | 71 / 114 ms |
+
+Tái lập từ `LuongHAK_Offline/` bằng `REUSE=1 node --max-old-space-size=4096 ../docs/v2.0.56/perf-steps.cjs . 5000` (thay `5000` bằng `300` cho quy mô nhỏ). P95 ở 5.000 nhân viên cao hơn mục tiêu 150 ms của chuỗi ghi. Cần đo trên máy Windows của đơn vị trước khi chọn thay đổi luồng lưu.

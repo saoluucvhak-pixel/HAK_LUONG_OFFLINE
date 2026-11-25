@@ -2,10 +2,15 @@
 
 > File này là "bộ nhớ" của dự án: phiên làm việc sau đọc file này để tiếp tục mà không mất ngữ cảnh.
 
-## Cập nhật 24/11/2026
-- Bản hiện hành **2.1.26** (pre-release; chưa nghiệm thu Windows thật). Tình trạng, việc dở và đề xuất: **`RA_SOAT_TONG_THE_2026-11-24.md`**. Mục "Trạng thái hiện tại" bên dưới là ảnh chụp 18/11 (2.0.33), giữ để tham chiếu.
+## Cập nhật 25/11/2026
 
-## Trạng thái hiện tại (18/11/2026)
+- **v2.1.30** là bản thử nghiệm có kiểm soát. CI trên `main` đạt 8/8 job, gồm cài đè từ v2.1.29 với dữ liệu giả và xác minh mã băm EXE. [Bản phát hành](https://github.com/saoluucvhak-pixel/HAK_LUONG_OFFLINE/releases/tag/v2.1.30) · [CI](https://github.com/saoluucvhak-pixel/HAK_LUONG_OFFLINE/actions/runs/45592072530)
+- **Đã xong:** đổi thư mục lưu trữ và xuất file, chuyển Full Backup mã hóa, hướng dẫn sao lưu và danh sách chọn năm. Bản chốt mới lưu ngày sinh cho báo cáo BHXH từ v2.1.29. [v2.1.30](releases/v2.1.30.md) · [v2.1.29](releases/v2.1.29.md)
+- **Ưu tiên tiếp theo:** nghiệm thu trên máy Windows của đơn vị với hồ sơ thử, Excel và máy in. Ghi kết quả từng bước theo [checklist Windows](NGHIEM_THU_WINDOWS_CHECKLIST.md).
+- **Hiệu năng lưu:** đo thời gian thực tế ở quy mô thường dùng, ghi p50 và p95. Dùng kết quả trên Windows để quyết định có triển khai gửi phần dữ liệu thay đổi hay không. [Báo cáo hiệu năng](PERFORMANCE_REPORT.md)
+- **Nghiệp vụ quý tới:** xác nhận yêu cầu duyệt lương và mẫu quyết toán thuế năm trước khi sửa. [Kế hoạch quý](KE_HOACH_QUY_TOI.md)
+
+## Ảnh chụp lịch sử (18/11/2026)
 - Nhánh phát hành: `main` · phiên bản **2.0.33** (ghi chú phát hành: *thử nghiệm có kiểm soát*). Ghi chú từng bản: `docs/releases/`; lịch sử liên tục: `CHANGELOG.md`. Kết luận nghiệm thu hiện hành: `ACCEPTANCE_SQLITE_RELEASE.md` §7 (**Chỉ đủ thử nghiệm có kiểm soát**).
 - **Kho dữ liệu:** từ 2.0.29 **SQLite (`data.sqlite`) là nguồn chính mặc định**, `data.json` là bản xuất (quay lui: `HAK_STORAGE=json`). 2.0.30 sửa A01 (kho năm ghi lùi) và A02 (sao lưu giả); 2.0.32 thêm schema v2 (CHECK) và bản chụp SQLite xoay vòng; 2.0.33 phân tích dữ liệu một lần ở đường ghi (chuỗi ghi ≈420–450 ms → ≈290 ms ở 5.000 NV).
 - **Mã giao diện:** `app.js` do `npm run build:app` ghép từ **31 file** trong `app-src/` (+ `app-src/screens/`); các đoạn vẫn chung một closure (chưa tách trách nhiệm — `KE_HOACH_TACH_APP_JS.md` là kế hoạch cũ trước `app-src/`).
