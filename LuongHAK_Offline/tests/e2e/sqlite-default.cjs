@@ -303,6 +303,10 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     ok("Mở lại app giữ thư mục JSON đã chọn", (await w.evaluate(() => window.hakJson.get())).dir === JD);
     const selectFull = w.locator('[data-stg="backup"] button:has-text("Chọn")');
     const oldFull = (await w.evaluate(() => window.hakPaths.get())).paths.backup;
+    const encryptedName = "LuongHAK_FullBackup_QA.zip.hakenc", hashName = encryptedName + ".sha256";
+    fs.writeFileSync(path.join(oldFull, encryptedName), "fixture for encrypted-file transfer");
+    fs.writeFileSync(path.join(oldFull, hashName), "fixture for checksum-file transfer");
+
     await selectFull.click();
     await w.locator('#modal [role="dialog"] button', { hasText: /^Hủy$/ }).click();
     ok("Hủy xác nhận giữ nguyên đường dẫn Full Backup", (await w.evaluate(() => window.hakPaths.get())).paths.backup === oldFull);
@@ -310,6 +314,11 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
     await w.locator('[data-confirm-storage-move="backup"]').click();
     await w.locator('[data-stg-msg].ok').waitFor();
     ok("Xác nhận chuyển Full Backup lưu đúng thư mục", (await w.evaluate(() => window.hakPaths.get())).paths.backup === FD);
+    for (const name of [encryptedName, hashName]) {
+      ok("Chuyển Full Backup giữ nguyên nguồn và chép đủ " + name,
+        fs.existsSync(path.join(FD, name)) && fs.readFileSync(path.join(FD, name)).equals(fs.readFileSync(path.join(oldFull, name))));
+    }
+
     await app.close();
     const ED = fs.mkdtempSync(path.join(os.tmpdir(), "hak-export-"));
     ({ app, w, errs } = await launch(D11, { HAK_DOWNLOAD_DIR: "" })); await login(w);

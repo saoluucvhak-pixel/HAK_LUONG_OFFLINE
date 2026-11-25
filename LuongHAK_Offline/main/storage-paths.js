@@ -73,7 +73,7 @@ function move(o) { // { kind, dir, userData, settings, exportsDir, writeSettings
   if (bad) return { ok: false, error: bad, state: "INVALID_TARGET" };
   const src = cur[o.kind];
   if (src && (inside(src, o.dir) || inside(o.dir, src))) return { ok: false, error: inside(src, o.dir) && inside(o.dir, src) ? "Thư mục mới trùng thư mục hiện tại" : "Thư mục mới nằm trong / chứa thư mục hiện tại (" + src + ") — chép sẽ tự lồng vào chính nó", state: "INVALID_TARGET" };
-  const filter = o.kind === "backup" ? (rel) => /^LuongHAK_FullBackup_.*\.zip(?:\.hakenc)?(?:\.sha256)?$/i.test(rel) : null;
+  const filter = o.kind === "backup" ? (rel) => /^LuongHAK_FullBackup_.*\.zip(\.sha256)?$/i.test(rel) : null;
   if (o.kind !== "mirror" && fs.existsSync(src)) { const need = sizeOfTree(src).bytes, free = freeBytes(o.dir, o.statfs); if (free != null && free < need * 1.05 + 16 * 1048576) return { ok: false, error: "Không đủ dung lượng ở thư mục mới: cần ~" + Math.ceil(need / 1048576) + " MB, còn " + Math.floor(free / 1048576) + " MB", state: "NO_SPACE" }; }
   const r = o.kind === "mirror" ? { ok: true, files: 0, bytes: 0, problems: [], state: "COPIED" } : copyVerified(src, o.dir, filter, { previouslyUsed: wasUsed(o.settings, o.kind) });
   if (!r.ok) return { ok: false, state: r.state, error: (r.state === "SOURCE_MISSING" ? "Không có dữ liệu nguồn để chuyển — " : "Chép dữ liệu không thành công — giữ nguyên thư mục cũ: ") + r.problems.slice(0, 5).join("; "), problems: r.problems };

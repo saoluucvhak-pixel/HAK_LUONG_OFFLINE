@@ -90,16 +90,3 @@ test("U-STOR-10 khởi tạo kho mới lỗi → trả cấu hình + kho cũ; ki
   const r3 = SP.move({ kind: "docs", dir: path.join(tmp(), "f"), userData: ud, settings: {}, writeSettings: () => {}, statfs: () => ({ bavail: 1, bsize: 1024 }) });
   assert.equal(r3.state, "NO_SPACE");
 });
-
-test("chuyển Full Backup gồm gói ZIP, gói mã hóa và tệp SHA-256", () => {
-  const ud = tmp(), src = path.join(ud, "exports"), dst = path.join(ud, "full");
-  fs.mkdirSync(src);
-  const files = ["LuongHAK_FullBackup_QA.zip", "LuongHAK_FullBackup_QA.zip.hakenc", "LuongHAK_FullBackup_QA.zip.hakenc.sha256"];
-  files.concat("BaoCao.xlsx").forEach((name) => fs.writeFileSync(path.join(src, name), name));
-  let settings;
-  const result = SP.move({ kind: "backup", dir: dst, userData: ud, settings: {}, writeSettings: (s) => { settings = s; } });
-  assert.equal(result.ok, true, result.error);
-  assert.equal(settings.backupDir, dst);
-  assert.deepEqual(fs.readdirSync(dst).sort(), files.sort());
-  files.forEach((name) => assert.equal(SP.sha(path.join(src, name)), SP.sha(path.join(dst, name))));
-});

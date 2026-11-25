@@ -430,13 +430,25 @@ function registerIpc() {
       const k = String(kind), target = String(dir || "");
       const conflict = checkDirConflict(target, k);
       if (conflict) return { ok: false, error: conflict, state: "INVALID_TARGET" };
-      return SP.move({ kind: k, dir: target, userData: app.getPath("userData"), settings: storage.readSettings(), exportsDir: exportsDir.dir(), writeSettings: storage.writeSettings,
+      const source = spCur()[k];
+      let encryptedCopy;
+      const result = SP.move({ kind: k, dir: target, userData: app.getPath("userData"), settings: storage.readSettings(), exportsDir: exportsDir.dir(), writeSettings: storage.writeSettings,
         verifyStore: (k, d) => { // mở thử kho ở thư mục MỚI trước khi đổi cấu hình
+          if (k === "backup") {
+            // Bộ chuyển thư mục chung xử lý ZIP. Chép thêm gói mã hóa trước khi lưu đường dẫn mới.
+            encryptedCopy = SP.copyVerified(source, d, (name) => /^LuongHAK_FullBackup_.*\.zip\.hakenc(?:\.sha256)?$/i.test(name));
+            return encryptedCopy.ok ? "" : encryptedCopy.problems.slice(0, 5).join("; ");
+          }
           if (k === "docs") { const bad = createVault(d).verify().filter((x) => x.status !== "ok"); return bad.length ? bad.length + " chứng từ lỗi/mất" : ""; }
           if (k === "ocrLib") { const v = require("./main/ocr-library").createStore(d, { spoolDir: path.join(require("os").tmpdir(), "hak-verify-spool") }).verify(); return v.ok ? "" : v.bad.length + " ảnh mẫu lỗi, " + v.corruptLines + " dòng nhật ký hỏng"; }
           return "";
         },
         onApplied: (n) => { if (kind === "docs") vault = createVault(n.docs); else if (kind === "ocrLib") ocrLib = require("./main/ocr-library").createStore(n.ocrLib, { spoolDir: path.join(app.getPath("userData"), "ocr-spool") }); } });
+      if (result.ok && encryptedCopy) {
+        result.files += encryptedCopy.files;
+        result.bytes += encryptedCopy.bytes;
+      }
+      return result;
     } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   }));
   // 012-A (issue #113): thư mục sao lưu JSON — khóa cài đặt MỚI `jsonDir` (chỉ thêm; cấu hình cũ vẫn đọc được). dùng lại validate/copy kiểm SHA-256 của main/storage-paths.js.
