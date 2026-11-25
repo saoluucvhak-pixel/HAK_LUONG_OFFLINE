@@ -6657,7 +6657,7 @@
     var c = h("div", { class: "card", "data-leave-audit": "1" }), LA = window.HAKUI && window.HAKUI.leaveAudit;
     c.appendChild(h("h3", { text: "Rà soát nghỉ việc & hết hạn hợp đồng" }));
     c.appendChild(h("div", { class: "hint", text: "Tìm người đã nghỉ hoặc hợp đồng đã hết hạn nhưng chưa có Ngày chấm dứt mà vẫn nằm trong bảng lương. Dòng đỏ CHẶN chốt kỳ. Hợp đồng đã hết hạn từ trước kỳ thì không trừ bảo hiểm. Chỉ xem — không tự sửa dữ liệu." }));
-    var mSel = h("select", { "data-la-thang": "1" }), yIn = h("input", { type: "number", "data-la-nam": "1", value: String(st.nam), style: "width:90px" });
+    var mSel = h("select", { "data-la-thang": "1", "aria-label": "Tháng rà soát" }), yIn = h("input", { class: "i", type: "number", "data-la-nam": "1", "aria-label": "Năm rà soát", value: String(st.nam), style: "width:90px" });
     for (var m = 1; m <= 12; m++) { var o = h("option", { value: String(m), text: "Tháng " + m }); if (m === +st.thang) o.selected = true; mSel.appendChild(o); }
     mSel.addEventListener("change", function () { st.thang = +mSel.value; render(); });
     yIn.addEventListener("change", function () { if (+yIn.value > 2000) { st.nam = +yIn.value; render(); } });
