@@ -1,3 +1,4 @@
+/* global structuredClone */
 // Đo chuỗi ghi với dữ liệu giả. structuredClone mô phỏng sao chép payload, không đo IPC/Electron.
 "use strict";
 const assert = require("node:assert/strict");
