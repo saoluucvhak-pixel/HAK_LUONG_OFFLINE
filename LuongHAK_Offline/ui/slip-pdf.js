@@ -20,7 +20,8 @@
     "tr.sec td{background:#e8f0e8;font-weight:700;border-top:1px solid #9aa79f}tr.tot td{font-weight:700;border-top:1px solid #555}tr.grand td{font-size:13pt;background:#f3f7f3;border-top:2px solid #111;border-bottom:2px solid #111}" +
     ".date{text-align:right;font-style:italic;margin:9mm 4mm 0 0}.sign{display:flex;justify-content:space-around;text-align:center;margin-top:2mm}.sign div{width:42%}.sign i{font-size:9pt;color:#444}.sign .sp{height:24mm}" +
     ".note{position:absolute;left:0;right:0;bottom:0;font-size:8.5pt;color:#666;border-top:.5px solid #bbb;padding-top:1.5mm}" +
-    ".wm{position:absolute;left:0;right:0;top:95mm;text-align:center;font-size:64pt;font-weight:800;color:rgba(176,0,32,.10);transform:rotate(-24deg);pointer-events:none;letter-spacing:4mm}";
+    ".wm{position:absolute;left:0;right:0;top:95mm;text-align:center;font-size:64pt;font-weight:800;color:rgba(176,0,32,.10);transform:rotate(-24deg);pointer-events:none;letter-spacing:4mm}" +
+    "@media print{.slip{page-break-inside:avoid;break-inside:avoid}}";
   /**
    * @param vm { congTy, ky:"mm/yyyy", chot:bool, nguoiLap, slips:[{ maNV, hoTen, phongBan, tongCong, congChuan, lines:[{sec}|{label,value,tot,grand}] }] }
    * @returns chuỗi HTML đầy đủ (không có <script>)
