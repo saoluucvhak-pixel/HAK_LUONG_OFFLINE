@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.35] — 26/11/2026
+- **Nhập Excel tổng (#224):** ghép sheet đổi tên với bảng đích và kiểm tra cột bắt buộc ngay trong bản xem trước. Chi tiết: `docs/releases/v2.1.35.md`.
+
 ## [2.1.34] — 26/11/2026
 - **SQLite, phiếu lương PDF và nhập Excel tổng (#220, #221, #222):** thử lại checkpoint khi có kết nối đọc, giữ thông tin nhân viên trên phiếu dài và báo các sheet Excel bị bỏ qua. Chi tiết: `docs/releases/v2.1.34.md`.
 
