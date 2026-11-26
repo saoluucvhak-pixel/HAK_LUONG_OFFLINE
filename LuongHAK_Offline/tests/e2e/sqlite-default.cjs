@@ -147,6 +147,10 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
         ws.getRow(4).values = spec.row("2026-11", "B");
         ws.getRow(5).values = spec.row("2026-12", "B");
       }
+      wb.addWorksheet("Hướng dẫn").getRow(1).values = ["Dữ liệu giả"];
+      const renamed = wb.addWorksheet("Suất cơm đổi tên");
+      renamed.getRow(1).values = SPEC.tiencom.cols;
+      renamed.getRow(2).values = SPEC.tiencom.row("2026-11", "A");
       fs.writeFileSync(file, new Uint8Array(await wb.xlsx.writeBuffer()));
       await w.click("#nav button[data-k=home]");
       const open = async () => {
@@ -157,6 +161,10 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       const load = () => w.evaluate(() => window.hakStore.load().text);
       const initial = await load();
       await open();
+      const sheets = await w.locator("[data-import-sheets] tbody tr").allTextContents();
+      ok("File tổng liệt kê cả sheet hướng dẫn và sheet bị bỏ qua",
+        sheets.length === 4 && sheets.some((row) => row.includes("Hướng dẫnSheet hướng dẫn")) &&
+        sheets.some((row) => row.includes("Suất cơm đổi tênChưa nhận diện — bỏ qua")), sheets.join(" | "));
       const locked = w.locator(".dlg tr").filter({ hasText: /2026-08.*đã chốt/ });
       const rejected = await locked.allTextContents();
       ok("File tổng báo đúng sheet và dòng Excel 3 ở cả hai sheet", rejected.length === 2 &&
