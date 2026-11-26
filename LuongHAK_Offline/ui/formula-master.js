@@ -52,9 +52,9 @@
     function rows() {
       periodInit();
       var out = OM.parentCodes(db()).map(function (ma) { return OM.summary(db(), ma, S.nam, S.thang); });
-      var q = S.q.trim().toLowerCase();
+      var fold = root.HAKCore.sf.fold, q = fold(S.q);
       return out.filter(function (r) {
-        if (q && (r.ma + " " + r.ten + " " + r.loaiCongThuc).toLowerCase().indexOf(q) < 0) return false;
+        if (q && fold(r.ma + " " + r.ten + " " + r.loaiCongThuc).indexOf(q) < 0) return false;
         if (S.fTrang && r.trangThai !== S.fTrang) return false;
         if (S.fCT === "cauhinh" && r.nguonApDung !== "cauhinh") return false;
         if (S.fCT === "macdinh" && r.nguonApDung !== "macdinh") return false;
@@ -67,23 +67,73 @@
       periodInit();
       var w = h("div", { class: "card ot-master hak-workspace", "data-ot-master": "1" });
       var hero = h("div", { class: "hak-workspace-hero" });
-      hero.appendChild(h("div", {}, [h("small", { text: "HAK ENTERPRISE · DANH MỤC & CÔNG THỨC" }), h("h2", { text: K.title }), h("p", { text: "Quản lý mã, phiên bản công thức và lịch sử theo kỳ trên một không gian làm việc." })]));
+      hero.appendChild(h("div", {}, [h("small", { text: "HAK ENTERPRISE · DANH MỤC & CÔNG THỨC" }), h("h2", { text: K.title })]));
       w.appendChild(hero);
       var bar = h("div", { class: "bar hak-workspace-toolbar" });
-      var inq = h("input", { class: "i", placeholder: "Tìm mã / tên " + K.short.toLowerCase() + "…", value: S.q, "aria-label": "Tìm " + K.noun, "data-ot-q": "1", style: "min-width:220px" });
-      var sTr = h("select", { "aria-label": "Lọc trạng thái", "data-ot-ftrang": "1" }); [["", "Mọi trạng thái"], ["Đang hiệu lực", "Đang hiệu lực"], ["Chưa hiệu lực", "Chưa hiệu lực"], ["Hết hiệu lực", "Hết hiệu lực"]].forEach(function (o) { sTr.appendChild(h("option", { value: o[0], text: o[1] })); }); sTr.value = S.fTrang;
-      var sCT = h("select", { "aria-label": "Lọc công thức", "data-ot-fct": "1" }); (IS_OT ? [["", "Mọi công thức"], ["cauhinh", "Có công thức cấu hình"], ["macdinh", "Dùng mặc định hệ thống"], ["thieu", "Thiếu / lỗi công thức"]] : [["", "Mọi công thức"], ["cauhinh", "Có công thức cấu hình"], ["macdinh", "Dùng cách tính có sẵn của engine"], ["lichsu", "Dùng cách tính lịch sử (chưa có công thức)"], ["thieu", "Thiếu / lỗi công thức"]]).forEach(function (o) { sCT.appendChild(h("option", { value: o[0], text: o[1] })); }); sCT.value = S.fCT;
+      var statusOptions = ["Đang hiệu lực", "Chưa hiệu lực", "Hết hiệu lực"];
+      var formulaOptions = IS_OT ? [
+        { value: "cauhinh", label: "Có công thức cấu hình" },
+        { value: "macdinh", label: "Dùng mặc định hệ thống" },
+        { value: "thieu", label: "Thiếu / lỗi công thức" }
+      ] : [
+        { value: "cauhinh", label: "Có công thức cấu hình" },
+        { value: "macdinh", label: "Dùng cách tính có sẵn của engine" },
+        { value: "lichsu", label: "Dùng cách tính lịch sử (chưa có công thức)" },
+        { value: "thieu", label: "Thiếu / lỗi công thức" }
+      ];
+      var SF = root.HAKCore.sf, matched = [], total = 0;
+      var filter = A.sfUi.mount({
+        screenId: "dm-cong-thuc-" + type,
+        searchPlaceholder: "Tìm mã / tên " + K.short.toLowerCase() + "…",
+        qAttrs: { "aria-label": "Tìm " + K.noun, "data-ot-q": "1" },
+        attrs: { "data-fm-filter": "1" },
+        qCommit: true,
+        fields: [
+          { key: "status", label: "Trạng thái", type: "enum", options: statusOptions },
+          { key: "formula", label: "Công thức", type: "enum", options: formulaOptions }
+        ],
+        quickFields: ["q", "status", "formula"], advancedFields: ["q", "status", "formula"],
+        state: {
+          get: function () {
+            var state = SF.empty(); state.q = S.q;
+            if (S.fTrang) state.one.status = S.fTrang;
+            if (S.fCT) state.one.formula = S.fCT;
+            return state;
+          },
+          set: function (state) { S.q = state.q; S.fTrang = state.one.status || ""; S.fCT = state.one.formula || ""; }
+        },
+        dataSource: function () { return { total: total, kept: matched.length }; },
+        onApply: function () { S.page = 0; paint(); }
+      });
+      var inq = filter.el.querySelector("[data-sf-q]");
+      var search = function () { inq.dispatchEvent(new root.Event("change")); };
+      inq.addEventListener("input", function (e) { if (!e.isComposing) search(); });
+      inq.addEventListener("compositionend", search);
+      inq.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); search(); } });
       var kyIn = h("select", { "aria-label": "Kỳ xét", title: "Kỳ dùng để xác định công thức/phiên bản đang áp dụng", "data-ot-ky": "1" });
       (function () { var ids = {}, closed = {}; (A.closedPeriods ? A.closedPeriods() : []).forEach(function (k) { if (k) { ids[k] = 1; closed[k] = 1; } });
         for (var d = -18; d <= 6; d++) { var dt = new Date(A.st.nam, A.st.thang - 1 + d, 1); ids[dt.getFullYear() + "-" + ("0" + (dt.getMonth() + 1)).slice(-2)] = 1; } ids[ky()] = 1;
         Object.keys(ids).sort().reverse().forEach(function (k) { var o = h("option", { value: k, text: "Kỳ " + k.slice(5) + "/" + k.slice(0, 4) + (closed[k] ? " 🔒" : "") }); if (k === ky()) o.selected = true; kyIn.appendChild(o); }); })();
       kyIn.addEventListener("change", function () { if (kyIn.value) { var m = kyIn.value.split("-"); S.nam = +m[0]; S.thang = +m[1]; paint(); } });
-      bar.appendChild(inq); bar.appendChild(sTr); bar.appendChild(sCT); bar.appendChild(h("label", { text: "Kỳ xét" })); bar.appendChild(kyIn);
+      bar.appendChild(h("label", { text: "Kỳ xét" })); bar.appendChild(kyIn);
       bar.appendChild(h("span", { class: "sp" }));
       if (A.can("dm.edit")) bar.appendChild(btn("＋ Thêm " + K.noun, "pri", function () { openModal(null, { tab: "info", edit: true }); }));
       if (A.can("dm.edit") || A.can("formula.approve")) bar.appendChild(btn("🔗 Liên kết công thức cũ", "", linkDialog));
       bar.appendChild(btn("↻ Làm mới", "", function () { A.render(); }));
+      if (A.can("export")) bar.appendChild(btn("⬇ Xuất Excel", "", function () {
+        var cols = [K.code, K.name.replace(" (nội dung)", "")].concat(K.listCols.map(function (c) { return c.label; }),
+          ["Mã công thức", "Trạng thái", "Hiệu lực", "Công thức đang áp dụng", "Số phiên bản"]);
+        A.saveXlsx(type + "_" + ky() + ".xlsx", [{
+          name: K.short, cols: cols, rows: matched.map(function (r) {
+            var values = [r.ma, r.ten].concat(K.listCols.map(function (c) { return c.get(r.row); }),
+              [r.loaiCongThuc || (IS_OT ? "(theo mã)" : "(trống)"), r.trangThai,
+                (fdate(r.tu) || "…") + " → " + (fdate(r.den) || "không giới hạn"), r.apDung, r.soPhienBan]);
+            var out = {}; cols.forEach(function (c, i) { out[c] = values[i]; }); return out;
+          })
+        }]);
+      }));
       w.appendChild(bar);
+      w.appendChild(filter.el);
       var guide = h("div", { class: "hint hak-master-guide", "data-hak-master-guide": type });
       guide.appendChild(h("b", { text: "Quản lý cha – con · " + K.short }));
       guide.appendChild(h("div", { text: "Bảng cha: danh sách mã " + K.noun + ". Bảng con: phiên bản công thức có hiệu lực, kiểm thử và lịch sử thay đổi. Chọn một mã rồi mở chi tiết để thao tác." }));
@@ -101,7 +151,7 @@
       w.appendChild(workspace);
       function paint() {
         box.innerHTML = "";
-        var rs = rows(), t = h("table", { "data-ot-table": "1" });
+        var rs = matched = rows(), t = h("table", { "data-ot-table": "1" });
         S.page = Math.min(S.page, Math.max(0, Math.ceil(rs.length / 50) - 1));
         var visible = rs.slice(S.page * 50, S.page * 50 + 50);
         t.appendChild(h("tr", {}, [{ label: K.code }, { label: K.name.replace(" (nội dung)", "") }].concat(K.listCols, [{ label: "Mã công thức" }, { label: "Trạng thái" }, { label: "Hiệu lực" }, { label: "Công thức đang áp dụng" }, { label: "Số phiên bản" }, { label: "Thao tác" }]).map(function (c) { return h("th", c.tip ? { text: c.label + " ⓘ", title: c.tip, style: "cursor:help" } : { text: c.label }); })));
@@ -204,11 +254,10 @@
           tr.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); S.selectedMa = ma; paint(); } });
         });
         if (!rs.length) box.appendChild(h("div", { class: "empty", text: OM.parentCodes(db()).length ? "Không có mã nào khớp bộ lọc." : "Chưa có " + K.noun + " nào — bấm “＋ Thêm " + K.noun + "”." }));
-        var cnt = w.querySelector("[data-ot-count]"); if (cnt) cnt.textContent = rs.length + " / " + OM.parentCodes(db()).length + " mã";
+        total = OM.parentCodes(db()).length;
+        var cnt = w.querySelector("[data-ot-count]"); if (cnt) cnt.textContent = rs.length + " / " + total + " mã";
+        filter.refresh();
       }
-      inq.addEventListener("input", function () { S.q = inq.value; S.page=0; paint(); });
-      sTr.addEventListener("change", function () { S.fTrang = sTr.value; S.page=0; paint(); });
-      sCT.addEventListener("change", function () { S.fCT = sCT.value; S.page=0; paint(); });
       masterPane.appendChild(h("div", { class: "hint hak-pane-count", "data-ot-count": "1" }));
       detailPane.appendChild(h("section", { class: "hak-child-preview", "data-hak-child-preview": "1", "aria-label": "Bảng con công thức đang áp dụng" }));
       paint();

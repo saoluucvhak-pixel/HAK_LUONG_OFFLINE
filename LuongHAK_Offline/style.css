@@ -772,3 +772,9 @@ tr.vt-pad:hover td{background:transparent}
 .ar-chip{white-space:nowrap;flex:none}
 .ar-filter{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px}.ar-filter .fld{min-width:150px}
 .ar-pickrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin:0 0 6px;cursor:pointer}.ar-pickrow small{display:block;color:var(--mut);font-size:12px}.ar-pickrow input{width:18px;height:18px;flex:none}.ar-reason{width:100%;min-height:72px}
+
+/* Giữ thanh lọc và hướng dẫn tra cứu gọn trước bảng danh mục. */
+.hak-workspace [data-fm-filter] { margin:0 12px 6px; }
+.hak-workspace [data-fm-filter] .sf-bar { margin-bottom:4px; }
+.hak-workspace [data-fm-filter] .sf-sum { padding:3px 8px; }
+.hak-workspace .hak-workspace-toolbar .hak-master-guide { margin:0; }

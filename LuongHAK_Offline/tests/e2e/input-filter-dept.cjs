@@ -73,6 +73,12 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
     d2.psluong = NV.map((m, i) => ({ "Ngày hạch toán": dd(5 + i), "Số chứng từ": "PS-" + P[i], "Mã NV": m, "Diễn giải": "Thưởng " + P[i], "Thưởng": 100000 * (i + 1) }));
     d2.ungluong = NV.map((m, i) => ({ "Ngày hạch toán": dd(5 + i), "Số chứng từ": "UL-" + P[i], "Mã NV": m, "Diễn giải": "Ứng " + P[i], "Tạm ứng": 500000 * (i + 1) }));
     d2.tiencom = NV.map((m, i) => ({ "Ngày": dd(5 + i), "Mã NV": m, "Số suất cơm": i + 1, "Ghi chú": "com-" + P[i] }));
+    d2.dm_phongban[0]["Tên phòng ban"] = "Đội vận hành";
+    d2.hopdong.push({ "Mã NV": "NV01", "Số HĐLĐ": "NV01/HĐ-CŨ", "Ngày vào làm": "2024-01-01", "Ngày hết hạn": "2024-12-31" });
+    d2.benefitIssues = NV.slice(0, 2).map((m, i) => ({
+      id: "SF-PHIEU-" + i, type: "milk", date: dd(2), period: ky, status: "draft", maker: "admin",
+      lines: [{ employee: m, item: "SUA", quantity: 1 }]
+    }));
     createStorage(D2).save(JSON.stringify(d2)); // cùng đường nạp dữ liệu giả với sqlite-default.cjs (chạy ổn trên CI Windows)
     const SCR = [ // k: màn · t1/t2: chuỗi chỉ có ở dòng của NV01 / NV02 (không dấu, chữ thường cũng khớp) · pb: nhãn phòng ban có đúng 1 dòng NV01 · n: số dòng của NV01
       { k: "chamcong", t1: "Nguyễn Văn Anh", t2: "Trần Thị Bình", x1: "NV01", x2: "NV02", ten: "Chấm công" }, { k: "sanluong", t1: "PC-ANH", t2: "PC-BINH", ten: "Sản lượng" }, { k: "bandam", t1: "BD-ANH", t2: "BD-BINH", ten: "Ban dăm", pre: "Phân bổ trực tiếp nhân viên" },
@@ -114,6 +120,35 @@ async function pickDept(w, key, label) { // chọn đúng một tổ trong bộ 
       const kb = await shown(); ok(sc.ten + ": sang màn khác rồi quay lại vẫn giữ bộ lọc (1/3, ô tìm vẫn còn từ khóa)", !!kb && kb[0] === 1 && (await w.locator("#main [data-sf-q]").inputValue()) === sc.t2, JSON.stringify(kb));
       await w.locator('#main .sf button:has-text("Đặt lại")').first().click(); await w.waitForTimeout(500); const k0 = await shown(); ok(sc.ten + ": Đặt lại trả về đủ 3 dòng", !!k0 && k0[0] === 3, JSON.stringify(k0));
       ok(sc.ten + ": lọc/xuất/đổi màn KHÔNG ghi đổi dữ liệu đã lưu", (await stored()) === base);
+    }
+    { // 004.3: màn phụ có cột/điều kiện riêng, dùng cùng quy trình lọc và tải XLSX.
+      const base = await stored();
+      const goto = (key) => w.click('#nav button[data-k="' + key + '"]');
+      const contract = async () => {
+        await goto("nhansu");
+        await w.locator("#main tbody tr").filter({ hasText: "Nguyễn Văn Anh" }).click();
+        await w.getByRole("button", { name: /Hợp đồng lao động/ }).first().click();
+      };
+      for (const c of [
+        { open: () => goto("capphat"), filter: "capphat", q: "tran thi binh", kept: "SF-PHIEU-1", removed: "SF-PHIEU-0" },
+        { open: async () => { await goto("dm"); await w.getByRole("button", { name: /^Phòng ban/ }).click(); }, filter: "dm_phongban", q: "doi van hanh", kept: "Đội vận hành", removed: d2.dm_phongban[1]["Tên phòng ban"] },
+        { open: contract, filter: "hr-hopdong", q: "hd-cu", kept: "NV01/HĐ-CŨ", removed: "NV01/HĐ" }
+      ]) {
+        await c.open();
+        const toolbar = w.locator('[data-sf="' + c.filter + '"]'), search = toolbar.locator("[data-sf-q]");
+        await search.fill(c.q);
+        await search.press("Enter");
+        await toolbar.getByText(/Hiển thị 1 \/ [\d.]+ dòng/).waitFor();
+        const had = fs.readdirSync(DL);
+        await w.locator('#main button:has-text("Xuất Excel")').first().click();
+        const file = await xlsxAfter(had), rows = file ? await cellsOf(file) : [];
+        ok(c.filter + ": Excel chỉ có dòng khớp từ khóa tiếng Việt không dấu", rows.some((r) => r.includes(c.kept)) && !rows.some((r) => r.includes(c.removed)));
+        await goto("home");
+        await c.open();
+        ok(c.filter + ": giữ từ khóa sau khi quay lại", await search.inputValue() === c.q);
+        await toolbar.getByRole("button", { name: "Đặt lại", exact: true }).click();
+        ok(c.filter + ": xóa lọc, chuyển màn và xuất không ghi hakStore", await search.inputValue() === "" && await stored() === base);
+      }
     }
     ok("Smart Filter các màn: không lỗi JavaScript", errs.length === 0, errs.join(" | "));
     await app.close();

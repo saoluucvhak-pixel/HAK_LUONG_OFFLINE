@@ -70,7 +70,8 @@ test("U-TPL-TXT-04 nhập: bỏ qua dòng đánh dấu VÍ DỤ; giữ dòng th�
   // dạng bảng 2 chiều (sản lượng / bơm dăm)
   const aoa = [["Tiêu đề", ""], cols.concat(["Dòng ví dụ"]), ["NV001", "x", "", "", "", 1, "VÍ DỤ"], ["0005", "y", "", "", "", 2, ""]];
   const r = H.stripSampleAoa(aoa);
-  assert.equal(r.skipped, 1); assert.equal(r.aoa.length, 3); assert.equal(r.aoa[2][0], "0005");
+  assert.equal(r.skipped, 1); assert.equal(r.aoa.length, 4);
+  assert.equal(r.aoa[2].length, 0); assert.equal(r.aoa[3][0], "0005");
   const old = H.stripSampleAoa([cols, ["NV001", "x", "", "", "", 1]]);
   assert.equal(old.skipped, 0); assert.equal(old.aoa.length, 2);
 });

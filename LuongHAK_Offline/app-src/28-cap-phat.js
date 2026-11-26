@@ -94,23 +94,32 @@
       bar.appendChild(btn("⬆ Nhập Excel", "", function () { cpImportFlow(s.type === "all" ? "" : s.type); }, "Nhập phiếu từ file Excel mẫu: xem trước theo phiếu rồi lưu nháp"));
     }
     CP_TYPES.slice(1).filter(function (t) { return s.type === "all" || s.type === t[0]; }).forEach(function (t) { bar.appendChild(btn("📄 Tải mẫu " + t[1].toLowerCase(), "", function () { cpDownloadTemplate(t[0]); })); });
+    var cols = ["Mã phiếu", "Loại", "Ngày cấp", "Địa điểm", "Số người nhận", "Trạng thái", "Người lập", "Người xác nhận"];
+    var matched = [];
+    var values = function (r) { return [r.id, C.benefits.LABEL[r.type], fmtDate(r.date), r.place, r.people, cpStatusText(r), r.maker, r.reviewer]; };
+    if (can("export")) bar.appendChild(btn("⬇ Xuất Excel", "", function () {
+      var rows = matched.map(function (r) {
+        var out = {}; values(r).forEach(function (v, i) { out[cols[i]] = v; }); return out;
+      });
+      saveXlsx("Phieu_cap_phat_loc.xlsx", [{ name: "Phiếu cấp phát", cols: cols, rows: rows }]);
+    }, "Xuất danh sách phiếu khớp bộ lọc"));
     box.appendChild(bar);
     var deptOf = cpDeptOf();
     sf = sfUi.mount(cpConfig(draw, function () { return kept; })); sf.cfg = null;
     box.appendChild(sf.el); box.appendChild(tw);
     function draw() {
       tw.innerHTML = "";
-      var rows = C.benefits.listVouchers(db, { type: s.type, filters: cpFilters(), deptOf: deptOf });
+      var rows = matched = C.benefits.listVouchers(db, { type: s.type, filters: cpFilters(), deptOf: deptOf });
       kept.kept = rows.length; kept.total = (db.benefitIssues || []).filter(function (doc) { return s.type === "all" || C.benefits.docType(doc) === s.type; }).length; sf.refresh();
       if (!rows.length) { tw.appendChild(h("div", { class: "empty", html: kept.total ? "Không có phiếu khớp bộ lọc." : "Chưa có phiếu cấp phát nào.<br>Bấm <b>＋ Lập phiếu</b> hoặc <b>⬆ Nhập Excel</b>." })); return; }
       var pg = pager("capphat", rows.length, draw); if (pg.el) tw.appendChild(pg.el);
-      var cols = ["Mã phiếu", "Loại", "Ngày cấp", "Địa điểm", "Số người nhận", "Trạng thái", "Người lập", "Người xác nhận"], t = h("table"), tr = h("tr");
+      var t = h("table"), tr = h("tr");
       cols.forEach(function (c) { tr.appendChild(h("th", { class: c === "Số người nhận" ? "r" : "", text: c })); }); t.appendChild(h("thead", {}, [tr]));
       var tb = h("tbody");
       rows.slice(pg.start, pg.end).forEach(function (r) {
         var x = h("tr", { "data-cp-voucher": r.id });
         x.appendChild(h("td", {}, [btn(r.id, "ghost", function () { cpOpen(r.id); }, "Mở chi tiết phiếu")]));
-        [C.benefits.LABEL[r.type], fmtDate(r.date), r.place, r.people, C.benefits.STATUS_LABEL[r.status] || r.status, r.maker, r.reviewer].forEach(function (v, i) { x.appendChild(h("td", { class: i === 3 ? "r" : "t", text: v })); });
+        values(r).slice(1).forEach(function (v, i) { x.appendChild(h("td", { class: i === 3 ? "r" : "t", text: v })); });
         tb.appendChild(x);
       });
       t.appendChild(tb); tw.appendChild(h("div", { class: "tw" }, [t]));

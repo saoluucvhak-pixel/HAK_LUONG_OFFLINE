@@ -33,5 +33,12 @@ Số ca: unit 35 (6 bảng × 5 ca + 4 ca đổi kỳ chứng từ + 1 ca bảng
 ## Phạm vi và chưa kiểm
 - "Mọi bảng nhập liệu" ở đây = 6 bảng nhập theo tháng của `core/importer.js` (`MONTHLY`). Bảng nhân sự/danh mục (hiệu lực theo ngày, không theo kỳ lương) dùng cùng bộ lập kế hoạch nhưng không có khái niệm "kỳ chốt" như trên; việc chặn hồi tố của chúng nằm ở `GRD.impactChange` (đã có test ở `tests/unit/guard-schema.test.js`, `repository.test.js`) — **chưa gom vào ma trận này**.
 - OCR chấm công: xem mục 004.1b ở trên (cùng đường kế hoạch + ghi). Chưa có E2E OCR ảnh thật nhiều kỳ.
-- File nhiều sheet: xem mục 004.1b ở trên (tầng ghi); chưa có E2E chọn file nhiều sheet qua giao diện.
+- File nhiều sheet: xem mục Giai đoạn 1 bên dưới (giao diện) và mục 004.1b ở trên (tầng ghi hồ sơ).
 - Chưa kiểm bằng mắt bố cục hộp "Xem trước nhập Excel"; chưa chạy trên Windows thật (CI Windows có chạy bước E2E này).
+
+## Giai đoạn 1 — File Excel tổng nhiều sheet, nhiều kỳ
+
+- Bản xem trước ghi tên sheet và số dòng thật trong Excel. Dòng trống, dòng ví dụ đã bỏ qua và phần tiêu đề ở trên bảng không làm lệch số dòng.
+- Kiểm thử tích hợp `workbook-preview.test.js` dùng XLSX thật cho sheet Suất cơm và Sản lượng, kiểm tra số dòng đúng và phân loại kỳ mở/kỳ đã chốt trong chế độ ghi đè.
+- Kịch bản Electron `sqlite-default.cjs`, bước 9, mở bộ chọn file bằng **Nhập từ file Excel tổng**. Workbook có Tạm ứng và Suất cơm cùng hai kỳ mở (11–12/2026) và một kỳ đã chốt (08/2026). Kịch bản kiểm vị trí hai dòng bị từ chối, nhập lại không nhân đôi và lỗi SQLite ở sheet thứ hai hoàn tác cả dữ liệu lẫn nhật ký trước khi cho thử lại.
+- Quy tắc hồi tố hồ sơ/danh mục của 004.1b tiếp tục áp dụng cho hồ sơ hiệu lực theo ngày. Bảng nhập liệu thuộc kỳ đã chốt vẫn bị khóa kể cả khi chọn **Ghi đè**.

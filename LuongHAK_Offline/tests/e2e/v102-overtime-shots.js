@@ -85,9 +85,9 @@ async function launch(dir) {
     await shot("01-danh-sach-tang-ca");
     await w.fill("[data-ot-q]", "TC3"); await w.waitForTimeout(100);
     ok("[" + tag + "] tìm kiếm lọc ngay trong danh sách", (await w.locator("[data-ot-row]").count()) === 1);
-    await w.fill("[data-ot-q]", ""); await w.selectOption("[data-ot-ftrang]", "Hết hiệu lực"); await w.waitForTimeout(100);
+    await w.fill("[data-ot-q]", ""); await w.selectOption("[data-sf-field=status]", "Hết hiệu lực"); await w.waitForTimeout(100);
     ok("[" + tag + "] lọc 'Hết hiệu lực' còn mã đã ngừng", (await w.locator('tr[data-ot-row="TC_CU"]').count()) === 1 && (await w.locator('tr[data-ot-row="TC3"]').count()) === 0);
-    await w.selectOption("[data-ot-ftrang]", ""); await w.waitForTimeout(100);
+    await w.selectOption("[data-sf-field=status]", ""); await w.waitForTimeout(100);
 
     // --- modal: thông tin (xem) ---
     const t0 = Date.now(); await w.click('tr[data-ot-row="TC3"] button:has-text("Xem chi tiết")'); await w.waitForSelector("[data-ot-modal]"); report.perf["mo_modal_ms_" + tag] = Date.now() - t0;

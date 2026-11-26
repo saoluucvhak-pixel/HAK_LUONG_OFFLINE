@@ -35,3 +35,14 @@ Không có lỗi sản phẩm mới. Lưu ý hành vi (không phải lỗi): ô 
 
 ## 5. Chưa nghiệm thu
 Windows thật (chỉ chạy Linux xvfb + CI); bố cục/độ đọc của thanh lọc ở 1366×768 (thuộc #97); mục 2 ở trên.
+
+## 6. Giai đoạn 1 — Cấp phát, Danh mục và tra cứu hợp đồng/phụ cấp
+
+| Màn | Trạng thái lưu trong phiên | Nguồn Excel |
+|---|---|---|
+| Phiếu cấp phát | Bộ lọc Cấp phát hiện có | Cùng danh sách phiếu đã lọc, gồm các trang kết quả |
+| Danh mục thông thường | Theo từng mã danh mục | Luồng xuất hiện có dùng cùng tập dòng với bảng |
+| Danh mục Phụ cấp, Tăng ca, Hỗ trợ | Từ khóa, trạng thái và nguồn công thức theo từng loại | Cùng danh sách mã đã lọc tại kỳ xét |
+| Hợp đồng, lương & phụ lục | Riêng từng nhân viên, từng hợp đồng và từng bảng | Cùng dòng đã lọc; loại cột lương khi tài khoản không có quyền xem |
+
+Từ khóa tiếng Việt không dấu dùng HAK Smart Filter. Thao tác lọc hoặc đặt lại chỉ cập nhật trạng thái giao diện. Kịch bản Electron `input-filter-dept.cjs` bao phủ danh sách phiếu, Danh mục Phòng ban và bảng hợp đồng. Kịch bản DOM `drawer-dom-check.cjs` kiểm Danh mục Phụ cấp, Tăng ca và Hỗ trợ, gồm phân trang, tìm không dấu, giữ trạng thái và đối chiếu dữ liệu xuất với kết quả lọc.
