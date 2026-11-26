@@ -24,6 +24,8 @@ test("Workbook preview keeps the physical row of a closed period on each sheet",
     ["PC-MO", "2026-10-10", "51C-1", 1, "A"]
   ], { origin: "A2" });
   XLSX.utils.book_append_sheet(wb, production, "Sản lượng");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Trợ giúp"]]), "Hướng dẫn");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Ngày", "Mã NV"]]), "Suất cơm đổi tên");
   const bytes = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
   const context = {
     XLSX, IMP, C: { inputBatch: batch }, HRT: {}, SAMPLES: {},
@@ -39,7 +41,14 @@ test("Workbook preview keeps the physical row of a closed period on each sheet",
   };
   const source = fs.readFileSync(require.resolve("../../app-src/04-excel-nhap-lieu.js"), "utf8");
   vm.runInNewContext(source.slice(source.indexOf("  var SAMPLE_COL"), source.indexOf("  // replan(mode)")), context);
-  const plans = context.planWorkbook(XLSX.read(bytes, { type: "buffer" }), null, "replace");
+  const parsed = XLSX.read(bytes, { type: "buffer" });
+  const plans = context.planWorkbook(parsed, null, "replace");
+  assert.deepEqual(Array.from(context.workbookSheetStatus(parsed.SheetNames, plans), (s) => [s.Sheet, s["Trạng thái"]]), [
+    ["Suất cơm", "Sẽ nhập theo bản xem trước"],
+    ["Sản lượng", "Sẽ nhập theo bản xem trước"],
+    ["Hướng dẫn", "Sheet hướng dẫn"],
+    ["Suất cơm đổi tên", "Chưa nhận diện — bỏ qua"]
+  ]);
   assert.deepEqual(Array.from(plans, (p) => [p.sheet, p.sampleSkipped, ...Array.from(p.items, (it) => [it.line, it.action])]), [
     ["Suất cơm", 1, [4, "locked"], [5, "add"]],
     ["Sản lượng", 1, [4, "locked"], [5, "add"]]

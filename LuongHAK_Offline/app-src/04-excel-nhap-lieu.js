@@ -173,6 +173,15 @@
     });
     return plans;
   }
+  function workbookSheetStatus(names, plans) {
+    var recognized = new Set(plans.map(function (p) { return p.sheet; }));
+    return names.map(function (name) {
+      var status = "Chưa nhận diện — bỏ qua";
+      if (recognized.has(name)) status = "Sẽ nhập theo bản xem trước";
+      else if (fold(name) === "huong dan") status = "Sheet hướng dẫn";
+      return { Sheet: name, "Trạng thái": status };
+    });
+  }
   // replan(mode) → danh sách kế hoạch theo chế độ cập nhật ("merge" | "replace")
   var impBusy = false;
   // IMPORT-EXTRA-WARN-BEGIN (009-2/009-3, issue #98): cảnh báo (KHÔNG chặn) ở bản xem trước nhập Excel; chạy ngoài core/importer.js (tệp được CI bảo vệ). Hàm thuần, không phụ thuộc biến ngoài.
@@ -209,7 +218,7 @@
     });
   }
   // IMPORT-NEARDUP-END
-  function importPreview(replan, fileName, done, mode) {
+  function importPreview(replan, fileName, done, mode, sheetNames) {
     impBusy = false;
     mode = mode || "merge";
     var plans; try { plans = replan(mode); } catch (e) { alert(e.message); return; }
@@ -235,11 +244,18 @@
       });
       Object.keys(p.summary).forEach(function (k) { p.summary[k] = 0; }); p.items.forEach(function (it) { p.summary[it.action] = (p.summary[it.action] || 0) + 1; });
     });
-    if (!plans.length) { alert("Không thấy sheet nào đúng tên (Nhân viên, Chấm công, Mã lương...). Hãy dùng file mẫu của app."); return; }
+    if (!plans.length && !sheetNames) { alert("Không thấy sheet nào đúng tên (Nhân viên, Chấm công, Mã lương...). Hãy dùng file mẫu của app."); return; }
     var body = h("div"), tot = {};
     Object.keys(IMP.LABEL).forEach(function (k) { tot[k] = 0; });
     plans.forEach(function (p) { Object.keys(tot).forEach(function (k) { tot[k] += p.summary[k] || 0; }); });
     body.appendChild(h("div", { class: "hint", html: "File <b>" + esc(fileName) + "</b> — kiểm tra trước khi ghi. Chỉ dòng <b>Thêm mới</b> và <b>Cập nhật</b> được ghi; dòng <b>Gộp</b> đã được cộng vào dòng cùng khóa; các dòng lỗi/trùng/xung đột/kỳ đã chốt bị bỏ qua." }));
+    if (sheetNames) {
+      var sheetStatus = workbookSheetStatus(sheetNames, plans);
+      var ignored = sheetStatus.filter(function (r) { return r["Trạng thái"] === "Chưa nhận diện — bỏ qua"; }).length;
+      if (ignored) body.appendChild(h("div", { class: "warn", text: ignored + " sheet chưa nhận diện sẽ bị bỏ qua. Kiểm tra tên sheet theo mẫu nếu cần nhập những sheet này." }));
+      body.appendChild(h("div", { class: "fh", text: "Các sheet trong file Excel" }));
+      body.appendChild(h("div", { "data-import-sheets": "1" }, [simpleTable(sheetStatus)]));
+    }
     // Q-13 (chủ sở hữu xác nhận): khi file có dòng TRÙNG với dữ liệu đã có → người dùng chọn Bổ sung hay Ghi đè
     var nSame = 0; plans.forEach(function (p) { p.items.forEach(function (it) { if (it.target) nSame++; }); });
     var choice = h("div", { class: nSame ? "warn" : "hint", style: "margin:8px 0 12px" });
@@ -247,7 +263,7 @@
     [["merge", "Bổ sung", "chỉ thêm/sửa ô có dữ liệu trong file — ô để trống GIỮ NGUYÊN số đang có (mặc định, an toàn)"],
       ["replace", "Ghi đè", "thay cả dòng theo file — ô để trống trong file sẽ XÓA số đang có"]].forEach(function (o) {
       var r0 = h("input", { type: "radio", name: "impmode", value: o[0], "data-mode": o[0] }); r0.checked = mode === o[0];
-      r0.addEventListener("change", function () { if (r0.checked) importPreview(replan, fileName, done, o[0]); });
+      r0.addEventListener("change", function () { if (r0.checked) importPreview(replan, fileName, done, o[0], sheetNames); });
       choice.appendChild(h("label", { style: "display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer" }, [r0, h("span", { html: "<b>" + o[1] + "</b> — " + o[2] })]));
     });
     body.appendChild(choice);
@@ -288,7 +304,7 @@
         btn(nWrite ? "✔ Ghi " + nWrite + " dòng" : "Không có dòng nào để ghi", "pri", function () {
           if (!nWrite) { close(); return; }
           if (impBusy) return;
-          if (previewRev !== dbRev) { alert("Dữ liệu đã đổi. Kiểm tra lại bản xem trước trước khi ghi."); importPreview(replan, fileName, done, mode); return; }
+          if (previewRev !== dbRev) { alert("Dữ liệu đã đổi. Kiểm tra lại bản xem trước trước khi ghi."); importPreview(replan, fileName, done, mode, sheetNames); return; }
           impBusy = true; // V9: chống bấm 2 lần → không nhân đôi dòng
           // P1: thao tác này đã có "before" + hoàn tác riêng khi saveNow() thất bại (an toàn dù sao lưu
           // dưới đây có thất bại hay không) — nên chỉ CẢNH BÁO, không chặn, nếu không tạo được bản sao lưu.
@@ -360,7 +376,7 @@
   }
   // IMPORT-REPORT-END
   function importFile(key, done, pumpMode) { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, key, m, pumpMode); }, name, done); }); }
-  function importAllFile() { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, null, m); }, name, render); }); }
+  function importAllFile() { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, null, m); }, name, render, null, wb.SheetNames); }); }
 
   function modal(title, body, footer, opts) {
     if (opts && opts.drawer && st.hdModal && !opts.onClose) opts = Object.assign({}, opts, { onClose: function () { hdReopen(); } });
