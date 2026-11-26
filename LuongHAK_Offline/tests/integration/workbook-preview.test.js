@@ -26,11 +26,17 @@ test("Workbook preview keeps the physical row of a closed period on each sheet",
   XLSX.utils.book_append_sheet(wb, production, "Sản lượng");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Trợ giúp"]]), "Hướng dẫn");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Ngày", "Mã NV"]]), "Suất cơm đổi tên");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ["Ngày hạch toán", "Mã NV", "Số chứng từ", "Tạm ứng"],
+    ["2026-08-02", "A", "KHOA", 100],
+    ["2026-11-02", "A", "MO", 200]
+  ]), "Ứng tháng mới");
   const bytes = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
   const context = {
     XLSX, IMP, C: { inputBatch: batch }, HRT: {}, SAMPLES: {},
     db: { nhanvien: [{ "Mã NV": "A" }] },
     ALL: {
+      ungluong: { ten: "Tạm ứng", cols: ["Ngày hạch toán", "Mã NV", "Số chứng từ", "Tạm ứng"] },
       tiencom: { ten: "Suất cơm", cols: ["Ngày", "Mã NV", "Số suất cơm"] },
       sanluong: { ten: "Sản lượng", cols: ["Phiếu cân", "Ngày cân", "Biển số", "KL hàng (Tấn)", "Mã NV"] }
     },
@@ -47,10 +53,25 @@ test("Workbook preview keeps the physical row of a closed period on each sheet",
     ["Suất cơm", "Sẽ nhập theo bản xem trước"],
     ["Sản lượng", "Sẽ nhập theo bản xem trước"],
     ["Hướng dẫn", "Sheet hướng dẫn"],
-    ["Suất cơm đổi tên", "Chưa nhận diện — bỏ qua"]
+    ["Suất cơm đổi tên", "Chưa nhận diện — bỏ qua"],
+    ["Ứng tháng mới", "Chưa nhận diện — bỏ qua"]
   ]);
   assert.deepEqual(Array.from(plans, (p) => [p.sheet, p.sampleSkipped, ...Array.from(p.items, (it) => [it.line, it.action])]), [
     ["Suất cơm", 1, [4, "locked"], [5, "add"]],
     ["Sản lượng", 1, [4, "locked"], [5, "add"]]
   ]);
+  const mapped = context.planWorkbook(parsed, null, "replace", null, new Map([["Ứng tháng mới", "ungluong"]]));
+  const advance = mapped.find((p) => p.table === "ungluong");
+  assert.equal(advance.sheet, "Ứng tháng mới");
+  assert.deepEqual(Array.from(advance.items, (it) => [it.line, it.action]), [[2, "locked"], [3, "add"]]);
+
+  const invalid = context.planWorkbook(parsed, null, "merge", null, new Map([["Suất cơm đổi tên", "ungluong"]]));
+  const rejected = invalid.find((p) => p.table === "ungluong");
+  assert.match(rejected.headerError, /Ngày hạch toán.*Tạm ứng/);
+  assert.equal(rejected.items.length, 0);
+
+  // A mapped sheet cannot silently replace an automatically recognized sheet.
+  const duplicateTarget = context.planWorkbook(parsed, null, "merge", null, new Map([["Suất cơm đổi tên", "tiencom"]]));
+  assert.equal(duplicateTarget.find((p) => p.table === "tiencom").sheet, "Suất cơm");
+
 });

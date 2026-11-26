@@ -520,17 +520,51 @@
   }
   // Thứ tự nhập: danh mục → nhân viên → hồ sơ con → dữ liệu phát sinh (để kiểm tra tham chiếu Mã NV đúng)
   function importOrder(keys) { var rank = function (k) { return /^dm_/.test(k) ? 0 : k === "nhanvien" ? 1 : HRT[k] ? 2 : 3; }; return keys.slice().sort(function (a, b) { return rank(a) - rank(b); }); }
-  function planWorkbook(wb, onlyKey, mode, pumpMode) {
+  function mappedSheetRows(sheet, table, columns) {
+    var offset = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
+    var aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
+    var production = table === "sanluong" || table === "bandam";
+    var headerIndex = production ? IMP.rowsFromAoa(aoa, table, columns).headerRow - 1 : 0;
+    var header = aoa[headerIndex] || [];
+    var mapped = header.map(function (c) { return IMP.headerName(table, columns, c); });
+    var required = IMP.REQUIRED[table] || (IMP.KEYS[table] || columns).slice(0, 1);
+    var missing = required.filter(function (c) { return mapped.indexOf(c) < 0; });
+    if (missing.length) return { rows: [], skipped: 0, error: "Thiếu cột: " + missing.join(", ") };
+    var matched = mapped.filter(Boolean);
+    if (matched.length !== new Set(matched).size) return { rows: [], skipped: 0, error: "Có cột Excel trùng tên trong bảng đích." };
+    var marker = header.indexOf(SAMPLE_COL), skipped = 0, rows = [];
+    aoa.slice(headerIndex + 1).forEach(function (cells, i) {
+      if (marker >= 0 && fold(cells[marker]) === "vi du") { skipped++; return; }
+      var row = { __line: offset + headerIndex + i + 2 };
+      mapped.forEach(function (c, j) { if (c) row[c] = cells[j]; });
+      rows.push(row);
+    });
+    return { rows: rows, skipped: skipped, error: "" };
+  }
+  function planWorkbook(wb, onlyKey, mode, pumpMode, mapping) {
     var plans = [], extraEmp = {};
     var keys = onlyKey ? [onlyKey] : importOrder(Object.keys(ALL));
-    keys.forEach(function (k) {
+    var automatic = new Map(keys.map(function (k) {
       var alt = { sanluong: ["Khoi luong", "Khối lượng"], bandam: ["Bom ban dam", "Bơm dăm", "Ban dăm xuất hàng"] }[k] || []; // tên sheet trong mẫu công cụ phân bổ
       var name = wb.SheetNames.filter(function (x) { return x === sheetName(ALL[k].ten); })[0] || wb.SheetNames.filter(function (x) { return alt.indexOf(x) >= 0; })[0];
+      return [k, name];
+    }));
+    var used = new Set(automatic.values()), manual = new Map();
+    if (!onlyKey && mapping) mapping.forEach(function (k, name) {
+      if (!automatic.has(k) || automatic.get(k) || manual.has(k) || used.has(name) ||
+          wb.SheetNames.indexOf(name) < 0 || fold(name) === "huong dan") return;
+      manual.set(k, name);
+    });
+    keys.forEach(function (k) {
+      var name = automatic.get(k) || manual.get(k);
       if (!name && onlyKey) name = wb.SheetNames[0];
       if (!name) return;
       // α19: Sản lượng / Bơm dăm đọc được cả file theo mẫu công cụ phân bổ (dòng tiêu đề phía trên, tên cột khác: "Ngày cân 1", "Số xe", "Mã phòng ban"…)
-      var skipped = 0, raw, sheet = wb.Sheets[name];
-      if (k === "sanluong" || k === "bandam") {
+      var skipped = 0, raw, headerError = "", sheet = wb.Sheets[name];
+      if (manual.has(k)) {
+        var mapped = mappedSheetRows(sheet, k, ALL[k].cols);
+        raw = mapped.rows; skipped = mapped.skipped; headerError = mapped.error;
+      } else if (k === "sanluong" || k === "bandam") {
         var source = stripSampleAoa(XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" }));
         var offset = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
         skipped = source.skipped;
@@ -546,17 +580,17 @@
       if (k === "bandam" && pumpMode && raw.some(function (r) { return C.inputReview.mode(r) !== pumpMode; })) throw Error("File không đúng cách phân bổ đang mở. Theo tổ cần Mã phòng ban, để trống Mã NV; Trực tiếp cần Mã NV.");
       var p = IMP.plan(db, k, ALL[k].cols, C.inputBatch.blankRows(raw), { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
       if (k === "bandam" && pumpMode && p.items.some(function (it) { return it.target && C.inputReview.mode(it.target) !== pumpMode; })) throw Error("File cập nhật khác cách phân bổ. Mở đúng tab để sửa phiếu.");
-      p.sheet = name; p.sampleSkipped = skipped; p.sampleLike = sampleLookalikes(k, raw);
+      p.sheet = name; p.headerError = headerError; p.sampleSkipped = skipped; p.sampleLike = sampleLookalikes(k, raw);
       if (k === "nhanvien") p.items.forEach(function (it) { if (it.action === "add" || it.action === "update") extraEmp[it.row["Mã NV"]] = 1; });
       plans.push(p);
     });
     return plans;
   }
   function workbookSheetStatus(names, plans) {
-    var recognized = new Set(plans.map(function (p) { return p.sheet; }));
+    var recognized = new Map(plans.map(function (p) { return [p.sheet, p]; }));
     return names.map(function (name) {
       var status = "Chưa nhận diện — bỏ qua";
-      if (recognized.has(name)) status = "Sẽ nhập theo bản xem trước";
+      if (recognized.has(name)) status = recognized.get(name).headerError || "Sẽ nhập theo bản xem trước";
       else if (fold(name) === "huong dan") status = "Sheet hướng dẫn";
       return { Sheet: name, "Trạng thái": status };
     });
@@ -597,7 +631,7 @@
     });
   }
   // IMPORT-NEARDUP-END
-  function importPreview(replan, fileName, done, mode, sheetNames) {
+  function importPreview(replan, fileName, done, mode, workbook) {
     impBusy = false;
     mode = mode || "merge";
     var plans; try { plans = replan(mode); } catch (e) { alert(e.message); return; }
@@ -623,17 +657,44 @@
       });
       Object.keys(p.summary).forEach(function (k) { p.summary[k] = 0; }); p.items.forEach(function (it) { p.summary[it.action] = (p.summary[it.action] || 0) + 1; });
     });
-    if (!plans.length && !sheetNames) { alert("Không thấy sheet nào đúng tên (Nhân viên, Chấm công, Mã lương...). Hãy dùng file mẫu của app."); return; }
+    if (!plans.length && !workbook) { alert("Không thấy sheet nào đúng tên (Nhân viên, Chấm công, Mã lương...). Hãy dùng file mẫu của app."); return; }
     var body = h("div"), tot = {};
     Object.keys(IMP.LABEL).forEach(function (k) { tot[k] = 0; });
     plans.forEach(function (p) { Object.keys(tot).forEach(function (k) { tot[k] += p.summary[k] || 0; }); });
     body.appendChild(h("div", { class: "hint", html: "File <b>" + esc(fileName) + "</b> — kiểm tra trước khi ghi. Chỉ dòng <b>Thêm mới</b> và <b>Cập nhật</b> được ghi; dòng <b>Gộp</b> đã được cộng vào dòng cùng khóa; các dòng lỗi/trùng/xung đột/kỳ đã chốt bị bỏ qua." }));
-    if (sheetNames) {
-      var sheetStatus = workbookSheetStatus(sheetNames, plans);
+    if (workbook) {
+      var sheetStatus = workbookSheetStatus(workbook.names, plans);
       var ignored = sheetStatus.filter(function (r) { return r["Trạng thái"] === "Chưa nhận diện — bỏ qua"; }).length;
-      if (ignored) body.appendChild(h("div", { class: "warn", text: ignored + " sheet chưa nhận diện sẽ bị bỏ qua. Kiểm tra tên sheet theo mẫu nếu cần nhập những sheet này." }));
+      if (ignored) body.appendChild(h("div", { class: "warn", text: ignored + " sheet chưa nhận diện sẽ bị bỏ qua. Chọn bảng đích bên dưới nếu cần nhập những sheet này." }));
       body.appendChild(h("div", { class: "fh", text: "Các sheet trong file Excel" }));
       body.appendChild(h("div", { "data-import-sheets": "1" }, [simpleTable(sheetStatus)]));
+      var choices = h("div", { class: "fgrid" });
+      var occupied = new Set(plans.map(function (p) { return p.table; }));
+      var assignable = importOrder(Object.keys(ALL)).filter(function (k) {
+        return can(/^dm_/.test(k) ? "dm.edit" : (S[k] ? "input.edit" : "hr.edit"));
+      });
+      sheetStatus.forEach(function (row) {
+        var name = row.Sheet, current = workbook.mapping.get(name);
+        if (!current && row["Trạng thái"] !== "Chưa nhận diện — bỏ qua") return;
+        var select = h("select", { class: "inp", "data-sheet-map": name, "aria-label": "Bảng đích cho " + name });
+        select.appendChild(h("option", { value: "", text: "Bỏ qua sheet này" }));
+        assignable.forEach(function (k) {
+          if (k === current || !occupied.has(k)) select.appendChild(h("option", { value: k, text: ALL[k].ten }));
+        });
+        select.value = current || "";
+        select.addEventListener("change", function () {
+          if (select.value) workbook.mapping.set(name, select.value);
+          else workbook.mapping.delete(name);
+          importPreview(replan, fileName, done, mode, workbook);
+          var updated = document.querySelectorAll("#modal [data-sheet-map]");
+          Array.from(updated).some(function (el) { if (el.getAttribute("data-sheet-map") !== name) return false; el.focus(); return true; });
+        });
+        choices.appendChild(h("label", { class: "fld" }, [h("span", { text: name }), select]));
+      });
+      if (choices.childElementCount) {
+        body.appendChild(h("div", { class: "hint", text: "Chọn bảng đích cho từng sheet chưa nhận diện. Mỗi bảng đích nhận một sheet. Bản xem trước cập nhật ngay sau khi chọn." }));
+        body.appendChild(choices);
+      }
     }
     // Q-13 (chủ sở hữu xác nhận): khi file có dòng TRÙNG với dữ liệu đã có → người dùng chọn Bổ sung hay Ghi đè
     var nSame = 0; plans.forEach(function (p) { p.items.forEach(function (it) { if (it.target) nSame++; }); });
@@ -642,7 +703,7 @@
     [["merge", "Bổ sung", "chỉ thêm/sửa ô có dữ liệu trong file — ô để trống GIỮ NGUYÊN số đang có (mặc định, an toàn)"],
       ["replace", "Ghi đè", "thay cả dòng theo file — ô để trống trong file sẽ XÓA số đang có"]].forEach(function (o) {
       var r0 = h("input", { type: "radio", name: "impmode", value: o[0], "data-mode": o[0] }); r0.checked = mode === o[0];
-      r0.addEventListener("change", function () { if (r0.checked) importPreview(replan, fileName, done, o[0], sheetNames); });
+      r0.addEventListener("change", function () { if (r0.checked) importPreview(replan, fileName, done, o[0], workbook); });
       choice.appendChild(h("label", { style: "display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer" }, [r0, h("span", { html: "<b>" + o[1] + "</b> — " + o[2] })]));
     });
     body.appendChild(choice);
@@ -674,16 +735,17 @@
     Object.keys(IMP.LABEL).forEach(function (k) { byLabel[IMP.LABEL[k]] = k; });
     rows.sort(function (a, b) { return order[byLabel[a["Phân loại"]]] - order[byLabel[b["Phân loại"]]]; });
     if (rows.length) { body.appendChild(h("div", { class: "fh", text: "Chi tiết các dòng cập nhật / không ghi (" + rows.length + ")" })); body.appendChild(simpleTable(rows.slice(0, 200))); if (rows.length > 200) body.appendChild(h("div", { class: "hint", text: "… và " + (rows.length - 200) + " dòng nữa — bấm 'Tải chi tiết' để xem đủ." })); }
-    var nWrite = tot.add + tot.update, previewRev = dbRev;
+    var invalidMapping = plans.some(function (p) { return !!p.headerError; });
+    var nWrite = invalidMapping ? 0 : tot.add + tot.update, previewRev = dbRev;
     modal("Xem trước nhập Excel", body, function (close) {
       return [
         importErrorSheets(plans, function (t) { return ALL[t].cols; }, function (t) { return sheetName(ALL[t].ten); }).length ? btn("⬇ Tải file lỗi để sửa & nhập lại", "", function () { saveXlsx("LoiNhapExcel_CanSua.xlsx", importErrorSheets(plans, function (t) { return ALL[t].cols; }, function (t) { return sheetName(ALL[t].ten); })); }) : null,
         rows.length ? btn("⬇ Tải chi tiết", "", function () { saveXlsx("KiemTraNhapExcel.xlsx", [{ name: "ChiTiet", cols: Object.keys(rows[0]), rows: rows }]); }) : null,
         btn("Hủy", "", close),
-        btn(nWrite ? "✔ Ghi " + nWrite + " dòng" : "Không có dòng nào để ghi", "pri", function () {
+        invalidMapping ? h("span", { class: "warn", text: "Sửa hoặc bỏ ghép sheet có lỗi cột trước khi ghi." }) : btn(nWrite ? "✔ Ghi " + nWrite + " dòng" : "Không có dòng nào để ghi", "pri", function () {
           if (!nWrite) { close(); return; }
           if (impBusy) return;
-          if (previewRev !== dbRev) { alert("Dữ liệu đã đổi. Kiểm tra lại bản xem trước trước khi ghi."); importPreview(replan, fileName, done, mode, sheetNames); return; }
+          if (previewRev !== dbRev) { alert("Dữ liệu đã đổi. Kiểm tra lại bản xem trước trước khi ghi."); importPreview(replan, fileName, done, mode, workbook); return; }
           impBusy = true; // V9: chống bấm 2 lần → không nhân đôi dòng
           // P1: thao tác này đã có "before" + hoàn tác riêng khi saveNow() thất bại (an toàn dù sao lưu
           // dưới đây có thất bại hay không) — nên chỉ CẢNH BÁO, không chặn, nếu không tạo được bản sao lưu.
@@ -755,7 +817,13 @@
   }
   // IMPORT-REPORT-END
   function importFile(key, done, pumpMode) { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, key, m, pumpMode); }, name, done); }); }
-  function importAllFile() { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, null, m); }, name, render, null, wb.SheetNames); }); }
+  function importAllFile() {
+    if (!need("import", "nhập Excel")) return;
+    readWorkbook(function (wb, name) {
+      var workbook = { names: wb.SheetNames, mapping: new Map() };
+      importPreview(function (m) { return planWorkbook(wb, null, m, null, workbook.mapping); }, name, render, null, workbook);
+    });
+  }
 
   function modal(title, body, footer, opts) {
     if (opts && opts.drawer && st.hdModal && !opts.onClose) opts = Object.assign({}, opts, { onClose: function () { hdReopen(); } });

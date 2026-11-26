@@ -140,7 +140,7 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       .filter((r) => !["2026-11", "2026-12"].includes(V.rowPeriod(t, r)));
     { // File tổng: hai sheet, hai kỳ mở, một kỳ chốt, ghi một giao dịch.
       const wb = new ExcelJS.Workbook(), file = path.join(D9, "nhieu-sheet-nhieu-ky.xlsx");
-      for (const [key, name] of [["ungluong", "Tạm ứng"], ["tiencom", "Suất cơm"]]) {
+      for (const [key, name] of [["ungluong", "Ứng tháng mới"], ["tiencom", "Suất cơm"]]) {
         const ws = wb.addWorksheet(name), spec = SPEC[key];
         ws.getRow(1).values = spec.cols;
         ws.getRow(3).values = spec.row("2026-08", "B");
@@ -153,22 +153,29 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       renamed.getRow(2).values = SPEC.tiencom.row("2026-11", "A");
       fs.writeFileSync(file, new Uint8Array(await wb.xlsx.writeBuffer()));
       await w.click("#nav button[data-k=home]");
+      const load = () => w.evaluate(() => window.hakStore.load().text);
+      const initial = await load();
       const open = async () => {
         const [chooser] = await Promise.all([w.waitForEvent("filechooser"), w.getByRole("button", { name: /Nhập từ file Excel tổng/ }).click()]);
         await chooser.setFiles(file);
         await w.waitForSelector(".dlg");
+        await w.locator('[data-sheet-map="Ứng tháng mới"]').selectOption("ungluong");
       };
-      const load = () => w.evaluate(() => window.hakStore.load().text);
-      const initial = await load();
       await open();
       const sheets = await w.locator("[data-import-sheets] tbody tr").allTextContents();
-      ok("File tổng liệt kê cả sheet hướng dẫn và sheet bị bỏ qua",
+      ok("File tổng liệt kê sheet hướng dẫn, sheet bỏ qua và sheet đã ghép",
         sheets.length === 4 && sheets.some((row) => row.includes("Hướng dẫnSheet hướng dẫn")) &&
-        sheets.some((row) => row.includes("Suất cơm đổi tênChưa nhận diện — bỏ qua")), sheets.join(" | "));
+        sheets.some((row) => row.includes("Suất cơm đổi tênChưa nhận diện — bỏ qua")) &&
+        sheets.some((row) => row.includes("Ứng tháng mớiSẽ nhập theo bản xem trước")), sheets.join(" | "));
+      const wrong = w.locator('[data-sheet-map="Suất cơm đổi tên"]');
+      await wrong.selectOption("psluong");
+      ok("Ghép sai bảng: báo cột bắt buộc và chặn ghi", (await w.locator("[data-import-sheets]").innerText()).includes("Thiếu cột: Ngày hạch toán") &&
+        (await w.getByRole("button", { name: /Ghi 4 dòng/ }).count()) === 0 && (await load()) === initial);
+      await wrong.selectOption("");
       const locked = w.locator(".dlg tr").filter({ hasText: /2026-08.*đã chốt/ });
       const rejected = await locked.allTextContents();
       ok("File tổng báo đúng sheet và dòng Excel 3 ở cả hai sheet", rejected.length === 2 &&
-        rejected.every((row) => /(?:Tạm ứng|Suất cơm)3/.test(row)) && (await load()) === initial, rejected.join(" | "));
+        rejected.every((row) => /(?:Ứng tháng mới|Suất cơm)3/.test(row)) && (await load()) === initial, rejected.join(" | "));
       const save = () => w.getByRole("button", { name: /Ghi 4 dòng/ }).click();
       // Lỗi SQLite sau khi đã ghi bảng đầu, khi chèn dòng Suất cơm của bảng thứ hai.
       const dbPath = path.join(D9, "data.sqlite");
