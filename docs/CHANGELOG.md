@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.34] — 26/11/2026
+- **SQLite, phiếu lương PDF và nhập Excel tổng (#220, #221, #222):** thử lại checkpoint khi có kết nối đọc, giữ thông tin nhân viên trên phiếu dài và báo các sheet Excel bị bỏ qua. Chi tiết: `docs/releases/v2.1.34.md`.
+
 ## [2.1.33] — 26/11/2026
 - **Hoàn thiện độ bền SQLite WAL, Nhập Excel nhiều kỳ, Smart Filter và Tối ưu UI/PDF (PR #217, #218, #219):**
   - **Giai đoạn 1 (PR #217):** Hỗ trợ nạp tệp Excel nhiều kỳ chấm công / sản lượng đồng thời và mở rộng bộ lọc nhanh Smart Filter cho các màn danh mục phụ.

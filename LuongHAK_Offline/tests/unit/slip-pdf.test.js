@@ -27,3 +27,9 @@ test("U-SPF-05 tiền âm và làm tròn; tên tệp: kỳ yyyy-mm, hậu tố, 
   assert.equal(S.filename("10/2026", { chot: true }), "PhieuLuong_TungNguoi_2026-10.pdf"); assert.equal(S.filename("10/2026", { chot: false, suffix: "NV001" }), "PhieuLuong_TungNguoi_2026-10_NV001_TAM.pdf");
 });
 test("U-SPF-06 danh sách rỗng vẫn trả HTML hợp lệ (không có trang)", () => { const h = S.html({ ky: "10/2026", chot: true, slips: [] }); assert.equal((h.match(/<section/g) || []).length, 0); assert.ok(h.endsWith("</body></html>")); });
+
+test("Phiếu dài có tiêu đề lặp và nhóm Thực lĩnh cùng phần ký", () => {
+  const h = S.html(vm(false, 1));
+  assert.match(h, /<thead>[\s\S]*PHIẾU LƯƠNG THÁNG 10\/2026[\s\S]*Mã NV: NV000[\s\S]*<\/thead>/);
+  assert.match(h, /<tbody class="settlement">[\s\S]*THỰC LĨNH[\s\S]*Người lao động nhận[\s\S]*<\/tbody>/);
+});

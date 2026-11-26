@@ -22,19 +22,29 @@ function createSqliteStorage(dir, opts) {
   const delayMs = opts.exportDelayMs != null ? opts.exportDelayMs : 3000;
   let db = null, cur = null /* { text, doc, rows } — rows: chuỗi JSON từng dòng để lần diff sau không tuần tự hóa lại bảng cũ */, rev = 0, jsonStale = false, timer = null, conflict = "", yearChecked = "", opened = false;
 
-  const checkpoint = (mode) => {
-    if (!db) return false;
+  let checkpointTimer = null;
+  const checkpoint = (mode = "TRUNCATE") => {
+    if (!db || !["PASSIVE", "FULL", "RESTART", "TRUNCATE"].includes(mode)) return false;
+    const timeout = db.pragmas.busy_timeout;
     try {
-      db.exec("PRAGMA wal_checkpoint(" + (mode || "TRUNCATE") + ");");
-      return true;
+      db.exec("PRAGMA busy_timeout = 0");
+      const result = db.prepare("PRAGMA wal_checkpoint(" + mode + ")").get();
+      return result.busy === 0 && result.log === result.checkpointed &&
+        (mode !== "TRUNCATE" || result.log === 0);
     } catch (e) {
       return false;
+    } finally {
+      db.exec("PRAGMA busy_timeout = " + timeout);
     }
   };
 
   const autoCheckpoint = () => {
-    if (opts.checkpoint !== false && process.env.HAK_SQLITE_CHECKPOINT !== "0") {
-      checkpoint("TRUNCATE");
+    if (opts.checkpoint === false || process.env.HAK_SQLITE_CHECKPOINT === "0") return;
+    clearTimeout(checkpointTimer);
+    checkpointTimer = null;
+    if (db && !checkpoint()) {
+      checkpointTimer = setTimeout(autoCheckpoint, 1000);
+      checkpointTimer.unref();
     }
   };
 
@@ -106,7 +116,7 @@ function createSqliteStorage(dir, opts) {
   function openDb() {
     if (db) return;
     acquireLock();
-    db = store.open(dbFile); store.migrate(db); opened = true;
+    db = store.open(dbFile, { synchronous: "FULL" }); store.migrate(db); opened = true;
   }
   /** Lần mở đầu của phiên: quyết định nguồn dữ liệu. Trả { ok:true, text|null } hoặc lỗi cho giao diện. */
   function init() {
@@ -647,7 +657,7 @@ function createSqliteStorage(dir, opts) {
   const acquireLockOnly = () => { if (!db) acquireLock(); };
   const needsRecovery = () => { if (cur) return false; try { return load().ok === false; } catch (e) { return true; } };
   function hasDataFile() { return !!cur || fs.existsSync(dbFile) || json.hasDataFile(); }
-  function close() { syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
+  function close() { clearTimeout(checkpointTimer); checkpointTimer = null; syncJson(); if (db) { try { store.close(db); } catch (e) { /* đã đóng */ } db = null; } releaseLock(); }
 
   return Object.assign({}, json, {
     snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, listRestoreCandidates, inspectCandidate, findBestCandidate, restoreCandidate, externalStatus, verifyExternal, restoreDrill, needsRecovery, load, save, saveDelta, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
