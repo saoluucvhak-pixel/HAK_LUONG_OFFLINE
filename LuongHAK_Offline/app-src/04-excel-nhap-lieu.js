@@ -126,8 +126,12 @@
     var hi = -1, ci = -1;
     for (var i = 0; i < Math.min(aoa.length, 30) && ci < 0; i++) { var at = (aoa[i] || []).indexOf(SAMPLE_COL); if (at >= 0) { hi = i; ci = at; } }
     if (ci < 0) return { aoa: aoa, skipped: 0 };
-    var out = aoa.filter(function (r, i) { return i <= hi || fold((r || [])[ci]) !== "vi du"; });
-    return { aoa: out, skipped: aoa.length - out.length };
+    var skipped = 0;
+    var out = aoa.map(function (r, i) {
+      if (i <= hi || fold((r || [])[ci]) !== "vi du") return r;
+      skipped++; return []; // Giữ vị trí dòng để bản xem trước trỏ đúng ô trong Excel.
+    });
+    return { aoa: out, skipped: skipped };
   }
   /** File mẫu CŨ (không có cột đánh dấu): dòng trùng hệt dòng ví dụ của app vẫn được giữ (có thể là dữ liệu thật) nhưng được báo để người dùng xem lại. */
   function sampleLookalikes(key, rows) {
@@ -146,10 +150,20 @@
       if (!name && onlyKey) name = wb.SheetNames[0];
       if (!name) return;
       // α19: Sản lượng / Bơm dăm đọc được cả file theo mẫu công cụ phân bổ (dòng tiêu đề phía trên, tên cột khác: "Ngày cân 1", "Số xe", "Mã phòng ban"…)
-      var skipped = 0, aoa = null;
-      if (k === "sanluong" || k === "bandam") { var st0 = stripSampleAoa(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: "" })); aoa = st0.aoa; skipped = st0.skipped; }
-      var raw = aoa ? IMP.rowsFromAoa(aoa, k, ALL[k].cols).rows : XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: true, defval: "" });
-      if (!aoa) { var kept = raw.filter(function (r) { return !isSampleMarked(r); }); skipped = raw.length - kept.length; raw = kept; }
+      var skipped = 0, raw, sheet = wb.Sheets[name];
+      if (k === "sanluong" || k === "bandam") {
+        var source = stripSampleAoa(XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" }));
+        var offset = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
+        skipped = source.skipped;
+        raw = IMP.rowsFromAoa(source.aoa, k, ALL[k].cols).rows.map(function (r) {
+          return Object.assign({ __line: r.__line + offset }, r);
+        });
+      } else {
+        raw = XLSX.utils.sheet_to_json(sheet, { raw: true, defval: "" }).filter(function (r) {
+          if (isSampleMarked(r)) { skipped++; return false; }
+          return true;
+        }).map(function (r) { return Object.assign({ __line: r.__rowNum__ + 1 }, r); });
+      }
       if (k === "bandam" && pumpMode && raw.some(function (r) { return C.inputReview.mode(r) !== pumpMode; })) throw Error("File không đúng cách phân bổ đang mở. Theo tổ cần Mã phòng ban, để trống Mã NV; Trực tiếp cần Mã NV.");
       var p = IMP.plan(db, k, ALL[k].cols, C.inputBatch.blankRows(raw), { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
       if (k === "bandam" && pumpMode && p.items.some(function (it) { return it.target && C.inputReview.mode(it.target) !== pumpMode; })) throw Error("File cập nhật khác cách phân bổ. Mở đúng tab để sửa phiếu.");
@@ -259,7 +273,7 @@
     if (clears) body.appendChild(h("div", { class: "warn", text: "⚠ Chế độ ghi đè sẽ XÓA " + clears + " ô đang có dữ liệu (ô trống trong file). Kiểm tra cột 'Lý do' bên dưới." }));
     var rows = [];
     var nWarn = 0;
-    plans.forEach(function (p) { p.items.forEach(function (it) { if (it.warn && (it.action === "add" || it.action === "update")) nWarn++; if (it.action !== "add" || /HỒI TỐ/.test(it.reason) || it.warn) rows.push({ "Bảng": ALL[p.table].ten, "Dòng Excel": it.line, "Phân loại": IMP.LABEL[it.action], "Lý do": it.reason, "Cách sửa": importFixHint(it.action, it.reason), "Cảnh báo": it.warn || "", "Mã NV": it.row["Mã NV"] || "" }); }); });
+    plans.forEach(function (p) { p.items.forEach(function (it) { if (it.warn && (it.action === "add" || it.action === "update")) nWarn++; if (it.action !== "add" || /HỒI TỐ/.test(it.reason) || it.warn) rows.push({ "Bảng": ALL[p.table].ten, "Sheet": p.sheet, "Dòng Excel": it.line, "Phân loại": IMP.LABEL[it.action], "Lý do": it.reason, "Cách sửa": importFixHint(it.action, it.reason), "Cảnh báo": it.warn || "", "Mã NV": it.row["Mã NV"] || "" }); }); });
     if (nWarn) body.appendChild(h("div", { class: "warn", text: "⚠ " + nWarn + " dòng sẽ ghi nhưng có ô bất thường (VD quá " + VAL.MAX_CONG_NGAY + " công/ngày, nhãn chưa có mã phụ cấp) — xem cột 'Cảnh báo'." }));
     var order = { conflict: 0, neardup: 0, invalid: 1, refError: 2, locked: 3, update: 4, add: 4, merged: 5, duplicate: 6 }, byLabel = {};
     Object.keys(IMP.LABEL).forEach(function (k) { byLabel[IMP.LABEL[k]] = k; });

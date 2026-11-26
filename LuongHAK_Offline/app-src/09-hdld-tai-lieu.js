@@ -111,29 +111,63 @@
     var bar = h("div", { class: "bar" }, [h("h3", { text: cfg.icon + " " + cfg.ten, style: "margin:0" }), h("span", { class: "sp" }), btn("＋ Thêm", "pri", function () { hrForm(key, null, base); })]);
     card.appendChild(bar);
     if (cfg.desc) card.appendChild(h("div", { class: "hint", text: cfg.desc }));
-    if (!rows.length) { card.appendChild(h("div", { class: "empty", style: "padding:16px", text: "Chưa có dữ liệu." })); return card; }
+    var lookup = key === "hopdong" || key === "chitiethd", shown = rows, filter;
+    var columns = cfg.cols.filter(function (c) { return canSeePay() || !HRM.isPayField(key, c); });
     var fmap = {}; cfg.f.forEach(function (f) { fmap[f.k] = f; });
-    var t = h("table"), tr = h("tr");
-    cfg.cols.forEach(function (c) { tr.appendChild(h("th", { class: fmap[c] && fmap[c].t === "money" ? "r" : "", text: (fmap[c] && fmap[c].label) || c })); });
-    tr.appendChild(h("th", { text: "" })); t.appendChild(h("thead", {}, [tr]));
-    var tb = h("tbody");
-    rows.forEach(function (r, i) {
-      var x = h("tr", { class: "click" + (opts.selected && opts.selected === r ? " sel" : ""), on: { click: function () { if (opts.onPick) opts.onPick(r); else hrForm(key, r, base); } } });
-      cfg.cols.forEach(function (c) { var f = fmap[c] || {}; x.appendChild(h("td", { class: f.t === "money" ? "r" : "t", text: HRM.isPayField(key, c) && !canSeePay() ? HRM.PAY_HIDDEN : dispVal(f, r[c]) })); });
-      var acts = h("td", { style: "text-align:right;white-space:nowrap" });
-      if (opts.onPick) acts.appendChild(btn("✎", "ghost", function (ev) { ev.stopPropagation(); hrForm(key, r, base); }, "Sửa"));
-      acts.appendChild(btn("✕", "red ghost", function (ev) {
-        ev.stopPropagation();
-        if (!need("hr.edit", "xóa hồ sơ nhân sự")) return;
-        var pD = REPO.plan("remove", key, r, null, { what: "xóa " + cfg.ten });
-        if (!pD.ok) { alert(pD.msg); return; }
-        if (!confirm("Xóa dòng này?" + (key === "hopdong" ? "\nToàn bộ phụ lục lương, nghỉ phép… của hợp đồng này cũng bị xóa." : "") + (pD.retro ? "\n\n" + retroText(pD.impact) : ""))) return;
-        if (!commit(pD, { action: "Xóa hồ sơ" })) return;
-        save(); render();
-      }, "Xóa"));
-      x.appendChild(acts); tb.appendChild(x);
-    });
-    t.appendChild(tb); card.appendChild(h("div", { class: "tw", style: "max-height:none" }, [t]));
+    var value = function (r, c) { return dispVal(fmap[c] || {}, r[c]); };
+    var body = h("div");
+    if (lookup) {
+      var states = st.hrLookup || (st.hrLookup = {});
+      var scope = JSON.stringify([key, base["Mã NV"], base["Số HĐLĐ"]]);
+      filter = sfUi.mount({
+        screenId: "hr-" + key, searchPlaceholder: "Tìm " + cfg.ten.toLowerCase() + " (không cần dấu)…",
+        fields: [], quickFields: ["q"], advancedFields: ["q"],
+        state: { get: function () { return states[scope] || SFC.empty(); }, set: function (s) { states[scope] = s; } },
+        dataSource: function () { return { kept: shown.length, total: rows.length }; },
+        onApply: draw
+      });
+      if (can("export")) bar.appendChild(btn("⬇ Xuất Excel", "", function () {
+        saveXlsx(slug(cfg.ten) + "_loc.xlsx", [{ name: cfg.ten, cols: columns, rows: shown.map(function (r) {
+          var out = {}; columns.forEach(function (c) { out[c] = value(r, c); }); return out;
+        }) }], "pro");
+      }));
+      card.appendChild(filter.el);
+    }
+    card.appendChild(body);
+    function draw() {
+      body.innerHTML = "";
+      var q = lookup ? SFC.fold((states[scope] || {}).q) : "";
+      shown = q ? rows.filter(function (r) {
+        return columns.some(function (c) { return SFC.fold(value(r, c)).indexOf(q) >= 0; });
+      }) : rows;
+      if (filter) filter.refresh();
+      if (!shown.length) {
+        body.appendChild(h("div", { class: "empty", style: "padding:16px", text: rows.length ? "Không có dòng khớp bộ lọc." : "Chưa có dữ liệu." }));
+        return;
+      }
+      var t = h("table"), tr = h("tr");
+      cfg.cols.forEach(function (c) { tr.appendChild(h("th", { class: fmap[c] && fmap[c].t === "money" ? "r" : "", text: (fmap[c] && fmap[c].label) || c })); });
+      tr.appendChild(h("th", { text: "" })); t.appendChild(h("thead", {}, [tr]));
+      var tb = h("tbody");
+      shown.forEach(function (r) {
+        var x = h("tr", { class: "click" + (opts.selected && opts.selected === r ? " sel" : ""), on: { click: function () { if (opts.onPick) opts.onPick(r); else hrForm(key, r, base); } } });
+        cfg.cols.forEach(function (c) { var f = fmap[c] || {}; x.appendChild(h("td", { class: f.t === "money" ? "r" : "t", text: HRM.isPayField(key, c) && !canSeePay() ? HRM.PAY_HIDDEN : dispVal(f, r[c]) })); });
+        var acts = h("td", { style: "text-align:right;white-space:nowrap" });
+        if (opts.onPick) acts.appendChild(btn("✎", "ghost", function (ev) { ev.stopPropagation(); hrForm(key, r, base); }, "Sửa"));
+        acts.appendChild(btn("✕", "red ghost", function (ev) {
+          ev.stopPropagation();
+          if (!need("hr.edit", "xóa hồ sơ nhân sự")) return;
+          var pD = REPO.plan("remove", key, r, null, { what: "xóa " + cfg.ten });
+          if (!pD.ok) { alert(pD.msg); return; }
+          if (!confirm("Xóa dòng này?" + (key === "hopdong" ? "\nToàn bộ phụ lục lương, nghỉ phép… của hợp đồng này cũng bị xóa." : "") + (pD.retro ? "\n\n" + retroText(pD.impact) : ""))) return;
+          if (!commit(pD, { action: "Xóa hồ sơ" })) return;
+          save(); render();
+        }, "Xóa"));
+        x.appendChild(acts); tb.appendChild(x);
+      });
+      t.appendChild(tb); body.appendChild(h("div", { class: "tw", style: "max-height:none" }, [t]));
+    }
+    draw();
     return card;
   }
 

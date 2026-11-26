@@ -505,8 +505,12 @@
     var hi = -1, ci = -1;
     for (var i = 0; i < Math.min(aoa.length, 30) && ci < 0; i++) { var at = (aoa[i] || []).indexOf(SAMPLE_COL); if (at >= 0) { hi = i; ci = at; } }
     if (ci < 0) return { aoa: aoa, skipped: 0 };
-    var out = aoa.filter(function (r, i) { return i <= hi || fold((r || [])[ci]) !== "vi du"; });
-    return { aoa: out, skipped: aoa.length - out.length };
+    var skipped = 0;
+    var out = aoa.map(function (r, i) {
+      if (i <= hi || fold((r || [])[ci]) !== "vi du") return r;
+      skipped++; return []; // Giữ vị trí dòng để bản xem trước trỏ đúng ô trong Excel.
+    });
+    return { aoa: out, skipped: skipped };
   }
   /** File mẫu CŨ (không có cột đánh dấu): dòng trùng hệt dòng ví dụ của app vẫn được giữ (có thể là dữ liệu thật) nhưng được báo để người dùng xem lại. */
   function sampleLookalikes(key, rows) {
@@ -525,10 +529,20 @@
       if (!name && onlyKey) name = wb.SheetNames[0];
       if (!name) return;
       // α19: Sản lượng / Bơm dăm đọc được cả file theo mẫu công cụ phân bổ (dòng tiêu đề phía trên, tên cột khác: "Ngày cân 1", "Số xe", "Mã phòng ban"…)
-      var skipped = 0, aoa = null;
-      if (k === "sanluong" || k === "bandam") { var st0 = stripSampleAoa(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: "" })); aoa = st0.aoa; skipped = st0.skipped; }
-      var raw = aoa ? IMP.rowsFromAoa(aoa, k, ALL[k].cols).rows : XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: true, defval: "" });
-      if (!aoa) { var kept = raw.filter(function (r) { return !isSampleMarked(r); }); skipped = raw.length - kept.length; raw = kept; }
+      var skipped = 0, raw, sheet = wb.Sheets[name];
+      if (k === "sanluong" || k === "bandam") {
+        var source = stripSampleAoa(XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" }));
+        var offset = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
+        skipped = source.skipped;
+        raw = IMP.rowsFromAoa(source.aoa, k, ALL[k].cols).rows.map(function (r) {
+          return Object.assign({ __line: r.__line + offset }, r);
+        });
+      } else {
+        raw = XLSX.utils.sheet_to_json(sheet, { raw: true, defval: "" }).filter(function (r) {
+          if (isSampleMarked(r)) { skipped++; return false; }
+          return true;
+        }).map(function (r) { return Object.assign({ __line: r.__rowNum__ + 1 }, r); });
+      }
       if (k === "bandam" && pumpMode && raw.some(function (r) { return C.inputReview.mode(r) !== pumpMode; })) throw Error("File không đúng cách phân bổ đang mở. Theo tổ cần Mã phòng ban, để trống Mã NV; Trực tiếp cần Mã NV.");
       var p = IMP.plan(db, k, ALL[k].cols, C.inputBatch.blankRows(raw), { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });
       if (k === "bandam" && pumpMode && p.items.some(function (it) { return it.target && C.inputReview.mode(it.target) !== pumpMode; })) throw Error("File cập nhật khác cách phân bổ. Mở đúng tab để sửa phiếu.");
@@ -638,7 +652,7 @@
     if (clears) body.appendChild(h("div", { class: "warn", text: "⚠ Chế độ ghi đè sẽ XÓA " + clears + " ô đang có dữ liệu (ô trống trong file). Kiểm tra cột 'Lý do' bên dưới." }));
     var rows = [];
     var nWarn = 0;
-    plans.forEach(function (p) { p.items.forEach(function (it) { if (it.warn && (it.action === "add" || it.action === "update")) nWarn++; if (it.action !== "add" || /HỒI TỐ/.test(it.reason) || it.warn) rows.push({ "Bảng": ALL[p.table].ten, "Dòng Excel": it.line, "Phân loại": IMP.LABEL[it.action], "Lý do": it.reason, "Cách sửa": importFixHint(it.action, it.reason), "Cảnh báo": it.warn || "", "Mã NV": it.row["Mã NV"] || "" }); }); });
+    plans.forEach(function (p) { p.items.forEach(function (it) { if (it.warn && (it.action === "add" || it.action === "update")) nWarn++; if (it.action !== "add" || /HỒI TỐ/.test(it.reason) || it.warn) rows.push({ "Bảng": ALL[p.table].ten, "Sheet": p.sheet, "Dòng Excel": it.line, "Phân loại": IMP.LABEL[it.action], "Lý do": it.reason, "Cách sửa": importFixHint(it.action, it.reason), "Cảnh báo": it.warn || "", "Mã NV": it.row["Mã NV"] || "" }); }); });
     if (nWarn) body.appendChild(h("div", { class: "warn", text: "⚠ " + nWarn + " dòng sẽ ghi nhưng có ô bất thường (VD quá " + VAL.MAX_CONG_NGAY + " công/ngày, nhãn chưa có mã phụ cấp) — xem cột 'Cảnh báo'." }));
     var order = { conflict: 0, neardup: 0, invalid: 1, refError: 2, locked: 3, update: 4, add: 4, merged: 5, duplicate: 6 }, byLabel = {};
     Object.keys(IMP.LABEL).forEach(function (k) { byLabel[IMP.LABEL[k]] = k; });
@@ -1929,29 +1943,63 @@
     var bar = h("div", { class: "bar" }, [h("h3", { text: cfg.icon + " " + cfg.ten, style: "margin:0" }), h("span", { class: "sp" }), btn("＋ Thêm", "pri", function () { hrForm(key, null, base); })]);
     card.appendChild(bar);
     if (cfg.desc) card.appendChild(h("div", { class: "hint", text: cfg.desc }));
-    if (!rows.length) { card.appendChild(h("div", { class: "empty", style: "padding:16px", text: "Chưa có dữ liệu." })); return card; }
+    var lookup = key === "hopdong" || key === "chitiethd", shown = rows, filter;
+    var columns = cfg.cols.filter(function (c) { return canSeePay() || !HRM.isPayField(key, c); });
     var fmap = {}; cfg.f.forEach(function (f) { fmap[f.k] = f; });
-    var t = h("table"), tr = h("tr");
-    cfg.cols.forEach(function (c) { tr.appendChild(h("th", { class: fmap[c] && fmap[c].t === "money" ? "r" : "", text: (fmap[c] && fmap[c].label) || c })); });
-    tr.appendChild(h("th", { text: "" })); t.appendChild(h("thead", {}, [tr]));
-    var tb = h("tbody");
-    rows.forEach(function (r, i) {
-      var x = h("tr", { class: "click" + (opts.selected && opts.selected === r ? " sel" : ""), on: { click: function () { if (opts.onPick) opts.onPick(r); else hrForm(key, r, base); } } });
-      cfg.cols.forEach(function (c) { var f = fmap[c] || {}; x.appendChild(h("td", { class: f.t === "money" ? "r" : "t", text: HRM.isPayField(key, c) && !canSeePay() ? HRM.PAY_HIDDEN : dispVal(f, r[c]) })); });
-      var acts = h("td", { style: "text-align:right;white-space:nowrap" });
-      if (opts.onPick) acts.appendChild(btn("✎", "ghost", function (ev) { ev.stopPropagation(); hrForm(key, r, base); }, "Sửa"));
-      acts.appendChild(btn("✕", "red ghost", function (ev) {
-        ev.stopPropagation();
-        if (!need("hr.edit", "xóa hồ sơ nhân sự")) return;
-        var pD = REPO.plan("remove", key, r, null, { what: "xóa " + cfg.ten });
-        if (!pD.ok) { alert(pD.msg); return; }
-        if (!confirm("Xóa dòng này?" + (key === "hopdong" ? "\nToàn bộ phụ lục lương, nghỉ phép… của hợp đồng này cũng bị xóa." : "") + (pD.retro ? "\n\n" + retroText(pD.impact) : ""))) return;
-        if (!commit(pD, { action: "Xóa hồ sơ" })) return;
-        save(); render();
-      }, "Xóa"));
-      x.appendChild(acts); tb.appendChild(x);
-    });
-    t.appendChild(tb); card.appendChild(h("div", { class: "tw", style: "max-height:none" }, [t]));
+    var value = function (r, c) { return dispVal(fmap[c] || {}, r[c]); };
+    var body = h("div");
+    if (lookup) {
+      var states = st.hrLookup || (st.hrLookup = {});
+      var scope = JSON.stringify([key, base["Mã NV"], base["Số HĐLĐ"]]);
+      filter = sfUi.mount({
+        screenId: "hr-" + key, searchPlaceholder: "Tìm " + cfg.ten.toLowerCase() + " (không cần dấu)…",
+        fields: [], quickFields: ["q"], advancedFields: ["q"],
+        state: { get: function () { return states[scope] || SFC.empty(); }, set: function (s) { states[scope] = s; } },
+        dataSource: function () { return { kept: shown.length, total: rows.length }; },
+        onApply: draw
+      });
+      if (can("export")) bar.appendChild(btn("⬇ Xuất Excel", "", function () {
+        saveXlsx(slug(cfg.ten) + "_loc.xlsx", [{ name: cfg.ten, cols: columns, rows: shown.map(function (r) {
+          var out = {}; columns.forEach(function (c) { out[c] = value(r, c); }); return out;
+        }) }], "pro");
+      }));
+      card.appendChild(filter.el);
+    }
+    card.appendChild(body);
+    function draw() {
+      body.innerHTML = "";
+      var q = lookup ? SFC.fold((states[scope] || {}).q) : "";
+      shown = q ? rows.filter(function (r) {
+        return columns.some(function (c) { return SFC.fold(value(r, c)).indexOf(q) >= 0; });
+      }) : rows;
+      if (filter) filter.refresh();
+      if (!shown.length) {
+        body.appendChild(h("div", { class: "empty", style: "padding:16px", text: rows.length ? "Không có dòng khớp bộ lọc." : "Chưa có dữ liệu." }));
+        return;
+      }
+      var t = h("table"), tr = h("tr");
+      cfg.cols.forEach(function (c) { tr.appendChild(h("th", { class: fmap[c] && fmap[c].t === "money" ? "r" : "", text: (fmap[c] && fmap[c].label) || c })); });
+      tr.appendChild(h("th", { text: "" })); t.appendChild(h("thead", {}, [tr]));
+      var tb = h("tbody");
+      shown.forEach(function (r) {
+        var x = h("tr", { class: "click" + (opts.selected && opts.selected === r ? " sel" : ""), on: { click: function () { if (opts.onPick) opts.onPick(r); else hrForm(key, r, base); } } });
+        cfg.cols.forEach(function (c) { var f = fmap[c] || {}; x.appendChild(h("td", { class: f.t === "money" ? "r" : "t", text: HRM.isPayField(key, c) && !canSeePay() ? HRM.PAY_HIDDEN : dispVal(f, r[c]) })); });
+        var acts = h("td", { style: "text-align:right;white-space:nowrap" });
+        if (opts.onPick) acts.appendChild(btn("✎", "ghost", function (ev) { ev.stopPropagation(); hrForm(key, r, base); }, "Sửa"));
+        acts.appendChild(btn("✕", "red ghost", function (ev) {
+          ev.stopPropagation();
+          if (!need("hr.edit", "xóa hồ sơ nhân sự")) return;
+          var pD = REPO.plan("remove", key, r, null, { what: "xóa " + cfg.ten });
+          if (!pD.ok) { alert(pD.msg); return; }
+          if (!confirm("Xóa dòng này?" + (key === "hopdong" ? "\nToàn bộ phụ lục lương, nghỉ phép… của hợp đồng này cũng bị xóa." : "") + (pD.retro ? "\n\n" + retroText(pD.impact) : ""))) return;
+          if (!commit(pD, { action: "Xóa hồ sơ" })) return;
+          save(); render();
+        }, "Xóa"));
+        x.appendChild(acts); tb.appendChild(x);
+      });
+      t.appendChild(tb); body.appendChild(h("div", { class: "tw", style: "max-height:none" }, [t]));
+    }
+    draw();
     return card;
   }
 
@@ -2511,7 +2559,7 @@
     return FMUI[type] || (FMUI[type] = window.HAKUI.formulaMaster.create({
       h: h, btn: btn, esc: esc, fmt: fmt, $: $, st: st, db: function () { return db; }, can: can, user: function () { return session ? session.tenDangNhap : currentUser(); },
       REPO: REPO, commit: commit, txn: txn, save: save, render: render, audit: audit, toast: toast, alert: function (m) { alert(m); }, fmtTime: fmtTime,
-      dateField: dateField, dateIso: dateIso, kqKy: kqKy, closedPeriods: function () { return db.kyluong.map(function (k) { return k.ky; }); }, pct: E.pct,
+      dateField: dateField, dateIso: dateIso, sfUi: sfUi, saveXlsx: saveXlsx, kqKy: kqKy, closedPeriods: function () { return db.kyluong.map(function (k) { return k.ky; }); }, pct: E.pct,
       backup: function (tag) { if (store && store.backup) store.backup(tag); }, dirtyBump: function () { dbRev++; st.kqStale = true; }
     }, type));
   }
@@ -7478,23 +7526,32 @@
       bar.appendChild(btn("⬆ Nhập Excel", "", function () { cpImportFlow(s.type === "all" ? "" : s.type); }, "Nhập phiếu từ file Excel mẫu: xem trước theo phiếu rồi lưu nháp"));
     }
     CP_TYPES.slice(1).filter(function (t) { return s.type === "all" || s.type === t[0]; }).forEach(function (t) { bar.appendChild(btn("📄 Tải mẫu " + t[1].toLowerCase(), "", function () { cpDownloadTemplate(t[0]); })); });
+    var cols = ["Mã phiếu", "Loại", "Ngày cấp", "Địa điểm", "Số người nhận", "Trạng thái", "Người lập", "Người xác nhận"];
+    var matched = [];
+    var values = function (r) { return [r.id, C.benefits.LABEL[r.type], fmtDate(r.date), r.place, r.people, cpStatusText(r), r.maker, r.reviewer]; };
+    if (can("export")) bar.appendChild(btn("⬇ Xuất Excel", "", function () {
+      var rows = matched.map(function (r) {
+        var out = {}; values(r).forEach(function (v, i) { out[cols[i]] = v; }); return out;
+      });
+      saveXlsx("Phieu_cap_phat_loc.xlsx", [{ name: "Phiếu cấp phát", cols: cols, rows: rows }]);
+    }, "Xuất danh sách phiếu khớp bộ lọc"));
     box.appendChild(bar);
     var deptOf = cpDeptOf();
     sf = sfUi.mount(cpConfig(draw, function () { return kept; })); sf.cfg = null;
     box.appendChild(sf.el); box.appendChild(tw);
     function draw() {
       tw.innerHTML = "";
-      var rows = C.benefits.listVouchers(db, { type: s.type, filters: cpFilters(), deptOf: deptOf });
+      var rows = matched = C.benefits.listVouchers(db, { type: s.type, filters: cpFilters(), deptOf: deptOf });
       kept.kept = rows.length; kept.total = (db.benefitIssues || []).filter(function (doc) { return s.type === "all" || C.benefits.docType(doc) === s.type; }).length; sf.refresh();
       if (!rows.length) { tw.appendChild(h("div", { class: "empty", html: kept.total ? "Không có phiếu khớp bộ lọc." : "Chưa có phiếu cấp phát nào.<br>Bấm <b>＋ Lập phiếu</b> hoặc <b>⬆ Nhập Excel</b>." })); return; }
       var pg = pager("capphat", rows.length, draw); if (pg.el) tw.appendChild(pg.el);
-      var cols = ["Mã phiếu", "Loại", "Ngày cấp", "Địa điểm", "Số người nhận", "Trạng thái", "Người lập", "Người xác nhận"], t = h("table"), tr = h("tr");
+      var t = h("table"), tr = h("tr");
       cols.forEach(function (c) { tr.appendChild(h("th", { class: c === "Số người nhận" ? "r" : "", text: c })); }); t.appendChild(h("thead", {}, [tr]));
       var tb = h("tbody");
       rows.slice(pg.start, pg.end).forEach(function (r) {
         var x = h("tr", { "data-cp-voucher": r.id });
         x.appendChild(h("td", {}, [btn(r.id, "ghost", function () { cpOpen(r.id); }, "Mở chi tiết phiếu")]));
-        [C.benefits.LABEL[r.type], fmtDate(r.date), r.place, r.people, C.benefits.STATUS_LABEL[r.status] || r.status, r.maker, r.reviewer].forEach(function (v, i) { x.appendChild(h("td", { class: i === 3 ? "r" : "t", text: v })); });
+        values(r).slice(1).forEach(function (v, i) { x.appendChild(h("td", { class: i === 3 ? "r" : "t", text: v })); });
         tb.appendChild(x);
       });
       t.appendChild(tb); tw.appendChild(h("div", { class: "tw" }, [t]));

@@ -77,6 +77,8 @@ jobs:
         run: npm audit --audit-level=high || echo "::warning::Có lỗ hổng trong công cụ build — xem báo cáo"
         continue-on-error: true
   windows-setup:
+    # Giai đoạn 1 bàn giao qua PR; đóng gói lại ở giai đoạn phát hành.
+    if: github.event_name != 'pull_request' || github.head_ref != 'feature/multi-period-and-smart-filter'
     name: Build bộ cài Windows
     outputs:
       tested-artifact-id: ${{ steps.upload-tested-installer.outputs.artifact-id }}

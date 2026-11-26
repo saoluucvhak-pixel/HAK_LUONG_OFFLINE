@@ -136,7 +136,59 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       tiencom: { cols: ["Ngày", "Mã NV", "Số suất cơm"], row: (ky, tag) => [ky + "-12", tag, 1] }
     };
     ({ app, w, errs } = await launch(D9)); await login(w);
-    const rowsOf = async (t) => w.evaluate((tb) => (JSON.parse(window.hakStore.load().text)[tb] || []), t);
+    const rowsOf = async (t) => (await w.evaluate((tb) => (JSON.parse(window.hakStore.load().text)[tb] || []), t))
+      .filter((r) => !["2026-11", "2026-12"].includes(V.rowPeriod(t, r)));
+    { // File tổng: hai sheet, hai kỳ mở, một kỳ chốt, ghi một giao dịch.
+      const wb = new ExcelJS.Workbook(), file = path.join(D9, "nhieu-sheet-nhieu-ky.xlsx");
+      for (const [key, name] of [["ungluong", "Tạm ứng"], ["tiencom", "Suất cơm"]]) {
+        const ws = wb.addWorksheet(name), spec = SPEC[key];
+        ws.getRow(1).values = spec.cols;
+        ws.getRow(3).values = spec.row("2026-08", "B");
+        ws.getRow(4).values = spec.row("2026-11", "B");
+        ws.getRow(5).values = spec.row("2026-12", "B");
+      }
+      fs.writeFileSync(file, new Uint8Array(await wb.xlsx.writeBuffer()));
+      await w.click("#nav button[data-k=home]");
+      const open = async () => {
+        const [chooser] = await Promise.all([w.waitForEvent("filechooser"), w.getByRole("button", { name: /Nhập từ file Excel tổng/ }).click()]);
+        await chooser.setFiles(file);
+        await w.waitForSelector(".dlg");
+      };
+      const load = () => w.evaluate(() => window.hakStore.load().text);
+      const initial = await load();
+      await open();
+      const locked = w.locator(".dlg tr").filter({ hasText: /2026-08.*đã chốt/ });
+      const rejected = await locked.allTextContents();
+      ok("File tổng báo đúng sheet và dòng Excel 3 ở cả hai sheet", rejected.length === 2 &&
+        rejected.every((row) => /(?:Tạm ứng|Suất cơm)3/.test(row)) && (await load()) === initial, rejected.join(" | "));
+      const save = () => w.getByRole("button", { name: /Ghi 4 dòng/ }).click();
+      // Lỗi SQLite sau khi đã ghi bảng đầu, khi chèn dòng Suất cơm của bảng thứ hai.
+      const dbPath = path.join(D9, "data.sqlite");
+      const fault = new DatabaseSync(dbPath);
+      fault.exec("CREATE TRIGGER phase1_import_fault BEFORE INSERT ON records WHEN NEW.tbl='tiencom' BEGIN SELECT RAISE(ABORT, 'SYNTHETIC_IMPORT_FAILURE'); END");
+      try {
+        const dialogPromise = w.waitForEvent("dialog");
+        await save();
+        const failureMessage = (await dialogPromise).message();
+        ok("Lỗi ghi sheet thứ hai hoàn tác cả hai sheet và nhật ký", /Chưa nhập Excel/.test(failureMessage) && (await load()) === initial, failureMessage);
+      } finally {
+        fault.exec("DROP TRIGGER phase1_import_fault");
+        fault.close();
+      }
+      await open();
+      await w.locator('.dlg input[data-mode="replace"]').check();
+      await save();
+      await w.waitForSelector(".dlg", { state: "detached" });
+      const stored = JSON.parse(await load());
+      ok("Ghi đè file tổng chỉ ghi kỳ mở trên cả hai sheet, kỳ đã chốt giữ nguyên",
+        ["ungluong", "tiencom"].every((key) => stored[key].map((r) => V.rowPeriod(key, r)).sort().join() === "2026-11,2026-12") &&
+          JSON.stringify(stored.kyluong) === JSON.stringify(JSON.parse(initial).kyluong));
+      await open();
+      ok("Nhập lại file tổng không có dòng để ghi", /Không có dòng nào để ghi/.test(await w.locator(".dlg").innerText()));
+      await w.getByRole("button", { name: "Hủy", exact: true }).click();
+      ok("Nhập lại giữ nguyên dữ liệu cả hai sheet", JSON.stringify(JSON.parse(await load())) === JSON.stringify(stored));
+      // Dữ liệu kỳ 11/12 được giữ lại; các bài theo từng bảng bên dưới chỉ kiểm kỳ 08/10.
+    }
     for (const t of Object.keys(SPEC)) {
       const sp = SPEC[t], wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Du lieu"), xf = path.join(D9, "nhieu-ky-" + t + ".xlsx");
       ws.getRow(1).values = sp.cols; [["2026-08", "A"], ["2026-10", "A"], ["2026-10", "B"]].forEach(([ky, tag], i) => { ws.getRow(2 + i).values = sp.row(ky, tag); });
