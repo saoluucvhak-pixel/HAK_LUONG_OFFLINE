@@ -15,6 +15,7 @@ assert.match(await preview.locator('table').last().innerText(), /C\s+C\s+10/);
 await w.locator('#modal').getByRole('button',{name:'Xác nhận chuyển hẳn',exact:true}).click();
 await w.waitForTimeout(800);
 const saved=read();
+assert.equal(saved.schemaVersion,5);
 assert.equal(saved.sanluong.length,1);
 assert.equal(saved.sanluong[0]['Ngày cân'],'2026-10-01');
 assert.equal(saved.sanluong[0]['Ngày cân gốc'],'2026-09-01');
