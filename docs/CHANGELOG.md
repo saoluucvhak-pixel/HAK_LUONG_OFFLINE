@@ -3,6 +3,12 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.33] — 26/11/2026
+- **Hoàn thiện độ bền SQLite WAL, Nhập Excel nhiều kỳ, Smart Filter và Tối ưu UI/PDF (PR #217, #218, #219):**
+  - **Giai đoạn 1 (PR #217):** Hỗ trợ nạp tệp Excel nhiều kỳ chấm công / sản lượng đồng thời và mở rộng bộ lọc nhanh Smart Filter cho các màn danh mục phụ.
+  - **Giai đoạn 2 (PR #218):** Tự động checkpoint WAL TRUNCATE (`PRAGMA wal_checkpoint(TRUNCATE)`) sau mỗi lần lưu dữ liệu để bảo vệ chống mất điện đột ngột hoặc crash máy; kích hoạt toàn bộ 10/10 test độ bền SQLite `tests/unit/sqlite-durability.test.js` (`U-DUR-01..06d`).
+  - **Giai đoạn 3 (PR #219):** Chuẩn hóa bố cục in và ngắt trang PDF phiếu lương cá nhân (`slip-pdf.js`), tối ưu giao diện hiển thị 1366×768 / Windows scaling 125%-150% và phát hành bộ cài Windows chính thức. Chi tiết: `docs/releases/v2.1.33.md`.
+
 ## [2.1.32] — 26/11/2026
 - **Lưu giao dịch và đo hiệu năng:** giữ `schemaVersion` ở metadata, bảo toàn trạng thái bảng khi hoàn tác, và xác minh từng lượt benchmark thực sự ghi dữ liệu. Chi tiết: `docs/releases/v2.1.32.md`.
 
