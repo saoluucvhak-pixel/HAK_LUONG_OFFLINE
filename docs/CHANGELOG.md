@@ -3,6 +3,9 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.32] — 26/11/2026
+- **Lưu giao dịch và đo hiệu năng:** giữ `schemaVersion` ở metadata, bảo toàn trạng thái bảng khi hoàn tác, và xác minh từng lượt benchmark thực sự ghi dữ liệu. Chi tiết: `docs/releases/v2.1.32.md`.
+
 ## [2.1.31] — 25/11/2026
 - **Tối ưu hóa Delta Write Path (Lựa chọn B):** nâng cấp `txn()` tự động gửi delta cấp bảng qua `saveDelta`, loại bỏ `JSON.stringify` thừa trong `handleDeltaSave`, kéo p95 chuỗi ghi ở 5.000 NV xuống 101.74 ms (< 150 ms). Chi tiết: `docs/releases/v2.1.31.md`.
 

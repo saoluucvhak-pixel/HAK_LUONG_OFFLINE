@@ -198,7 +198,7 @@ function registerIpc() {
         try { curDoc = (ld && ld.ok && ld.text) ? JSON.parse(ld.text) : {}; } catch (e2) { curDoc = {}; }
       }
       const nextDoc = applyMutationToDoc(curDoc, mutation);
-      const hasKyluong = mutation && mutation.tables && mutation.tables.kyluong;
+      const hasKyluong = nextDoc.kyluong !== curDoc.kyluong;
       const nextText = (hasKyluong || !storage.saveDelta) ? JSON.stringify(nextDoc) : "";
       const v = policy().check(nextText, who, { restoring: !!(restorer && restorer.busy()), recovery: rcv, parsed: nextDoc });
       if (!v.ok) {
@@ -210,7 +210,6 @@ function registerIpc() {
       if (storage.saveDelta) {
         r = storage.saveDelta(mutation);
       } else {
-        const nextText = JSON.stringify(nextDoc);
         const saveRes = storage.save(nextText, nextDoc, policy().rowsFor ? policy().rowsFor(nextDoc) : null);
         r = saveRes === true ? { ok: true, written: 1, rev: 1 } : { ok: false, error: String(saveRes) };
       }

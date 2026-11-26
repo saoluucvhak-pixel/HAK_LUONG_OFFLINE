@@ -143,3 +143,25 @@ test("U-TXN-DELTA-05: Khi cơ sở dữ liệu cũ chưa có _inputReviews (sche
   assert.ok(events.includes("store.save"), "Phải gọi store.save (full) để hoàn tất nâng cấp schema trên đĩa");
   assert.equal(events.some((e) => e.action === "saveDelta"), false, "Không dùng saveDelta khi cơ sở dữ liệu chưa nâng cấp đủ bảng");
 });
+
+test("txn gửi schemaVersion dạng số ở metadata, cùng giao dịch với bảng sản lượng", () => {
+  const { c, events } = setupTxnEnv();
+  c.db.sanluong = [];
+  assert.equal(c.txn(["sanluong", "schemaVersion"], () => {
+    c.db.sanluong.push({ _id: "sl-1" });
+  }), true);
+  const packet = events.find(e => e.action === "saveDelta").mutation;
+  assert.equal(packet.schemaVersion, 5);
+  assert.equal(Object.hasOwn(packet.tables, "schemaVersion"), false);
+  assert.equal(packet.tables.sanluong.length, 1);
+  assert.equal(events.includes("store.save"), false);
+});
+
+test("txn giữ nguyên trạng thái chưa có bảng khi thao tác thất bại", () => {
+  const { c } = setupTxnEnv();
+  assert.equal(c.txn(["sanluong"], () => {
+    c.db.sanluong = [{ _id: "sl-1" }];
+    return false;
+  }), false);
+  assert.equal(Object.hasOwn(c.db, "sanluong"), false);
+});
