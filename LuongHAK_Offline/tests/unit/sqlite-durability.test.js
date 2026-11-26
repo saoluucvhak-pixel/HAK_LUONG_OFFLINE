@@ -132,3 +132,32 @@ test("U-DUR-06d (mô phỏng phương án C) -wal xóa/cắt cụt/rác khi data
     const s = createSqliteStorage(dir, opts), ld = s.load(); assert.equal(ld.ok, true, damage); assert.equal(hasV2(ld.text), true, damage + ": giao dịch cuối còn"); s.close();
   }
 });
+
+test("Lưu khi có giao dịch đọc: không chờ checkpoint và tự thử lại sau khi reader đóng", async () => {
+  const { DatabaseSync } = require("node:sqlite");
+  const { createSqliteStorage } = require("../../main/sqlite-storage.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hak-checkpoint-reader-"));
+  const storage = createSqliteStorage(dir, { exportDelayMs: 60000 });
+  let reader;
+  try {
+    assert.equal(storage.save(JSON.stringify({ nhanvien: [{ "Mã NV": "A" }] })), true);
+    reader = new DatabaseSync(storage.dbFile, { readOnly: true });
+    reader.exec("BEGIN");
+    reader.prepare("SELECT count(*) FROM records").get();
+    const start = Date.now();
+    assert.equal(storage.save(JSON.stringify({ nhanvien: [{ "Mã NV": "B" }] })), true);
+    assert.ok(Date.now() - start < 2500, "checkpoint must not wait for the reader");
+    assert.equal(storage.checkpoint("TRUNCATE"), false);
+    assert.ok(fs.statSync(storage.dbFile + "-wal").size > 0);
+    reader.close(); reader = null;
+    for (let i = 0; i < 40 && fs.statSync(storage.dbFile + "-wal").size; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.equal(fs.statSync(storage.dbFile + "-wal").size, 0);
+    assert.equal(JSON.parse(storage.load().text).nhanvien[0]["Mã NV"], "B");
+  } finally {
+    if (reader) reader.close();
+    storage.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
