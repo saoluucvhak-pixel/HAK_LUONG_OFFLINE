@@ -89,8 +89,9 @@ test("U-DUR-05 (kịch bản 5) hai phiên cùng một thư mục dữ liệu: p
 /** Dựng tình huống: v1 đã checkpoint (đóng sạch) → con mở lại, lưu v2 chỉ nằm trong -wal, (sync: xuất data.json), kill -9 → trả thư mục. */
 function walCrash(exportMode, env) {
   const dir = tmp(); seed(dir, base());
-  const r = env ? cp.spawnSync(process.execPath, ["--no-warnings", CHILD, "wal-write", dir, exportMode], { encoding: "utf8", timeout: 60000, env: Object.assign({}, process.env, env) }) : run("wal-write", dir, exportMode); assert.ok(killed(r), r.stdout + r.stderr.slice(0, 200)); assert.match(r.stdout, /SAVED/);
-  if (!env) assert.equal(fs.existsSync(path.join(dir, "data.sqlite-wal")) && fs.statSync(path.join(dir, "data.sqlite-wal")).size > 0, true, "v2 phải đang nằm trong -wal (chưa checkpoint)");
+  const childEnv = Object.assign({ HAK_SQLITE_CHECKPOINT: "0" }, env || {});
+  const r = cp.spawnSync(process.execPath, ["--no-warnings", CHILD, "wal-write", dir, exportMode], { encoding: "utf8", timeout: 60000, env: Object.assign({}, process.env, childEnv) }); assert.ok(killed(r), r.stdout + r.stderr.slice(0, 200)); assert.match(r.stdout, /SAVED/);
+  if (childEnv.HAK_SQLITE_CHECKPOINT === "0" && !childEnv.HAK_SIM_CKPT) assert.equal(fs.existsSync(path.join(dir, "data.sqlite-wal")) && fs.statSync(path.join(dir, "data.sqlite-wal")).size > 0, true, "v2 phải đang nằm trong -wal (chưa checkpoint)");
   return dir;
 }
 const wipeWal = (dir) => { for (const x of ["-wal", "-shm"]) fs.rmSync(path.join(dir, "data.sqlite" + x), { force: true }); };
@@ -109,14 +110,16 @@ test("U-DUR-06b (kịch bản 6) -wal bị MẤT/CẮT CỤT/HỎNG sau crash kh
   }
 });
 
-// GIỚI HẠN ĐÃ BIẾT, CHỜ QUYẾT ĐỊNH (issue #91, kịch bản 6): nếu -wal mất/hỏng trong cửa sổ trước lần xuất data.json (≤ 3 s) thì app mở bình thường và MẤT giao dịch cuối mà KHÔNG báo.
-// Test này mô tả hành vi MONG MUỐN nếu sau này chọn B/C (phải báo mất giao dịch). Chủ sở hữu đã chọn A (chấp nhận rủi ro, issue #91): giữ `todo` làm tài liệu sống — không xóa, không nới.
+// Phương án C (đã triển khai sản phẩm, issue #91): checkpoint(TRUNCATE) sau mỗi lần lưu → mất/hỏng -wal không còn làm mất giao dịch, kể cả khi data.json chưa xuất.
 for (const damage of ["xóa", "cắt cụt", "rác"]) {
-  test("U-DUR-06c (kịch bản 6) -wal " + damage + " khi data.json CHƯA xuất kịp: phải báo mất giao dịch, không được mở âm thầm", { todo: "hành vi mong muốn nếu sau này chọn B/C; hiện chủ sở hữu chấp nhận rủi ro (quyết định A, issue #91)" }, () => {
-    const dir = walCrash("delay"), wal = path.join(dir, "data.sqlite-wal");
-    if (damage === "xóa") wipeWal(dir); else if (damage === "cắt cụt") { fs.truncateSync(wal, 1000); fs.rmSync(wal.replace("-wal", "-shm"), { force: true }); } else { const n = fs.statSync(wal).size; fs.writeFileSync(wal, Buffer.alloc(n, 0xff)); fs.rmSync(wal.replace("-wal", "-shm"), { force: true }); }
-    const s = createSqliteStorage(dir, opts), ld = s.load(); const silent = ld.ok === true && !hasV2(ld.text); s.close();
-    assert.equal(silent, false, "đang mở bình thường và thiếu giao dịch cuối mà không báo gì");
+  test("U-DUR-06c (kịch bản 6 / Phương án C) -wal " + damage + " khi data.json CHƯA xuất kịp: không mất giao dịch vì đã được checkpoint", () => {
+    const dir = walCrash("delay", { HAK_SQLITE_CHECKPOINT: "1" }), wal = path.join(dir, "data.sqlite-wal");
+    assert.ok(!fs.existsSync(wal) || fs.statSync(wal).size === 0, "-wal rỗng sau lần lưu cuối");
+    if (damage === "xóa") wipeWal(dir); else if (fs.existsSync(wal)) { fs.writeFileSync(wal, damage === "cắt cụt" ? Buffer.alloc(0) : Buffer.alloc(4096, 0xff)); fs.rmSync(wal.replace("-wal", "-shm"), { force: true }); }
+    const s = createSqliteStorage(dir, opts), ld = s.load();
+    assert.equal(ld.ok, true, damage);
+    assert.equal(hasV2(ld.text), true, damage + ": giao dịch cuối còn");
+    s.close();
   });
 }
 

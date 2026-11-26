@@ -22,6 +22,22 @@ function createSqliteStorage(dir, opts) {
   const delayMs = opts.exportDelayMs != null ? opts.exportDelayMs : 3000;
   let db = null, cur = null /* { text, doc, rows } — rows: chuỗi JSON từng dòng để lần diff sau không tuần tự hóa lại bảng cũ */, rev = 0, jsonStale = false, timer = null, conflict = "", yearChecked = "", opened = false;
 
+  const checkpoint = (mode) => {
+    if (!db) return false;
+    try {
+      db.exec("PRAGMA wal_checkpoint(" + (mode || "TRUNCATE") + ");");
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const autoCheckpoint = () => {
+    if (opts.checkpoint !== false && process.env.HAK_SQLITE_CHECKPOINT !== "0") {
+      checkpoint("TRUNCATE");
+    }
+  };
+
   const meta = (k) => { const r = db.prepare("SELECT value FROM meta WHERE key = ?").get(k); return r ? r.value : null; };
   const setMeta = (k, v) => db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)").run(k, String(v));
   const fileSha = () => { try { return sha(fs.readFileSync(dataFile, "utf8")); } catch (e) { return ""; } };
@@ -195,6 +211,7 @@ function createSqliteStorage(dir, opts) {
       const cache = { prev: cur ? cur.rows : null, hint: parsed && parsed === next && rowsHint ? rowsHint : null }, cs = cset.diff(cur ? cur.doc : {}, next, cache); // 006: chuỗi từng dòng do bước kiểm quy tắc đã tính (chỉ dùng khi đúng đối tượng parsed)
       if (cset.isEmpty(cs) && cur && (cur.text === text || (cur.doc && JSON.stringify(cur.doc) === text))) return true;
       store.tx(db, () => { cset.applyToDb(db, cs); setMeta("primary", "1"); setMeta("rev", rev + 1); });
+      autoCheckpoint();
       rev++; cur = { text, doc: next, rows: cache.next }; jsonStale = true; scheduleExport();
       return true;
     } catch (e) { return String(e && e.message || e); }
@@ -303,6 +320,7 @@ function createSqliteStorage(dir, opts) {
         setMeta("primary", "1");
         setMeta("rev", rev + 1);
       });
+      autoCheckpoint();
 
       rev++;
       cur = { text: null, doc: next, rows: cache.next };
@@ -410,6 +428,7 @@ function createSqliteStorage(dir, opts) {
       openDb(); if (cur && cur.text === text) { jsonStale = false; return true; }
       const next = JSON.parse(text), cs = cset.diff(cur ? cur.doc : {}, next);
       store.tx(db, () => { cset.applyToDb(db, cs); setMeta("primary", "1"); setMeta("rev", rev + 1); setMeta("exported_sha", sha(text)); });
+      autoCheckpoint();
       rev++; cur = { text, doc: next }; jsonStale = false; return true;
     } catch (e) { return false; }
   }
@@ -634,6 +653,7 @@ function createSqliteStorage(dir, opts) {
     snapshotInfo, restoreFromSnapshot, snapshotForPackage, restoreFromPackage, listRestoreCandidates, inspectCandidate, findBestCandidate, restoreCandidate, externalStatus, verifyExternal, restoreDrill, needsRecovery, load, save, saveDelta, quarantineCorrupt, hasDataFile, close, syncJson, adoptJson, snapshotExported, beginExternalOp, endExternalOp, restoreJsonFromSqlite, restoreJsonIfChanged, pendingOp: () => (db ? pendingOp() : null),
     snapshotNow, snapshotStatus, lastSnapshotError: () => snapshotError, backup: backupWrap("backup"), backupYear: backupWrap("backupYear"), changedSinceBackup: readWrap("changedSinceBackup"), tickSchedule: backupWrap("tickSchedule"), backupOnClose: backupWrap("backupOnClose"), syncMirror: mirrorWrap(), lastBackupError: () => backupError,
     sig: () => "sqlite:" + rev,
+    checkpoint: (mode) => checkpoint(mode),
     /** 006: bản đang lưu ĐÃ phân tích (chỉ đọc) + sig — để kiểm quy tắc / kho năm không phân tích lại toàn bộ dữ liệu sau mỗi lần lưu. */
     currentDoc: () => (cur && !conflict ? { sig: "sqlite:" + rev, doc: cur.doc } : null), kind: "sqlite", dbFile, info: () => ({ dataFile, backupDir: json.backupDir, kind: "sqlite", dbFile })
   });
