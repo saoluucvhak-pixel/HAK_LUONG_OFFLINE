@@ -541,7 +541,7 @@
         raw = XLSX.utils.sheet_to_json(sheet, { raw: true, defval: "" }).filter(function (r) {
           if (isSampleMarked(r)) { skipped++; return false; }
           return true;
-        }).map(function (r) { return Object.assign({ __line: r.__rowNum__ + 1 }, r); });
+        }).map(function (r) { return Object.defineProperty(r, "__line", { value: r.__rowNum__ + 1, enumerable: false }); });
       }
       if (k === "bandam" && pumpMode && raw.some(function (r) { return C.inputReview.mode(r) !== pumpMode; })) throw Error("File không đúng cách phân bổ đang mở. Theo tổ cần Mã phòng ban, để trống Mã NV; Trực tiếp cần Mã NV.");
       var p = IMP.plan(db, k, ALL[k].cols, C.inputBatch.blankRows(raw), { lockedPeriods: lockedMap(), defaultKy: kyStr(), extraEmployees: extraEmp, mode: mode });

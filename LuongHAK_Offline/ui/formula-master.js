@@ -67,7 +67,7 @@
       periodInit();
       var w = h("div", { class: "card ot-master hak-workspace", "data-ot-master": "1" });
       var hero = h("div", { class: "hak-workspace-hero" });
-      hero.appendChild(h("div", {}, [h("small", { text: "HAK ENTERPRISE · DANH MỤC & CÔNG THỨC" }), h("h2", { text: K.title }), h("p", { text: "Quản lý mã, phiên bản công thức và lịch sử theo kỳ trên một không gian làm việc." })]));
+      hero.appendChild(h("div", {}, [h("small", { text: "HAK ENTERPRISE · DANH MỤC & CÔNG THỨC" }), h("h2", { text: K.title })]));
       w.appendChild(hero);
       var bar = h("div", { class: "bar hak-workspace-toolbar" });
       var statusOptions = ["Đang hiệu lực", "Chưa hiệu lực", "Hết hiệu lực"];
@@ -86,6 +86,7 @@
         screenId: "dm-cong-thuc-" + type,
         searchPlaceholder: "Tìm mã / tên " + K.short.toLowerCase() + "…",
         qAttrs: { "aria-label": "Tìm " + K.noun, "data-ot-q": "1" },
+        attrs: { "data-fm-filter": "1" },
         qCommit: true,
         fields: [
           { key: "status", label: "Trạng thái", type: "enum", options: statusOptions },
