@@ -3,6 +3,10 @@
 > Lịch sử liên tục từ 2.0.0-alpha.25 đến 2.0.33 (cập nhật 18/11/2026). Các bản từ **2.0.0-alpha.37** trở đi được gộp từ `docs/releases/vX.md` (nguồn gốc, vẫn giữ nguyên trong thư mục đó). Ghi chú của các bản **alpha.26 đến alpha.36** không còn lưu trong repo nên không có mục ở đây; các bản đó nằm giữa alpha.25 (bên dưới) và alpha.37.
 > Từ nay mỗi bản mới thêm một file `docs/releases/vX.Y.Z.md` (bắt buộc: CI kiểm tra) và thêm mục tương ứng ở đầu file này.
 
+## [2.1.37] — 27/11/2026
+- **Nhập Excel:** đối chiếu theo từng kỳ lương và xác nhận trước khi bỏ qua sheet chưa nhận diện.
+- **Nghiệm thu Windows:** kiểm tra lưu delta hai bảng, xung đột phiên bản kho, đóng/mở lại và khôi phục Full Backup có chứng từ và kỳ đã chốt. Chi tiết trong `docs/releases/v2.1.37.md`.
+
 ## [2.1.36] — 27/11/2026
 - **Tối ưu hóa Delta Write Path & bảo vệ baseSig toàn diện (Hướng 1):**
   - Mở rộng hàm `save(table)` và cơ chế `dirtyTables` trong `app-src/01-luu-tru.js` để tự động gom cụm và phát sinh delta payload cấp bảng qua `saveDelta`, loại bỏ việc gửi toàn bộ tài liệu ~9.5 MB qua IPC khi sửa các bảng biểu.

@@ -167,6 +167,7 @@
             first.action = "conflict"; first.reason = "Khác số công cùng ngày với dòng " + item.line + ": " + mg.conflicts.join(", ");
             items.push(item); return;
           }
+          if (!first.sourceRow) first.sourceRow = first.row;
           first.row = mg.row; first.mergedLines = (first.mergedLines || []).concat(item.line);
           item.action = "merged"; item.reason = "Gộp vào dòng " + first.line + " (cùng NV, kỳ, hình thức công)" + (mg.dupDays.length ? " · ngày " + mg.dupDays.join(", ") + " nhập trùng → tính 1 lần" : ""); items.push(item); return;
         }

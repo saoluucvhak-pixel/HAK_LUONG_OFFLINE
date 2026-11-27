@@ -68,6 +68,9 @@ const oldImporter=normalize(cp.execFileSync('git',['-c','safe.directory=*','show
 const currentImporter=normalize(fs.readFileSync(path.join(root,'LuongHAK_Offline/core/importer.js'),'utf8'));
 const crossPeriodHelper = "  function crossPeriod(table, before, after) {\n    if (!before || !after || ![\"sanluong\", \"bandam\", \"psluong\", \"ungluong\"].includes(table)) return \"\";\n    var from = V.rowPeriod(table, before), to = V.rowPeriod(table, after);\n    if (!from || !to || from === to) return \"\";\n    return \"Chứng từ đổi kỳ từ \" + from + \" sang \" + to + \". Kiểm tra số chứng từ và kỳ nguồn trước khi ghi.\";\n  }\n";
 const crossPeriodGuard = "        var move = crossPeriod(table, tgt, r);\n        if (move) {\n          item.action = \"conflict\";\n          item.reason = move;\n          return;\n        }\n";
+// Bản xem trước đối chiếu dòng nguồn trước khi gộp. Dữ liệu dùng khi ghi vẫn là first.row.
+const importSourceRow = '          if (!first.sourceRow) first.sourceRow = first.row;\n';
+assert.equal(currentImporter.split(importSourceRow).length, 2);
 assert.equal(currentImporter.split(crossPeriodHelper).length, 2);
 assert.equal(currentImporter.split(crossPeriodGuard).length, 2);
-assert.equal(currentImporter.replace(crossPeriodHelper, "").replace(crossPeriodGuard, "").replace("keyOf: keyOf, crossPeriod: crossPeriod, plan:", "keyOf: keyOf, plan:").replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,"Importer changed beyond approved period guard and parent tax key");
+assert.equal(currentImporter.replace(importSourceRow, "").replace(crossPeriodHelper, "").replace(crossPeriodGuard, "").replace("keyOf: keyOf, crossPeriod: crossPeriod, plan:", "keyOf: keyOf, plan:").replace('dm_bacthue: ["Mã thuế TNCN", "Bậc", "Hiệu lực từ"]','dm_bacthue: ["Bậc", "Hiệu lực từ"]'),oldImporter,"Importer changed beyond approved period guard and parent tax key");
