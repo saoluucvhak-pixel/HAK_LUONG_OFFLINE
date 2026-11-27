@@ -30,7 +30,7 @@
     var sfm = null, lastScan = null;
     var newRow = function () { var r = Object.assign({}, def.def || {}); if (def.kyCol) r[def.kyCol] = kyStr(); if (def.dateCol) r[def.dateCol] = kyStr() + "-01"; return r; };
     if (!locked && isCat) bar.appendChild(btn("＋ Thêm mới", "pri", function () { if (!need(editPerm)) return; var e0 = cedit(key); if (e0 && e0.dirty && !confirm("Đang có thay đổi chưa lưu — bỏ để thêm mới?")) return; st.cedit = st.cedit || {}; st.cedit[key] = { mode: "new", ri: -1, draft: newRow(), dirty: false, state: "EDITING" }; draw(); }, "Tạo dòng mới ở chế độ nháp — chỉ ghi khi bấm Lưu"));
-    else if (!locked) bar.appendChild(btn(key === "bandam" && pumpMode === "direct" ? "Giao trực tiếp cho Mã NV…" : "＋ Thêm dòng", "pri", function () { if (!need(editPerm)) return; if (key === "bandam") { bandamEntryForm(null, draw, pumpMode); return; } if (!commit(REPO.plan("insert", key, null, newRow(), { what: "thêm dòng" }), { audit: theoKy ? false : "retro", action: "Thêm dòng danh mục" })) return; save(); st.qs[key] = ""; q.value = ""; st.pg[key] = 1e9; draw(); var tw = body; tw.scrollTop = tw.scrollHeight; }));
+    else if (!locked) bar.appendChild(btn(key === "bandam" && pumpMode === "direct" ? "Giao trực tiếp cho Mã NV…" : "＋ Thêm dòng", "pri", function () { if (!need(editPerm)) return; if (key === "bandam") { bandamEntryForm(null, draw, pumpMode); return; } if (!commit(REPO.plan("insert", key, null, newRow(), { what: "thêm dòng" }), { audit: theoKy ? false : "retro", action: "Thêm dòng danh mục" })) return; save(key); st.qs[key] = ""; q.value = ""; st.pg[key] = 1e9; draw(); var tw = body; tw.scrollTop = tw.scrollHeight; }));
     bar.appendChild(q); bar.appendChild(cnt); bar.appendChild(h("span", { class: "sp" }));
     if (key === "sanluong" || (key === "bandam" && pumpMode === "team")) bar.appendChild(btn(key === "bandam" ? "Mẫu Excel chia tổ" : "📄 Tải file mẫu", "", function () { downloadPBTemplate(key); }, "Mẫu phiếu cân như công cụ phân bổ khối lượng: Mã phòng ban (tổ) + NV vắng"));
     else if (key !== "bandam") bar.appendChild(btn("📄 Tải file mẫu", "", function () { downloadTemplate(key); }, "File Excel mẫu có sẵn tên cột + dòng ví dụ"));
@@ -198,7 +198,7 @@
       if (plan.retro && !can("retro.edit")) { e.state = "EDITING"; alert("⛔ Không thể lưu: dữ liệu có hiệu lực trong kỳ lương đã chốt.\nChỉ Admin được sửa dữ liệu hồi tố (quy tắc Q-14)."); draw(); return; }
       if (plan.retro && !confirm("⚠ " + retroText(plan.impact) + "\n\nTiếp tục lưu?")) { e.state = "EDITING"; draw(); return; }
       if (!commit(plan, { audit: "always", action: e.mode === "new" ? "Thêm danh mục" : "Sửa danh mục" })) { e.state = "EDITING"; e.err = "Không lưu được — dữ liệu nháp được giữ để sửa tiếp"; draw(); return; }
-      save(); delete st.cedit[key]; draw(); updateNav(); toast("✓ Đã lưu " + (def.ten || key));
+      save(key); delete st.cedit[key]; draw(); updateNav(); toast("✓ Đã lưu " + (def.ten || key));
     }
     function catCancel() { var e = cedit(key); if (e && e.dirty && !confirm("Bỏ các thay đổi chưa lưu?")) return; delete st.cedit[key]; draw(); }
     function catRemove(ri, r) {
@@ -210,12 +210,12 @@
         var patch = {}; patch[stopCol] = stopCol === "Trạng thái" ? "Ngừng" : todayIso();
         var pS = REPO.plan("update", key, r, patch, { what: "ngừng hiệu lực" }); if (!pS.ok) { alert(pS.msg); return; }
         if (!commit(pS, { audit: "always", action: "Ngừng hiệu lực danh mục" })) return;
-        save(); draw(); toast("Đã ngừng hiệu lực"); return;
+        save(key); draw(); toast("Đã ngừng hiệu lực"); return;
       }
       var pX = REPO.plan("remove", key, r, null, { what: "xóa danh mục" }); if (!pX.ok) { alert(pX.msg); return; }
       if (!confirm("Mã chưa được dùng ở đâu. Xóa dòng này?" + (pX.retro ? "\n\n" + retroText(pX.impact) : ""))) return;
       if (!commit(pX, { audit: "always", action: "Xóa dòng danh mục" })) return;
-      save(); draw(); updateNav();
+      save(key); draw(); updateNav();
     }
     function catActions(ri, r, editing) {
       var td = h("td", { class: "catact", style: "white-space:nowrap;text-align:center" }), e = cedit(key);
@@ -332,7 +332,7 @@
             if (pE.retro) toast("⚠ Hồi tố: dòng này có hiệu lực trong kỳ đã chốt " + pE.impact.periods.map(GRD.label).join(", ") + " — bảng lương đã chốt không đổi");
             if (!commit(pE, { audit: theoKy ? false : "retro", action: "Sửa danh mục" })) { inp.value = r[c] == null ? "" : r[c]; return; }
             if (inp.value !== n.value && !isDay) inp.value = n.value;
-            save(); refreshInputReview(); if (c === "Mã NV" && nameTd) nameTd.textContent = tenNV(n.value) || (n.value ? "⚠ chưa có trong Nhân sự" : ""); if (isDay) updTot();
+            save(key); refreshInputReview(); if (c === "Mã NV" && nameTd) nameTd.textContent = tenNV(n.value) || (n.value ? "⚠ chưa có trong Nhân sự" : ""); if (isDay) updTot();
           }, null, key);
           if (!isDay && r[c] != null && r[c] !== "") { var nw = VAL.normCell(c, r[c]); if (nw.warn) setWarn(nw.warn); }
           if (key === "chamcong" && isDay) { var lkc = LKMAP[attRecordId("chamcong", r) + "|" + c]; if (lkc) { inp.classList.add("has-src"); inp.title = "Nguồn: " + lkc.docId + " trang " + lkc.page + " — chuột phải (hoặc Alt+bấm) để xem ảnh/PDF gốc"; inp.addEventListener("contextmenu", function (ev) { ev.preventDefault(); openCellSource(lkc); }); inp.addEventListener("click", function (ev) { if (ev.altKey) { ev.preventDefault(); openCellSource(lkc); } }); } }
@@ -417,7 +417,7 @@
           if (!pX.ok) { alert(pX.msg); return; }
           if (!confirm("Xóa dòng này?" + (pX.retro ? "\n\n" + retroText(pX.impact) : ""))) return;
           if (!commit(pX, { audit: theoKy ? false : "always", action: "Xóa dòng danh mục" })) return;
-          save(); draw(); updateNav();
+          save(key); draw(); updateNav();
         }, "Xóa dòng")]));
         tb.appendChild(tr);
       });

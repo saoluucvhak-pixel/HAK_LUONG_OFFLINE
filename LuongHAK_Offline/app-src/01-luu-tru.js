@@ -53,10 +53,21 @@
     if (confirm("Dữ liệu đã được thay đổi ở nơi khác (ví dụ khôi phục, lưu trữ năm hoặc thao tác khác) nên bản đang mở là bản CŨ. App KHÔNG ghi để tránh ghi đè dữ liệu mới.\n\nBấm OK để tải lại dữ liệu mới (thay đổi chưa lưu ở màn hình này sẽ bị bỏ).\nBấm Hủy để giữ màn hình này (sao lưu ra file nếu cần).")) { dirty = false; clearTimeout(saveTimer); window.location.reload(); }
     else staleDeclined = true;
   }
-  var saveTimer = null, dirty = false, lastSaveError = "", lastTxnError = "";
+  var saveTimer = null, dirty = false, dirtyTables = {}, dirtyFull = false, lastSaveError = "", lastTxnError = "";
+  function markDirtyTable(t) {
+    if (!t) { dirtyFull = true; return; }
+    if (Array.isArray(t)) { for (var i = 0; i < t.length; i++) markDirtyTable(t[i]); return; }
+    if (typeof t === "string" && db && Array.isArray(db[t])) {
+      dirtyTables[t] = true;
+    } else {
+      dirtyFull = true;
+    }
+  }
   /** Ghi dữ liệu xuống nơi lưu bền vững. Trả true nếu chắc chắn đã lưu. */
   function saveNow() {
     clearTimeout(saveTimer);
+    dirtyTables = {};
+    dirtyFull = false;
     lastSaveError = "";
     if (readOnly) { lastSaveError = "Đang ở chế độ khôi phục — chưa ghi dữ liệu"; toast("⚠ " + lastSaveError); return false; }
     var str = JSON.stringify(db);
@@ -90,6 +101,8 @@
       if (r.baseSig) baseSig = String(r.baseSig);
       else if (store.sig) { try { baseSig = String(store.sig()); } catch (e) {} }
       dirty = false;
+      dirtyTables = {};
+      dirtyFull = false;
       if (mutation && mutation.tables && mutation.tables._inputReviews) inputReviewsSaved = true;
       dbRev++;
       st.kqStale = true;
@@ -132,7 +145,43 @@
     if (!ok) { names.forEach(function (k) { if (snap[k] === undefined) delete db[k]; else db[k] = JSON.parse(snap[k]); }); dbRev++; st.kqStale = true; dirty = wasDirty; if (names.indexOf("nguoidung") >= 0) session = sessionName ? PERM.findUser(db, sessionName) : null; if (wasDirty) { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); } }
     return ok;
   }
-  function save() { dbRev++; dirty = true; st.kqStale = true; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
+  function save() {
+    var table = arguments[0];
+    dbRev++;
+    dirty = true;
+    st.kqStale = true;
+    if (table) markDirtyTable(table);
+    else dirtyFull = true;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveFlush, 400);
+  }
+  function saveFlush() {
+    clearTimeout(saveTimer);
+    if (!dirty) return true;
+    var hasReviews = (typeof inputReviewsSaved !== "undefined") ? inputReviewsSaved : true;
+    var keys = !dirtyFull ? Object.keys(dirtyTables) : [];
+    if (keys.length > 0 && hasReviews && typeof store !== "undefined" && store && store.saveDelta && !(typeof window !== "undefined" && window && window.HAK_SAVE === "full") && (typeof readOnly !== "undefined" ? !readOnly : true) && typeof saveDelta === "function") {
+      if (keys.indexOf("auditlog") < 0 && Array.isArray(db.auditlog)) keys.push("auditlog");
+      var deltaCompatible = keys.every(function (k) { return Array.isArray(db[k]); });
+      if (deltaCompatible) {
+        var deltaTables = {};
+        keys.forEach(function (k) { deltaTables[k] = db[k]; });
+        var res = saveDelta({ tables: deltaTables, baseSig: typeof baseSig !== "undefined" ? baseSig : undefined });
+        if (res && res.ok) {
+          dirtyTables = {};
+          dirtyFull = false;
+          dirty = false;
+          return true;
+        }
+        if (res && (res.conflict || isStale(res))) {
+          return false;
+        }
+      }
+    }
+    dirtyTables = {};
+    dirtyFull = false;
+    return saveNow();
+  }
   function backupNow(tag) { if (!store || !store.backup) return null; if (dirty && !saveNow()) return null; return store.backup(tag); }
   // P0: backupNow() có thể âm thầm thất bại (đĩa đầy, mất quyền ghi…) và trả null — các hành động KHÔNG THỂ
   // HOÀN TÁC (xóa hẳn dữ liệu) phải DỪNG LẠI khi sao lưu thất bại, không được tiếp tục xóa như chưa có gì xảy ra.
