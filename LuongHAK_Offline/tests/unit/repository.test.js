@@ -114,7 +114,7 @@ test("U-REPO-08 app.js không ghi thẳng vào bảng nghiệp vụ ngoài các 
   // tạo bảng thiếu khi mở dữ liệu; hoàn tác gộp chấm công khi lưu lỗi.
   const allowed = {
     "db.sl_chuyenky.push(": 1,  "db.sl_chuyenky.splice(": 1, /* ledger only: guarded transaction + main validation */
-    "db.auditlog.push(": 1, "db.auditlog.splice(": 1, "db.auditlog.pop(": 2, "db.baomat =": 4 /* security updates wrapped in txn */, "db.nguoidung =": 1, "db.nguoidung.push(": 2, "db.congty =": 3, /* V7: cờ cấu hình thư viện mẫu OCR (quyền ocr.library) */
+    "db.auditlog.push(": 1, "db.auditlog.splice(": 1, "db.auditlog.pop(": 2, "db.baomat =": 3 /* security updates wrapped in txn */, "db.nguoidung =": 1, "db.nguoidung.push(": 1, "db.congty =": 3, /* V7: cờ cấu hình thư viện mẫu OCR (quyền ocr.library) */
     "db.chungtu.push(": 1,
         "db.chungtu_lienket =": 1, /* V8: liên kết ô chấm công ↔ chứng từ gốc, ghi sau khi nhập OCR đã commit */
     "db.hdld_tailieu.push(": 1, /* V9.2: liên kết tài liệu HĐLĐ, ghi sau khi file đã nhập kho chứng từ thành công (mất file không để lại liên kết mồ côi) */

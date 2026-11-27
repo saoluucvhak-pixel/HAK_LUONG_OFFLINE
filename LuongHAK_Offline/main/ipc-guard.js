@@ -70,6 +70,9 @@ function createGuard(appDir, opts) {
   function logout(e) { if (!trusted(e)) return { ok: false }; sessions.delete(wcId(e)); return { ok: true }; }
   /** Phiên còn hiệu lực + quyền HIỆN TẠI (tra lại tài khoản). null nếu không có/hết hạn/bị thu hồi. */
   function current(e) {
+    if (!trusted(e)) return null;
+    const local = opts.localUser && opts.localUser();
+    if (local) return { user: local.tenDangNhap, role: local.vaiTro, perms: KNOWN.slice(), touch() {} };
     const s = sessions.get(wcId(e)); if (!s) return null;
     if (now() - s.last > idleMs) { sessions.delete(wcId(e)); return null; }
     const u = liveUser(s.user);

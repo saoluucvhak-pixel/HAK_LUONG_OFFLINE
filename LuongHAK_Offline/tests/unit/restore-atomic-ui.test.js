@@ -3,7 +3,7 @@ const test=require("node:test"),assert=require("node:assert/strict"),fs=require(
 const src=fs.readFileSync(path.join(__dirname,"../../app.js"),"utf8");
 function env(initial,saveOK,hasFile=true){
   const alerts=[],toasts=[],writes=[];
-  const c={db:initial,dirty:hasFile,session:null,readOnly:false,loadError:null,ALL:{nhanvien:{}},HRT:{},need:()=>true,
+  const c={C:{accessMode:require("../../core/access-mode")},db:initial,dirty:hasFile,session:null,readOnly:false,loadError:null,ALL:{nhanvien:{}},HRT:{},need:()=>true,
     SCH:{validate:()=>({fatal:[],errors:[]})},chotSummary:()=>({}),summarize:()=>"synthetic",confirm:()=>true,
     backupNow:()=>hasFile?"synthetic-backup.json":null,store:{hasDataFile:()=>hasFile},
     HRM:{migrate:()=>[]},INT:{normalizeDataset:()=>({messages:[]})},cleanImportedData:()=>[],ensureTables:()=>{if(!c.db.auditlog)c.db.auditlog=[];},
@@ -39,4 +39,13 @@ test("Post-restore verification failure restores original data and never runs su
   const {c,toasts,writes}=env(before,true);let after=0,fail="";
   c.restoreFromText(JSON.stringify({nhanvien:[{"Mã NV":"NEW_TEST"}]}),"synthetic.json",{after:()=>after++,verify:()=>Promise.resolve({ok:false,msg:"VERIFY_FAILED"}),onFail:m=>{fail=m;}});
   await Promise.resolve();assert.equal(JSON.stringify(c.db),snapshot);assert.equal(writes.length,2);assert.equal(after,0);assert.equal(toasts.length,0);assert.match(fail,/VERIFY_FAILED/);
+});
+
+test("Restore data keeps the configured account and credentials on an existing profile", () => {
+  const prior = { nhanvien: [{ "Mã NV": "OLD" }], accessSettings: { mode: "account", owner: "admin" },
+    nguoidung: [{ tenDangNhap: "admin" }], baomat: [{ khoiPhuc: { hash: "prior" } }] };
+  const { c } = env(prior, true);
+  c.restoreFromText(JSON.stringify({ nhanvien: [{ "Mã NV": "NEW" }], accessSettings: { mode: "direct" }, nguoidung: [] }), "synthetic.json", {});
+  assert.equal(c.db.nhanvien[0]["Mã NV"], "NEW");
+  for (const key of ["accessSettings", "nguoidung", "baomat"]) assert.deepEqual(c.db[key], prior[key]);
 });

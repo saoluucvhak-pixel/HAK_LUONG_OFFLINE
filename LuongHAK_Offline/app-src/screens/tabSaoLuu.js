@@ -27,7 +27,7 @@
       if (!backupOrBlock("truoc-gan-ma-cong-ty", "gán Mã công ty")) return;
       var r = CMP.apply(db); audit("Gán Mã công ty", p.companyId + " · " + JSON.stringify(r.changed)); save(); render(); toast("Đã gán Mã công ty cho " + p.total + " dòng");
     }, "Migration có kiểm tra: chỉ chạy khi xác định được duy nhất một công ty"));
-    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; var beforeDelete = db, wasDirty = dirty; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: JSON.parse(JSON.stringify(db.auditlog || [])) }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); if (!saveNow()) { db = beforeDelete; dirty = wasDirty; alert("Chưa xóa dữ liệu: " + lastSaveError); return; } st.kq = null; render(); } }));
+    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; var beforeDelete = db, wasDirty = dirty; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: JSON.parse(JSON.stringify(db.auditlog || [])) }; if (beforeDelete.accessSettings) db.accessSettings = beforeDelete.accessSettings; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); if (!saveNow()) { db = beforeDelete; dirty = wasDirty; alert("Chưa xóa dữ liệu: " + lastSaveError); return; } st.kq = null; render(); } }));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: "Hiện có — " + Object.keys(ALL).map(function (k) { return ALL[k].ten + ": " + countOf(k); }).join(" · ") }));
     // Màn chia tab cho dễ xem (v2.1.3): mỗi nhóm việc một tab; chỉ dựng nội dung tab đang mở. Chức năng và thẻ giữ nguyên, chỉ đổi cách sắp xếp.
@@ -38,7 +38,6 @@
       ["dl", "Dữ liệu & Excel", function (p) { p.appendChild(c); p.appendChild(cardYearArchive()); }],
       ["ct", "Hồ sơ công ty", function (p) { p.appendChild(cardCongTy()); }]
     ];
-    if (can("system.admin")) TABS.push(["nd", "Người dùng & phân quyền", function (p) { p.appendChild(cardUsers()); }]);
     TABS.push(["kt", "Kiểm tra & nhật ký", function (p) { p.appendChild(cardRaSoatNghi()); p.appendChild(cardIntegrity()); p.appendChild(cardAudit()); }]);
     var cur = TABS.filter(function (t) { return t[0] === st.slTab; })[0] || TABS[0];
     var w = h("div"), tabs = h("div", { class: "subtabs noprint", role: "tablist" }), panel = h("div", { "data-sl-panel": cur[0] });

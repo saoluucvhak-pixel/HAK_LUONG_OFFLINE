@@ -33,6 +33,11 @@
       if (typeof db.schemaVersion !== "number" || !isFinite(db.schemaVersion)) res.fatal.push("schemaVersion không hợp lệ: " + JSON.stringify(db.schemaVersion));
       else if (db.schemaVersion > SUPPORTED_SCHEMA) res.fatal.push("File dữ liệu của phiên bản MỚI HƠN (cấu trúc " + db.schemaVersion + ", bản này hỗ trợ tới " + SUPPORTED_SCHEMA + "). Hãy cài bản mới — mở bằng bản cũ có thể làm hỏng dữ liệu.");
     }
+    var ACCESS = typeof module !== "undefined" && module.exports ? require("./access-mode.js") : root.HAKCore.accessMode;
+    if (db.accessSettings !== undefined) {
+      var accessMode = ACCESS.mode(db);
+      if (accessMode === "invalid" || accessMode === "account" && ACCESS.accounts(db).length !== 1) res.fatal.push("Cấu hình đăng nhập không hợp lệ");
+    }
     try { var IR = typeof module !== "undefined" && module.exports ? require("./input-review.js") : root.HAKCore.inputReview; IR.validate(db); } catch (e) { res.fatal.push(e.message); }
     if(Array.isArray(db.sl_chuyenky)&&db.sl_chuyenky.length&&!(db.schemaVersion>=4))res.fatal.push("Sổ chuyển kỳ cần cấu trúc dữ liệu 4 để tránh mở nhầm bằng app cũ");
     if(db._yearArchives!==undefined){
@@ -45,7 +50,7 @@
     }
     Object.keys(db).forEach(function (k) {
       var v = db[k];
-      if (SCALAR_KEYS[k]) return;
+      if (SCALAR_KEYS[k] || k === "accessSettings") return;
       if (known[k]) {
         if (!Array.isArray(v)) { res.fatal.push("Bảng '" + k + "' phải là danh sách nhưng đang là " + typeName(v) + " — không mở để tránh mất dữ liệu"); return; }
         res.stats[k] = v.length;

@@ -64,7 +64,7 @@
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "k" || e.key === "K") && session && !loadError) { e.preventDefault(); quickSearch(); return; }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "f" || e.key === "F")) { var sb = document.querySelector("#main input.search, main input.search"); if (sb) { e.preventDefault(); sb.focus(); sb.select(); } }
   });
-  setInterval(function () { if (session && Date.now() - lastActive > IDLE_MS) { logout("tự khóa sau 30 phút không thao tác", true); toast("Đã tự khóa sau 30 phút không thao tác — đăng nhập lại"); } }, 30000);
+  setInterval(function () { if (session && C.accessMode.mode(db) !== "direct" && Date.now() - lastActive > IDLE_MS) { logout("tự khóa sau 30 phút không thao tác", true); toast("Đã tự khóa sau 30 phút không thao tác — đăng nhập lại"); } }, 30000);
   var AUDIT_MAX = 20000;
   function audit(action, detail) {
     db.auditlog.push({ luc: new Date().toISOString(), nguoi: currentUser(), thaoTac: action, chiTiet: detail || "" });

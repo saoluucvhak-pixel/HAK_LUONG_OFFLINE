@@ -20,9 +20,9 @@ async function run(withAccounts,journal){
       await page.getByRole("button",{name:"Đăng nhập",exact:true}).waitFor();
       await page.fill("#main input[data-f=u]",username);await page.fill("#main input[data-f=p]",password);await page.getByRole("button",{name:"Đăng nhập",exact:true}).click();
     }else{
-      await page.getByRole("button",{name:"Tạo dữ liệu và tài khoản Admin",exact:true}).waitFor();
+      await page.getByRole("button",{name:"Tạo tài khoản đăng nhập",exact:true}).waitFor();
       for(const[k,v]of[["cty","Synthetic new company"],["ma","NEWTEST"],["u","newadmin"],["n","Synthetic new admin"],["p",password],["p2",password]])await page.fill("#main input[data-f="+k+"]",v);
-      await page.getByRole("button",{name:"Tạo dữ liệu và tài khoản Admin",exact:true}).click();await page.waitForSelector("[data-recovery]");await page.click(".dlg footer button.pri");
+      await page.getByRole("button",{name:"Tạo tài khoản đăng nhập",exact:true}).click();await page.waitForSelector("[data-recovery]");await page.click(".dlg footer button.pri");
     }
     await page.waitForSelector("#nav button[data-k=home]");
     const disk=JSON.parse(fs.readFileSync(path.join(dir,"data.json"),"utf8"));

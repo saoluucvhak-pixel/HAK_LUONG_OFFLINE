@@ -23,32 +23,29 @@ function outsideDataDir(dir, base, P, plat) {
 }
 // OUTSIDE-DATA-END
 const payGate = require("./main/payroll-gate");
-const cryptoNode = require("crypto"), fsNode = require("fs");
+const cryptoNode = require("crypto");
 const PERMCORE = require("./core/permissions.js");
 const kdfNode = (pw, salt, iter) => cryptoNode.pbkdf2Sync(String(pw), Buffer.from(String(salt), "hex"), Math.min(Math.max(+iter || 210000, 100000), 2000000), 32, "sha256");
 // Danh sách tài khoản ĐỌC TỪ ĐĨA tại tiến trình chính (cache theo mtime+size) — renderer không quyết định quyền
-let usersCache = { sig: "", list: [] };
-function readUsersFromDisk() {
+const accessMode = require("./core/access-mode");
+const configureAccess = require("./main/access-mode").configure;
+let usersCache = { sig: null, mode: "", users: [], recovery: null };
+function readAccessFromDisk() {
+  const unavailable = { mode: "", users: [], recovery: null };
   try {
-    if (!storage) return [];
-    const sig = storage.sig ? storage.sig() : (() => { const st = fsNode.statSync(storage.dataFile); return st.mtimeMs + ":" + st.size; })();
-    if (sig === usersCache.sig) return usersCache.list;
-    const ld = storage.load(); if (!ld || !ld.ok || !ld.text) return [];
-    const d = JSON.parse(ld.text), list = Array.isArray(d.nguoidung) ? d.nguoidung : [];
-    usersCache = { sig, list: list.map((u) => ({ tenDangNhap: u.tenDangNhap, vaiTro: u.vaiTro, khoa: !!u.khoa, salt: u.salt, iter: u.iter, hash: u.hash })) };
-    return usersCache.list;
-  } catch (e) { return usersCache.list; }
-}
-function readRecoveryFromDisk() {
-  try {
-    if (!storage) return null;
-    const ld = storage.load(); if (!ld || !ld.ok || !ld.text) return null;
-    const rec = (JSON.parse(ld.text).baomat || [])[0], k = rec && rec.khoiPhuc;
-    return k && k.hash ? { salt: k.salt, iter: k.iter, hash: k.hash } : null;
-  } catch (e) { return null; }
+    if (!storage) return unavailable;
+    const sig = storage.sig ? storage.sig() : fileSig(storage.dataFile)();
+    if (sig === usersCache.sig) return usersCache;
+    const ld = storage.load();
+    if (!ld || !ld.ok) return unavailable;
+    const d = ld.text ? JSON.parse(ld.text) : {};
+    usersCache = { sig, mode: accessMode.mode(d), users: accessMode.accounts(d), recovery: (d.baomat || [])[0]?.khoiPhuc || null };
+    return usersCache;
+  } catch (e) { return unavailable; }
 }
 const guard = createGuard(__dirname, {
-  readUsers: readUsersFromDisk, readRecovery: readRecoveryFromDisk,
+  readUsers: () => readAccessFromDisk().users, readRecovery: () => readAccessFromDisk().recovery,
+  localUser: () => readAccessFromDisk().mode === "direct" ? accessMode.LOCAL_USER : null,
   rolePerms: (role) => (PERMCORE.ROLES[role] ? PERMCORE.ROLES[role].perms.slice() : []),
   verify: (pw, u) => { try { const a = kdfNode(pw, u.salt, u.iter), b = Buffer.from(String(u.hash), "hex"); return b.length === a.length && cryptoNode.timingSafeEqual(a, b); } catch (e) { return false; } }
 });
@@ -93,6 +90,26 @@ function registerIpc() {
   const inRecovery = () => { try { const ld = storage.load(); return !ld || !ld.ok || !!(storage.needsRecovery && storage.needsRecovery()); } catch (err) { return true; } };
   // V9: phiên do TIẾN TRÌNH CHÍNH tạo sau khi tự kiểm mật khẩu với tài khoản trên đĩa; renderer không gửi được danh sách quyền
   ipcMain.on("auth-login", (e, name, pw) => { e.returnValue = guard.login(e, name, pw); });
+  ipcMain.on("auth-configure-access", (e, request, baseSig) => {
+    const fail = error => ({ ok: false, error });
+    try {
+      const busy = syncWriteBusy();
+      if (busy) { e.returnValue = fail(busy); return; }
+      const loaded = storage.load();
+      if (!loaded || !loaded.ok) { e.returnValue = fail("Kho dữ liệu cần được khôi phục trước"); return; }
+      const signature = String(sigNow());
+      if (baseSig !== signature) { e.returnValue = fail("Dữ liệu vừa thay đổi. Mở lại ứng dụng trước khi đổi chế độ"); return; }
+      const saved = loaded.text ? JSON.parse(loaded.text) : {};
+      const result = configureAccess(saved, request, { who: guard.current(e), reauthenticate: (name, password) => guard.login(e, name, password) });
+      if (!result.ok) { e.returnValue = result; return; }
+      const done = storage.save(JSON.stringify(result.next), result.next, null, signature);
+      if (done !== true) { e.returnValue = fail(String(done || "Không lưu được chế độ đăng nhập")); return; }
+      usersCache.sig = null;
+      guard.logout(e);
+      guard.recoveryDone(e);
+      e.returnValue = { ok: true, recoveryCode: result.recoveryCode };
+    } catch (err) { e.returnValue = fail(String(err.message || err)); }
+  });
   ipcMain.on("auth-logout", (e) => { e.returnValue = guard.logout(e); });
   // V10.1: main tự xác minh mã khôi phục Admin, cấp phiên khôi phục ngắn hạn (1 tài khoản, 1 lần ghi) — policy chỉ chấp nhận đặt lại Admin khi có phiên này
   ipcMain.on("auth-recover", (e, code, name) => { try { e.returnValue = guard.recover(e, code, name); } catch (err) { e.returnValue = { ok: false, error: "Lỗi xác minh mã khôi phục" }; } });
