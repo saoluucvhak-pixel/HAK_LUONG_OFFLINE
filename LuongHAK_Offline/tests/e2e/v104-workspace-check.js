@@ -41,6 +41,12 @@ async function checkGlassAppearance(business) {
   check('quick selector syncs Kính Đêm and enters dark mode', await skinSetting.inputValue() === 'glass-dem' && await modeSetting.inputValue() === 'dark');
   await skinSetting.selectOption('glass-luc');
   check('settings selector syncs Kính Lục and enters light mode', await quick.inputValue() === 'glass-luc' && await modeSetting.inputValue() === 'light');
+  check('ảnh phong cảnh được tải từ gói giao diện ngoại tuyến', await w.evaluate(async () => {
+    const image = document.createElement('img');
+    image.src = 'ui/images/glass-forest.webp';
+    await image.decode();
+    return image.naturalWidth >= 1200 && window.getComputedStyle(document.body).backgroundImage.includes('glass-forest.webp');
+  }));
 
   const xlsx = require('../../xlsx.full.min.js');
   const workbook = xlsx.utils.book_new(), file = path.join(DATA, 'theme-warning.xlsx');

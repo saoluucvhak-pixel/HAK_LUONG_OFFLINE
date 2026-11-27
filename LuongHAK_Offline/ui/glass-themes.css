@@ -4,53 +4,53 @@
   --brandSoft:#dfedf9; --bg:#eaf3fa; --card:#fbfdff; --field:#fff;
   --ink:#112d42; --mut:#425a6e; --line:#bfcedd; --line2:#d8e3ec; --ctl:#7892a9;
   --th:#dceaf6; --hover:#ecf4fb; --editBg:#edf5fc; --focus:rgba(23,92,156,.26);
-  --sb:#e1eef9; --sbText:#17344c; --sbMut:#415a6f; --sbLine:#b9cddd;
+  --sb:#e1eef9; --sbText:#17344c; --sbMut:#31485e; --sbLine:#b9cddd;
   --red:#a7351a; --okBg:#e2f2eb; --okFg:#205947; --infoBg:#e5f0fa; --infoBd:#adc6de; --infoFg:#203e5f;
   --deep:#102e4c; --champ:var(--brand); --champL:var(--brand); --gold:var(--brand);
   --hero:linear-gradient(125deg,#113450,#175c9c);
   --glass-primary:#175c9c; --glass-primary-hover:#114a80; --glass-on-primary:#fff;
-  --glass-top:#eef6fc; --glass-list:#e8f2fa; --glass-wash:#c7e0f3; --glass-glow:#f8fcff;
+  --glass-top:#eef6fc; --glass-list:#e8f2fa; --glass-fog:rgba(234,243,250,.94); --glass-edge:rgba(177,210,235,.18);
 }
 [data-skin="glass-luc"] {
   --brand:#20653e; --brand2:#367b53; --brandH:#164e30; --brandA:#124128; --brandSoft:#dcf0e3;
   --bg:#eaf4ee; --card:#fbfefa; --field:#fff; --ink:#132e2a; --mut:#415b50;
   --line:#bcd2c4; --line2:#d5e3da; --ctl:#779887; --th:#dfefe5; --hover:#ebf6ef;
   --editBg:#edf7ef; --focus:rgba(32,101,62,.25);
-  --sb:#dfefe5; --sbText:#17382d; --sbMut:#405b4f; --sbLine:#b8d1c2;
+  --sb:#dfefe5; --sbText:#17382d; --sbMut:#334c40; --sbLine:#b8d1c2;
   --deep:#153b2a; --hero:linear-gradient(125deg,#173b33,#20653e);
   --glass-primary:#20653e; --glass-primary-hover:#164e30;
-  --glass-top:#edf7f0; --glass-list:#e5f3e9; --glass-wash:#c7e7d1; --glass-glow:#f6fdf8;
+  --glass-top:#edf7f0; --glass-list:#e5f3e9; --glass-fog:rgba(234,244,238,.94); --glass-edge:rgba(143,204,167,.20);
 }
 [data-skin="glass-dem"] {
   --brand:#156779; --brand2:#257889; --brandH:#0f5261; --brandA:#0c4651; --brandSoft:#daf0f3;
   --bg:#e8f1f4; --card:#f9fdff; --ink:#102f41; --th:#d9e9f0;
-  --sb:#dcecf1; --sbText:#143549; --sbMut:#3e5969; --sbLine:#aec7d3;
+  --sb:#dcecf1; --sbText:#143549; --sbMut:#304a5d; --sbLine:#aec7d3;
   --deep:#0d1d2c; --hero:linear-gradient(125deg,#0d1d2c,#18556b);
   --glass-primary:#59dcea; --glass-primary-hover:#84e8f2; --glass-on-primary:#0d1d2c;
-  --glass-top:#eaf4f8; --glass-list:#e1eef4; --glass-wash:#bcdce7; --glass-glow:#f3fbff;
+  --glass-top:#eaf4f8; --glass-list:#e1eef4; --glass-fog:rgba(232,241,244,.94); --glass-edge:rgba(142,190,205,.24);
 }
 [data-skin^="glass-"][data-theme="dark"] {
   --brand:#59dcea; --brand2:#81e7f0; --brandH:#8febf4; --brandA:#aef2f6; --onBrand:#0d1d2c;
   --brandSoft:#203c49; --bg:#0d1d2c; --card:#142737; --field:#102231;
   --ink:#edf7ff; --mut:#a8c1d1; --line:#385569; --line2:#2c4558; --ctl:#638599;
   --th:#213b4e; --hover:#1e3547; --editBg:#243e4f; --focus:rgba(89,220,234,.34);
-  --sb:#122838; --sbText:#e2f0fa; --sbMut:#a8c3d4; --sbLine:#365568;
+  --sb:#122838; --sbText:#e2f0fa; --sbMut:#c5deeb; --sbLine:#365568;
   --red:#ff9f87; --okBg:#1c3b39; --okFg:#a4e9d7; --infoBg:#203852; --infoBd:#526e89; --infoFg:#d3e7fb;
   --c1:#23474e; --c1f:#b0eff2; --cH:#26394d; --cHf:var(--ink); --we:#203547;
   --deep:#0d1d2c; --hero:linear-gradient(125deg,#122637,#1a4b5d);
-  --glass-top:#172e41; --glass-list:#193244; --glass-wash:#214458; --glass-glow:#142638;
+  --glass-top:#172e41; --glass-list:#193244; --glass-fog:rgba(13,29,44,.94); --glass-edge:rgba(10,35,61,.57);
 }
 [data-skin="glass-suong"][data-theme="dark"] {
   --brand:#a0d2ff; --brand2:#afdafe; --brandH:#b7dfff; --brandA:#c9e7ff; --brandSoft:#253e57;
-  --sb:#172d45; --glass-top:#1a3149; --glass-list:#1d3650; --glass-wash:#264c72;
+  --sb:#172d45; --glass-top:#1a3149; --glass-list:#1d3650; --sbMut:#c5ddeb; --glass-edge:rgba(16,45,79,.56);
 }
 [data-skin="glass-luc"][data-theme="dark"] {
   --brand:#9be0b3; --brand2:#b0eac5; --brandH:#b4edc8; --brandA:#c3f1d2; --brandSoft:#254438;
   --bg:#10231f; --card:#172e2b; --field:#122724; --ink:#edf9f3; --mut:#aec8bb;
   --line:#3d6055; --line2:#2e4d43; --ctl:#6b9282; --th:#244238; --hover:#203a33; --editBg:#29463b;
-  --sb:#152e29; --sbText:#e3f3eb; --sbMut:#aec8bb; --sbLine:#3c6052;
+  --sb:#152e29; --sbText:#e3f3eb; --sbMut:#cde7da; --sbLine:#3c6052;
   --focus:rgba(155,224,179,.32); --hero:linear-gradient(125deg,#17372c,#285d42);
-  --glass-top:#1a372e; --glass-list:#203e34; --glass-wash:#285846; --glass-glow:#182e28;
+  --glass-top:#1a372e; --glass-list:#203e34; --glass-fog:rgba(16,35,31,.94); --glass-edge:rgba(13,53,39,.59);
 }
 
 @media screen {
@@ -59,8 +59,11 @@
   }
   [data-skin^="glass-"] body {
     background-color:var(--bg);
-    background-image:radial-gradient(ellipse at 7% 5%,var(--glass-glow),transparent 52%),
-      radial-gradient(ellipse at 96% 0%,var(--glass-wash),transparent 64%);
+    background-image:radial-gradient(ellipse at 54% 43%,var(--glass-fog) 18%,var(--glass-edge) 92%),
+      url("images/glass-forest.webp");
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
     background-attachment:fixed;
   }
   [data-skin^="glass-"] #side {
@@ -75,7 +78,7 @@
   }
   @supports ((backdrop-filter:blur(12px)) or (-webkit-backdrop-filter:blur(12px))) {
     [data-skin^="glass-"] :is(#side,#top,.hak-catalog-side) {
-      background:color-mix(in srgb,var(--glass-surface) 88%,transparent);
+      background:color-mix(in srgb,var(--glass-surface) 78%,transparent);
       -webkit-backdrop-filter:blur(12px);
       backdrop-filter:blur(12px);
     }
