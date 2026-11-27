@@ -123,8 +123,6 @@
       const label = [VERSION, version.dataset.storageLabel].filter(Boolean).join(' · ');
       if (version.textContent !== label) version.textContent = label;
     }
-    const palette = document.querySelector('.hak-skin-select option[value="luxe"]');
-    if (palette && palette.textContent !== 'Luxury · HAK Enterprise') palette.textContent = 'Luxury · HAK Enterprise';
   }
   // Finish presentation changes before the next input event, avoiding a one-frame layout race.
   const observer = new MutationObserver(() => { if (!scheduled) { scheduled = true; queueMicrotask(enhance); } });

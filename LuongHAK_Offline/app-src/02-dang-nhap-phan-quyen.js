@@ -102,12 +102,51 @@
   if (!st.qs || typeof st.qs !== "object") st.qs = {};
   if ([50, 100, 200, 500].indexOf(+st.pageSize) < 0) st.pageSize = 100;
   function saveUi() { try { localStorage.setItem(KEY + "_ui", JSON.stringify({ tab: st.tab === "nv" ? "nhansu" : st.tab === "slips" && st.kqFull ? "luong" : st.tab, dm: st.dm, nam: st.nam, thang: st.thang, bu: st.bu, compact: st.compact, qs: st.qs, pageSize: st.pageSize })); } catch (e) {} }
-  // Giao diện sáng / tối (2.0-α15): ghi nhớ theo máy, mặc định sáng
-  function curTheme() { try { return localStorage.getItem(KEY + "_theme") === "dark" ? "dark" : "light"; } catch (e) { return "light"; } }
-  function toggleTheme() { var t = curTheme() === "dark" ? "light" : "dark"; try { localStorage.setItem(KEY + "_theme", t); } catch (e) { /* vẫn đổi cho phiên này */ } applyTheme(t); render(); }
-  var HAK_SKINS = [["luxe", "Luxury V10.3"], ["classic", "Xanh ngọc"], ["neutral", "Trung tính"], ["champagne", "Vàng champagne"]];
-  function curSkin() { try { var k = localStorage.getItem(KEY + "_skin"); return HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"; } catch (e) { return "luxe"; } }
-  function applySkin(k) { document.documentElement.setAttribute("data-skin", HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"); }
-  function setSkin(k) { if (!HAK_SKINS.some(function (v) { return v[0] === k; })) return; try { localStorage.setItem(KEY + "_skin", k); } catch (e) {} applySkin(k); render(); }
+  // Phong cách và chế độ sáng/tối vẫn dùng các khóa cài đặt theo máy.
+  var HAK_SKINS = [["glass-suong", "Kính Sương", "light"], ["glass-luc", "Kính Lục", "light"], ["glass-dem", "Kính Đêm", "dark"],
+    ["luxe", "Luxury · HAK Enterprise"], ["classic", "Xanh ngọc"], ["neutral", "Trung tính"], ["champagne", "Vàng champagne"]];
+  function readAppearance(key) { try { return localStorage.getItem(KEY + "_" + key); } catch (e) { return null; } }
+  function writeAppearance(key, value) { try { localStorage.setItem(KEY + "_" + key, value); } catch (e) { /* giữ lựa chọn trong phiên */ } }
+  var savedSkin = readAppearance("skin"), savedMode = readAppearance("theme");
+  var initialSkin = HAK_SKINS.find(function (v) { return v[0] === savedSkin; });
+  var existingAppearance = savedMode !== null || readAppearance("ui") !== null;
+  var preferredSkin = initialSkin ? initialSkin[0] : (savedSkin === null && existingAppearance ? "luxe" : "glass-suong");
+  var preferredMode = savedMode === "dark" || savedMode === "light" ? savedMode : (initialSkin && initialSkin[2]) || "light";
+  // Ghi mặc định lần đầu để hồ sơ mới vẫn dùng Kính Sương sau khi đã lưu vị trí màn hình.
+  if (savedSkin === null) writeAppearance("skin", preferredSkin);
+  function curSkin() { return preferredSkin; }
+  function curTheme() { return preferredMode; }
+  function applySkin(k) { document.documentElement.setAttribute("data-skin", k); }
+  function modeToggleText(iconOnly) {
+    var light = curTheme() === "dark";
+    return (light ? "🏖" : "🌙") + (iconOnly ? "" : light ? " Giao diện sáng" : " Giao diện tối");
+  }
+  function syncAppearance() {
+    applySkin(curSkin()); applyTheme(curTheme());
+    document.querySelectorAll("[data-appearance-skin]").forEach(function (el) { el.value = curSkin(); });
+    document.querySelectorAll("[data-appearance-mode]").forEach(function (el) { el.value = curTheme(); });
+    document.querySelectorAll("[data-appearance-toggle]").forEach(function (el) { el.textContent = modeToggleText(el.dataset.appearanceToggle === "icon"); });
+  }
+  function setTheme(mode) {
+    preferredMode = mode === "dark" ? "dark" : "light";
+    writeAppearance("theme", preferredMode);
+    syncAppearance();
+  }
+  function toggleTheme() { setTheme(curTheme() === "dark" ? "light" : "dark"); }
+  function setSkin(k) {
+    var skin = HAK_SKINS.find(function (v) { return v[0] === k; });
+    if (!skin) return;
+    preferredSkin = k;
+    writeAppearance("skin", k);
+    if (skin[2]) setTheme(skin[2]);
+    else syncAppearance();
+  }
+  function appearanceSelect(attrs) {
+    var select = h("select", Object.assign({ "data-appearance-skin": "1" }, attrs));
+    HAK_SKINS.forEach(function (v) { select.appendChild(h("option", { value: v[0], text: v[1] })); });
+    select.value = curSkin();
+    select.addEventListener("change", function () { setSkin(select.value); });
+    return select;
+  }
   applySkin(curSkin());
   applyTheme(curTheme());

@@ -374,13 +374,52 @@
   if (!st.qs || typeof st.qs !== "object") st.qs = {};
   if ([50, 100, 200, 500].indexOf(+st.pageSize) < 0) st.pageSize = 100;
   function saveUi() { try { localStorage.setItem(KEY + "_ui", JSON.stringify({ tab: st.tab === "nv" ? "nhansu" : st.tab === "slips" && st.kqFull ? "luong" : st.tab, dm: st.dm, nam: st.nam, thang: st.thang, bu: st.bu, compact: st.compact, qs: st.qs, pageSize: st.pageSize })); } catch (e) {} }
-  // Giao diện sáng / tối (2.0-α15): ghi nhớ theo máy, mặc định sáng
-  function curTheme() { try { return localStorage.getItem(KEY + "_theme") === "dark" ? "dark" : "light"; } catch (e) { return "light"; } }
-  function toggleTheme() { var t = curTheme() === "dark" ? "light" : "dark"; try { localStorage.setItem(KEY + "_theme", t); } catch (e) { /* vẫn đổi cho phiên này */ } applyTheme(t); render(); }
-  var HAK_SKINS = [["luxe", "Luxury V10.3"], ["classic", "Xanh ngọc"], ["neutral", "Trung tính"], ["champagne", "Vàng champagne"]];
-  function curSkin() { try { var k = localStorage.getItem(KEY + "_skin"); return HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"; } catch (e) { return "luxe"; } }
-  function applySkin(k) { document.documentElement.setAttribute("data-skin", HAK_SKINS.some(function (v) { return v[0] === k; }) ? k : "luxe"); }
-  function setSkin(k) { if (!HAK_SKINS.some(function (v) { return v[0] === k; })) return; try { localStorage.setItem(KEY + "_skin", k); } catch (e) {} applySkin(k); render(); }
+  // Phong cách và chế độ sáng/tối vẫn dùng các khóa cài đặt theo máy.
+  var HAK_SKINS = [["glass-suong", "Kính Sương", "light"], ["glass-luc", "Kính Lục", "light"], ["glass-dem", "Kính Đêm", "dark"],
+    ["luxe", "Luxury · HAK Enterprise"], ["classic", "Xanh ngọc"], ["neutral", "Trung tính"], ["champagne", "Vàng champagne"]];
+  function readAppearance(key) { try { return localStorage.getItem(KEY + "_" + key); } catch (e) { return null; } }
+  function writeAppearance(key, value) { try { localStorage.setItem(KEY + "_" + key, value); } catch (e) { /* giữ lựa chọn trong phiên */ } }
+  var savedSkin = readAppearance("skin"), savedMode = readAppearance("theme");
+  var initialSkin = HAK_SKINS.find(function (v) { return v[0] === savedSkin; });
+  var existingAppearance = savedMode !== null || readAppearance("ui") !== null;
+  var preferredSkin = initialSkin ? initialSkin[0] : (savedSkin === null && existingAppearance ? "luxe" : "glass-suong");
+  var preferredMode = savedMode === "dark" || savedMode === "light" ? savedMode : (initialSkin && initialSkin[2]) || "light";
+  // Ghi mặc định lần đầu để hồ sơ mới vẫn dùng Kính Sương sau khi đã lưu vị trí màn hình.
+  if (savedSkin === null) writeAppearance("skin", preferredSkin);
+  function curSkin() { return preferredSkin; }
+  function curTheme() { return preferredMode; }
+  function applySkin(k) { document.documentElement.setAttribute("data-skin", k); }
+  function modeToggleText(iconOnly) {
+    var light = curTheme() === "dark";
+    return (light ? "🏖" : "🌙") + (iconOnly ? "" : light ? " Giao diện sáng" : " Giao diện tối");
+  }
+  function syncAppearance() {
+    applySkin(curSkin()); applyTheme(curTheme());
+    document.querySelectorAll("[data-appearance-skin]").forEach(function (el) { el.value = curSkin(); });
+    document.querySelectorAll("[data-appearance-mode]").forEach(function (el) { el.value = curTheme(); });
+    document.querySelectorAll("[data-appearance-toggle]").forEach(function (el) { el.textContent = modeToggleText(el.dataset.appearanceToggle === "icon"); });
+  }
+  function setTheme(mode) {
+    preferredMode = mode === "dark" ? "dark" : "light";
+    writeAppearance("theme", preferredMode);
+    syncAppearance();
+  }
+  function toggleTheme() { setTheme(curTheme() === "dark" ? "light" : "dark"); }
+  function setSkin(k) {
+    var skin = HAK_SKINS.find(function (v) { return v[0] === k; });
+    if (!skin) return;
+    preferredSkin = k;
+    writeAppearance("skin", k);
+    if (skin[2]) setTheme(skin[2]);
+    else syncAppearance();
+  }
+  function appearanceSelect(attrs) {
+    var select = h("select", Object.assign({ "data-appearance-skin": "1" }, attrs));
+    HAK_SKINS.forEach(function (v) { select.appendChild(h("option", { value: v[0], text: v[1] })); });
+    select.value = curSkin();
+    select.addEventListener("change", function () { setSkin(select.value); });
+    return select;
+  }
   applySkin(curSkin());
   applyTheme(curTheme());
   // ---------- Phân trang + tìm kiếm (PERF-03: 1.000 NV mở lưới chấm công 6,9 s, gõ 4 ký tự 19,9 s khi vẽ toàn bộ) ----------
@@ -3229,6 +3268,21 @@
     return w;
   }
 
+
+  function tabGiaoDien() {
+    var mode = h("select", { "data-appearance-mode": "1" }, [
+      h("option", { value: "light", text: "Sáng" }), h("option", { value: "dark", text: "Tối" })
+    ]);
+    mode.value = curTheme();
+    mode.addEventListener("change", function () { setTheme(mode.value); });
+    return h("section", { class: "card", "data-appearance-settings": "1" }, [
+      h("h3", { text: "Giao diện" }),
+      h("div", { class: "fgrid" }, [
+        h("label", { class: "fld" }, [h("span", { text: "Phong cách giao diện" }), appearanceSelect()]),
+        h("label", { class: "fld" }, [h("span", { text: "Chế độ sáng / tối" }), mode])
+      ])
+    ]);
+  }
   // ---------- Công thức tiền lương — Formula management UI (Master Prompt mục VII) ----------
   var CT_LOAI = [["OVERTIME", "Tăng ca"], ["ALLOWANCE", "Phụ cấp"], ["SUPPORT", "Hỗ trợ"]];
   function ctLoaiTen(v) { var o = CT_LOAI.filter(function (x) { return x[0] === v; })[0]; return o ? o[1] : (v || ""); }
@@ -7289,7 +7343,7 @@
     ["grp", "Báo cáo khác"], ["rp_pb", "🏢", "Tổng hợp theo phòng ban"], ["baocaoluong", "📈", "Báo cáo lương khác"], ["baocao", "📊", "Báo cáo nhân sự"],
     ["grp", "Báo cáo nghiệp vụ"], ["rp_ns", "👥", "Danh sách nhân sự"], ["rp_th", "🎁", "Bảng kê thưởng / trừ"], ["rp_tu", "💵", "Bảng kê tạm ứng"], ["rp_com", "🍚", "Tổng hợp suất cơm"],
     ["grp", "Danh mục"], ["dm", "📚", "Danh mục"],
-    ["grp", "Cài đặt"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
+    ["grp", "Cài đặt"], ["appearance", "🏖", "Giao diện"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
   ];
   // Tab nào cần quyền xem nào (kiểm tra cả khi mở bằng trạng thái đã lưu, không chỉ ẩn menu)
   var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_pb: "payroll.view", rp_tncn: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", capphat: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
@@ -7302,7 +7356,7 @@
     if (S[t]) return can("input.view");
     return TAB_PERM[t] ? can(TAB_PERM[t]) : true;
   }
-  var TITLES = { nvns: "Nghiệp vụ nhân sự", capphat: "Cấp phát sữa phúc lợi và bảo hộ lao động", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_cttt: "Chi tiết thanh toán", rp_soct: "Sổ chứng từ thanh toán", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê Ban dăm xuất hàng", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
+  var TITLES = { appearance: "Giao diện", nvns: "Nghiệp vụ nhân sự", capphat: "Cấp phát sữa phúc lợi và bảo hộ lao động", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_cttt: "Chi tiết thanh toán", rp_soct: "Sổ chứng từ thanh toán", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê Ban dăm xuất hàng", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
   function updateNav() { document.querySelectorAll("#nav button[data-k]").forEach(function (b) { var k = b.getAttribute("data-k"), n = $(".n", b); if (n && ALL[k]) n.textContent = countOf(k); }); }
   function periodBox() {
     var m = h("select"), y = h("input", { class: "i", type: "number", style: "width:80px", value: st.nam });
@@ -7314,11 +7368,8 @@
   }
   function sideFoot(ver) {
     var f = $("#sidefoot"); f.innerHTML = "";
-    f.appendChild(h("button", { class: "themebtn", type: "button", on: { click: toggleTheme } }, [curTheme() === "dark" ? "🏖 Giao diện sáng" : "🌙 Giao diện tối"]));
-    var skinSelect = h("select", { class: "themebtn hak-skin-select", "aria-label": "Chọn phong cách giao diện", title: "Bộ giao diện HAK Enterprise V10.4" });
-    HAK_SKINS.forEach(function (v) { var o = h("option", { value: v[0], text: v[1] }); if (curSkin() === v[0]) o.selected = true; skinSelect.appendChild(o); });
-    skinSelect.addEventListener("change", function () { setSkin(skinSelect.value); });
-    f.appendChild(skinSelect);
+    f.appendChild(h("button", { class: "themebtn", type: "button", "data-appearance-toggle": "label", text: modeToggleText(false), on: { click: toggleTheme } }));
+    f.appendChild(appearanceSelect({ class: "themebtn hak-skin-select", "aria-label": "Chọn phong cách giao diện" }));
     f.appendChild(h("div", { class: "ver", "data-storage-label": ver, text: ver }));
   }
   /** Tìm nhanh (Ctrl+K): màn hình, nhân viên, báo cáo — gõ không dấu cũng được, Enter để mở. */
@@ -7457,7 +7508,7 @@
   // ---------- v2.1.3: đổi tab bằng thanh điều hướng KHÔNG dựng lại cả khung ứng dụng (thanh điều hướng, thanh trên, chân bên) khi chúng không đổi ----------
   // Khung chỉ cập nhật tại chỗ (tô tab đang chọn + tiêu đề) nếu MỌI thứ ảnh hưởng tới khung đều giữ nguyên: người dùng/vai trò/quyền hiển thị tab, kỳ, giao diện,
   // dbRev (số đếm trên menu), nhóm menu thu gọn, và việc có ô "Kỳ lương" hay không. Khác một thứ là dựng lại đủ như trước. Tắt: localStorage "hak_shell_off" = "1".
-  var shellState = null, NO_PERIOD_TABS = ["nhansu", "nv", "dm", "caidat", "backup", "kyluong"];
+  var shellState = null, NO_PERIOD_TABS = ["appearance", "nhansu", "nv", "dm", "caidat", "backup", "kyluong"];
   function needPeriodBox() { return NO_PERIOD_TABS.indexOf(st.tab) < 0; }
   function collapsedRaw() { try { return localStorage.getItem(KEY + "_nav_collapsed") || ""; } catch (e) { return "?" + Date.now(); } }
   function shellSig() {
@@ -7594,7 +7645,7 @@
     top.appendChild(h("span", { class: "who", text: roleName, title: session.hoTen + " · " + roleName, "data-user": session.tenDangNhap }));
     top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi mật khẩu của " + session.hoTen, "aria-label": "Đổi mật khẩu", on: { click: function () { changePassword(false); } } }, ["🔑"]));
     top.appendChild(h("button", { class: "topbtn", type: "button", "data-logout": "1", title: "Đăng xuất", "aria-label": "Đăng xuất", on: { click: function () { logout(); } } }, ["⏻", h("span", { class: "lbl", text: " Đăng xuất" })]));
-    top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi giao diện sáng / tối", "aria-label": "Đổi giao diện sáng / tối", on: { click: toggleTheme } }, [curTheme() === "dark" ? "🏖" : "🌙"]));
+    top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi giao diện sáng / tối", "aria-label": "Đổi giao diện sáng / tối", "data-appearance-toggle": "icon", text: modeToggleText(true), on: { click: toggleTheme } }));
     shellState = { sig: shellSig(), period: needPeriodBox() };
     } // hết nhánh dựng lại cả khung
     var m = $("#main"); m.innerHTML = ""; refreshNVList();
@@ -7611,6 +7662,7 @@
     else if (st.tab === "backup") m.appendChild(tabSaoLuu());
     else if (st.tab === "dm") m.appendChild(tabDanhMuc());
     else if (st.tab === "caidat") m.appendChild(tabCaiDat());
+    else if (st.tab === "appearance") m.appendChild(tabGiaoDien());
     else if (st.tab === "ktbl") m.appendChild(tabKiemTra());
     else if (st.tab === "nvns") m.appendChild(tabNghiepVuNS());
     else if (st.tab === "capphat") m.appendChild(tabCapPhat());
