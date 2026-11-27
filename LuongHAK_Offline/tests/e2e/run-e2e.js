@@ -59,6 +59,15 @@ async function auth(w, who) {
   }
   return {};
 }
+// Fixtures to exercise historical profiles without using a removed management screen.
+function addLegacyTestUser(file, crypto, name, fullName, role) {
+  const data = JSON.parse(fs.readFileSync(file, "utf8"));
+  const salt = crypto.randomBytes(16).toString("hex"), iter = 210000;
+  delete data.accessSettings;
+  data.nguoidung.push({ id: name, tenDangNhap: name, hoTen: fullName, vaiTro: role, khoa: false, phaiDoiMK: true,
+    salt, iter, hash: crypto.pbkdf2Sync("Tam12345", Buffer.from(salt, "hex"), iter, 32, "sha256").toString("hex") });
+  fs.writeFileSync(file, JSON.stringify(data));
+}
 async function crashApp(app) {
   const child = app.process();
   const exited = new Promise((resolve) => child.exitCode !== null ? resolve() : child.once("exit", resolve));
@@ -84,7 +93,7 @@ async function launch(dataDir, opt) {
   const t0 = Date.now();
   let { app, w, errs, a } = await launch();
   ok("Mở ứng dụng", true, (Date.now() - t0) + " ms");
-  ok("Dữ liệu mới: bắt buộc tạo tài khoản Admin + cấp mã khôi phục", a.setup && /^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/.test(a.code), a.code);
+  ok("Dữ liệu mới: chọn dùng tài khoản và nhận mã khôi phục", a.setup && /^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/.test(a.code), a.code);
   const recoveryCode = a.code;
   ok("Cầu nối lưu trữ (preload) hoạt động", await w.evaluate(() => !!window.hakStore && typeof window.hakStore.save === "function"));
   const ui = await w.evaluate(async () => { await document.fonts.ready; return { font: document.fonts.check('600 16px "Be Vietnam Pro"') && [...document.fonts].some((f) => f.family.replace(/"/g, "") === "Be Vietnam Pro" && f.status === "loaded"), icons: document.querySelectorAll("#nav svg.icn").length, emoji: [...document.querySelectorAll("#nav .ic")].filter((e) => e.textContent.trim()).length }; });
@@ -781,11 +790,9 @@ async function launch(dataDir, opt) {
 
   // ---- Phân quyền (Q-14 / Q-16) ----
   ({ app, w, errs } = await launch());
-  await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="nd"]'); await w.click('button:has-text("Thêm người dùng")'); await w.waitForSelector(".dlg");
-  const ins = w.locator(".dlg .fgrid input");
-  await ins.nth(0).fill("ketoan1"); await ins.nth(1).fill("Kế toán Một"); await ins.nth(2).fill("Tam12345");
-  await w.locator(".dlg .fgrid select").nth(0).selectOption("ketoanluong");
-  await w.click(".dlg footer button.pri"); await w.waitForTimeout(300);
+  await app.close();
+  addLegacyTestUser(file, crypto, "ketoan1", "Kế toán Một", "ketoanluong");
+  ({ app, w, errs } = await launch());
   await w.click('#top button:has-text("Đăng xuất")'); await w.waitForSelector("#main input[data-f=u]");
   // sai mật khẩu 5 lần → phải chờ
   for (let i = 0; i < 5; i++) { await w.fill("#main input[data-f=u]", "ketoan1"); await w.fill("#main input[data-f=p]", "sai" + i + "matkhau"); await w.click("#main button.big"); await w.waitForTimeout(450); }
@@ -855,7 +862,7 @@ async function launch(dataDir, opt) {
   const sv2 = JSON.parse(fs.readFileSync(path.join(DATA, "data.json"), "utf8"));
   const k1 = sv2.nguoidung.find((u) => u.tenDangNhap === "ketoan1"), hoito = sv2.auditlog.filter((x) => /HỒI TỐ/.test(x.chiTiet));
   ok("Mật khẩu lưu dạng băm PBKDF2 (không lưu mật khẩu rõ), có muối riêng", sv2.nguoidung.length === 2 && k1.hash.length === 64 && k1.salt.length === 32 && k1.iter >= 210000 && !JSON.stringify(sv2.nguoidung).includes("Moi12345kt") && k1.salt !== sv2.nguoidung[0].salt);
-  ok("Nhật ký ghi tài khoản đăng nhập: đăng nhập, thêm người dùng, sửa HỒI TỐ bởi Admin", sv2.auditlog.some((x) => x.thaoTac === "Thêm người dùng" && /\[admin\]/.test(x.nguoi)) && sv2.auditlog.some((x) => x.thaoTac === "Đăng nhập" && /\[ketoan1\]/.test(x.nguoi)) && hoito.length >= 1 && hoito.every((x) => /\[admin\]/.test(x.nguoi)), hoito.map((x) => x.nguoi).join(","));
+  ok("Nhật ký ghi tài khoản đăng nhập: đăng nhập và sửa HỒI TỐ bởi Admin", sv2.auditlog.some((x) => x.thaoTac === "Đăng nhập" && /\[ketoan1\]/.test(x.nguoi)) && hoito.length >= 1 && hoito.every((x) => /\[admin\]/.test(x.nguoi)), hoito.map((x) => x.nguoi).join(","));
 
   // A3-01: đổi Số HĐLĐ của hợp đồng có hiệu lực trong kỳ đã chốt rồi bấm HỦY → phụ lục KHÔNG được đổi theo (trước đây bị đổi trước khi hỏi → mồ côi)
   {
@@ -919,12 +926,8 @@ async function launch(dataDir, opt) {
     ({ app, w, errs } = await launch());
     await w.click("#nav button[data-k=nhansu]"); await w.waitForSelector("main thead th");
     const adminCols = await w.locator("main thead th").allInnerTexts();
-    await w.click("#nav button[data-k=backup]"); await w.click('[data-sl-tab="nd"]'); await w.click('button:has-text("Thêm người dùng")'); await w.waitForSelector(".dlg");
-    const ui = w.locator(".dlg .fgrid input");
-    await ui.nth(0).fill("tbp1"); await ui.nth(1).fill("Trưởng BP"); await ui.nth(2).fill("Tam12345");
-    await w.locator(".dlg .fgrid select").nth(0).selectOption("truongbophan");
-    await w.click(".dlg footer button.pri"); await w.waitForTimeout(300);
     await app.close();
+    addLegacyTestUser(file, crypto, "tbp1", "Trưởng BP", "truongbophan");
     { // hồ sơ khen thưởng có tiền thưởng (thuộc hợp đồng đang chọn E2E-HD2)
       const dk = JSON.parse(fs.readFileSync(path.join(DATA, "data.json"), "utf8"));
       dk.khenthuong = (dk.khenthuong || []).concat([{ _id: "kt1", "Mã NV": dk.nhanvien[0]["Mã NV"], "Số HĐLĐ": "E2E-HD2", "Ngày": "2026-10-02", "Hình thức khen thưởng": "Giấy khen E2E", "Giá trị tiền thưởng": "777000" }]);

@@ -40,7 +40,7 @@
   function restoreFirstRunScreen() {
     var w = h("div", { style: "max-width:440px;margin:40px auto" }), c = h("div", { class: "card" });
     c.appendChild(h("h3", { text: "Thiết lập ban đầu" })); c.appendChild(setupChooser("restore"));
-    c.appendChild(h("div", { class: "hint", text: "Chọn file dữ liệu cũ (.json — \"Sao lưu ra file\" hoặc file dữ liệu đã xuất). Khôi phục bình thường, không đối chiếu nhật ký thao tác. Nếu file có tài khoản, đăng nhập bằng tài khoản cũ; nếu file chỉ có bảng dữ liệu, bước sau sẽ yêu cầu tạo tài khoản Admin." }));
+    c.appendChild(h("div", { class: "hint", text: "Chọn file dữ liệu cũ (.json — \"Sao lưu ra file\" hoặc file dữ liệu đã xuất). Khôi phục bình thường, không đối chiếu nhật ký thao tác. Nếu file có tài khoản, đăng nhập bằng tài khoản cũ; nếu file chỉ có bảng dữ liệu, bạn có thể tạo tài khoản hoặc chọn Bỏ qua." }));
     c.appendChild(h("div", { class: "bar", style: "margin-top:12px" }, [btn("⬆ Chọn file dữ liệu cũ…", "pri big", function () {
       var f = h("input", { type: "file", accept: ".json" });
       f.addEventListener("change", function () {
@@ -53,9 +53,66 @@
     })]));
     w.appendChild(c); return w;
   }
+  function submitAccess(request) {
+    if (dirty && !saveNow()) throw new Error(lastSaveError);
+    var result = store.configureAccess(request, baseSig);
+    if (!result || !result.ok) throw new Error((result && result.error) || "Không lưu được chế độ đăng nhập");
+    if (request.mode === "direct") { window.location.reload(); return; }
+    var loaded = store.load();
+    if (!loaded || !loaded.ok || !loaded.text) { window.location.reload(); return; }
+    db = JSON.parse(loaded.text);
+    ensureTables();
+    baseSig = String(loaded.baseSig);
+    inputReviewsSaved = !!(db._inputReviews && db.schemaVersion >= 5);
+    dbRev++; st.kq = null; st.kqStale = true; st.authView = "";
+    var owner = C.accessMode.accounts(db)[0];
+    session = owner && mainLogin(owner.tenDangNhap, request.password) ? owner : null;
+    lastActive = Date.now();
+    if (result.recoveryCode) showRecoveryCode(result.recoveryCode);
+    else render();
+  }
+  function accountFields() {
+    return [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "n", label: "Họ tên" },
+      { k: "p", label: "Mật khẩu (ít nhất 8 ký tự, có chữ và số)", type: "password", ac: "new-password" },
+      { k: "p2", label: "Nhập lại mật khẩu", type: "password", ac: "new-password" }];
+  }
+  function enableAccount(v) {
+    return submitAccess({ mode: "account", username: v.u, name: v.n, password: v.p, confirmPassword: v.p2, company: v.cty, companyId: v.ma });
+  }
+  function desktopSetupScreen() {
+    var company = (db.congty || []).length ? [] : [
+      { k: "cty", label: "Tên công ty (dùng trên báo cáo)" },
+      { k: "ma", label: "Mã công ty (ví dụ HAKQN)" }
+    ];
+    var skip = btn("Bỏ qua – Một người sử dụng", "", function () {
+      try { submitAccess({ mode: "direct" }); } catch (e) { alert(e.message); }
+    });
+    skip.setAttribute("data-access-skip", "1");
+    return authCard("Thiết lập ban đầu", "Chọn Bỏ qua để mở ứng dụng trực tiếp. Để bật đăng nhập, nhập thông tin bên dưới và tạo tài khoản.",
+      company.concat(accountFields()), "Tạo tài khoản đăng nhập", enableAccount, [skip]);
+  }
+  function tabAccessMode() {
+    var mode = C.accessMode.mode(db), state = mode === "direct" ? "Một người sử dụng" : mode === "account" ? "Sử dụng tài khoản đăng nhập" : "Đang dùng tài khoản từ bản cũ";
+    var panel = h("section", { class: "card", "data-access-mode": mode }, [
+      h("h3", { text: "Chế độ đăng nhập" }),
+      h("p", { text: state })
+    ]);
+    if (mode === "account") panel.appendChild(h("p", { text: "Tên đăng nhập: " + session.tenDangNhap }));
+    if (mode === "direct" || mode === "legacy") panel.appendChild(btn("Sử dụng tài khoản đăng nhập", "pri", function () {
+      panel.replaceChildren(authCard("Tạo tài khoản đăng nhập", "Ứng dụng sẽ yêu cầu tài khoản này khi mở lại.", accountFields(), "Tạo tài khoản", enableAccount,
+        [btn("Hủy", "", render)]));
+    }));
+    if (mode === "account" || mode === "legacy") panel.appendChild(btn("Một người sử dụng", "", function () {
+      panel.replaceChildren(authCard("Một người sử dụng", "Xác nhận tài khoản quản trị hiện tại để mở ứng dụng trực tiếp trên máy này.",
+        [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "p", label: "Mật khẩu", type: "password", ac: "current-password" }],
+        "Xác nhận chuyển chế độ", function (v) { return submitAccess({ mode: "direct", username: v.u, password: v.p }); },
+        [btn("Hủy", "", render)]));
+    }));
+    return panel;
+  }
   function setupAdminScreen() {
     if (st.setupMode === "restore") return restoreFirstRunScreen();
-    var scr = setupAdminForm();
+    var scr = store && store.configureAccess ? desktopSetupScreen() : setupAdminForm();
     var card = scr.firstChild; card.insertBefore(setupChooser("new"), card.children[1] || null);
     return scr;
   }
@@ -88,13 +145,14 @@
   function loginScreen() {
     return authCard("Đăng nhập", congTy()["Tên công ty"] || "", [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "p", label: "Mật khẩu", type: "password", ac: "current-password" }], "Đăng nhập", function (v) {
       var wait = PERM.lockedFor(v.u); if (wait) throw new Error("Sai mật khẩu quá 5 lần — chờ " + Math.ceil(wait / 1000) + " giây");
-      var u = PERM.findUser(db, v.u);
+      var u = C.accessMode.accounts(db).find(function (account) { return account.tenDangNhap.trim().toLowerCase() === v.u.trim().toLowerCase(); });
       return (u ? AUTH.verify(v.p, u) : AUTH.hash(v.p, "00".repeat(16), PERM.ITER).then(function () { return false; })).then(function (ok) {
         if (!ok) { PERM.noteFail(v.u); throw new Error("Sai tên đăng nhập hoặc mật khẩu"); }
         if (u.khoa) throw new Error("Tài khoản đã bị khóa — liên hệ Admin");
-        PERM.noteOk(v.u); session = u; lastActive = Date.now(); u.dangNhapLuc = new Date().toISOString();
+        PERM.noteOk(v.u);
+        if (!mainLogin(u.tenDangNhap, v.p)) throw new Error("Tiến trình chính không xác nhận được phiên đăng nhập — thử lại");
+        session = u; lastActive = Date.now(); u.dangNhapLuc = new Date().toISOString();
         audit("Đăng nhập", u.tenDangNhap); saveNow();
-        if (!mainLogin(u.tenDangNhap, v.p)) { session = null; throw new Error("Tiến trình chính không xác nhận được phiên đăng nhập — thử lại"); }
         if (u.phaiDoiMK) { render(); changePassword(true); return; }
         render();
       });
@@ -145,58 +203,6 @@
         });
       })];
     });
-  }
-  // ---------- Quản trị người dùng (Admin) ----------
-  function userForm(u) {
-    var isNew = !u, body = h("div"), g = h("div", { class: "fgrid" }); body.appendChild(g);
-    var f = { u: h("input", { class: "i", style: "width:100%", value: u ? u.tenDangNhap : "" }), n: h("input", { class: "i", style: "width:100%", value: u ? u.hoTen : "" }),
-      r: h("select", { style: "width:100%" }, Object.keys(PERM.ROLES).map(function (k) { return h("option", { value: k, text: PERM.ROLES[k].ten }); })),
-      k: h("select", { style: "width:100%" }, [h("option", { value: "", text: "Đang hoạt động" }), h("option", { value: "1", text: "Khóa tài khoản" })]),
-      p: h("input", { class: "i", type: "password", style: "width:100%", placeholder: isNew ? "" : "Để trống = giữ mật khẩu" }) };
-    f.r.value = u ? u.vaiTro : "ketoanluong"; f.k.value = u && u.khoa ? "1" : ""; if (u) f.u.disabled = true;
-    [["Tên đăng nhập", f.u], ["Họ tên", f.n], ["Vai trò", f.r], ["Trạng thái", f.k], [isNew ? "Mật khẩu tạm (người dùng phải đổi khi đăng nhập)" : "Đặt lại mật khẩu tạm", f.p]].forEach(function (x) { g.appendChild(h("div", { class: "fld" }, [h("label", { text: x[0] }), x[1]])); });
-    var perm = h("div", { class: "hint" }), showPerm = function () { perm.textContent = "Quyền: " + PERM.ROLES[f.r.value].perms.map(function (p) { return PERM.PERMS[p]; }).join(" · "); };
-    f.r.addEventListener("change", showPerm); showPerm(); body.appendChild(perm);
-    modal(isNew ? "Thêm người dùng" : "Sửa người dùng — " + u.tenDangNhap, body, function (close) {
-      return [btn("Hủy", "", close), btn("💾 Lưu", "pri", function () {
-        if (!need("system.admin")) return;
-        var name = f.u.value.trim(), next = { vaiTro: f.r.value, khoa: f.k.value === "1" };
-        if (isNew && !/^[a-z0-9._-]{3,30}$/i.test(name)) { alert("Tên đăng nhập 3–30 ký tự: chữ không dấu, số, . _ -"); return; }
-        if (isNew && PERM.findUser(db, name)) { alert("Tên đăng nhập đã tồn tại"); return; }
-        if (!f.n.value.trim()) { alert("Cần nhập họ tên"); return; }
-        if ((isNew || f.p.value) && PERM.validatePassword(f.p.value)) { alert(PERM.validatePassword(f.p.value)); return; }
-        if (u && PERM.wouldRemoveLastAdmin(db, u, next)) { alert("Không thể: đây là Admin đang hoạt động cuối cùng."); return; }
-        var done = function (k) {
-          var savedId = u && u.id;
-          var saved = txn(["nguoidung"], function () {
-          var before = u ? { "Vai trò": u.vaiTro, "Khóa": u.khoa ? "Có" : "Không", "Họ tên": u.hoTen } : null;
-          if (isNew) { u = Object.assign({ id: HRM.uid(), tenDangNhap: name, taoLuc: new Date().toISOString(), phaiDoiMK: true }, k); db.nguoidung.push(u); }
-          else if (k) Object.assign(u, k, { phaiDoiMK: true });
-          Object.assign(u, { hoTen: f.n.value.trim() }, next);
-          audit(isNew ? "Thêm người dùng" : "Sửa người dùng", u.tenDangNhap + " · " + GRD.changedFields(before, { "Vai trò": u.vaiTro, "Khóa": u.khoa ? "Có" : "Không", "Họ tên": u.hoTen }).join("; ") + (k ? " · đặt mật khẩu tạm" : ""));
-          });
-          if (!saved) { u = isNew ? null : (db.nguoidung || []).find(function (x) { return x.id === savedId; }); alert("Chưa lưu người dùng: " + lastTxnError); return; }
-          close(); render(); toast("Đã lưu người dùng");
-        };
-        if (isNew || f.p.value) AUTH.make(f.p.value).then(done); else done(null);
-      })];
-    });
-  }
-  function cardUsers() {
-    var c = h("div", { class: "card" });
-    c.appendChild(h("h3", { text: "👥 Người dùng & phân quyền" }));
-    c.appendChild(h("div", { class: "hint", text: "Chỉ Admin quản lý. Quyền được kiểm tra ở mọi thao tác ghi/xuất dữ liệu. Chỉ Admin được sửa dữ liệu hồi tố vào kỳ đã chốt, khôi phục dữ liệu, quản trị hệ thống." }));
-    c.appendChild(h("div", { class: "bar" }, [btn("＋ Thêm người dùng", "pri", function () { userForm(null); })]));
-    var rows = (db.nguoidung || []).map(function (u) { return { u: u, o: { "Tên đăng nhập": u.tenDangNhap, "Họ tên": u.hoTen, "Vai trò": (PERM.ROLES[u.vaiTro] || {}).ten || u.vaiTro, "Trạng thái": u.khoa ? "Khóa" : "Hoạt động", "Đăng nhập gần nhất": fmtTime(u.dangNhapLuc) } }; });
-    var t = h("table"), tr = h("tr"); Object.keys(rows[0].o).concat([""]).forEach(function (x) { tr.appendChild(h("th", { text: x })); }); t.appendChild(h("thead", {}, [tr]));
-    var tb = h("tbody"); rows.forEach(function (x) { var r = h("tr", { class: "click", on: { click: function () { userForm(x.u); } } }); Object.keys(x.o).forEach(function (k) { r.appendChild(h("td", { class: "t", text: x.o[k] })); }); r.appendChild(h("td", { class: "t", text: "Sửa ›" })); tb.appendChild(r); });
-    t.appendChild(tb); c.appendChild(h("div", { class: "tw", style: "max-height:300px" }, [t]));
-    c.appendChild(h("div", { class: "bar", style: "margin-top:10px" }, [btn("🔑 Cấp lại mã khôi phục Admin", "", function () {
-      if (!need("system.admin")) return;
-      if (!confirm("Cấp mã khôi phục MỚI? Mã cũ sẽ hết hiệu lực.")) return;
-      var code = randomCode(); AUTH.make(code.replace(/-/g, "")).then(function (k) { if (!txn(["baomat"], function () { db.baomat = [{ khoiPhuc: k, taoLuc: new Date().toISOString() }]; audit("Cấp lại mã khôi phục Admin", ""); })) { alert("Chưa cấp mã khôi phục mới: " + lastTxnError); return; } showRecoveryCode(code); });
-    })]));
-    return c;
   }
   /** v2.1.7: khối "Bản chụp SQLite tìm thấy" ở màn khôi phục: liệt kê bản ở thư mục dữ liệu VÀ thư mục SQLite đã chọn; nguồn không truy cập được nêu rõ đường dẫn + nguyên nhân; kiểm từng bản theo yêu cầu (đắt trên ổ chậm); khôi phục theo id. */
   function snapshotCandidatesPanel() {

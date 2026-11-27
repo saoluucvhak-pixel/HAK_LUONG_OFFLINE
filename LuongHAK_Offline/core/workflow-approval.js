@@ -2,7 +2,8 @@
   "use strict";
   const node = typeof module !== "undefined" && module.exports;
   const CLS = node ? require("./payroll-close.js") : root.HAKCore.close;
-  const mode = db => ((db.workflowSettings || [])[0] || {}).mode || "";
+  const access = node ? require("./access-mode.js") : root.HAKCore.accessMode;
+  const mode = db => ["direct", "account"].includes(access.mode(db)) ? "single" : ((db.workflowSettings || [])[0] || {}).mode || "";
   const account = value => String(value || "").trim().toLowerCase();
   const ticket = (db, ky) => (db.payrollApprovals || []).find(row => row.ky === ky);
 

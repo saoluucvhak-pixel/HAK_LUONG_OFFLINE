@@ -271,7 +271,11 @@ function createPolicy(opts) {
     try { require("../core/production-carry.js").validate(next, opts && opts.restoring ? null : oldObj()); } catch (e) { return {ok:false,error:String(e.message||e)}; }
     try { require("../core/input-review.js").validate(next); var old = oldObj(); if (old && old.schemaVersion >= 5 && !(next.schemaVersion >= 5) && !(opts && opts.restoring)) throw Error("Không được hạ cấu trúc dữ liệu lưu nhập liệu"); } catch (e) { return {ok:false,error:e.message}; }
     pending = nx;
-    if (!prev || !prev.hasUsers) return { ok: true, firstRun: true }; // chưa có dữ liệu / chưa có tài khoản: thiết lập ban đầu
+    const priorData = prev ? oldObj() || {} : {}, access = priorData.accessSettings;
+    if ((access || prev && prev.hasUsers) && JSON.stringify(next.accessSettings) !== JSON.stringify(access)) {
+      return { ok: false, error: "Đổi chế độ đăng nhập tại Cài đặt → Chế độ đăng nhập" };
+    }
+    if (!prev || (!prev.hasUsers && !access)) return { ok: true, firstRun: true }; // chưa có dữ liệu / chưa có tài khoản: thiết lập ban đầu
     // Bảng chưa từng có trong dữ liệu cũ được ensureTables() khởi tạo rỗng [] không tính là thay đổi
     const isNewEmptyTable = (a, b) => a === undefined && b && Array.isArray(b.rows) && b.rows.length === 0;
     const changed = Object.keys(nx.tables).filter((k) => !sameTable(prev.tables[k], nx.tables[k]) && !isNewEmptyTable(prev.tables[k], nx.tables[k])).concat(Object.keys(prev.tables).filter((k) => !(k in nx.tables)));
@@ -279,9 +283,21 @@ function createPolicy(opts) {
     const perms = who && who.perms || [];
     const has = (p) => perms.indexOf(p) >= 0;
     // Khôi phục Full Backup đang chạy (main giữ khóa restore sau bước COMMIT tài sản): thay toàn bộ dữ liệu — chỉ Admin có quyền khôi phục + quản trị
-    if (opts && opts.restoring && who && has("backup.restore") && has("system.admin")) return { ok: true, restoring: true };
     const deny = (m) => ({ ok: false, error: "Tiến trình chính từ chối ghi: " + m });
-    const saved = oldObj() || {};
+    const saved = priorData;
+    if (access && !(opts && opts.restoring) && changed.includes("workflowSettings")) return deny("Cấu hình cũ không còn dùng ở chế độ đăng nhập này");
+    if (access && (changed.includes("nguoidung") || changed.includes("baomat"))) {
+      const priorOwner = prev.users.find(u => u.name === String(access.owner || "").toLowerCase());
+      const owner = nx.users.find(u => priorOwner && u.name === priorOwner.name);
+      const othersUntouched = nx.users.length === prev.users.length &&
+        prev.users.filter(u => u !== priorOwner).every(u => nx.users.some(n => n.name === u.name && n.h === u.h));
+      const authorized = who && owner && who.user.toLowerCase() === owner.name ||
+        opts && opts.recovery && owner && opts.recovery.user === owner.name;
+      if (access.mode !== "account" || !owner || !authorized || !othersUntouched || priorOwner.fields !== owner.fields) {
+        return deny("Chỉ tài khoản đang dùng được đổi mật khẩu hoặc khôi phục");
+      }
+    }
+    if (opts && opts.restoring && who && has("backup.restore") && has("system.admin")) return { ok: true, restoring: true };
     if (changed.includes("workflowSettings")) {
       const config = (next.workflowSettings || [])[0];
       if (!has("system.admin") || !Array.isArray(next.workflowSettings) || next.workflowSettings.length !== 1 ||

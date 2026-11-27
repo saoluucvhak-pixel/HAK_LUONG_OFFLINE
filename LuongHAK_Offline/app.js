@@ -336,7 +336,7 @@
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "k" || e.key === "K") && session && !loadError) { e.preventDefault(); quickSearch(); return; }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "f" || e.key === "F")) { var sb = document.querySelector("#main input.search, main input.search"); if (sb) { e.preventDefault(); sb.focus(); sb.select(); } }
   });
-  setInterval(function () { if (session && Date.now() - lastActive > IDLE_MS) { logout("tự khóa sau 30 phút không thao tác", true); toast("Đã tự khóa sau 30 phút không thao tác — đăng nhập lại"); } }, 30000);
+  setInterval(function () { if (session && C.accessMode.mode(db) !== "direct" && Date.now() - lastActive > IDLE_MS) { logout("tự khóa sau 30 phút không thao tác", true); toast("Đã tự khóa sau 30 phút không thao tác — đăng nhập lại"); } }, 30000);
   var AUDIT_MAX = 20000;
   function audit(action, detail) {
     db.auditlog.push({ luc: new Date().toISOString(), nguoi: currentUser(), thaoTac: action, chiTiet: detail || "" });
@@ -3128,41 +3128,12 @@
   }
   function tabCaiDat() {
     var w = h("div"), bar = h("div", { class: "bar" });
-    var SUBS = [["ct", "Công thức lương / tăng ca / phụ cấp / hỗ trợ"], ["bu", "Phương pháp bù sản lượng"], ["qc", "Quy chế tính lương"], ["workflow", "Chế độ sử dụng"]];
-    if (!st.cd) st.cd = "ct";
+    var SUBS = [["ct", "Công thức lương / tăng ca / phụ cấp / hỗ trợ"], ["bu", "Phương pháp bù sản lượng"], ["qc", "Quy chế tính lương"]];
+    if (!SUBS.some(function (tab) { return tab[0] === st.cd; })) st.cd = "ct";
     SUBS.forEach(function (x) { bar.appendChild(btn(x[1], st.cd === x[0] ? "pri" : "", function () { if (st.cd !== x[0] && !leaveOk()) return; st.cd = x[0]; render(); })); });
     w.appendChild(bar);
     if (st.cd === "bu") w.appendChild(buChinhThucPanel());
-    else if (st.cd === "workflow") {
-      var panel = h("div", { class: "card" }), mode = C.workflowApproval.mode(db);
-      panel.appendChild(h("h3", { text: "Chế độ sử dụng" }));
-      panel.appendChild(h("p", { class: "hint", text: mode === "roles" ? "Đang sử dụng phân quyền. Bảng lương và chứng từ chi cần người duyệt khác người lập." :
-        mode === "single" ? "Một người sử dụng. Quản trị có thể chốt kỳ và tự duyệt chứng từ do mình lập." : "Đang dùng quy trình hiện có. Quản trị có thể chọn chế độ phù hợp." }));
-      if (can("system.admin")) {
-        var notReady = C.workflowApproval.readiness(db);
-        if (notReady) panel.appendChild(h("p", { class: "warn", text: notReady }));
-      }
-      if (can("system.admin")) [["single", "Một người sử dụng"], ["roles", "Sử dụng phân quyền"]].forEach(function (option) {
-        if (option[0] === mode) return;
-        panel.appendChild(btn(option[1], "", function () {
-          if (option[0] === "roles") {
-            var error = C.workflowApproval.readiness(db);
-            if (error) { alert(error); return; }
-          }
-          askText(option[1], "Thay đổi áp dụng cho các kỳ chưa chốt và chứng từ chưa duyệt.", { label: "Lý do thay đổi", required: true }, function (reason) {
-            reason = String(reason || "").trim();
-            if (!reason || !need("system.admin")) { if (!reason) alert("Cần nhập lý do thay đổi."); return; }
-            if (!saveNow()) { alert(lastSaveError); return; }
-            if (!txn(["workflowSettings"], function () {
-              db.workflowSettings = [{ mode: option[0], reason: reason, user: C.workflowApproval.account(session.tenDangNhap), changedAt: new Date().toISOString() }];
-              audit("Đổi chế độ sử dụng", option[1] + " · " + reason);
-            })) { alert(lastTxnError); return; }
-            render();
-          });
-        }));
-      });
-      w.appendChild(panel);
-    } else if (st.cd === "qc") {
+    else if (st.cd === "qc") {
       var c = h("div", { class: "card" }); c.appendChild(h("h3", { text: "Quy chế tính lương" }));
       c.appendChild(h("div", { class: "hint", text: "Quy chế đang áp dụng: " + qcLabel(quyChe()) + ". Đổi tại màn hình Tính lương theo kỳ; kỳ đã chốt giữ nguyên." })); w.appendChild(c);
     } else w.appendChild(congThucPanel());
@@ -6416,7 +6387,7 @@
       if (!backupOrBlock("truoc-gan-ma-cong-ty", "gán Mã công ty")) return;
       var r = CMP.apply(db); audit("Gán Mã công ty", p.companyId + " · " + JSON.stringify(r.changed)); save(); render(); toast("Đã gán Mã công ty cho " + p.total + " dòng");
     }, "Migration có kiểm tra: chỉ chạy khi xác định được duy nhất một công ty"));
-    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; var beforeDelete = db, wasDirty = dirty; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: JSON.parse(JSON.stringify(db.auditlog || [])) }; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); if (!saveNow()) { db = beforeDelete; dirty = wasDirty; alert("Chưa xóa dữ liệu: " + lastSaveError); return; } st.kq = null; render(); } }));
+    bar.appendChild(btn("🗑 Xóa toàn bộ dữ liệu", "red", function () { if (!need("system.admin")) return; if ((db._yearArchives || []).length) { alert("Đang có kho hồ sơ năm. Không thể xóa toàn bộ dữ liệu vì sẽ mất liên kết hồ sơ. Hãy tạo Full Backup để lưu đầy đủ trước khi chuyển máy."); return; } if (confirm("XÓA TOÀN BỘ dữ liệu? Không thể hoàn tác!\n(Tài khoản người dùng được giữ lại.)") && confirm("Chắc chắn chứ?")) { if (!backupOrBlock("truoc-xoa-toan-bo", "xóa toàn bộ dữ liệu")) return; var beforeDelete = db, wasDirty = dirty; db = { nguoidung: db.nguoidung, baomat: db.baomat, auditlog: JSON.parse(JSON.stringify(db.auditlog || [])) }; if (beforeDelete.accessSettings) db.accessSettings = beforeDelete.accessSettings; ensureTables(); audit("Xóa toàn bộ dữ liệu", "đã sao lưu trước khi xóa"); if (!saveNow()) { db = beforeDelete; dirty = wasDirty; alert("Chưa xóa dữ liệu: " + lastSaveError); return; } st.kq = null; render(); } }));
     c.appendChild(bar);
     c.appendChild(h("div", { class: "hint", text: "Hiện có — " + Object.keys(ALL).map(function (k) { return ALL[k].ten + ": " + countOf(k); }).join(" · ") }));
     // Màn chia tab cho dễ xem (v2.1.3): mỗi nhóm việc một tab; chỉ dựng nội dung tab đang mở. Chức năng và thẻ giữ nguyên, chỉ đổi cách sắp xếp.
@@ -6427,7 +6398,6 @@
       ["dl", "Dữ liệu & Excel", function (p) { p.appendChild(c); p.appendChild(cardYearArchive()); }],
       ["ct", "Hồ sơ công ty", function (p) { p.appendChild(cardCongTy()); }]
     ];
-    if (can("system.admin")) TABS.push(["nd", "Người dùng & phân quyền", function (p) { p.appendChild(cardUsers()); }]);
     TABS.push(["kt", "Kiểm tra & nhật ký", function (p) { p.appendChild(cardRaSoatNghi()); p.appendChild(cardIntegrity()); p.appendChild(cardAudit()); }]);
     var cur = TABS.filter(function (t) { return t[0] === st.slTab; })[0] || TABS[0];
     var w = h("div"), tabs = h("div", { class: "subtabs noprint", role: "tablist" }), panel = h("div", { "data-sl-panel": cur[0] });
@@ -6496,6 +6466,12 @@
     var o;
     try { o = JSON.parse(text); } catch (e) { alert("File không phải dữ liệu hợp lệ (JSON lỗi)."); return opts.onCancel && opts.onCancel(); }
     if (!o || typeof o !== "object" || Array.isArray(o)) { alert("File không đúng cấu trúc dữ liệu của app."); return opts.onCancel && opts.onCancel(); }
+    if (!loadError && (db.accessSettings || o.accessSettings) && C.accessMode.mode(db) !== "setup") {
+      if (db.accessSettings) o.accessSettings = db.accessSettings;
+      else delete o.accessSettings;
+      o.nguoidung = db.nguoidung;
+      o.baomat = db.baomat;
+    }
     var known = Object.keys(ALL).concat(["kyluong", "nhansu", "congty"]).filter(function (k) { return Array.isArray(o[k]); });
     if (!known.length) { alert("File không chứa bảng dữ liệu nào của app — không khôi phục."); return opts.onCancel && opts.onCancel(); }
     var rep = SCH.validate(o, { tables: Object.keys(ALL), hrTables: Object.keys(HRT) });
@@ -7073,7 +7049,7 @@
   function restoreFirstRunScreen() {
     var w = h("div", { style: "max-width:440px;margin:40px auto" }), c = h("div", { class: "card" });
     c.appendChild(h("h3", { text: "Thiết lập ban đầu" })); c.appendChild(setupChooser("restore"));
-    c.appendChild(h("div", { class: "hint", text: "Chọn file dữ liệu cũ (.json — \"Sao lưu ra file\" hoặc file dữ liệu đã xuất). Khôi phục bình thường, không đối chiếu nhật ký thao tác. Nếu file có tài khoản, đăng nhập bằng tài khoản cũ; nếu file chỉ có bảng dữ liệu, bước sau sẽ yêu cầu tạo tài khoản Admin." }));
+    c.appendChild(h("div", { class: "hint", text: "Chọn file dữ liệu cũ (.json — \"Sao lưu ra file\" hoặc file dữ liệu đã xuất). Khôi phục bình thường, không đối chiếu nhật ký thao tác. Nếu file có tài khoản, đăng nhập bằng tài khoản cũ; nếu file chỉ có bảng dữ liệu, bạn có thể tạo tài khoản hoặc chọn Bỏ qua." }));
     c.appendChild(h("div", { class: "bar", style: "margin-top:12px" }, [btn("⬆ Chọn file dữ liệu cũ…", "pri big", function () {
       var f = h("input", { type: "file", accept: ".json" });
       f.addEventListener("change", function () {
@@ -7086,9 +7062,66 @@
     })]));
     w.appendChild(c); return w;
   }
+  function submitAccess(request) {
+    if (dirty && !saveNow()) throw new Error(lastSaveError);
+    var result = store.configureAccess(request, baseSig);
+    if (!result || !result.ok) throw new Error((result && result.error) || "Không lưu được chế độ đăng nhập");
+    if (request.mode === "direct") { window.location.reload(); return; }
+    var loaded = store.load();
+    if (!loaded || !loaded.ok || !loaded.text) { window.location.reload(); return; }
+    db = JSON.parse(loaded.text);
+    ensureTables();
+    baseSig = String(loaded.baseSig);
+    inputReviewsSaved = !!(db._inputReviews && db.schemaVersion >= 5);
+    dbRev++; st.kq = null; st.kqStale = true; st.authView = "";
+    var owner = C.accessMode.accounts(db)[0];
+    session = owner && mainLogin(owner.tenDangNhap, request.password) ? owner : null;
+    lastActive = Date.now();
+    if (result.recoveryCode) showRecoveryCode(result.recoveryCode);
+    else render();
+  }
+  function accountFields() {
+    return [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "n", label: "Họ tên" },
+      { k: "p", label: "Mật khẩu (ít nhất 8 ký tự, có chữ và số)", type: "password", ac: "new-password" },
+      { k: "p2", label: "Nhập lại mật khẩu", type: "password", ac: "new-password" }];
+  }
+  function enableAccount(v) {
+    return submitAccess({ mode: "account", username: v.u, name: v.n, password: v.p, confirmPassword: v.p2, company: v.cty, companyId: v.ma });
+  }
+  function desktopSetupScreen() {
+    var company = (db.congty || []).length ? [] : [
+      { k: "cty", label: "Tên công ty (dùng trên báo cáo)" },
+      { k: "ma", label: "Mã công ty (ví dụ HAKQN)" }
+    ];
+    var skip = btn("Bỏ qua – Một người sử dụng", "", function () {
+      try { submitAccess({ mode: "direct" }); } catch (e) { alert(e.message); }
+    });
+    skip.setAttribute("data-access-skip", "1");
+    return authCard("Thiết lập ban đầu", "Chọn Bỏ qua để mở ứng dụng trực tiếp. Để bật đăng nhập, nhập thông tin bên dưới và tạo tài khoản.",
+      company.concat(accountFields()), "Tạo tài khoản đăng nhập", enableAccount, [skip]);
+  }
+  function tabAccessMode() {
+    var mode = C.accessMode.mode(db), state = mode === "direct" ? "Một người sử dụng" : mode === "account" ? "Sử dụng tài khoản đăng nhập" : "Đang dùng tài khoản từ bản cũ";
+    var panel = h("section", { class: "card", "data-access-mode": mode }, [
+      h("h3", { text: "Chế độ đăng nhập" }),
+      h("p", { text: state })
+    ]);
+    if (mode === "account") panel.appendChild(h("p", { text: "Tên đăng nhập: " + session.tenDangNhap }));
+    if (mode === "direct" || mode === "legacy") panel.appendChild(btn("Sử dụng tài khoản đăng nhập", "pri", function () {
+      panel.replaceChildren(authCard("Tạo tài khoản đăng nhập", "Ứng dụng sẽ yêu cầu tài khoản này khi mở lại.", accountFields(), "Tạo tài khoản", enableAccount,
+        [btn("Hủy", "", render)]));
+    }));
+    if (mode === "account" || mode === "legacy") panel.appendChild(btn("Một người sử dụng", "", function () {
+      panel.replaceChildren(authCard("Một người sử dụng", "Xác nhận tài khoản quản trị hiện tại để mở ứng dụng trực tiếp trên máy này.",
+        [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "p", label: "Mật khẩu", type: "password", ac: "current-password" }],
+        "Xác nhận chuyển chế độ", function (v) { return submitAccess({ mode: "direct", username: v.u, password: v.p }); },
+        [btn("Hủy", "", render)]));
+    }));
+    return panel;
+  }
   function setupAdminScreen() {
     if (st.setupMode === "restore") return restoreFirstRunScreen();
-    var scr = setupAdminForm();
+    var scr = store && store.configureAccess ? desktopSetupScreen() : setupAdminForm();
     var card = scr.firstChild; card.insertBefore(setupChooser("new"), card.children[1] || null);
     return scr;
   }
@@ -7121,13 +7154,14 @@
   function loginScreen() {
     return authCard("Đăng nhập", congTy()["Tên công ty"] || "", [{ k: "u", label: "Tên đăng nhập", ac: "username" }, { k: "p", label: "Mật khẩu", type: "password", ac: "current-password" }], "Đăng nhập", function (v) {
       var wait = PERM.lockedFor(v.u); if (wait) throw new Error("Sai mật khẩu quá 5 lần — chờ " + Math.ceil(wait / 1000) + " giây");
-      var u = PERM.findUser(db, v.u);
+      var u = C.accessMode.accounts(db).find(function (account) { return account.tenDangNhap.trim().toLowerCase() === v.u.trim().toLowerCase(); });
       return (u ? AUTH.verify(v.p, u) : AUTH.hash(v.p, "00".repeat(16), PERM.ITER).then(function () { return false; })).then(function (ok) {
         if (!ok) { PERM.noteFail(v.u); throw new Error("Sai tên đăng nhập hoặc mật khẩu"); }
         if (u.khoa) throw new Error("Tài khoản đã bị khóa — liên hệ Admin");
-        PERM.noteOk(v.u); session = u; lastActive = Date.now(); u.dangNhapLuc = new Date().toISOString();
+        PERM.noteOk(v.u);
+        if (!mainLogin(u.tenDangNhap, v.p)) throw new Error("Tiến trình chính không xác nhận được phiên đăng nhập — thử lại");
+        session = u; lastActive = Date.now(); u.dangNhapLuc = new Date().toISOString();
         audit("Đăng nhập", u.tenDangNhap); saveNow();
-        if (!mainLogin(u.tenDangNhap, v.p)) { session = null; throw new Error("Tiến trình chính không xác nhận được phiên đăng nhập — thử lại"); }
         if (u.phaiDoiMK) { render(); changePassword(true); return; }
         render();
       });
@@ -7178,58 +7212,6 @@
         });
       })];
     });
-  }
-  // ---------- Quản trị người dùng (Admin) ----------
-  function userForm(u) {
-    var isNew = !u, body = h("div"), g = h("div", { class: "fgrid" }); body.appendChild(g);
-    var f = { u: h("input", { class: "i", style: "width:100%", value: u ? u.tenDangNhap : "" }), n: h("input", { class: "i", style: "width:100%", value: u ? u.hoTen : "" }),
-      r: h("select", { style: "width:100%" }, Object.keys(PERM.ROLES).map(function (k) { return h("option", { value: k, text: PERM.ROLES[k].ten }); })),
-      k: h("select", { style: "width:100%" }, [h("option", { value: "", text: "Đang hoạt động" }), h("option", { value: "1", text: "Khóa tài khoản" })]),
-      p: h("input", { class: "i", type: "password", style: "width:100%", placeholder: isNew ? "" : "Để trống = giữ mật khẩu" }) };
-    f.r.value = u ? u.vaiTro : "ketoanluong"; f.k.value = u && u.khoa ? "1" : ""; if (u) f.u.disabled = true;
-    [["Tên đăng nhập", f.u], ["Họ tên", f.n], ["Vai trò", f.r], ["Trạng thái", f.k], [isNew ? "Mật khẩu tạm (người dùng phải đổi khi đăng nhập)" : "Đặt lại mật khẩu tạm", f.p]].forEach(function (x) { g.appendChild(h("div", { class: "fld" }, [h("label", { text: x[0] }), x[1]])); });
-    var perm = h("div", { class: "hint" }), showPerm = function () { perm.textContent = "Quyền: " + PERM.ROLES[f.r.value].perms.map(function (p) { return PERM.PERMS[p]; }).join(" · "); };
-    f.r.addEventListener("change", showPerm); showPerm(); body.appendChild(perm);
-    modal(isNew ? "Thêm người dùng" : "Sửa người dùng — " + u.tenDangNhap, body, function (close) {
-      return [btn("Hủy", "", close), btn("💾 Lưu", "pri", function () {
-        if (!need("system.admin")) return;
-        var name = f.u.value.trim(), next = { vaiTro: f.r.value, khoa: f.k.value === "1" };
-        if (isNew && !/^[a-z0-9._-]{3,30}$/i.test(name)) { alert("Tên đăng nhập 3–30 ký tự: chữ không dấu, số, . _ -"); return; }
-        if (isNew && PERM.findUser(db, name)) { alert("Tên đăng nhập đã tồn tại"); return; }
-        if (!f.n.value.trim()) { alert("Cần nhập họ tên"); return; }
-        if ((isNew || f.p.value) && PERM.validatePassword(f.p.value)) { alert(PERM.validatePassword(f.p.value)); return; }
-        if (u && PERM.wouldRemoveLastAdmin(db, u, next)) { alert("Không thể: đây là Admin đang hoạt động cuối cùng."); return; }
-        var done = function (k) {
-          var savedId = u && u.id;
-          var saved = txn(["nguoidung"], function () {
-          var before = u ? { "Vai trò": u.vaiTro, "Khóa": u.khoa ? "Có" : "Không", "Họ tên": u.hoTen } : null;
-          if (isNew) { u = Object.assign({ id: HRM.uid(), tenDangNhap: name, taoLuc: new Date().toISOString(), phaiDoiMK: true }, k); db.nguoidung.push(u); }
-          else if (k) Object.assign(u, k, { phaiDoiMK: true });
-          Object.assign(u, { hoTen: f.n.value.trim() }, next);
-          audit(isNew ? "Thêm người dùng" : "Sửa người dùng", u.tenDangNhap + " · " + GRD.changedFields(before, { "Vai trò": u.vaiTro, "Khóa": u.khoa ? "Có" : "Không", "Họ tên": u.hoTen }).join("; ") + (k ? " · đặt mật khẩu tạm" : ""));
-          });
-          if (!saved) { u = isNew ? null : (db.nguoidung || []).find(function (x) { return x.id === savedId; }); alert("Chưa lưu người dùng: " + lastTxnError); return; }
-          close(); render(); toast("Đã lưu người dùng");
-        };
-        if (isNew || f.p.value) AUTH.make(f.p.value).then(done); else done(null);
-      })];
-    });
-  }
-  function cardUsers() {
-    var c = h("div", { class: "card" });
-    c.appendChild(h("h3", { text: "👥 Người dùng & phân quyền" }));
-    c.appendChild(h("div", { class: "hint", text: "Chỉ Admin quản lý. Quyền được kiểm tra ở mọi thao tác ghi/xuất dữ liệu. Chỉ Admin được sửa dữ liệu hồi tố vào kỳ đã chốt, khôi phục dữ liệu, quản trị hệ thống." }));
-    c.appendChild(h("div", { class: "bar" }, [btn("＋ Thêm người dùng", "pri", function () { userForm(null); })]));
-    var rows = (db.nguoidung || []).map(function (u) { return { u: u, o: { "Tên đăng nhập": u.tenDangNhap, "Họ tên": u.hoTen, "Vai trò": (PERM.ROLES[u.vaiTro] || {}).ten || u.vaiTro, "Trạng thái": u.khoa ? "Khóa" : "Hoạt động", "Đăng nhập gần nhất": fmtTime(u.dangNhapLuc) } }; });
-    var t = h("table"), tr = h("tr"); Object.keys(rows[0].o).concat([""]).forEach(function (x) { tr.appendChild(h("th", { text: x })); }); t.appendChild(h("thead", {}, [tr]));
-    var tb = h("tbody"); rows.forEach(function (x) { var r = h("tr", { class: "click", on: { click: function () { userForm(x.u); } } }); Object.keys(x.o).forEach(function (k) { r.appendChild(h("td", { class: "t", text: x.o[k] })); }); r.appendChild(h("td", { class: "t", text: "Sửa ›" })); tb.appendChild(r); });
-    t.appendChild(tb); c.appendChild(h("div", { class: "tw", style: "max-height:300px" }, [t]));
-    c.appendChild(h("div", { class: "bar", style: "margin-top:10px" }, [btn("🔑 Cấp lại mã khôi phục Admin", "", function () {
-      if (!need("system.admin")) return;
-      if (!confirm("Cấp mã khôi phục MỚI? Mã cũ sẽ hết hiệu lực.")) return;
-      var code = randomCode(); AUTH.make(code.replace(/-/g, "")).then(function (k) { if (!txn(["baomat"], function () { db.baomat = [{ khoiPhuc: k, taoLuc: new Date().toISOString() }]; audit("Cấp lại mã khôi phục Admin", ""); })) { alert("Chưa cấp mã khôi phục mới: " + lastTxnError); return; } showRecoveryCode(code); });
-    })]));
-    return c;
   }
   /** v2.1.7: khối "Bản chụp SQLite tìm thấy" ở màn khôi phục: liệt kê bản ở thư mục dữ liệu VÀ thư mục SQLite đã chọn; nguồn không truy cập được nêu rõ đường dẫn + nguyên nhân; kiểm từng bản theo yêu cầu (đắt trên ổ chậm); khôi phục theo id. */
   function snapshotCandidatesPanel() {
@@ -7343,20 +7325,21 @@
     ["grp", "Báo cáo khác"], ["rp_pb", "🏢", "Tổng hợp theo phòng ban"], ["baocaoluong", "📈", "Báo cáo lương khác"], ["baocao", "📊", "Báo cáo nhân sự"],
     ["grp", "Báo cáo nghiệp vụ"], ["rp_ns", "👥", "Danh sách nhân sự"], ["rp_th", "🎁", "Bảng kê thưởng / trừ"], ["rp_tu", "💵", "Bảng kê tạm ứng"], ["rp_com", "🍚", "Tổng hợp suất cơm"],
     ["grp", "Danh mục"], ["dm", "📚", "Danh mục"],
-    ["grp", "Cài đặt"], ["appearance", "🏖", "Giao diện"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
+    ["grp", "Cài đặt"], ["appearance", "🏖", "Giao diện"], ["access", "🔑", "Chế độ đăng nhập"], ["caidat", "🛠", "Công thức & phương pháp"], ["backup", "⚙", "Công ty & Sao lưu"], ["huongdan", "📖", "Hướng dẫn & Quy chế"]
   ];
   // Tab nào cần quyền xem nào (kiểm tra cả khi mở bằng trạng thái đã lưu, không chỉ ẩn menu)
   var TAB_PERM = { ocr: "input.edit", ocrlib: "input.view", luong: "payroll.view", bangtinh: "payroll.view", slips: "payroll.view", rp_tonghop: "payroll.view", rp_pb: "payroll.view", rp_tncn: "payroll.view", rp_ctnv: "payroll.view", rp_cttt: "payroll.view", rp_soct: "payroll.view", rp_thanhtoan: "payroll.view", rp_ck: "payroll.view", rp_tm: "payroll.view", kyluong: "payroll.view", baocaoluong: "payroll.view", doichieu: "payroll.view", nhansu: "hr.view", nv: "hr.view", baocao: "report.view", nvns: "hr.view", capphat: "hr.view", caidat: "payroll.view", ktbl: "payroll.view" };
   Object.keys(OPS_SCREENS).forEach(function (k) { TAB_PERM[k] = OPS.TYPES[OPS_SCREENS[k]].perm; });
   function tabAllowed(t) {
     if (t === "home") return true;
+    if (t === "access") return !!(store && store.configureAccess && can("system.admin"));
     if (t === "backup") return can("system.admin") || can("backup.restore");
     if (t === "dm") return can("dm.edit") || can("payroll.view") || can("hr.view");
     if (t === "caidat") return can("dm.edit") || can("payroll.view");
     if (S[t]) return can("input.view");
     return TAB_PERM[t] ? can(TAB_PERM[t]) : true;
   }
-  var TITLES = { appearance: "Giao diện", nvns: "Nghiệp vụ nhân sự", capphat: "Cấp phát sữa phúc lợi và bảo hộ lao động", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_cttt: "Chi tiết thanh toán", rp_soct: "Sổ chứng từ thanh toán", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê Ban dăm xuất hàng", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
+  var TITLES = { access: "Chế độ đăng nhập", appearance: "Giao diện", nvns: "Nghiệp vụ nhân sự", capphat: "Cấp phát sữa phúc lợi và bảo hộ lao động", ktbl: "Kiểm tra bảng lương", caidat: "Cài đặt — Công thức & phương pháp tính lương", ocr: "Đọc ảnh bảng chấm công / chấm cơm (OCR)", ocrlib: "OCR & Chứng từ — Thư viện mẫu", home: "Tổng quan", luong: "Tính lương", bangtinh: "Bảng tính lương", rp_tonghop: "Bảng tổng hợp lương", rp_pb: "Bảng tổng hợp lương theo phòng ban", rp_tncn: "Báo cáo khấu trừ thuế TNCN", rp_ctnv: "Bảng tổng hợp chi tiết lương toàn bộ nhân viên", rp_thanhtoan: "Bảng thanh toán lương", rp_cttt: "Chi tiết thanh toán", rp_soct: "Sổ chứng từ thanh toán", rp_ck: "Bảng kê chuyển khoản", rp_tm: "Bảng thanh toán lương tiền mặt", slips: "Phiếu lương chi tiết", dm: "Danh mục", backup: "Công ty & Sao lưu", nhansu: "Nhân sự", nv: "Hồ sơ nhân viên", baocao: "Báo cáo nhân sự", rp_ns: "Danh sách nhân sự", rp_sl: "Bảng kê phiếu cân sản lượng", rp_bd: "Bảng kê Ban dăm xuất hàng", rp_th: "Bảng kê thưởng / trừ", rp_tu: "Bảng kê tạm ứng lương", rp_com: "Tổng hợp suất cơm", kyluong: "Kỳ lương đã chốt", baocaoluong: "Báo cáo lương", doichieu: "Đối chiếu lương Power Query", huongdan: "Hướng dẫn & Quy chế lương" };
   function updateNav() { document.querySelectorAll("#nav button[data-k]").forEach(function (b) { var k = b.getAttribute("data-k"), n = $(".n", b); if (n && ALL[k]) n.textContent = countOf(k); }); }
   function periodBox() {
     var m = h("select"), y = h("input", { class: "i", type: "number", style: "width:80px", value: st.nam });
@@ -7465,7 +7448,12 @@
   /** V9: quyền do TIẾN TRÌNH CHÍNH quyết định. Giao diện chỉ hỏi lại; nếu main đã thu hồi/hết hạn phiên → đăng xuất. */
   var sessChecked = 0;
   function syncSession() {
-    if (!store || !store.authState || !session) return;
+    if (!store || !store.authState || loadError) return;
+    if (C.accessMode.mode(db) === "direct" && !session) {
+      var local = store.authState();
+      if (local && local.ok && local.user === C.accessMode.LOCAL_USER.tenDangNhap) session = C.accessMode.LOCAL_USER;
+    }
+    if (!session) return;
     var t = Date.now(); if (t - sessChecked < 2000) return; sessChecked = t;
     try { var r = store.authState(); if (r && !r.ok) { session = null; toast("Phiên đăng nhập đã hết hiệu lực hoặc quyền đã bị thu hồi — đăng nhập lại"); } } catch (e) { /* lần vẽ sau thử lại */ }
   }
@@ -7508,7 +7496,7 @@
   // ---------- v2.1.3: đổi tab bằng thanh điều hướng KHÔNG dựng lại cả khung ứng dụng (thanh điều hướng, thanh trên, chân bên) khi chúng không đổi ----------
   // Khung chỉ cập nhật tại chỗ (tô tab đang chọn + tiêu đề) nếu MỌI thứ ảnh hưởng tới khung đều giữ nguyên: người dùng/vai trò/quyền hiển thị tab, kỳ, giao diện,
   // dbRev (số đếm trên menu), nhóm menu thu gọn, và việc có ô "Kỳ lương" hay không. Khác một thứ là dựng lại đủ như trước. Tắt: localStorage "hak_shell_off" = "1".
-  var shellState = null, NO_PERIOD_TABS = ["appearance", "nhansu", "nv", "dm", "caidat", "backup", "kyluong"];
+  var shellState = null, NO_PERIOD_TABS = ["access", "appearance", "nhansu", "nv", "dm", "caidat", "backup", "kyluong"];
   function needPeriodBox() { return NO_PERIOD_TABS.indexOf(st.tab) < 0; }
   function collapsedRaw() { try { return localStorage.getItem(KEY + "_nav_collapsed") || ""; } catch (e) { return "?" + Date.now(); } }
   function shellSig() {
@@ -7572,9 +7560,9 @@
     if (!session) {
       shellState = null;
       // Chưa đăng nhập: không hiện menu, không hiện dữ liệu nào
-      $("#nav").innerHTML = ""; var t0 = $("#top"); t0.innerHTML = ""; t0.appendChild(h("h2", { text: !(db.nguoidung || []).length ? "Thiết lập ban đầu" : "Đăng nhập" }));
+      $("#nav").innerHTML = ""; var t0 = $("#top"); t0.innerHTML = ""; t0.appendChild(h("h2", { text: C.accessMode.mode(db) === "setup" ? "Thiết lập ban đầu" : "Đăng nhập" }));
       var m0 = $("#main"); m0.innerHTML = "";
-      m0.appendChild(!(db.nguoidung || []).length ? setupAdminScreen() : st.authView === "recover" ? recoverAdminScreen() : loginScreen());
+      m0.appendChild(C.accessMode.mode(db) === "setup" ? setupAdminScreen() : st.authView === "recover" ? recoverAdminScreen() : loginScreen());
       sideFoot(""); return;
     }
     if (!readOnly && can("input.edit")) C.inputReview.initialize(db);
@@ -7641,10 +7629,11 @@
     top.appendChild(h("button", { class: "topbtn srch", type: "button", "aria-label": "Tìm kiếm", title: "Tìm nhanh màn hình, nhân viên, báo cáo (Ctrl+K)", on: { click: quickSearch } }, ["🔍 Tìm kiếm", h("kbd", { text: "Ctrl K" })]));
     if (needPeriodBox()) top.appendChild(periodBox());
     if (FILES) top.appendChild(h("button", { class: "topbtn", type: "button", "data-files": "1", title: "Xem / mở các file Excel, báo cáo đã tải", "aria-label": "File đã tải", on: { click: filesDrawer } }, ["📂", h("span", { class: "lbl", text: " File đã tải" })])); // 005B-UI001: chữ ẩn khi hẹp, giữ biểu tượng
-    var roleName = (PERM.ROLES[session.vaiTro] || {}).ten || "vai trò không hợp lệ — liên hệ Admin";
+    var direct = C.accessMode.mode(db) === "direct";
+    var roleName = direct ? "Một người sử dụng" : (PERM.ROLES[session.vaiTro] || {}).ten || "vai trò không hợp lệ — liên hệ Admin";
     top.appendChild(h("span", { class: "who", text: roleName, title: session.hoTen + " · " + roleName, "data-user": session.tenDangNhap }));
-    top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi mật khẩu của " + session.hoTen, "aria-label": "Đổi mật khẩu", on: { click: function () { changePassword(false); } } }, ["🔑"]));
-    top.appendChild(h("button", { class: "topbtn", type: "button", "data-logout": "1", title: "Đăng xuất", "aria-label": "Đăng xuất", on: { click: function () { logout(); } } }, ["⏻", h("span", { class: "lbl", text: " Đăng xuất" })]));
+    if (!direct) top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi mật khẩu của " + session.hoTen, "aria-label": "Đổi mật khẩu", on: { click: function () { changePassword(false); } } }, ["🔑"]));
+    if (!direct) top.appendChild(h("button", { class: "topbtn", type: "button", "data-logout": "1", title: "Đăng xuất", "aria-label": "Đăng xuất", on: { click: function () { logout(); } } }, ["⏻", h("span", { class: "lbl", text: " Đăng xuất" })]));
     top.appendChild(h("button", { class: "topbtn icon", type: "button", title: "Đổi giao diện sáng / tối", "aria-label": "Đổi giao diện sáng / tối", "data-appearance-toggle": "icon", text: modeToggleText(true), on: { click: toggleTheme } }));
     shellState = { sig: shellSig(), period: needPeriodBox() };
     } // hết nhánh dựng lại cả khung
@@ -7662,6 +7651,7 @@
     else if (st.tab === "backup") m.appendChild(tabSaoLuu());
     else if (st.tab === "dm") m.appendChild(tabDanhMuc());
     else if (st.tab === "caidat") m.appendChild(tabCaiDat());
+    else if (st.tab === "access") m.appendChild(tabAccessMode());
     else if (st.tab === "appearance") m.appendChild(tabGiaoDien());
     else if (st.tab === "ktbl") m.appendChild(tabKiemTra());
     else if (st.tab === "nvns") m.appendChild(tabNghiepVuNS());

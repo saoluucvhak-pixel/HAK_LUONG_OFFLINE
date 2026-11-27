@@ -6,6 +6,12 @@
     var o;
     try { o = JSON.parse(text); } catch (e) { alert("File không phải dữ liệu hợp lệ (JSON lỗi)."); return opts.onCancel && opts.onCancel(); }
     if (!o || typeof o !== "object" || Array.isArray(o)) { alert("File không đúng cấu trúc dữ liệu của app."); return opts.onCancel && opts.onCancel(); }
+    if (!loadError && (db.accessSettings || o.accessSettings) && C.accessMode.mode(db) !== "setup") {
+      if (db.accessSettings) o.accessSettings = db.accessSettings;
+      else delete o.accessSettings;
+      o.nguoidung = db.nguoidung;
+      o.baomat = db.baomat;
+    }
     var known = Object.keys(ALL).concat(["kyluong", "nhansu", "congty"]).filter(function (k) { return Array.isArray(o[k]); });
     if (!known.length) { alert("File không chứa bảng dữ liệu nào của app — không khôi phục."); return opts.onCancel && opts.onCancel(); }
     var rep = SCH.validate(o, { tables: Object.keys(ALL), hrTables: Object.keys(HRT) });
