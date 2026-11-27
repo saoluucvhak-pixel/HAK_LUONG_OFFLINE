@@ -176,7 +176,16 @@ async function saveViaIpc(w, mutate) { // lưu qua IPC thật (kiểm quyền + 
       const rejected = await locked.allTextContents();
       ok("File tổng báo đúng sheet và dòng Excel 3 ở cả hai sheet", rejected.length === 2 &&
         rejected.every((row) => /(?:Ứng tháng mới|Suất cơm)3/.test(row)) && (await load()) === initial, rejected.join(" | "));
-      const save = () => w.getByRole("button", { name: /Ghi 4 dòng/ }).click();
+      const write = w.getByRole("button", { name: /Ghi 4 dòng/ });
+      const skipAck = w.locator("[data-import-skip-ack]");
+      ok("File tổng yêu cầu xác nhận bỏ qua sheet trước khi ghi",
+        await write.isDisabled() && !(await skipAck.isChecked()) && (await load()) === initial);
+      const periodRows = await w.locator("[data-import-periods] tbody tr").allTextContents();
+      ok("File tổng đối chiếu riêng ba kỳ của mỗi bảng",
+        periodRows.length === 6 && ["2026-08", "2026-11", "2026-12"].every((ky) =>
+          periodRows.filter((row) => row.startsWith(ky)).length === 2) &&
+        periodRows.some((row) => row.startsWith("2026-08Tạm ứng") && /không ghi 500\.000/.test(row)), periodRows.join(" | "));
+      const save = async () => { await skipAck.check(); await write.click(); };
       // Lỗi SQLite sau khi đã ghi bảng đầu, khi chèn dòng Suất cơm của bảng thứ hai.
       const dbPath = path.join(D9, "data.sqlite");
       const fault = new DatabaseSync(dbPath);

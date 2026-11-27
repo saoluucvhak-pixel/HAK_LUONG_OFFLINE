@@ -52,7 +52,7 @@ const planOf = (db, t, rows, mode) => IMP.plan(db, t, COLS[t], rows, { lockedPer
 const E = require("../../engine.js");
 function helpers() {
   const i = APP.indexOf("// IMPORT-REPORT-BEGIN"), j = APP.indexOf("// IMPORT-REPORT-END"); assert.ok(i > 0 && j > i, "thiếu dấu mốc IMPORT-REPORT trong app.js");
-  const c = {}; vm.createContext(c); vm.runInContext(APP.slice(i, j) + "\nthis.h = { hint: importFixHint, totals: importTotals, sheets: importErrorSheets, SUM: IMPORT_SUM_COLS, money: typeof importMoneyEq === 'function' ? importMoneyEq : null };", c); return c.h;
+  const c = {}; vm.createContext(c); vm.runInContext(APP.slice(i, j) + "\nthis.h = { hint: importFixHint, totals: importTotals, periods: importPeriodTotals, sheets: importErrorSheets, SUM: IMPORT_SUM_COLS, money: typeof importMoneyEq === 'function' ? importMoneyEq : null };", c); return c.h;
 }
 const H = helpers();
 const MIXED = (t) => { const bad = Object.assign(raw(t, OPEN, "A2"), { [t === "chamcong" ? "Kỳ" : t === "sanluong" || t === "bandam" ? "Ngày cân" : t === "tiencom" ? "Ngày" : "Ngày hạch toán"]: "sai-ngày" }), ref = Object.assign(raw(t, OPEN, "A3"), { "Mã NV": "KHONGCO" }); return [raw(t, OPEN, "A1", 2), bad, ref, Object.assign({}, raw(t, OPEN, "A1", 2))]; };
@@ -109,4 +109,39 @@ test("U-IMPRPT-gop đối chiếu tiền: có dòng 'gộp' mang tiền > 0 thì
   assert.equal(H.money(t0, H.SUM.ungluong, fmt), "Tạm ứng: file 650000 = ghi 500000 + gộp 0 + không ghi 150000");
   // bảng không có cột tiền (chấm công): không có chuỗi
   assert.equal(H.money(H.totals([{ table: "chamcong", items: [{ action: "add", row: {} }] }], E.num)[0], H.SUM.chamcong || [], fmt), "");
+});
+
+test("Đối chiếu theo kỳ giữ số công từng dòng nguồn khi gộp và tách các dòng không ghi", () => {
+  const db = newDb(), V = require("../../core/validate.js");
+  db.kyluong = [{ ky: "2026-08" }];
+  const attendance = planOf(db, "chamcong", [
+    { "Kỳ": OPEN, "Mã NV": "NVA1", "01": "1QC" },
+    { "Kỳ": OPEN, "Mã NV": "NVA1", "02": "0,5" },
+    { "Kỳ": "2026-08", "Mã NV": "NVA1", "01": "2" },
+    { "Kỳ": "sai", "Mã NV": "NVA1", "01": "0,25" },
+    { "Kỳ": OPEN, "Mã NV": "NVA2", "01": "1" },
+    { "Kỳ": OPEN, "Mã NV": "NVA2", "02": "1" },
+    { "Kỳ": OPEN, "Mã NV": "NVA2", "01": "2" }
+  ]);
+  attendance.sheet = "Công";
+  const advance = planOf(db, "ungluong", [
+    raw("ungluong", "2026-08", "A1", 2),
+    raw("ungluong", OPEN, "A1", 3),
+    Object.assign(raw("ungluong", OPEN, "A2"), { "Tạm ứng": "150k" })
+  ]);
+  const periods = H.periods([attendance, advance], V, E.num);
+  const [unknown, locked, open, lockedMoney, openMoney] = periods;
+  assert.equal(unknown.period, "");
+  assert.equal(unknown.khong.sums["Số công"], 0.25);
+  assert.equal(locked.khong.sums["Số công"], 2);
+  assert.equal(open.sheet, "Công");
+  assert.equal(open.file.rows, 5);
+  assert.equal(open.file.sums["Số công"], 5.5);
+  assert.equal(open.ghi.sums["Số công"], 1);
+  assert.equal(open.gop.sums["Số công"], 0.5);
+  assert.equal(open.khong.sums["Số công"], 4);
+  assert.equal(lockedMoney.khong.sums["Tạm ứng"], 1000000);
+  assert.equal(openMoney.ghi.sums["Tạm ứng"], 1500000);
+  assert.equal(openMoney.khong.rows, 1);
+  assert.equal(openMoney.khong.sums["Tạm ứng"], 0);
 });
