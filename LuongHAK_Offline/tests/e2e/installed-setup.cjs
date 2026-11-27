@@ -166,6 +166,17 @@ async function verifyInstalledData(exe, dir) {
   let s = await launchRetry(exeA, d1.D); await login(s.w);
   const ver = await s.app.evaluate(({ app }) => app.getVersion());
   ok("Bản đã cài đúng phiên bản của bản ứng viên", ver === VERSION, ver + " ≠ " + VERSION);
+  const appearance = s.w.locator("#top [data-appearance-skin]");
+  await appearance.selectOption("glass-dem");
+  const packagedAppearance = await s.w.evaluate(async () => {
+    const image = document.createElement("img");
+    image.src = "ui/images/glass-forest.webp";
+    await image.decode();
+    return document.documentElement.dataset.theme === "dark" && image.naturalWidth >= 1200 &&
+      window.getComputedStyle(document.body).backgroundImage.includes("glass-forest.webp");
+  });
+  ok("Bộ cài: Kính Đêm bật chế độ tối và tải ảnh phong cảnh từ gói cài ngoại tuyến", packagedAppearance);
+  await appearance.selectOption("glass-suong");
   ok("Nâng cấp JSON→SQLite trong bản đã cài: có data.sqlite, schema v2, đủ nhân viên", fs.existsSync(path.join(d1.D, "data.sqlite")) && userVersion(d1.D) === 2 && sqliteNv(d1.D).length === d1.n);
   // Lưu bền qua thao tác giao diện THẬT (Công ty & Sao lưu → Hồ sơ công ty → Lưu): SQLite phải thấy bản ghi NGAY (chờ theo trạng thái, tối đa 8 s) — đường ghi bền của bản đã cài.
   const uiSave = async (addr) => {

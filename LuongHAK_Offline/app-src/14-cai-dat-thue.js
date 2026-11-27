@@ -161,3 +161,18 @@
     return w;
   }
 
+
+  function tabGiaoDien() {
+    var mode = h("select", { "data-appearance-mode": "1" }, [
+      h("option", { value: "light", text: "Sáng" }), h("option", { value: "dark", text: "Tối" })
+    ]);
+    mode.value = curTheme();
+    mode.addEventListener("change", function () { setTheme(mode.value); });
+    return h("section", { class: "card", "data-appearance-settings": "1" }, [
+      h("h3", { text: "Giao diện" }),
+      h("div", { class: "fgrid" }, [
+        h("label", { class: "fld" }, [h("span", { text: "Phong cách giao diện" }), appearanceSelect()]),
+        h("label", { class: "fld" }, [h("span", { text: "Chế độ sáng / tối" }), mode])
+      ])
+    ]);
+  }

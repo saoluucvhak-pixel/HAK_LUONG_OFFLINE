@@ -1,0 +1,180 @@
+/* Các phong cách kính dùng cùng token với giao diện hiện tại. Màu nền đặc là lớp dự phòng. */
+[data-skin^="glass-"] {
+  --brand:#175c9c; --brand2:#256fad; --brandH:#114a80; --brandA:#0c3d69; --onBrand:#fff;
+  --brandSoft:#dfedf9; --bg:#eaf3fa; --card:#fbfdff; --field:#fff;
+  --ink:#112d42; --mut:#425a6e; --line:#bfcedd; --line2:#d8e3ec; --ctl:#7892a9;
+  --th:#dceaf6; --hover:#ecf4fb; --editBg:#edf5fc; --focus:rgba(23,92,156,.26);
+  --sb:#e1eef9; --sbText:#17344c; --sbMut:#31485e; --sbLine:#b9cddd;
+  --red:#a7351a; --okBg:#e2f2eb; --okFg:#205947; --infoBg:#e5f0fa; --infoBd:#adc6de; --infoFg:#203e5f;
+  --deep:#102e4c; --champ:var(--brand); --champL:var(--brand); --gold:var(--brand);
+  --hero:linear-gradient(125deg,#113450,#175c9c);
+  --glass-primary:#175c9c; --glass-primary-hover:#114a80; --glass-on-primary:#fff;
+  --glass-top:#eef6fc; --glass-list:#e8f2fa; --glass-fog:rgba(234,243,250,.94); --glass-edge:rgba(177,210,235,.18);
+}
+[data-skin="glass-luc"] {
+  --brand:#20653e; --brand2:#367b53; --brandH:#164e30; --brandA:#124128; --brandSoft:#dcf0e3;
+  --bg:#eaf4ee; --card:#fbfefa; --field:#fff; --ink:#132e2a; --mut:#415b50;
+  --line:#bcd2c4; --line2:#d5e3da; --ctl:#779887; --th:#dfefe5; --hover:#ebf6ef;
+  --editBg:#edf7ef; --focus:rgba(32,101,62,.25);
+  --sb:#dfefe5; --sbText:#17382d; --sbMut:#334c40; --sbLine:#b8d1c2;
+  --deep:#153b2a; --hero:linear-gradient(125deg,#173b33,#20653e);
+  --glass-primary:#20653e; --glass-primary-hover:#164e30;
+  --glass-top:#edf7f0; --glass-list:#e5f3e9; --glass-fog:rgba(234,244,238,.94); --glass-edge:rgba(143,204,167,.20);
+}
+[data-skin="glass-dem"] {
+  --brand:#156779; --brand2:#257889; --brandH:#0f5261; --brandA:#0c4651; --brandSoft:#daf0f3;
+  --bg:#e8f1f4; --card:#f9fdff; --ink:#102f41; --th:#d9e9f0;
+  --sb:#dcecf1; --sbText:#143549; --sbMut:#304a5d; --sbLine:#aec7d3;
+  --deep:#0d1d2c; --hero:linear-gradient(125deg,#0d1d2c,#18556b);
+  --glass-primary:#59dcea; --glass-primary-hover:#84e8f2; --glass-on-primary:#0d1d2c;
+  --glass-top:#eaf4f8; --glass-list:#e1eef4; --glass-fog:rgba(232,241,244,.94); --glass-edge:rgba(142,190,205,.24);
+}
+[data-skin^="glass-"][data-theme="dark"] {
+  --brand:#59dcea; --brand2:#81e7f0; --brandH:#8febf4; --brandA:#aef2f6; --onBrand:#0d1d2c;
+  --brandSoft:#203c49; --bg:#0d1d2c; --card:#142737; --field:#102231;
+  --ink:#edf7ff; --mut:#a8c1d1; --line:#385569; --line2:#2c4558; --ctl:#638599;
+  --th:#213b4e; --hover:#1e3547; --editBg:#243e4f; --focus:rgba(89,220,234,.34);
+  --sb:#122838; --sbText:#e2f0fa; --sbMut:#c5deeb; --sbLine:#365568;
+  --red:#ff9f87; --okBg:#1c3b39; --okFg:#a4e9d7; --infoBg:#203852; --infoBd:#526e89; --infoFg:#d3e7fb;
+  --c1:#23474e; --c1f:#b0eff2; --cH:#26394d; --cHf:var(--ink); --we:#203547;
+  --deep:#0d1d2c; --hero:linear-gradient(125deg,#122637,#1a4b5d);
+  --glass-top:#172e41; --glass-list:#193244; --glass-fog:rgba(13,29,44,.94); --glass-edge:rgba(10,35,61,.57);
+}
+[data-skin="glass-suong"][data-theme="dark"] {
+  --brand:#a0d2ff; --brand2:#afdafe; --brandH:#b7dfff; --brandA:#c9e7ff; --brandSoft:#253e57;
+  --sb:#172d45; --glass-top:#1a3149; --glass-list:#1d3650; --sbMut:#c5ddeb; --glass-edge:rgba(16,45,79,.56);
+}
+[data-skin="glass-luc"][data-theme="dark"] {
+  --brand:#9be0b3; --brand2:#b0eac5; --brandH:#b4edc8; --brandA:#c3f1d2; --brandSoft:#254438;
+  --bg:#10231f; --card:#172e2b; --field:#122724; --ink:#edf9f3; --mut:#aec8bb;
+  --line:#3d6055; --line2:#2e4d43; --ctl:#6b9282; --th:#244238; --hover:#203a33; --editBg:#29463b;
+  --sb:#152e29; --sbText:#e3f3eb; --sbMut:#cde7da; --sbLine:#3c6052;
+  --focus:rgba(155,224,179,.32); --hero:linear-gradient(125deg,#17372c,#285d42);
+  --glass-top:#1a372e; --glass-list:#203e34; --glass-fog:rgba(16,35,31,.94); --glass-edge:rgba(13,53,39,.59);
+}
+
+@media screen {
+  [data-skin^="glass-"] {
+    accent-color:var(--brand);
+  }
+  [data-skin^="glass-"] body {
+    background-color:var(--bg);
+    background-image:radial-gradient(ellipse at 54% 43%,var(--glass-fog) 18%,var(--glass-edge) 92%),
+      url("images/glass-forest.webp");
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+    background-attachment:fixed;
+  }
+  [data-skin^="glass-"] #side {
+    --glass-surface:var(--sb);
+    border-inline-end:1px solid var(--sbLine);
+  }
+  [data-skin^="glass-"] #top { --glass-surface:var(--glass-top); }
+  [data-skin^="glass-"] .hak-catalog-side { --glass-surface:var(--glass-list); }
+  [data-skin^="glass-"] :is(#side,#top,.hak-catalog-side) {
+    background:var(--glass-surface);
+    backdrop-filter:none;
+  }
+  @supports ((backdrop-filter:blur(12px)) or (-webkit-backdrop-filter:blur(12px))) {
+    [data-skin^="glass-"] :is(#side,#top,.hak-catalog-side) {
+      background:color-mix(in srgb,var(--glass-surface) 78%,transparent);
+      -webkit-backdrop-filter:blur(12px);
+      backdrop-filter:blur(12px);
+    }
+  }
+  [data-skin^="glass-"] #modal { backdrop-filter:none; }
+  [data-skin^="glass-"] :is(.brand b,.brand small,.sidefoot .ver) { color:var(--sbText); opacity:1; }
+  [data-skin^="glass-"] #side #nav :is(.hak-nav-group-count,.n) {
+    color:var(--sbText);
+    background:var(--brandSoft);
+    opacity:1;
+  }
+  [data-skin^="glass-"] #nav { scrollbar-color:var(--sbMut) var(--sb); }
+  /* Đổi nền và chữ cùng lúc khi chuyển chế độ để giữ tương phản trong lúc đổi màu. */
+  [data-skin^="glass-"] :is(#nav button,button.b) { transition:none; }
+  [data-skin^="glass-"] #nav button:hover { background:var(--hover); color:var(--sbText); }
+  [data-skin^="glass-"] #nav button.on { background:var(--brandSoft); color:var(--brand); box-shadow:inset 3px 0 var(--brand); }
+  [data-skin^="glass-"] #nav button.on .ic { color:inherit; }
+  [data-skin^="glass-"] #nav button:focus-visible { outline:2px solid var(--brand); outline-offset:-2px; }
+  [data-skin^="glass-"] :is(.sidefoot .themebtn,#top .hak-skin-select,.hak-skin-select option,.period select,.period input.i,.period select option) {
+    background:var(--field);
+    color:var(--ink);
+    border-color:var(--ctl);
+  }
+  [data-skin^="glass-"] .sidefoot button.themebtn:hover { background:var(--hover); }
+  [data-skin^="glass-"] .period { background:var(--brandSoft); color:var(--ink); }
+  [data-skin^="glass-"] :is(button.b.ghost,.hak-period-overview .hbtns button.ghost,.fpop .btn.ghost) {
+    background:var(--field);
+    color:var(--ink);
+    border-color:var(--ctl);
+  }
+  [data-skin^="glass-"] button.b.ghost.red { color:var(--red); }
+  [data-skin^="glass-"] :is(button.b.ghost,.hak-period-overview .hbtns button.ghost,.fpop .btn.ghost):hover {
+    background:var(--hover);
+    border-color:var(--brand);
+  }
+  [data-skin^="glass-"] :is(button.pri,.fpop .btn.pri,.hak-period-overview .hbtns button.b:not(.ghost)) {
+    background:var(--glass-primary);
+    color:var(--glass-on-primary);
+    border-color:var(--brand);
+    box-shadow:none;
+  }
+  [data-skin^="glass-"] :is(button.pri,.fpop .btn.pri,.hak-period-overview .hbtns button.b:not(.ghost)):hover {
+    background:var(--glass-primary-hover);
+    border-color:var(--brand);
+  }
+  [data-skin^="glass-"] button.b:disabled,
+  [data-skin^="glass-"] button.b:disabled:hover {
+    background:var(--th);
+    color:var(--mut);
+    border-color:var(--line);
+    opacity:1;
+  }
+  [data-skin^="glass-"] .hak-metric-icon { color:var(--onBrand); }
+  [data-skin^="glass-"] :is(input,textarea)::placeholder { color:var(--mut); opacity:1; }
+  [data-skin^="glass-"] .fpop .hint { color:var(--mut); }
+  [data-skin^="glass-"] :is(.fbtn.has,.fchip) {
+    background:var(--brandSoft);
+    color:var(--brand);
+    border-color:var(--ctl);
+  }
+  [data-skin^="glass-"] .fchip:hover { background:var(--hover); }
+  [data-skin^="glass-"] :is(.cnt,.subtabs button.bad .n) {
+    background:var(--redBg);
+    color:var(--red);
+  }
+  [data-skin^="glass-"] :is(.fpop,.fpop-head,.fpop-foot,.ot-chip.num) {
+    background:var(--card);
+    color:var(--ink);
+    border-color:var(--line);
+  }
+  [data-skin^="glass-"] :is(.fpop .i,input.editing,td input:not(.cv),.fld textarea) {
+    background:var(--field);
+    color:var(--ink);
+    border-color:var(--ctl);
+  }
+  [data-skin^="glass-"] td input:not(.cv):focus { background:var(--editBg); }
+  [data-skin^="glass-"] tr.catedit td { background:var(--editBg); }
+  [data-skin^="glass-"] :is(table.kt td.kt-error,.tag.bad,input.dateinp.invalid) { color:var(--red); }
+  [data-skin^="glass-"] :is(.tag.bad,input.dateinp.invalid) { background:var(--redBg); }
+  [data-skin^="glass-"] table.kt td.kt-warning { color:var(--warn); }
+  [data-skin^="glass-"] table.kt td.kt-info { color:var(--mut); }
+  [data-skin^="glass-"] ol.steps7 li { color:var(--mut); }
+  [data-skin^="glass-"] ol.steps7 li:is(.done,.now) { color:var(--okFg); }
+  [data-skin^="glass-"] ol.steps7 li.block { color:var(--red); }
+  [data-skin^="glass-"] ol.steps7 li.block .n { background:var(--redBg); color:var(--red); }
+}
+@media screen and (max-width:999px) {
+  [data-skin^="glass-"] #side #nav button > span {
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+}
+@media screen and (max-width:900px) {
+  [data-skin^="glass-"] #side { max-height:46vh; }
+  [data-skin^="glass-"] #nav { min-height:0; overflow-y:auto; }
+  [data-skin^="glass-"] .brand { flex-shrink:0; }
+  [data-skin^="glass-"] .sidefoot { flex-direction:row; align-items:center; flex-wrap:wrap; padding:6px 12px; gap:6px; }
+  [data-skin^="glass-"] #sidefoot .hak-skin-select { width:auto; max-width:100%; }
+}

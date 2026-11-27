@@ -29,6 +29,124 @@ async function fits(selector, name) {
   const detail = await w.locator(selector).evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight }; });
   check(name, detail.left >= -1 && detail.right <= detail.width + 1 && detail.top >= -1 && detail.bottom <= detail.height + 1, detail);
 }
+async function checkGlassAppearance(business) {
+  const before = business();
+  const quick = w.locator('#top [data-appearance-skin]');
+  const settings = w.locator('[data-appearance-settings]');
+  const skinSetting = settings.locator('[data-appearance-skin]');
+  const modeSetting = settings.locator('[data-appearance-mode]');
+  const expected = { 'glass-suong': 'rgb(23, 92, 156)', 'glass-luc': 'rgb(32, 101, 62)', 'glass-dem': 'rgb(89, 220, 234)' };
+  await nav('appearance');
+  await quick.selectOption('glass-dem');
+  check('quick selector syncs Kính Đêm and enters dark mode', await skinSetting.inputValue() === 'glass-dem' && await modeSetting.inputValue() === 'dark');
+  await skinSetting.selectOption('glass-luc');
+  check('settings selector syncs Kính Lục and enters light mode', await quick.inputValue() === 'glass-luc' && await modeSetting.inputValue() === 'light');
+  check('ảnh phong cảnh được tải từ gói giao diện ngoại tuyến', await w.evaluate(async () => {
+    const image = document.createElement('img');
+    image.src = 'ui/images/glass-forest.webp';
+    await image.decode();
+    return image.naturalWidth >= 1200 && window.getComputedStyle(document.body).backgroundImage.includes('glass-forest.webp');
+  }));
+
+  const xlsx = require('../../xlsx.full.min.js');
+  const workbook = xlsx.utils.book_new(), file = path.join(DATA, 'theme-warning.xlsx');
+  xlsx.utils.book_append_sheet(workbook, xlsx.utils.aoa_to_sheet([['Ghi chú bổ sung'], ['Kiểm thử giao diện']]), 'Ghi chú');
+  fs.writeFileSync(file, xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
+
+  async function contrastOf(selectors) {
+    return w.evaluate(targets => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const pen = canvas.getContext('2d', { willReadFrequently: true });
+      function rgba(css) {
+        pen.clearRect(0, 0, 1, 1);
+        pen.fillStyle = css;
+        pen.fillRect(0, 0, 1, 1);
+        return [...pen.getImageData(0, 0, 1, 1).data];
+      }
+      const lum = rgb => rgb.slice(0, 3).reduce((n, value, i) => {
+        const x = value / 255;
+        return n + (x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][i];
+      }, 0);
+      return targets.map(selector => {
+        const node = document.querySelector(selector);
+        if (!node) return { selector, ratio: 0 };
+        const layers = [], fg = lum(rgba(window.getComputedStyle(node).color));
+        for (let el = node; el && el !== document.body; el = el.parentElement) {
+          const bg = rgba(window.getComputedStyle(el).backgroundColor);
+          layers.unshift(bg);
+          if (bg[3] === 255) break;
+        }
+        // Kiểm tra cả nền dưới kính đen và trắng để chặn trường hợp xấu nhất khi có blur.
+        const ratios = [0, 255].map(base => {
+          const bg = lum(layers.reduce((under, over) => under.map((x, i) => (over[i] * over[3] + x * (255 - over[3])) / 255), [base, base, base]));
+          return (Math.max(bg, fg) + .05) / (Math.min(bg, fg) + .05);
+        });
+        return { selector, ratio: Math.min(...ratios), color: window.getComputedStyle(node).color, layers };
+      });
+    }, selectors);
+  }
+  const opaque = selector => w.locator(selector).first().evaluate(el => /^rgb\(/.test(window.getComputedStyle(el).backgroundColor));
+  for (const [skin, primary] of Object.entries(expected)) {
+    for (const mode of ['light', 'dark']) {
+      await nav('appearance');
+      await skinSetting.selectOption(skin);
+      await modeSetting.selectOption(mode);
+      const settingsContrast = await contrastOf(['.brand b', '#nav button.on', '#nav .hak-nav-group', '#sidefoot .ver', '#top .hak-skin-select', '[data-appearance-settings] label span', '[data-appearance-mode]']);
+      await nav('dm'); await w.locator('#main button', { hasText: 'Tăng ca' }).first().click();
+      const tableContrast = await contrastOf(['.ot-list th', '.ot-list [data-ot-row] td', '[data-ot-q]', '.hak-record-edit', '.hak-child-head small']);
+      check(skin + ' ' + mode + ': danh sách, bảng và nút chính có nền đặc, đúng màu',
+        await opaque('.ot-list th') && await opaque('[data-ot-q]') &&
+        await w.locator('.hak-record-edit').evaluate((el, color) => window.getComputedStyle(el).backgroundColor === color, primary));
+      await shot(skin + '-' + mode);
+      await w.locator('.hak-record-edit').click();
+      const formContrast = await contrastOf(['#modal .dlg h3', '#modal .fld', '#modal .fld input', '#modal footer button.pri']);
+      check(skin + ' ' + mode + ': hộp thoại và ô nhập có nền đặc',
+        await opaque('#modal .dlg') && await opaque('#modal .fld input') && await w.locator('#modal').evaluate(el => window.getComputedStyle(el).backdropFilter === 'none'));
+      await w.keyboard.press('Escape');
+      await nav('home');
+      const [chooser] = await Promise.all([w.waitForEvent('filechooser'), w.getByRole('button', { name: /Nhập từ file Excel tổng/ }).click()]);
+      await chooser.setFiles(file);
+      await w.locator('#modal .warn').first().waitFor();
+      const warningContrast = await contrastOf(['#modal .warn']);
+      const all = [...settingsContrast, ...tableContrast, ...formContrast, ...warningContrast];
+      check(skin + ' ' + mode + ': chữ thông thường đạt AA 4,5:1',
+        all.every(({ ratio }) => ratio >= 4.5) && await opaque('#modal .warn'), all);
+      await w.getByRole('button', { name: 'Hủy', exact: true }).click();
+    }
+  }
+
+  await nav('appearance');
+  await skinSetting.selectOption('glass-dem');
+  check('appearance changes do not mutate business data', business() === before);
+  await app.close();
+  await launch();
+  await nav('appearance');
+  check('Kính Đêm và chế độ tối được nhớ sau khi mở lại',
+    await w.locator('#top [data-appearance-skin]').inputValue() === 'glass-dem' &&
+    await w.locator('[data-appearance-settings] [data-appearance-skin]').inputValue() === 'glass-dem' &&
+    await w.locator('[data-appearance-mode]').inputValue() === 'dark' &&
+    await w.evaluate(() => window.getComputedStyle(document.body).backgroundColor === 'rgb(13, 29, 44)'));
+
+  await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win.unmaximize();
+    win.setContentSize(1024, 768);
+    win.webContents.setZoomFactor(1.5);
+  });
+  await w.waitForFunction(() => window.devicePixelRatio >= 1.5 && innerWidth < 901);
+  await nav('home');
+  await nav('appearance');
+  check('thanh điều hướng và bộ chọn vẫn dùng được ở 1024×768, zoom 150%',
+    await w.locator('[data-appearance-settings]').isVisible() && await w.locator('#top [data-appearance-skin]').isVisible() &&
+    await w.evaluate(() => {
+      const nav = document.querySelector('#nav'), side = document.querySelector('#side');
+      return nav.scrollHeight > nav.clientHeight && nav.clientHeight > 0 &&
+        side.getBoundingClientRect().right <= innerWidth + 1 &&
+        document.querySelector('#top').scrollWidth <= innerWidth + 1;
+    }));
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   try {
@@ -60,7 +178,7 @@ async function fits(selector, name) {
         check(width + ': sidebar shows current stable version', (await w.locator('#sidefoot .ver').innerText()).includes(require('../../package.json').version));
       }
       check(width + ': page has no horizontal overflow', await w.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-      check(width + ': approved luxe default retained', await w.evaluate(() => document.documentElement.dataset.skin === 'luxe'));
+      check(width + ': default palette for a new profile', await w.evaluate(expected => document.documentElement.dataset.skin === expected, baseline ? 'luxe' : 'glass-suong'));
       if (!baseline) {
         check(width + ': dashboard shows 4 metrics and workflow', await w.locator('.hak-dashboard-metric').count() === 4 && await w.locator('.hak-workflow progress').count() === 1);
         // Active group must be collapsible, and its explicit open state must agree with its rows.
@@ -120,10 +238,11 @@ async function fits(selector, name) {
           check(width + ': ' + skin + ' dark mode', await w.evaluate(() => document.documentElement.dataset.theme === 'dark'));
           await w.locator('#sidefoot .themebtn').first().click();
         }
-        await w.selectOption('[aria-label="Chọn phong cách giao diện"]', 'luxe');
+        await w.selectOption('[aria-label="Chọn phong cách giao diện"]', 'glass-suong');
       }
     }
     check('presentation does not mutate business data', business() === before);
+    if (!baseline) await checkGlassAppearance(business);
     check('no renderer exceptions', errors.length === 0, errors);
   } finally {
     if (app) await app.close().catch(() => {});
