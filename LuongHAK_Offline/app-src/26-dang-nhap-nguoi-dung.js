@@ -54,7 +54,7 @@
     w.appendChild(c); return w;
   }
   function submitAccess(request) {
-    if (dirty && !saveNow()) throw new Error(lastSaveError);
+    if ((dirty || C.accessMode.mode(db) === "setup") && !saveNow()) throw new Error(lastSaveError);
     var result = store.configureAccess(request, baseSig);
     if (!result || !result.ok) throw new Error((result && result.error) || "Không lưu được chế độ đăng nhập");
     if (request.mode === "direct") { window.location.reload(); return; }

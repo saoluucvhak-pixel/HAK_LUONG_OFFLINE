@@ -626,7 +626,8 @@ async function launch(dataDir, opt) {
       ok("V10.1: chứng từ (cha) mở cửa sổ chi tiết với các dòng nhân viên (con) (" + nav + ")", vd.includes(pre) && /Các dòng nhân viên/.test(vd) && /NV001/.test(vd), vd.replace(/\s+/g, " ").slice(0, 160));
       await w.click("#modal button:has-text('Đóng')");
       dialogs = []; await w.locator('[data-pay-ledger] button:has-text("Duyệt")').click(); await w.waitForTimeout(300);
-      ok("V9.4: người lập không tự duyệt chứng từ (tách nhiệm vụ)", dialogs.some((d) => /khác người lập/.test(d)), dialogs.join(" | "));
+      const cells = await w.locator('[data-pay-ledger] [data-so="' + pre + '"] td').allTextContents();
+      ok("V9.4: người dùng một tài khoản có thể duyệt chứng từ mình lập", cells[4] === "Đã duyệt" && !!cells[5] && cells[5] === cells[6], cells.slice(4, 7).join(" | "));
       await w.click("#nav button[data-k=rp_thanhtoan]");
       dialogs = []; await w.click('button:has-text("' + btnTxt + '")'); await w.waitForTimeout(300);
       ok("V9.4: không lập trùng chứng từ cho người đã có chứng từ chờ chi", dialogs.some((d) => /Không có khoản nào cần lập/.test(d)), dialogs.join(" | ").slice(0, 200));

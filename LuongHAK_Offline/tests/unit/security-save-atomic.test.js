@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'../../app.js'),'utf8');
-function env(ok){const events=[];const c={db:{nguoidung:[{id:'admin',tenDangNhap:'admin',hash:'old',vaiTro:'admin'}],baomat:[{khoiPhuc:{hash:'old-code'}}],auditlog:[]},dirty:false,dbRev:0,st:{},lastTxnError:'',lastSaveError:'DISK_FAILURE',saveTimer:null,clearTimeout:()=>{},setTimeout:()=>{events.push('retry');return 1;},PERM:{findUser:(d,n)=>d.nguoidung.find(x=>x.tenDangNhap===n)},toast:m=>events.push(m),alert:m=>events.push(m),close:()=>events.push('close'),render:()=>{},saveNow:()=>ok,audit:()=>c.db.auditlog.push({action:'test'}),HRM:{uid:()=> 'new'},GRD:{changedFields:()=>[]}};c.session=c.db.nguoidung[0];vm.createContext(c);vm.runInContext(src.slice(src.indexOf('  function txn('),src.indexOf('  function save()')),c);return{c,events};}
+function env(ok){const events=[];const c={C:{accessMode:require('../../core/access-mode')},db:{nguoidung:[{id:'admin',tenDangNhap:'admin',hash:'old',vaiTro:'admin'}],baomat:[{khoiPhuc:{hash:'old-code'}}],auditlog:[]},dirty:false,dbRev:0,st:{},lastTxnError:'',lastSaveError:'DISK_FAILURE',saveTimer:null,clearTimeout:()=>{},setTimeout:()=>{events.push('retry');return 1;},PERM:{findUser:(d,n)=>d.nguoidung.find(x=>x.tenDangNhap===n)},toast:m=>events.push(m),alert:m=>events.push(m),close:()=>events.push('close'),render:()=>{},saveNow:()=>ok,audit:()=>c.db.auditlog.push({action:'test'}),HRM:{uid:()=> 'new'},GRD:{changedFields:()=>[]}};c.session=c.db.nguoidung[0];vm.createContext(c);vm.runInContext(src.slice(src.indexOf('  function txn('),src.indexOf('  function save()')),c);return{c,events};}
 test('Failed password transaction restores session object and previous dirty changes',()=>{const {c,events}=env(false);c.dirty=true;c.db.psluong=[{note:'unsaved'}];vm.runInContext('txn(["nguoidung"], function(){ session.hash="new"; audit(); })',c);assert.equal(c.session,c.db.nguoidung[0]);assert.equal(c.session.hash,'old');assert.equal(c.dirty,true);assert.equal(c.db.psluong[0].note,'unsaved');assert.equal(c.db.auditlog.length,0);assert.ok(events.includes('retry'));});
 test('Failed recovery transaction preserves accounts, old code and logged-out state',()=>{const {c}=env(false);c.session=null;const before=JSON.stringify(c.db);vm.runInContext('txn(["nguoidung","baomat"],function(){db.nguoidung[0].hash="new";db.baomat=[{khoiPhuc:{hash:"new-code"}}];audit();})',c);assert.equal(JSON.stringify(c.db),before);assert.equal(c.session,null);});
 
@@ -25,4 +25,13 @@ for (const ok of [false, true]) test('Access mode transition updates the UI only
   else assert.throws(() => c.submitAccess({ mode: 'direct' }), /DISK_FAILURE/);
   assert.equal(events.includes('reload'), ok);
   assert.equal(JSON.stringify(c.db), before);
+});
+
+test('First-run access setup waits for initialized tables to be saved', () => {
+  const { c } = env(false);
+  c.db.nguoidung = [];
+  c.store = { configureAccess: () => assert.fail('configured access before saving tables') };
+  const start = src.indexOf('  function submitAccess('), end = src.indexOf('  function accountFields(', start);
+  vm.runInContext(src.slice(start, end), c);
+  assert.throws(() => c.submitAccess({ mode: 'direct' }), /DISK_FAILURE/);
 });
