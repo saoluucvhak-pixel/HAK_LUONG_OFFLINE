@@ -282,11 +282,13 @@
     var body = h("div"), tot = {};
     Object.keys(IMP.LABEL).forEach(function (k) { tot[k] = 0; });
     plans.forEach(function (p) { Object.keys(tot).forEach(function (k) { tot[k] += p.summary[k] || 0; }); });
+    var invalidMapping = plans.some(function (p) { return !!p.headerError; });
+    var nWrite = invalidMapping ? 0 : tot.add + tot.update, previewRev = dbRev;
     body.appendChild(h("div", { class: "hint", html: "File <b>" + esc(fileName) + "</b> — kiểm tra trước khi ghi. Chỉ dòng <b>Thêm mới</b> và <b>Cập nhật</b> được ghi; dòng <b>Gộp</b> đã được cộng vào dòng cùng khóa; các dòng lỗi/trùng/xung đột/kỳ đã chốt bị bỏ qua." }));
-    var ignored = 0, skipAck = null;
+    var skipAck = null;
     if (workbook) {
       var sheetStatus = workbookSheetStatus(workbook.names, plans);
-      ignored = sheetStatus.filter(function (r) { return r["Trạng thái"] === "Chưa nhận diện — bỏ qua"; }).length;
+      var ignored = sheetStatus.filter(function (r) { return r["Trạng thái"] === "Chưa nhận diện — bỏ qua"; }).length;
       if (ignored) body.appendChild(h("div", { class: "warn", text: ignored + " sheet chưa nhận diện sẽ bị bỏ qua. Chọn bảng đích bên dưới nếu cần nhập những sheet này." }));
       body.appendChild(h("div", { class: "fh", text: "Các sheet trong file Excel" }));
       body.appendChild(h("div", { "data-import-sheets": "1" }, [simpleTable(sheetStatus)]));
@@ -316,6 +318,10 @@
       if (choices.childElementCount) {
         body.appendChild(h("div", { class: "hint", text: "Chọn bảng đích cho từng sheet chưa nhận diện. Mỗi bảng đích nhận một sheet. Bản xem trước cập nhật ngay sau khi chọn." }));
         body.appendChild(choices);
+      }
+      if (nWrite && ignored) {
+        skipAck = h("input", { type: "checkbox", "data-import-skip-ack": "1" });
+        body.appendChild(h("div", { class: "warn" }, [h("label", {}, [skipAck, " Tôi xác nhận bỏ qua " + ignored + " sheet chưa nhận diện khi ghi file này."])]));
       }
     }
     // Q-13 (chủ sở hữu xác nhận): khi file có dòng TRÙNG với dữ liệu đã có → người dùng chọn Bổ sung hay Ghi đè
@@ -367,12 +373,6 @@
     Object.keys(IMP.LABEL).forEach(function (k) { byLabel[IMP.LABEL[k]] = k; });
     rows.sort(function (a, b) { return order[byLabel[a["Phân loại"]]] - order[byLabel[b["Phân loại"]]]; });
     if (rows.length) { body.appendChild(h("div", { class: "fh", text: "Chi tiết các dòng cập nhật / không ghi (" + rows.length + ")" })); body.appendChild(simpleTable(rows.slice(0, 200))); if (rows.length > 200) body.appendChild(h("div", { class: "hint", text: "… và " + (rows.length - 200) + " dòng nữa — bấm 'Tải chi tiết' để xem đủ." })); }
-    var invalidMapping = plans.some(function (p) { return !!p.headerError; });
-    var nWrite = invalidMapping ? 0 : tot.add + tot.update, previewRev = dbRev;
-    if (nWrite && ignored) {
-      skipAck = h("input", { type: "checkbox", "data-import-skip-ack": "1" });
-      body.appendChild(h("label", { class: "warn" }, [skipAck, " Tôi xác nhận bỏ qua " + ignored + " sheet chưa nhận diện khi ghi file này."]));
-    }
     modal("Xem trước nhập Excel", body, function (close) {
       var write = invalidMapping ? h("span", { class: "warn", text: "Sửa hoặc bỏ ghép sheet có lỗi cột trước khi ghi." }) : btn(nWrite ? "✔ Ghi " + nWrite + " dòng" : "Không có dòng nào để ghi", "pri", function () {
         if (!nWrite) { close(); return; }
@@ -493,7 +493,10 @@
   }
   /** Chuỗi đối chiếu TIỀN của một bảng: "<cột>: file X = ghi Y + gộp Z + không ghi W" (đủ ba số hạng để phương trình luôn đúng, kể cả khi có dòng gộp). fmt: hàm định dạng số. */
   function importMoneyEq(t, cols, fmt) {
-    return (cols || []).map(function (c) { return c + ": file " + fmt(t.file.sums[c]) + " = ghi " + fmt(t.ghi.sums[c]) + " + gộp " + fmt(t.gop.sums[c]) + " + không ghi " + fmt(t.khong.sums[c]); }).join(" · ");
+    return (cols || []).map(function (c) {
+      var label = t.table === "bandam" && c === "KL hàng (Tấn)" ? "Số xe" : c;
+      return label + ": file " + fmt(t.file.sums[c]) + " = ghi " + fmt(t.ghi.sums[c]) + " + gộp " + fmt(t.gop.sums[c]) + " + không ghi " + fmt(t.khong.sums[c]);
+    }).join(" · ");
   }
   // IMPORT-REPORT-END
   function importFile(key, done, pumpMode) { if (!need("import", "nhập Excel")) return; readWorkbook(function (wb, name) { importPreview(function (m) { return planWorkbook(wb, key, m, pumpMode); }, name, done); }); }
