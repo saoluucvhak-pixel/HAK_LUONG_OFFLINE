@@ -6,7 +6,7 @@ test('V10.4 runtime design stylesheet matches the inherited portable source', ()
   assert.equal(read(path.join(app, 'ui/hak-enterprise-components.css')), read(path.join(app, '../design-system/hak-enterprise-components.css')));
 });
 test('Appearance keeps legacy preferences and defaults new profiles to Kính Sương', () => {
-  const source = fs.readFileSync(path.join(app, 'app.js'), 'utf8');
+  const source = fs.readFileSync(path.join(app, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
   const start = source.indexOf('  var HAK_SKINS ='), end = source.indexOf('  applySkin(curSkin());\n  applyTheme(curTheme());', start);
   assert.ok(start > 0 && end > start);
   const load = (entries, writesAllowed = true) => {

@@ -224,7 +224,16 @@ test("U-DELTA-03: Repository phát sinh Mutation Payload và phối hợp với 
 
 test("U-DELTA-04: Hiệu năng Delta Write Path ở 5.000 nhân viên (p50 < 150 ms)", () => {
   const dir = tmpdir();
-  const storage = createSqliteStorage(dir, { exportDelayMs: 5000 }); // debounce export
+  // Đo đường ghi của sản phẩm. Cờ xuất JSON tức thời của E2E thêm một lần ghi toàn bộ kho vào mỗi lần lưu.
+  const exportSync = process.env.HAK_SQLITE_EXPORT_SYNC;
+  let storage;
+  try {
+    process.env.HAK_SQLITE_EXPORT_SYNC = "0";
+    storage = createSqliteStorage(dir, { exportDelayMs: 5000 });
+  } finally {
+    if (exportSync === undefined) delete process.env.HAK_SQLITE_EXPORT_SYNC;
+    else process.env.HAK_SQLITE_EXPORT_SYNC = exportSync;
+  }
 
   // Dựng dữ liệu 5.000 nhân viên
   const largeDoc = baseSample();
